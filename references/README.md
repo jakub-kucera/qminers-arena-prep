@@ -5,6 +5,9 @@ Each folder is a shallow clone (`git clone --depth 1`) of a public GitHub repo.
 Together they take about 2 GB, mostly market data. The clones are gitignored.
 Run `./clone.sh` to fetch them (see [Cloning / updating](#cloning--updating)).
 
+For the theory behind the strategies (market making, order-book imbalance, price impact, position
+sizing), see the papers converted to markdown in [../literature_md/](../literature_md/README.md).
+
 This is third-party code, so read it before installing or running anything.
 Only jmerle's three repos have a licence (MIT). The team repos have none, so use them
 as reading material and write your own versions instead of pasting their code into a submission.
