@@ -1,13 +1,15 @@
 # Qminers Algo Trade Arena prep
 
 Tooling for the Qminers Algo Trade Arena (7–8 Nov 2026, MFF UK, Prague): a backtester, a
-pre-submission validator and a single-file bot template. Until the real API is known,
+parameter grid search, charts and fill statistics, a pre-submission validator and a
+single-file bot template. Until the real API is known,
 everything runs on IMC Prosperity data and its bot format as a stand-in.
 
 | Path | What it is |
 |---|---|
-| `arena/` | Backtesting engine, the `backtest` and `validate` commands, and format plug-ins under `arena/formats/` |
+| `arena/` | Backtesting engine; the `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `arena/formats/` |
 | `bots/template.py` | Single-file market maker to copy for each round |
+| `notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
 
@@ -15,8 +17,9 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 
 ```sh
 references/clone.sh   # reference repos + Prosperity data (~2 GB)
-uv sync
+uv sync               # the engine needs only the standard library; dev adds pytest, pandas, matplotlib
 uv run pytest
+uv run --group analysis jupyter lab notebooks/analysis.ipynb   # optional: Jupyter
 ```
 
 ## Backtest
@@ -25,7 +28,7 @@ uv run pytest
 uv run python -m arena.backtest bots/template.py 1                  # Prosperity 3 round 1, every day
 uv run python -m arena.backtest bots/template.py 1-0 --data p2      # Prosperity 2 round 1, day 0
 uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2
-uv run python -m arena.backtest bots/template.py 1 --out results/   # per-day timeline and fills CSVs
+uv run python -m arena.backtest bots/template.py 1 --out results/   # per-day CSVs for arena.analysis
 ```
 
 ```
@@ -45,7 +48,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--set PATH=VALUE` | Override a bot global, e.g. `PARAMS.KELP.skew=2`. Repeatable. |
 | `--match-trades` | Which market trades leftover orders can fill against: `all` (default), `worse`, `none`. See below. |
 | `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. |
-| `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL per tick) and `<day>_fills.csv` |
+| `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask per tick), `<day>_fills.csv` and `<day>_orders.csv` |
 | `--print` | Show the bot's prints |
 | `--no-strict` | Let the bot swallow its own exceptions, as it does when submitted |
 
@@ -63,6 +66,62 @@ Same template, Prosperity 3 round 1, all three days:
 Most of the default PnL comes from assuming bots would have traded with your resting quotes
 instead of with each other. When comparing variants, check that the better one also wins under
 `--match-trades worse`; if the ranking flips, the gain is probably a backtest artefact.
+
+## Grid search
+
+```sh
+uv run python -m arena.grid bots/template.py 1 \
+    --grid PARAMS.KELP.make_edge=0..3 --grid PARAMS.KELP.take_edge=0..2 \
+    --modes all,worse --out results/grid.csv
+```
+
+It backtests every combination of the `--grid` values on every day, in parallel (`--jobs`,
+default all cores). The example above runs 78 backtests in about 6 s. Each axis is
+`PATH=V1,V2,...` or an inclusive range `PATH=START..STOP[..STEP]`. `--set` and the backtest
+options apply to every run. A short run of the first combination catches typos before the
+grid starts.
+
+The highest backtest PnL is usually overfit, so each combination is ranked on four measures:
+
+| Measure | Meaning |
+|---|---|
+| `pnl` | Total PnL under the first `--modes` entry |
+| `min day` | Its worst single day |
+| `nbhd` | Mean PnL of the combination and its grid neighbours (one step along any axis). A plateau beats a lone spike. |
+| `pnl(<mode>)` | Total under each extra mode, e.g. `worse` fills |
+
+```
+rank  KELP.make_edge  KELP.take_edge  pnl(all)  min day    nbhd  pnl(worse)   fills
+   1               1               1    81,292   25,912  75,662      57,774  19,310
+   2               1               2    80,256   25,418  74,028      54,776  18,467
+   ...
+best by pnl      KELP.make_edge=1, KELP.take_edge=1  (81,292)
+best by nbhd     KELP.make_edge=1, KELP.take_edge=1  (75,662)
+best by min-day  KELP.make_edge=1, KELP.take_edge=1  (25,912)
+best by worse    KELP.make_edge=0, KELP.take_edge=1  (63,068)
+measures disagree: prefer a setting near the top on every measure over the single best pnl
+```
+
+`--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
+per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL.
+
+## Charts and fill statistics
+
+```sh
+uv run python -m arena.backtest bots/template.py 1 --out results/run
+uv run python -m arena.analysis results/run                              # every day in the folder
+uv run python -m arena.analysis results/run r1d0 --start 300000 --end 330000
+uv run python -m arena.analysis --grid results/grid.csv                  # heatmaps
+```
+
+This saves PNGs to `plots/` next to the input (`--dark` for a dark theme) and prints two tables.
+The notebook does the same steps interactively, through the same functions in `arena/analysis.py`.
+
+- **PnL:** total and per product over the day.
+- **Product:** price with the book spread and your fills, then position against the limit, then PnL. Blue ▲ marks buys and orange ▼ marks sells; solid means you took liquidity, hollow means a resting quote was filled. In a short window (≤ 1,500 ticks) your quotes are drawn too.
+- **Fills table:** fills, volume and bought/sold per product, split into took vs passive. `edge` is the average profit per unit against the mid one tick before the fill. It isn't measured against the mid at the fill tick, because an order you take is part of that tick's book and drags the mid toward its own price.
+- **Markouts:** the mid 1–500 ticks after each fill, minus the fill price (flipped for sells), per unit. Flat lines mean fills keep their value. Falling lines mean the market moves against you after you trade, i.e. adverse selection.
+- **Grid heatmap:** one metric over two parameters, with the best cell outlined. With more than two parameters, each cell shows the best value over the rest.
 
 ## Validate before submitting
 

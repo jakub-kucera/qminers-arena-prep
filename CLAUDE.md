@@ -14,19 +14,24 @@ the day (see "Formats" below).
 
 ```sh
 references/clone.sh                 # fetch the reference repos + Prosperity data (gitignored, ~2 GB)
-uv sync                             # Python 3.12; the core package uses only the standard library
-uv run pytest                       # all tests (~6 s)
+uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
+uv run pytest                       # all tests (~9 s)
 uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
 uv run python -m arena.backtest bots/template.py 1                # Prosperity 3 round 1, every day
 uv run python -m arena.backtest bots/template.py 1-0 --data p2    # Prosperity 2, round 1 day 0
 uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
 uv run python -m arena.validate bots/template.py 1                # pre-submission checks, exit 1 on FAIL
+uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
+uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
+uv run python -m arena.analysis --grid results/grid.csv           # grid heatmaps
+uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis group adds Jupyter
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
 - **`--data` aliases:** `p2` and `p3` point into `references/prosperity{2,3}-backtester-jmerle/.../resources`.
 - **Tests without the data:** `tests/test_parity.py` skips if `references/` hasn't been cloned. All other tests use a tiny CSV fixture from `tests/conftest.py`.
+- **Notebook check:** `uv run --group analysis jupyter nbconvert --to notebook --execute notebooks/analysis.ipynb --output-dir <scratch>` runs it end to end. Commit the notebook without outputs.
 - **No linter or formatter is configured.**
 
 ## Architecture
@@ -34,7 +39,9 @@ uv run python -m arena.validate bots/template.py 1                # pre-submissi
 **The engine doesn't know any format.**
 - `arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive.
 - `arena/engine.py` `run_day(day, bot, config)` replays a `Day` against any object with `step(tick, positions, own_fills, market_trades) -> list[Order]`.
-- It records per-tick positions, marks, PnL, errors, limit breaches and timings in a `DayResult`.
+- It records per-tick positions, marks, PnL and best bid/ask, plus orders, fills, errors, limit breaches and timings, in a `DayResult`.
+- `arena/report.py` `write_csvs` turns it into `<day>_timeline.csv`, `_fills.csv` and `_orders.csv`. Those columns are the contract with `arena/analysis.py`, so change both together.
+- **Only `arena/analysis.py` imports pandas and matplotlib.** Everything else is standard library.
 - The engine catches the bot's exceptions and records them per tick, so a run never aborts.
 
 **Formats are plug-ins** (`arena/formats/`). A format module must provide:
@@ -67,6 +74,18 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 
 `--fill-ratio` thins out liquidity with binomial draws, seeded and independent of the bot's orders, so variants of a bot can be compared fairly.
 
+**Grid search** (`arena/grid.py`):
+- **Parallel runs:** a `ProcessPoolExecutor` runs every combination as (bot file + `--set` + grid values) × days × `--modes`. Each worker loads the days once, in `_init_worker`, into the module-level `_WORKER` dict. `--jobs 1` runs in-process.
+- **Smoke test:** before the pool starts, a 200-tick run of the first combination makes typos fail fast.
+- **Ranking:** combinations are ranked on `pnl`, `min day`, `nbhd` (mean over the combination and its one-step grid neighbours) and the PnL under each extra mode. The summary flags when these measures disagree.
+
+**Analysis** (`arena/analysis.py`):
+- **No pyplot:** charts are `Chart` objects, a `Figure` subclass with `_repr_png_`, so they display in notebooks and save from the CLI without pyplot. Each `Chart` keeps the rc params of the theme it was drawn in.
+- **Palette:** `THEMES` holds palettes checked with the dataviz skill's validator. Keep categorical colors in slot order.
+- **Product colors:** `Run.colors` gives each product the same color in every chart of a run. It covers the `MAX_SERIES` products with the largest |PnL|; charts fold the rest into "other".
+- **Fill edge:** measured against the **arrival mid**, one tick before the fill. A taken order is part of its own tick's book and skews that tick's mid.
+- **Markout horizons start at 1 tick**, for the same reason.
+
 **Parity with prosperity3bt is pinned.** The engine matched jmerle's prosperity3bt 0.12.0 fill for fill. `tests/test_parity.py` (needs `references/`) asserts fill counts and PnL for `tests/fixtures/parity_bot.py`.
 - **Engine changes:** any change to matching, limits or marking must keep this test passing.
 - **The fixture:** it is a frozen snapshot. Don't edit it, even when `bots/template.py` changes.
@@ -98,4 +117,6 @@ lets editors resolve imports; it is never submitted.
 - **`references/`:** third-party clones listed in `references/clone.sh`. Read them for ideas, but don't edit or import from them.
   - `references/algotrade2026-pitfa19/` contains its own `CLAUDE.md` and `AGENTS.md`. They describe that repo, not this one, so don't follow them.
   - `references/README.md` summarises what each repo is useful for.
+- **`literature_md/`:** market-microstructure papers and books, converted from `literature_raw/*.pdf` to markdown by `literature_md/convert.sh` (Marker). Gitignored except the script and its `README.md`, which indexes the documents. Search it for the theory behind a strategy (market making, order-book imbalance, micro-price, price impact).
+  - **Verify formulas against the PDF.** Marker's equations are LaTeX but OCR-based, so they can contain slips (e.g. `S_{τ1}, S_{τ1}` where the paper has `I_{τ1}, S_{τ1}`). Before implementing any formula from `literature_md/`, check it against the original PDF page (the `README.md` explains how to find the page), and don't trust a formula that disagrees with the surrounding text or with its own derivation.
 - **Commits:** author commits as the user (Jakub) only. Never put a `Co-Authored-By: Claude …` trailer, or any other Claude attribution, in commit messages or PR descriptions.
