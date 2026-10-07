@@ -1,0 +1,14 @@
+[project]
+name = "qminers-arena"
+version = "0.1.0"
+description = "Backtester, submission validator and bot template for the Qminers Algo Trade Arena."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
