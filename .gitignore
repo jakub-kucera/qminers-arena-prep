@@ -1,0 +1,16 @@
+# Third-party reference repos: cloned by references/clone.sh, not committed
+references/*
+!references/README.md
+!references/clone.sh
+
+# Backtest output
+results/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
