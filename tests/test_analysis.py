@@ -7,7 +7,7 @@ import pandas as pd  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 
 from arena import analysis, report  # noqa: E402
-from arena.engine import run_day  # noqa: E402
+from arena.engine import EngineConfig, run_day  # noqa: E402
 from arena.model import Book, Day, MarketTrade, Order, Tick  # noqa: E402
 from tests.test_engine import ScriptedBot  # noqa: E402
 
@@ -89,3 +89,17 @@ def test_cli_writes_charts(results, capsys):
     assert analysis.main([str(results)]) == 0
     assert "markouts" in capsys.readouterr().out
     assert sorted(p.name for p in (results / "plots").iterdir()) == ["d0_X.png", "d0_markouts.png", "d0_pnl.png"]
+
+
+def test_crossed_resting_fills_count_as_passive(tmp_path):
+    ticks = [
+        Tick(0, {"X": Book(bids=((98, 5),), asks=((102, 5),))}, {}, {"X": 100.0}),
+        Tick(1, {"X": Book(bids=((97, 5),), asks=((99, 5),))}, {}, {"X": 98.0}),
+        Tick(2, {"X": Book(bids=((97, 5),), asks=((99, 5),))}, {}, {"X": 98.0}),
+    ]
+    day = Day("d0", ["X"], {"X": 10}, ticks)
+    result = run_day(day, ScriptedBot({0: [Order("X", 100, 2)]}), EngineConfig(resting=True))
+    report.write_csvs(result, tmp_path)
+    table = analysis.fill_summary(analysis.load_run(tmp_path, "d0"))
+    assert table.loc[("X", "passive"), "bought"] == 2
+    assert table.loc[("X", "passive"), "edge"] == pytest.approx(100 - 100)  # arrival mid 100, filled at 100

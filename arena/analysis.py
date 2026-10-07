@@ -40,7 +40,8 @@ from matplotlib.ticker import FuncFormatter
 
 # Ticks after a fill. Not 0: the mid at the fill tick still contains the order you just took.
 DEFAULT_HORIZONS = (1, 2, 5, 10, 20, 50, 100, 200, 500)
-SOURCES = {"book": "took", "trade": "passive"}  # Fill.source -> label
+SOURCES = {"book": "took", "trade": "passive", "cross": "passive"}  # Fill.source -> fill type
+TYPES = ("took", "passive")
 MAX_SERIES = 7  # products drawn individually; the rest fold into "other"
 
 # Categorical slots validated (CVD and contrast) with the dataviz palette checker, per theme.
@@ -116,8 +117,8 @@ class Run:
 
     day: str
     timeline: pd.DataFrame  # timestamp, product, position, mark, pnl, best_bid, best_ask, limit
-    fills: pd.DataFrame  # timestamp, product, price, quantity, source, counterparty
-    orders: pd.DataFrame  # timestamp, product, price, quantity
+    fills: pd.DataFrame  # timestamp, product, price, quantity, source, counterparty, order_id
+    orders: pd.DataFrame  # timestamp, id, product, price, quantity
 
     @property
     def colors(self) -> dict[str, str]:
@@ -157,7 +158,7 @@ def load_run(out_dir: str | Path, day: str) -> Run:
         day=day,
         timeline=pd.read_csv(out_dir / f"{day}_timeline.csv"),
         fills=pd.read_csv(out_dir / f"{day}_fills.csv", keep_default_na=False),
-        orders=pd.read_csv(orders_path) if orders_path.exists() else pd.DataFrame(columns=["timestamp", "product", "price", "quantity"]),
+        orders=pd.read_csv(orders_path) if orders_path.exists() else pd.DataFrame(columns=["timestamp", "id", "product", "price", "quantity"]),
     )
 
 
@@ -201,7 +202,7 @@ def markouts(run: Run, horizons=DEFAULT_HORIZONS) -> pd.DataFrame:
             later = at + horizon
             valid = later < len(marks)
             per_unit = sign[valid] * (marks[later[valid]] - price[valid])
-            for label in SOURCES.values():
+            for label in TYPES:
                 mask = kind[valid] == label
                 if mask.any():
                     weights = volume[valid][mask]
@@ -295,8 +296,8 @@ def plot_product(
                 ax_price.scatter(orders.loc[side, "timestamp"], orders.loc[side, "price"], marker="_", s=30, linewidths=1.2, color=color, alpha=0.55)
         size = 42 if len(fills) <= 400 else 16
         for is_buy, color, marker in ((True, buy_color, "^"), (False, sell_color, "v")):
-            for source, hollow in (("book", False), ("trade", True)):
-                rows = fills[((fills["quantity"] > 0) == is_buy) & (fills["source"] == source)]
+            for kind, hollow in (("took", False), ("passive", True)):
+                rows = fills[((fills["quantity"] > 0) == is_buy) & (fills["source"].map(SOURCES) == kind)]
                 ax_price.scatter(
                     rows["timestamp"], rows["price"], marker=marker, s=size, zorder=3,
                     facecolors=t["surface"] if hollow else color,
@@ -336,7 +337,7 @@ def plot_markouts(run: Run, horizons=DEFAULT_HORIZONS) -> Chart:
         fig = Chart(figsize=(11, 4.2), layout="constrained")
         axes = fig.subplots(1, 2, sharey=True)
         positions = np.arange(len(horizons))
-        for ax, label in zip(axes, SOURCES.values()):
+        for ax, label in zip(axes, TYPES):
             ax.axhline(0, color=t["axis"], linewidth=0.8)
             drawn = 0
             for product, color in run.colors.items():

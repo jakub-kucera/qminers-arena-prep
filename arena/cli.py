@@ -35,6 +35,12 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "strictly worse (worse), or none (default: all)",
     )
     parser.add_argument(
+        "--resting",
+        action="store_true",
+        help="unfilled orders rest on the book until filled or cancelled, with a queue model "
+        "(default: they're cancelled at the end of each tick, as in Prosperity)",
+    )
+    parser.add_argument(
         "--fill-ratio",
         type=float,
         default=1.0,
@@ -55,6 +61,8 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
 def setup(args: argparse.Namespace) -> Setup:
     fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
-    config = EngineConfig(trade_matching=args.match_trades, fill_ratio=args.fill_ratio, seed=args.seed)
+    config = EngineConfig(
+        trade_matching=args.match_trades, resting=args.resting, fill_ratio=args.fill_ratio, seed=args.seed
+    )
     overrides = dict(parse_override(text) for text in args.overrides)
     return Setup(fmt, days, config, overrides)

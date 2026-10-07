@@ -5,6 +5,10 @@ Data layout (as in jmerle's backtesters):
     <data>/round<R>/trades_round_<R>_day_<D>.csv   market trades; Prosperity 2 adds _wn (with
                                                    trader names) and _nn (without) variants
 Conversions (Prosperity 2 orchids, Prosperity 3 macarons) are not supported.
+
+In resting mode, bots see their resting orders in `state.open_orders`, cancel them by returning
+`Cancel(order_id)` in the orders list, and send `Order(..., ioc=True)` for orders that mustn't
+rest. These are extensions to IMC's datamodel (see prosperity_datamodel).
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from pathlib import Path
 
 from arena.botfile import BotFile
 from arena.formats import prosperity_datamodel as dm
-from arena.model import Book, Day, Fill, MarketTrade, Order, Tick
+from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Order, Tick
 
 PROVIDED_MODULES = {"datamodel"}
 
@@ -188,7 +192,7 @@ class ProsperityBot:
         self._trader_data = ""
         self.max_state_chars = 0  # largest traderData returned
 
-    def step(self, tick, positions, own_fills, market_trades) -> list[Order]:
+    def step(self, tick, positions, own_fills, market_trades, open_orders: list[OpenOrder]) -> list[Order | Cancel]:
         trader = self._bot_file.load().Trader() if self._fresh_each_tick else self._trader
         state = dm.TradingState(
             traderData=self._trader_data,
@@ -202,6 +206,7 @@ class ProsperityBot:
             },
             position={product: qty for product, qty in positions.items() if qty != 0},
             observations=dm.Observation({}, {}),
+            open_orders=_open_orders(open_orders),
         )
 
         result = trader.run(state)
@@ -235,10 +240,22 @@ def _own_trades(fills: list[Fill]) -> dict[str, list[dm.Trade]]:
     return dict(trades)
 
 
-def _engine_orders(orders: dict) -> list[Order]:
-    converted = []
+def _open_orders(open_orders: list[OpenOrder]) -> dict[str, list[dm.OpenOrder]]:
+    by_symbol: dict[str, list[dm.OpenOrder]] = defaultdict(list)
+    for order in open_orders:
+        by_symbol[order.product].append(dm.OpenOrder(order.id, order.product, order.price, order.quantity, order.timestamp))
+    return dict(by_symbol)
+
+
+def _engine_orders(orders: dict) -> list[Order | Cancel]:
+    converted: list[Order | Cancel] = []
     for symbol, product_orders in orders.items():
         for order in product_orders:
+            if isinstance(order, dm.Cancel):
+                if not isinstance(order.order_id, int):
+                    raise TypeError(f"{order!r}: order_id must be an int, got {type(order.order_id).__name__}")
+                converted.append(Cancel(order.order_id))
+                continue
             if not (
                 isinstance(order.symbol, str)
                 and isinstance(order.price, int)
@@ -250,5 +267,5 @@ def _engine_orders(orders: dict) -> list[Order]:
                 )
             if order.symbol != symbol:
                 raise ValueError(f"order {order!r} is listed under {symbol!r}")
-            converted.append(Order(order.symbol, order.price, order.quantity))
+            converted.append(Order(order.symbol, order.price, order.quantity, bool(getattr(order, "ioc", False))))
     return converted

@@ -75,6 +75,9 @@ def format_day(result: DayResult) -> str:
     if result.errors:
         timestamp, error = result.errors[0]
         lines.append(f"  ! {len(result.errors)} errors, first at {timestamp}: {last_line(error)}")
+    if result.cancels:
+        placed = len({order.id for _, order in result.orders})
+        lines.append(f"  orders: {placed:,} placed · {len(result.cancels):,} cancelled")
     if result.limit_breaches:
         timestamp, product = result.limit_breaches[0]
         lines.append(
@@ -105,7 +108,7 @@ def write_csvs(result: DayResult, out_dir: Path) -> None:
 
     <day>_timeline.csv  per product per tick: position, mark, pnl, best bid/ask, limit
     <day>_fills.csv     every fill
-    <day>_orders.csv    every order that reached the market (after the limit check)
+    <day>_orders.csv    every order working at each tick (placed then, or resting from earlier)
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     with (out_dir / f"{result.day}_timeline.csv").open("w", newline="") as file:
@@ -124,14 +127,16 @@ def write_csvs(result: DayResult, out_dir: Path) -> None:
                 writer.writerow([timestamp, product, position, mark, pnl, _blank(bid), _blank(ask), result.limits[product]])
     with (out_dir / f"{result.day}_fills.csv").open("w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["timestamp", "product", "price", "quantity", "source", "counterparty"])
+        writer.writerow(["timestamp", "product", "price", "quantity", "source", "counterparty", "order_id"])
         for fill in result.fills:
-            writer.writerow([fill.timestamp, fill.product, fill.price, fill.quantity, fill.source, fill.counterparty])
+            writer.writerow(
+                [fill.timestamp, fill.product, fill.price, fill.quantity, fill.source, fill.counterparty, fill.order_id]
+            )
     with (out_dir / f"{result.day}_orders.csv").open("w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["timestamp", "product", "price", "quantity"])
+        writer.writerow(["timestamp", "id", "product", "price", "quantity"])
         for timestamp, order in result.orders:
-            writer.writerow([timestamp, order.product, order.price, order.quantity])
+            writer.writerow([timestamp, order.id, order.product, order.price, order.quantity])
 
 
 def _blank(value: float | None) -> float | str:

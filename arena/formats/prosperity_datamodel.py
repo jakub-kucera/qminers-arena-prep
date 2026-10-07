@@ -1,7 +1,9 @@
 """IMC Prosperity's `datamodel` module, which bots import as `from datamodel import ...`.
 
 Same class names, fields and constructor signatures as the official file, without its
-jsonpickle dependency.
+jsonpickle dependency. Extensions for the backtester's resting-order mode, which IMC's
+exchange doesn't have, are marked "Extension" below: Order's ioc flag, OpenOrder, Cancel and
+TradingState.open_orders. Bots that don't use them run unchanged.
 """
 
 from __future__ import annotations
@@ -17,10 +19,12 @@ UserId = str
 ObservationValue = int
 
 __all__ = [
+    "Cancel",
     "ConversionObservation",
     "Listing",
     "Observation",
     "ObservationValue",
+    "OpenOrder",
     "Order",
     "OrderDepth",
     "Position",
@@ -75,13 +79,39 @@ class Observation:
 
 
 class Order:
-    def __init__(self, symbol: Symbol, price: int, quantity: int):
+    def __init__(self, symbol: Symbol, price: int, quantity: int, ioc: bool = False):
         self.symbol = symbol
         self.price = price
         self.quantity = quantity
+        # Extension: in resting mode, cancel what doesn't fill at once instead of resting it.
+        self.ioc = ioc
 
     def __repr__(self) -> str:
         return f"({self.symbol}, {self.price}, {self.quantity})"
+
+
+class OpenOrder:
+    """Extension: one of your orders resting on the book, with what's left to fill (signed)."""
+
+    def __init__(self, id: int, symbol: Symbol, price: int, quantity: int, timestamp: Time):
+        self.id = id
+        self.symbol = symbol
+        self.price = price
+        self.quantity = quantity
+        self.timestamp = timestamp
+
+    def __repr__(self) -> str:
+        return f"(#{self.id} {self.symbol}, {self.price}, {self.quantity})"
+
+
+class Cancel:
+    """Extension: return it in the orders list to cancel the resting order with this id."""
+
+    def __init__(self, order_id: int):
+        self.order_id = order_id
+
+    def __repr__(self) -> str:
+        return f"(cancel #{self.order_id})"
 
 
 class OrderDepth:
@@ -126,6 +156,7 @@ class TradingState:
         market_trades: dict[Symbol, list[Trade]],
         position: dict[Product, Position],
         observations: Observation,
+        open_orders: dict[Symbol, list[OpenOrder]] | None = None,
     ):
         self.traderData = traderData
         self.timestamp = timestamp
@@ -135,6 +166,8 @@ class TradingState:
         self.market_trades = market_trades
         self.position = position
         self.observations = observations
+        # Extension: your resting orders by symbol. Always empty unless orders rest.
+        self.open_orders = open_orders or {}
 
     def toJSON(self) -> str:
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)

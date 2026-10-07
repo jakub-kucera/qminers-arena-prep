@@ -1,7 +1,7 @@
 import pytest
 
 from arena.engine import EngineConfig, TradeMatching, run_day
-from arena.model import Book, Day, Fill, MarketTrade, Order, Tick
+from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Order, Tick
 
 
 class ScriptedBot:
@@ -11,9 +11,13 @@ class ScriptedBot:
         self.script = script or {}
         self.error_at = error_at
         self.seen = []
+        self.open_orders = []  # per tick
+        self.books = []  # per tick, as shown to the bot
 
-    def step(self, tick, positions, own_fills, market_trades):
+    def step(self, tick, positions, own_fills, market_trades, open_orders):
         self.seen.append((positions, own_fills, market_trades))
+        self.open_orders.append(open_orders)
+        self.books.append(tick.books)
         if tick.timestamp == self.error_at:
             raise RuntimeError("boom")
         return self.script.get(tick.timestamp, [])
@@ -59,7 +63,7 @@ def test_leftover_fills_against_market_trades_at_the_order_price():
     trade = MarketTrade("X", 99, 5, buyer="B", seller="S")
     d = day(tick(0, asks=[(105, 10)], trades=[trade]))
     result = run_day(d, ScriptedBot({0: [Order("X", 100, 3)]}))
-    assert result.fills == [Fill(0, "X", 100, 3, "trade", "S")]
+    assert result.fills == [Fill(0, "X", 100, 3, "trade", "S", order_id=1)]
 
 
 @pytest.mark.parametrize(
@@ -134,7 +138,7 @@ def test_bot_sees_its_fills_and_the_leftover_market_trades_next_tick():
     run_day(d, bot)
     positions, own_fills, market_trades = bot.seen[1]
     assert positions == {"X": 2}
-    assert own_fills == [Fill(0, "X", 100, 2, "trade", "")]
+    assert own_fills == [Fill(0, "X", 100, 2, "trade", "", order_id=1)]
     assert [t.quantity for t in market_trades["X"]] == [3]
 
 
@@ -152,3 +156,113 @@ def test_fill_ratio_draws_repeat_with_the_same_seed():
     second = run_day(day(*ticks, limits={"X": 100}), ScriptedBot(script), config)
     assert first.fills == second.fills
     assert 0 < len(first.fills) <= 50
+
+
+# ---------------------------------------------------------------------------- resting mode
+
+RESTING = EngineConfig(resting=True)
+
+
+def test_resting_order_fills_when_the_next_book_crosses_it():
+    d = day(
+        tick(0, bids=[(98, 5)], asks=[(102, 5)]),
+        tick(1, bids=[(97, 5)], asks=[(99, 2), (101, 5)]),
+    )
+    bot = ScriptedBot({0: [Order("X", 100, 3)]})
+    result = run_day(d, bot, RESTING)
+    # The sellers at 99 would have hit the resting 100 bid, so it fills at 100 and the bot
+    # doesn't see them.
+    assert [(f.timestamp, f.price, f.quantity, f.source) for f in result.fills] == [(1, 100, 2, "cross")]
+    assert bot.books[1]["X"].asks == ((101, 5),)
+    assert bot.open_orders[1] == [OpenOrder(1, "X", 100, 1, 0)]
+    assert bot.seen[1][1] == result.fills  # told about the fill straight away
+
+
+@pytest.mark.parametrize("ioc, expected", [(False, [(101, 2, "book"), (101, 3, "cross")]), (True, [(101, 2, "book")])])
+def test_new_orders_take_the_book_then_rest_unless_ioc(ioc, expected):
+    d = day(tick(0, asks=[(101, 2)]), tick(1, asks=[(100, 5)]))
+    result = run_day(d, ScriptedBot({0: [Order("X", 101, 5, ioc=ioc)]}), RESTING)
+    assert fills(result) == expected
+
+
+def test_new_order_queues_behind_the_visible_volume_at_its_price():
+    d = day(
+        tick(0, bids=[(100, 5)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 3)]),
+        tick(1, bids=[(100, 5)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 4)]),
+    )
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 3)]}), RESTING)
+    # 5 ahead: the first trade leaves 2 ahead, the second fills 4 - 2.
+    assert [(f.timestamp, f.quantity, f.source) for f in result.fills] == [(1, 2, "trade")]
+
+
+def test_cancellations_ahead_move_a_resting_order_up_the_queue():
+    d = day(
+        tick(0, bids=[(100, 5)], asks=[(102, 5)]),
+        tick(1, bids=[(100, 1)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 2)]),
+    )
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 3)]}), RESTING)
+    assert fills(result) == [(100, 1, "trade")]
+
+
+@pytest.mark.parametrize(
+    "matching, filled", [(TradeMatching.ALL, 2), (TradeMatching.WORSE, 0), (TradeMatching.NONE, 0)]
+)
+def test_price_better_than_the_book_is_first_in_the_queue(matching, filled):
+    d = day(tick(0, bids=[(99, 5)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 2)]))
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 3)]}), EngineConfig(trade_matching=matching, resting=True))
+    assert sum(f.quantity for f in result.fills) == filled
+
+
+def test_trades_through_the_price_fill_whatever_is_queued():
+    d = day(tick(0, bids=[(100, 50)], asks=[(102, 5)], trades=[MarketTrade("X", 99, 2, seller="S")]))
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 3)]}), EngineConfig(trade_matching=TradeMatching.WORSE, resting=True))
+    assert result.fills == [Fill(0, "X", 100, 2, "trade", "S", order_id=1)]
+
+
+def test_own_orders_at_one_price_keep_time_priority():
+    # A joins behind 10 at tick 0. Five more arrive, then B joins behind 15: the queue is
+    # 10, A 5, 5, B 5, so a trade of 22 fills all of A and 2 of B.
+    d = day(
+        tick(0, bids=[(100, 10)], asks=[(102, 5)]),
+        tick(1, bids=[(100, 15)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 22)]),
+    )
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 5)], 1: [Order("X", 100, 5)]}), RESTING)
+    assert [(f.order_id, f.quantity) for f in result.fills] == [(1, 5), (2, 2)]
+
+
+def test_cancel_removes_a_resting_order():
+    d = day(tick(0, bids=[(98, 5)], asks=[(102, 5)]), tick(1, asks=[(102, 5)]), tick(2, asks=[(99, 5)]))
+    bot = ScriptedBot({0: [Order("X", 100, 3)], 1: [Cancel(1)]})
+    result = run_day(d, bot, RESTING)
+    assert result.fills == [] and result.errors == []
+    assert result.cancels == [(1, 1)]
+    assert bot.open_orders[1] == [OpenOrder(1, "X", 100, 3, 0)] and bot.open_orders[2] == []
+    assert [(t, o.id) for t, o in result.orders] == [(0, 1)]  # working at tick 0 only
+
+
+def test_resting_orders_are_listed_as_working_every_tick():
+    d = day(tick(0, bids=[(98, 5)], asks=[(102, 5)]), tick(1, bids=[(98, 5)], asks=[(102, 5)]))
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 3)]}), RESTING)
+    assert [(t, o.id, o.quantity) for t, o in result.orders] == [(0, 1, 3), (1, 1, 3)]
+
+
+@pytest.mark.parametrize("config, hint", [(RESTING, False), (EngineConfig(), True)])
+def test_cancelling_an_order_that_isnt_open_is_an_error(config, hint):
+    d = day(tick(0, asks=[(102, 5)]))
+    result = run_day(d, ScriptedBot({0: [Cancel(7)]}), config)
+    assert len(result.errors) == 1 and "order 7" in result.errors[0][1]
+    assert ("resting mode" in result.errors[0][1]) == hint
+
+
+def test_resting_orders_count_towards_the_limit():
+    d = day(
+        tick(0, bids=[(98, 5)], asks=[(102, 5)]),
+        tick(1, bids=[(98, 5)], asks=[(102, 5)]),
+        tick(2, bids=[(98, 5)], asks=[(102, 5)]),
+        limits={"X": 10},
+    )
+    bot = ScriptedBot({0: [Order("X", 100, 8)], 1: [Order("X", 97, 3)]})
+    result = run_day(d, bot, RESTING)
+    # 8 resting + 3 new could take the position to 11: only the new order is rejected.
+    assert result.limit_breaches == [(1, "X")]
+    assert bot.open_orders[2] == [OpenOrder(1, "X", 100, 8, 0)]

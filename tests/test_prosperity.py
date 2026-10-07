@@ -4,7 +4,7 @@ import pytest
 
 from arena.botfile import OverrideError, parse_override
 from arena.formats import prosperity
-from arena.model import Book, Fill, MarketTrade, Tick
+from arena.model import Book, Cancel, Fill, MarketTrade, OpenOrder, Order, Tick
 from tests.conftest import PRICES
 
 
@@ -62,10 +62,29 @@ def test_bot_gets_a_prosperity_state_and_its_orders_are_converted(tmp_path):
     tick = Tick(100, {"X": Book(bids=((99, 4),), asks=((101, 6),))}, {}, {})
     own_fills = [Fill(0, "X", 101, 3, "book")]
     market_trades = {"X": [MarketTrade("X", 100, 2, timestamp=0)]}
-    orders = bot.step(tick, {"X": 3}, own_fills, market_trades)
+    orders = bot.step(tick, {"X": 3}, own_fills, market_trades, [])
     assert [(o.product, o.price, o.quantity) for o in orders] == [("X", 100, -1)]
-    bot.step(tick, {"X": 3}, own_fills, market_trades)
+    bot.step(tick, {"X": 3}, own_fills, market_trades, [])
     assert bot.max_state_chars == 2
+
+
+def test_resting_extensions_open_orders_cancels_and_ioc(tmp_path):
+    path = write_bot(
+        tmp_path,
+        """
+        from datamodel import Cancel, Order
+
+        class Trader:
+            def run(self, state):
+                (order,) = state.open_orders["X"]
+                assert (order.id, order.price, order.quantity, order.timestamp) == (4, 100, -2, 0)
+                return {"X": [Cancel(order.id), Order("X", 101, -2, ioc=True)]}, 0, ""
+        """,
+    )
+    bot = prosperity.load_bot(path, {}, strict=True)
+    tick = Tick(100, {"X": Book(bids=((99, 4),), asks=((101, 6),))}, {}, {})
+    actions = bot.step(tick, {}, [], {}, [OpenOrder(4, "X", 100, -2, 0)])
+    assert actions == [Cancel(4), Order("X", 101, -2, ioc=True)]
 
 
 @pytest.mark.parametrize(
@@ -90,7 +109,7 @@ def test_malformed_output_raises(tmp_path, returned, error):
     )
     bot = prosperity.load_bot(path, {}, strict=True)
     with pytest.raises(error):
-        bot.step(Tick(0, {"X": Book()}, {}, {}), {}, [], {})
+        bot.step(Tick(0, {"X": Book()}, {}, {}), {}, [], {}, [])
 
 
 def test_fresh_each_tick_forgets_instance_state(tmp_path):
@@ -109,8 +128,8 @@ def test_fresh_each_tick_forgets_instance_state(tmp_path):
     kept = prosperity.load_bot(path, {}, strict=True)
     fresh = prosperity.load_bot(path, {}, strict=True, fresh_each_tick=True)
     for bot in (kept, fresh):
-        bot.step(tick, {}, [], {})
-        bot.step(tick, {}, [], {})
+        bot.step(tick, {}, [], {}, [])
+        bot.step(tick, {}, [], {}, [])
     assert kept._trader_data == "2"
     assert fresh._trader_data == "1"
 
@@ -129,7 +148,7 @@ def test_overrides_and_strict_flag(tmp_path):
     )
     overrides = dict([parse_override("PARAMS.X.edge=2"), parse_override("PARAMS.X.mode=wall")])
     bot = prosperity.load_bot(path, overrides, strict=True)
-    bot.step(Tick(0, {}, {}, {}), {}, [], {})
+    bot.step(Tick(0, {}, {}, {}), {}, [], {}, [])
     assert bot._trader_data == "True {'edge': 2, 'mode': 'wall'}"
 
     with pytest.raises(OverrideError, match="no global"):

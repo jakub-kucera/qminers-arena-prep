@@ -62,6 +62,27 @@ class Order:
     product: str
     price: float
     quantity: int
+    # Resting mode only: cancel whatever doesn't fill straight away instead of resting it.
+    # Without resting mode every order behaves like this.
+    ioc: bool = False
+
+
+@dataclass(frozen=True)
+class Cancel:
+    """Cancels one of the bot's resting orders (resting mode only)."""
+
+    order_id: int
+
+
+@dataclass(frozen=True)
+class OpenOrder:
+    """An order the engine accepted: still resting on the book, or working during one tick."""
+
+    id: int
+    product: str
+    price: float
+    quantity: int  # what's left to fill, signed
+    timestamp: int  # when it was placed
 
 
 @dataclass(frozen=True)
@@ -70,5 +91,8 @@ class Fill:
     product: str
     price: float
     quantity: int
-    source: str  # "book": took a visible level, "trade": matched against a market trade
+    # "book": took a visible level. "trade": matched against a market trade.
+    # "cross": a resting order the next book snapshot traded through (resting mode only).
+    source: str
     counterparty: str = ""
+    order_id: int = 0

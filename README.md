@@ -47,6 +47,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--data` | `p3` (default), `p2`, or a folder in the same layout |
 | `--set PATH=VALUE` | Override a bot global, e.g. `PARAMS.KELP.skew=2`. Repeatable. |
 | `--match-trades` | Which market trades leftover orders can fill against: `all` (default), `worse`, `none`. See below. |
+| `--resting` | Unfilled orders rest on the book until filled or cancelled, with a queue model. See [Resting mode](#resting-mode). |
 | `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. |
 | `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask per tick), `<day>_fills.csv` and `<day>_orders.csv` |
 | `--print` | Show the bot's prints |
@@ -158,6 +159,26 @@ The fills match jmerle's `prosperity3bt` 0.12.0 exactly in 15 comparisons: 5 day
 three trade-matching modes on each. Those days include round 5, with all 15 products and books
 that are sometimes empty on one side. `tests/test_parity.py` pins those numbers.
 
+### Resting mode
+
+A realistic exchange keeps orders open until they fill or you cancel them. That was the case in
+AlgoTrade 2026 (`references/algotrade2026-pitfa19/.firecrawl/algotrade-api.md`), and it may be
+the case at the Arena. `--resting` replaces rule 5 with that:
+
+- **New orders:** each one takes what it can from the visible book (rule 3), then the rest rests on the book. An `ioc` order is cancelled instead.
+- **Queue:** a resting order joins the back of the queue. The visible volume at its price is ahead of it, and a price better than the best level puts it at the front.
+- **Fills from trades:** market trades at its price first use up the volume ahead of it, then fill it. Trades at a worse price fill it straight away. `--match-trades worse` drops fills at its own price and `none` drops trade fills altogether.
+- **Fills from the next book:** if the next snapshot shows the other side at or through its price, those orders would have traded with it. It fills at its own price (source `cross`), and the bot sees the snapshot without that volume.
+- **Moving up:** if the visible volume at its price drops below the volume counted ahead of it, orders ahead were cancelled, so it moves up. An emptied level puts it at the front.
+- **Limits:** the limit check counts resting orders, and only rejects that tick's new orders.
+- **Self-trades:** your own orders never trade with each other.
+
+In the Prosperity format, bots see their resting orders in `state.open_orders` (each has an
+`id`). They cancel one by returning `Cancel(order_id)` in its product's order list, and send
+`Order(symbol, price, quantity, ioc=True)` for an order that mustn't rest. These are our
+extensions to the datamodel. A bot written for per-tick cancellation never cancels, so it keeps
+adding orders until every new one breaches the limit.
+
 ## The bot template
 
 `bots/template.py` is one file in four sections:
@@ -180,13 +201,13 @@ that are sometimes empty on one side. `tests/test_parity.py` pins those numbers.
    - position limits
    - the time limit per tick
    - which imports are allowed
-   - whether unfilled orders rest between ticks
+   - whether unfilled orders rest between ticks (if they do, backtest with `--resting`)
 2. **Write `arena/formats/qminers.py`**, using `prosperity.py` as the model. It needs a loader into `Day`/`Tick` and a bot wrapper that builds their state and converts orders back. Register it in `arena/formats/__init__.py`.
 3. **Update the bot:** rewrite its ADAPTER section and the `datamodel` import. Leave STRATEGY alone.
 4. **Validate** with `--format qminers`, their time limit, and `--allow` for their libraries.
 
 ## Known gaps
 
-- **No resting orders or queue model.** If the Arena keeps unfilled orders between ticks, step 5 of the engine rules no longer holds and matching needs rework.
+- **The queue model is an estimate.** It assumes you join the back of the queue and only move up when the visible volume shrinks. Prosperity's bots re-quote every tick, so a real resting order there would often reach the front sooner. Orders priced beyond the visible depth keep their last queue estimate.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
 - **No real competing teams.** In a market shared with other teams, `--fill-ratio` is only a rough stand-in for competition.

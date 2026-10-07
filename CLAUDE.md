@@ -37,8 +37,8 @@ uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis
 ## Architecture
 
 **The engine doesn't know any format.**
-- `arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive.
-- `arena/engine.py` `run_day(day, bot, config)` replays a `Day` against any object with `step(tick, positions, own_fills, market_trades) -> list[Order]`.
+- `arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Cancel`, `OpenOrder`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive.
+- `arena/engine.py` `run_day(day, bot, config)` replays a `Day` against any object with `step(tick, positions, own_fills, market_trades, open_orders) -> list[Order | Cancel]`.
 - It records per-tick positions, marks, PnL and best bid/ask, plus orders, fills, errors, limit breaches and timings, in a `DayResult`.
 - `arena/report.py` `write_csvs` turns it into `<day>_timeline.csv`, `_fills.csv` and `_orders.csv`. Those columns are the contract with `arena/analysis.py`, so change both together.
 - **Only `arena/analysis.py` imports pandas and matplotlib.** Everything else is standard library.
@@ -71,6 +71,13 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 3. Each order matches the visible book at the book's prices.
 4. What's left matches that tick's market trades at the order's own price. `--match-trades all|worse|none` controls which trades qualify.
 5. Everything unfilled is cancelled. Nothing rests between ticks.
+
+**Resting mode** (`--resting`, `EngineConfig.resting`) replaces rule 5. The module docstring of `engine.py` has the full rules.
+- **Resting:** unfilled orders rest until filled or cancelled, unless `Order.ioc`. Each one queues behind the visible volume at its price.
+- **Trade fills:** trades at its price first use up the queue ahead of it; trades through its price fill it.
+- **Book fills:** a next snapshot that crosses it fills it at its own price (`Fill.source == "cross"`), and the bot sees that snapshot minus the volume.
+- **Bot interface:** `Bot.step` gets `open_orders` (always empty in the default mode) and may return `Cancel(order_id)` among its orders. The Prosperity format exposes these as datamodel extensions: `state.open_orders`, `Cancel`, `Order(..., ioc=True)`.
+- **The default path doesn't change:** resting-mode code lives in its own branch of `run_day` and in the helpers below the "resting mode" marker. Parity only covers the default mode.
 
 `--fill-ratio` thins out liquidity with binomial draws, seeded and independent of the bot's orders, so variants of a bot can be compared fairly.
 
@@ -108,7 +115,7 @@ lets editors resolve imports; it is never submitted.
 
 ## Known gaps (from README)
 
-- **No resting orders or queue model.** If the Arena keeps orders open between ticks, matching rule 5 breaks.
+- **The queue model is an estimate.** It assumes the back of the queue, and only moves an order up when visible volume shrinks.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
 - **Shared-market competition is only approximated** by `--fill-ratio`.
 
