@@ -113,3 +113,9 @@ TEMPLATE_LIKE = textwrap.dedent(
             return {}, 0, ""
     """
 )
+
+
+def test_grid_runs_against_rivals(capsys, bot, data_dir):
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", "--vs", str(bot), "--jobs", "1")
+    assert code == 0
+    assert "each against bot#2 in the same market" in text

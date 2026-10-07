@@ -99,6 +99,9 @@ class DayResult:
     fills: list[Fill] = field(default_factory=list)
     errors: list[tuple[int, str]] = field(default_factory=list)  # (timestamp, traceback or message)
     limit_breaches: list[tuple[int, str]] = field(default_factory=list)  # (timestamp, product)
+    # (timestamp, product): new orders rejected because another bot filled one of this bot's
+    # orders after it decided. They fitted the position it saw, so this isn't a bug.
+    races: list[tuple[int, str]] = field(default_factory=list)
     step_seconds: list[float] = field(default_factory=list)
     max_output_chars: int = 0
 
@@ -112,37 +115,63 @@ class _Live:
     price: float
     quantity: int  # left to fill, signed
     timestamp: int
-    ahead: int = 0  # resting mode: volume queued in front of it at its price
+    owner: int = 0  # index of the participant that placed it
+    ahead: int = 0  # resting mode: recorded volume queued in front of it at its price
 
     def view(self) -> OpenOrder:
         return OpenOrder(self.id, self.product, self.price, self.quantity, self.timestamp)
 
 
+@dataclass
+class _Participant:
+    name: str
+    bot: Bot
+    result: DayResult
+    position: dict[str, int]
+    cash: dict[str, float]
+    unseen_fills: list[Fill] = field(default_factory=list)  # fills the bot hasn't been shown yet
+    market_trades: dict[str, list[MarketTrade]] = field(default_factory=dict)  # what it sees next tick
+
+
 def run_day(day: Day, bot: Bot, config: EngineConfig = EngineConfig()) -> DayResult:
-    result = DayResult(
-        day.name,
-        day.products,
-        day.limits,
-        positions={product: [] for product in day.products},
-        marks={product: [] for product in day.products},
-        pnl={product: [] for product in day.products},
-        best_bids={product: [] for product in day.products},
-        best_asks={product: [] for product in day.products},
-    )
+    return run_market(day, [("you", bot)], config)[0]
+
+
+def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = EngineConfig()) -> list[DayResult]:
+    """Replays a day with several bots trading in one market. Returns a result per bot, in order.
+
+    The bots compete for the recorded book and market trades, and trade with each other:
+      - Every tick they all see the same market and decide at once. Their orders then reach the
+        exchange in a random order, seeded and drawn again every tick.
+      - A new order trades with the recorded book and the other bots' orders, best price first.
+        At one price the recorded volume goes first, then the bots' orders, oldest first.
+        Fills are at the price of the order that was there first.
+      - The book a bot sees includes the other bots' resting orders, never its own. Trades
+        between other bots show up in its market trades, with the bots' names.
+    With one bot this is exactly the single-bot engine.
+    """
+    names = [name for name, _ in bots]
+    if len(set(names)) != len(names):
+        raise ValueError(f"participant names must be unique: {names}")
+    # Separate random streams, so the liquidity draws don't depend on the number of bots.
     rng = random.Random(config.seed)
-    position = dict.fromkeys(day.products, 0)
-    cash = dict.fromkeys(day.products, 0.0)
+    arrival = random.Random(f"arrival-{config.seed}")
+    players = [
+        _Participant(name, bot, _new_result(day), dict.fromkeys(day.products, 0), dict.fromkeys(day.products, 0.0))
+        for name, bot in bots
+    ]
     mark = dict.fromkeys(day.products, 0.0)
-    unseen_fills: list[Fill] = []  # fills the bot hasn't been shown yet
-    market_trades: dict[str, list[MarketTrade]] = {}
     resting: list[_Live] = []
+    owner: dict[int, int] = {}  # order id -> participant index
     next_id = 1
 
     def settle(fills: list[Fill]) -> None:
         for fill in fills:
-            position[fill.product] += fill.quantity
-            cash[fill.product] -= fill.price * fill.quantity
-        result.fills.extend(fills)
+            player = players[owner[fill.order_id]]
+            player.position[fill.product] += fill.quantity
+            player.cash[fill.product] -= fill.price * fill.quantity
+            player.result.fills.append(fill)
+            player.unseen_fills.append(fill)
 
     for tick in day.ticks:
         books, trades = _liquidity(tick, config.fill_ratio, rng)
@@ -152,46 +181,86 @@ def run_day(day: Day, bot: Bot, config: EngineConfig = EngineConfig()) -> DayRes
             tick = _without(tick, taken)
             resting = [order for order in resting if order.quantity]
             settle(crossed)
-            unseen_fills = unseen_fills + crossed
 
-        actions = _call_bot(bot, tick, position, unseen_fills, market_trades, [o.view() for o in resting], config, result)
-        orders, resting = _cancel(actions, resting, config.resting, tick.timestamp, result)
-        orders = _within_limits(orders, position, resting, day.limits, tick.timestamp, result)
-        placed = [_Live(next_id + i, o.product, o.price, o.quantity, tick.timestamp) for i, o in enumerate(orders)]
-        next_id += len(placed)
-        result.orders.extend((tick.timestamp, order.view()) for order in resting + placed)
+        actions, decided = [], []
+        for i, player in enumerate(players):
+            mine = [order.view() for order in resting if order.owner == i]
+            seen = _seen_by(tick, resting, i)
+            actions.append(_call_bot(player.bot, seen, player.position, player.unseen_fills, player.market_trades, mine, config, player.result))
+            decided.append((dict(player.position), mine))  # what the bot based its orders on
+            player.unseen_fills = []
+
+        working = list(resting)  # every order on the book this tick, oldest first
+        between: list[MarketTrade] = []  # trades between participants
+        order_of_arrival = list(range(len(players)))
+        arrival.shuffle(order_of_arrival)
+        for i in order_of_arrival:
+            player = players[i]
+            seen_position, seen = decided[i]
+            mine = [order for order in working if order.owner == i]
+            orders, cancelled, kept = _cancel(actions[i], mine, {o.id for o in seen}, config.resting, tick.timestamp, player.result)
+            working = [order for order in working if order.id not in cancelled]
+            orders = _known(orders, day.limits, tick.timestamp, player.result)
+            # Orders that don't fit the position the bot saw are its bug. Orders that did fit, but
+            # no longer do because another bot filled one of its orders since, lost a race.
+            # Both are rejected, as Prosperity does: every new order for that product.
+            breached = _breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], day.limits)
+            raced = _breaches(orders, player.position, kept, day.limits) - breached
+            player.result.limit_breaches.extend((tick.timestamp, product) for product in sorted(breached))
+            player.result.races.extend((tick.timestamp, product) for product in sorted(raced))
+            orders = [order for order in orders if order.product not in breached | raced]
+            placed = [_Live(next_id + k, o.product, o.price, o.quantity, tick.timestamp, i) for k, o in enumerate(orders)]
+            next_id += len(placed)
+            owner.update((order.id, i) for order in placed)
+            player.result.orders.extend((tick.timestamp, order.view()) for order in kept + placed)
+            for order, live in zip(orders, placed):
+                # Settled straight away: a fill on another bot's resting order changes its
+                # position before its own new orders meet the limit check.
+                settle(_take(live, books, working, names, tick.timestamp, between))
+                if live.quantity and not (config.resting and order.ioc):
+                    live.ahead = _volume_at(live, tick.books)
+                    working.append(live)  # in the default mode, only until the end of this tick
 
         if config.resting:
-            fills = []
-            for order, live in zip(orders, placed):
-                fills += _take_book(live, books, tick.timestamp)
-                if live.quantity and not order.ioc:
-                    live.ahead = _volume_at(live, tick.books)
-                    resting.append(live)
-            fills += _fill_resting(resting, trades, config.trade_matching, tick.timestamp)
-            resting = [order for order in resting if order.quantity]
+            settle(_fill_resting(working, trades, config.trade_matching, tick.timestamp))
+            resting = [order for order in working if order.quantity]
         else:
-            fills = [
-                fill
-                for order in placed
-                for fill in _take_book(order, books, tick.timestamp)
-                + _take_trades(order, trades, config.trade_matching, tick.timestamp)
-            ]
-        market_trades = _remaining_trades(trades)
-        settle(fills)
-        unseen_fills = fills
+            settle([fill for order in working for fill in _take_trades(order, trades, config.trade_matching, tick.timestamp)])
+        remaining = _remaining_trades(trades)
+        for player in players:
+            player.market_trades = _market_view(remaining, between, player.name)
 
-        result.timestamps.append(tick.timestamp)
         for product in day.products:
             mark[product] = _mark(tick, product, mark[product])
-            result.positions[product].append(position[product])
-            result.marks[product].append(mark[product])
-            result.pnl[product].append(cash[product] + position[product] * mark[product])
-            book = tick.books.get(product)
-            result.best_bids[product].append(book.bids[0][0] if book and book.bids else None)
-            result.best_asks[product].append(book.asks[0][0] if book and book.asks else None)
+        for player in players:
+            _record(player, tick, mark)
 
-    return result
+    return [player.result for player in players]
+
+
+def _new_result(day: Day) -> DayResult:
+    return DayResult(
+        day.name,
+        day.products,
+        day.limits,
+        positions={product: [] for product in day.products},
+        marks={product: [] for product in day.products},
+        pnl={product: [] for product in day.products},
+        best_bids={product: [] for product in day.products},
+        best_asks={product: [] for product in day.products},
+    )
+
+
+def _record(player: _Participant, tick: Tick, mark: dict[str, float]) -> None:
+    result = player.result
+    result.timestamps.append(tick.timestamp)
+    for product in result.products:
+        result.positions[product].append(player.position[product])
+        result.marks[product].append(mark[product])
+        result.pnl[product].append(player.cash[product] + player.position[product] * mark[product])
+        book = tick.books.get(product)
+        result.best_bids[product].append(book.bids[0][0] if book and book.bids else None)
+        result.best_asks[product].append(book.asks[0][0] if book and book.asks else None)
 
 
 def _call_bot(bot, tick, position, own_fills, market_trades, open_orders, config, result) -> list[Order | Cancel]:
@@ -208,8 +277,12 @@ def _call_bot(bot, tick, position, own_fills, market_trades, open_orders, config
     return actions
 
 
-def _cancel(actions, resting: list[_Live], resting_mode: bool, timestamp, result) -> tuple[list[Order], list[_Live]]:
-    """Applies the cancels. Returns the new orders and the orders still resting."""
+def _cancel(actions, resting: list[_Live], seen: set[int], resting_mode: bool, timestamp, result):
+    """Applies the cancels. Returns the new orders, the ids cancelled, and the orders still resting.
+
+    seen holds the ids of the orders that were open when the bot decided. Cancelling one that has
+    filled since does nothing, as on an exchange. Cancelling any other id is an error.
+    """
     cancelled = set()
     live_ids = {order.id for order in resting}
     for action in actions:
@@ -218,49 +291,40 @@ def _cancel(actions, resting: list[_Live], resting_mode: bool, timestamp, result
         if action.order_id in live_ids - cancelled:
             cancelled.add(action.order_id)
             result.cancels.append((timestamp, action.order_id))
-        else:
+        elif action.order_id not in seen:
             hint = "" if resting_mode else " (orders only rest in resting mode)"
             result.errors.append((timestamp, f"cancel for order {action.order_id}, which isn't open{hint}"))
     orders = [action for action in actions if not isinstance(action, Cancel)]
-    return orders, [order for order in resting if order.id not in cancelled]
+    return orders, cancelled, [order for order in resting if order.id not in cancelled]
 
 
-def _within_limits(orders, position, resting, limits, timestamp, result) -> list[Order]:
-    """Drops orders for unknown products, and every new order for a product that could breach its limit.
-
-    Resting orders count towards the limit. They always fit, as fills move the position and
-    shrink the order by the same amount.
-    """
-    buys: dict[str, int] = defaultdict(int)
-    sells: dict[str, int] = defaultdict(int)
-    traded = set()
+def _known(orders, limits, timestamp, result) -> list[Order]:
+    """Drops empty orders, and orders for unknown products (an error)."""
     for order in orders:
         if order.product not in limits:
             result.errors.append((timestamp, f"order for unknown product {order.product!r}"))
-        elif order.quantity:
-            traded.add(order.product)
-            if order.quantity > 0:
-                buys[order.product] += order.quantity
-            else:
-                sells[order.product] -= order.quantity
-    for order in resting:
+    return [order for order in orders if order.product in limits and order.quantity != 0]
+
+
+def _breaches(orders, position, resting, limits) -> set[str]:
+    """Products whose new orders could breach the limit: all their buys, or all their sells, filling.
+
+    Resting orders (anything with .product and .quantity) count too. They always fit on their
+    own, as fills move the position and shrink the order by the same amount.
+    """
+    buys: dict[str, int] = defaultdict(int)
+    sells: dict[str, int] = defaultdict(int)
+    for order in [*orders, *resting]:
         if order.quantity > 0:
             buys[order.product] += order.quantity
         else:
             sells[order.product] -= order.quantity
-
-    breached = {
+    return {
         product
-        for product in traded
+        for product in {order.product for order in orders}
         if position[product] + buys[product] > limits[product]
         or position[product] - sells[product] < -limits[product]
     }
-    result.limit_breaches.extend((timestamp, product) for product in sorted(breached))
-    return [
-        order
-        for order in orders
-        if order.product in limits and order.quantity != 0 and order.product not in breached
-    ]
 
 
 def _liquidity(tick: Tick, fill_ratio: float, rng: random.Random):
@@ -293,22 +357,44 @@ def _liquidity(tick: Tick, fill_ratio: float, rng: random.Random):
     return books, trades
 
 
-def _take_book(order: _Live, books, timestamp: int) -> list[Fill]:
-    """Trades the order against the visible book at the book's prices, best first."""
+def _take(order: _Live, books, working: list[_Live], names: list[str], timestamp: int, between: list[MarketTrade]) -> list[Fill]:
+    """Trades a new order against the visible book and other participants' orders, best price first.
+
+    At one price the recorded volume goes first, then participants' orders, oldest first. Each
+    fill is at the price of the order that was already there. Returns the fills of both sides.
+    """
     buying = order.quantity > 0
     sign = 1 if buying else -1
-    fills = []
     bids, asks = books.get(order.product, ([], []))
-    for level in asks if buying else bids:
-        price, volume = level
+    queue = [(price_level[0], 0, k, price_level) for k, price_level in enumerate(asks if buying else bids)]
+    queue += [
+        (other.price, 1, other.id, other)
+        for other in working
+        if other.product == order.product and other.owner != order.owner and (other.quantity < 0 if buying else other.quantity > 0)
+    ]
+    queue.sort(key=lambda entry: (entry[0] if buying else -entry[0], entry[1], entry[2]))
+
+    fills = []
+    for price, kind, _, there in queue:
         if (price > order.price) if buying else (price < order.price):
             break
-        take = min(abs(order.quantity), volume)
-        if take == 0:
-            continue
-        level[1] -= take
+        if kind == 0:  # a level of the recorded book: [price, volume]
+            take = min(abs(order.quantity), there[1])
+            if take == 0:
+                continue
+            there[1] -= take
+            fills.append(Fill(timestamp, order.product, price, sign * take, "book", "", order.id))
+        else:  # another participant's order
+            take = min(abs(order.quantity), abs(there.quantity))
+            if take == 0:
+                continue
+            there.quantity += sign * take
+            me, them = names[order.owner], names[there.owner]
+            fills.append(Fill(timestamp, order.product, price, sign * take, "book", them, order.id))
+            fills.append(Fill(timestamp, order.product, price, -sign * take, "trade", me, there.id))
+            buyer, seller = (me, them) if buying else (them, me)
+            between.append(MarketTrade(order.product, price, take, buyer, seller, timestamp))
         order.quantity -= sign * take
-        fills.append(Fill(timestamp, order.product, price, sign * take, "book", "", order.id))
         if order.quantity == 0:
             break
     return fills
@@ -349,6 +435,37 @@ def _remaining_trades(trades) -> dict[str, list[MarketTrade]]:
         ]
         remaining[product] = [trade for trade in left if trade.quantity > 0]
     return remaining
+
+
+def _seen_by(tick: Tick, resting: list[_Live], participant: int) -> Tick:
+    """The tick as one participant sees it: the book plus the other participants' resting orders."""
+    others = [order for order in resting if order.owner != participant and order.quantity]
+    if not others:
+        return tick
+    books = dict(tick.books)
+    for product in {order.product for order in others}:
+        bids, asks = defaultdict(int), defaultdict(int)
+        book = books.get(product, Book())
+        for price, volume in book.bids:
+            bids[price] += volume
+        for price, volume in book.asks:
+            asks[price] += volume
+        for order in others:
+            if order.product == product:
+                (bids if order.quantity > 0 else asks)[order.price] += abs(order.quantity)
+        books[product] = Book(bids=tuple(sorted(bids.items(), reverse=True)), asks=tuple(sorted(asks.items())))
+    return replace(tick, books=books)
+
+
+def _market_view(remaining: dict[str, list[MarketTrade]], between: list[MarketTrade], name: str) -> dict[str, list[MarketTrade]]:
+    """Market trades one participant sees next tick: the recorded ones plus other participants' trades."""
+    others = [trade for trade in between if name not in (trade.buyer, trade.seller)]
+    if not others:
+        return remaining
+    view = {product: list(trades) for product, trades in remaining.items()}
+    for trade in others:
+        view.setdefault(trade.product, []).append(trade)
+    return view
 
 
 def _mark(tick: Tick, product: str, last: float) -> float:

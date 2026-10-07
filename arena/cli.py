@@ -1,14 +1,15 @@
-"""Command-line options shared by arena.backtest and arena.validate."""
+"""Command-line options shared by arena.backtest, arena.validate and arena.grid."""
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 
 from arena.botfile import parse_override
-from arena.engine import EngineConfig, TradeMatching
+from arena.engine import DayResult, EngineConfig, TradeMatching, run_market
 from arena.formats import FORMATS
 from arena.model import Day
 
@@ -19,6 +20,7 @@ class Setup:
     days: list[Day]
     config: EngineConfig
     overrides: dict[str, object]
+    rivals: list[Path] = field(default_factory=list)  # bots trading in the same market (--vs)
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -58,6 +60,19 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_rival_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--vs",
+        dest="rivals",
+        type=Path,
+        action="append",
+        default=[],
+        metavar="BOT",
+        help="another bot trading in the same market: it competes for the same fills and can trade with yours. "
+        "Repeatable; give a file twice for two copies. --set only applies to your bot.",
+    )
+
+
 def setup(args: argparse.Namespace) -> Setup:
     fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
@@ -65,4 +80,22 @@ def setup(args: argparse.Namespace) -> Setup:
         trade_matching=args.match_trades, resting=args.resting, fill_ratio=args.fill_ratio, seed=args.seed
     )
     overrides = dict(parse_override(text) for text in args.overrides)
-    return Setup(fmt, days, config, overrides)
+    return Setup(fmt, days, config, overrides, getattr(args, "rivals", []))
+
+
+def participant_names(bot: Path, rivals: list[Path]) -> list[str]:
+    """File stems, numbered from the second copy on: template, template#2, other."""
+    seen: Counter[str] = Counter()
+    names = []
+    for path in [bot, *rivals]:
+        seen[path.stem] += 1
+        names.append(path.stem if seen[path.stem] == 1 else f"{path.stem}#{seen[path.stem]}")
+    return names
+
+
+def run_with_rivals(
+    fmt, day: Day, bot: Path, overrides: dict[str, object], rivals: list[Path], config: EngineConfig, strict: bool = True
+) -> list[DayResult]:
+    """Runs the bot, plus any rivals in the same market. The bot's result comes first."""
+    bots = [fmt.load_bot(bot, overrides, strict)] + [fmt.load_bot(rival, {}, strict) for rival in rivals]
+    return run_market(day, list(zip(participant_names(bot, rivals), bots)), config)

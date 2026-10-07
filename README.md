@@ -29,6 +29,7 @@ uv run python -m arena.backtest bots/template.py 1                  # Prosperity
 uv run python -m arena.backtest bots/template.py 1-0 --data p2      # Prosperity 2 round 1, day 0
 uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2
 uv run python -m arena.backtest bots/template.py 1 --out results/   # per-day CSVs for arena.analysis
+uv run python -m arena.backtest bots/template.py 1 --vs bots/template.py   # against a copy of itself
 ```
 
 ```
@@ -48,6 +49,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--set PATH=VALUE` | Override a bot global, e.g. `PARAMS.KELP.skew=2`. Repeatable. |
 | `--match-trades` | Which market trades leftover orders can fill against: `all` (default), `worse`, `none`. See below. |
 | `--resting` | Unfilled orders rest on the book until filled or cancelled, with a queue model. See [Resting mode](#resting-mode). |
+| `--vs BOT` | Another bot in the same market, competing for fills and trading with yours. Repeatable. See [Shared market](#shared-market). |
 | `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. |
 | `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask per tick), `<day>_fills.csv` and `<day>_orders.csv` |
 | `--print` | Show the bot's prints |
@@ -82,8 +84,8 @@ uv run python -m arena.grid bots/template.py 1 \
 It backtests every combination of the `--grid` values on every day, in parallel (`--jobs`,
 default all cores). The example above runs 78 backtests in about 6 s. Each axis is
 `PATH=V1,V2,...` or an inclusive range `PATH=START..STOP[..STEP]`. `--set` and the backtest
-options apply to every run. A short run of the first combination catches typos before the
-grid starts.
+options apply to every run, including `--vs`, which tunes the bot against rivals in the same
+market. A short run of the first combination catches typos before the grid starts.
 
 The highest backtest PnL is usually overfit, so each combination is ranked on four measures:
 
@@ -182,6 +184,34 @@ In the Prosperity format, bots see their resting orders in `state.open_orders` (
 extensions to the datamodel. A bot written for per-tick cancellation never cancels, so it keeps
 adding orders until every new one breaches the limit.
 
+### Shared market
+
+`--vs BOT` puts more bots in the market: copies of yours (give the same file again) or other
+versions. `--set` only applies to your bot. Rivals' results are summarised under each day.
+This models a market shared by all teams much better than `--fill-ratio`:
+
+- **Same view, random arrival:** every tick all bots see the same market and decide at once. Their orders then reach the exchange in a random order, seeded and drawn again each tick.
+- **Trading with each other:** a new order trades with the recorded book and with the other bots' orders, best price first. At one price the recorded volume goes first. Fills are at the price of the order that was there first.
+- **What each bot sees:** the book includes the other bots' resting orders, never its own. Trades between other bots appear among its market trades, named after the bot files (`template`, `template#2`, ...).
+- **Races:** another bot can fill one of your orders after your bot decided. If your new orders then no longer fit the limit, they are rejected and counted as a race, not a limit breach. A cancel for an order that filled in the meantime does nothing.
+
+Template against copies of itself, Prosperity 3 round 1, all three days:
+
+| Market | per tick (default) | `--resting` |
+|---|---|---|
+| alone | 81,292 | 68,043 |
+| with one copy | 46,875 + 47,674 | 32,876 + 33,551 |
+| with two copies | | about 20,600 each |
+
+The two copies together make more than one alone in the default mode, because each has its
+own position limit. They also get extra fills: when one beats the other to an ask, the other's
+take order is left at that price for the rest of the tick, where market trades can fill it.
+
+Rivals change which settings win. With `--resting`, Kelp `make_edge=0` is the best setting
+under `worse` fills when trading alone. Against one copy of the baseline it loses 12,474 (15,498
+under `worse`). Its quotes at fair get crossed by the next snapshot, and the rival picks them
+off: the rival's `wall_mid` treats your large quote as the market maker's level.
+
 ## The bot template
 
 `bots/template.py` is one file in five sections:
@@ -214,4 +244,4 @@ adding orders until every new one breaches the limit.
 
 - **The queue model is an estimate.** It assumes you join the back of the queue and only move up when the visible volume shrinks. Prosperity's bots re-quote every tick, so a real resting order there would often reach the front sooner. Orders priced beyond the visible depth keep their last queue estimate.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
-- **No real competing teams.** In a market shared with other teams, `--fill-ratio` is only a rough stand-in for competition.
+- **Rivals are only the bots you bring.** `--vs` shows how bots like yours interact, but real teams will quote, size and react differently.

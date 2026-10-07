@@ -34,8 +34,8 @@ from pathlib import Path
 
 from arena import report
 from arena.botfile import OverrideError
-from arena.cli import Setup, add_common_arguments, setup
-from arena.engine import TradeMatching, run_day
+from arena.cli import Setup, add_common_arguments, add_rival_argument, participant_names, run_with_rivals, setup
+from arena.engine import TradeMatching
 from arena.formats import FORMATS
 from arena.model import Day
 
@@ -131,7 +131,7 @@ def _range(text: str) -> list:
 _WORKER: dict = {}
 
 
-def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, targets, modes, config, days=None):
+def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, targets, modes, config, rivals, days=None):
     fmt = FORMATS[format_name]
     _WORKER.update(
         fmt=fmt,
@@ -141,6 +141,7 @@ def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, tar
         targets=targets,
         modes=modes,
         config=config,
+        rivals=rivals,
     )
 
 
@@ -152,7 +153,7 @@ def _evaluate(index: tuple[int, ...], values: tuple) -> Outcome:
         config = replace(w["config"], trade_matching=mode)
         days, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
         for day in w["days"]:
-            result = run_day(day, w["fmt"].load_bot(w["bot"], overrides, strict=True), config)
+            result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], config)[0]
             days[day.name] = (report.total_pnl(result) or [0.0])[-1]
             for stats in report.product_stats(result):
                 products[stats.product] = products.get(stats.product, 0.0) + stats.pnl
@@ -171,7 +172,7 @@ def run_grid(
     """Returns the baseline (the bot with only --set applied) and every combination's outcome."""
     combos = list(itertools.product(*(range(len(axis.values)) for axis in axes)))
     tasks = [((), ())] + [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
-    init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config)
+    init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals)
 
     outcomes: dict[tuple[int, ...], Outcome] = {}
     progress = _Progress(len(tasks))
@@ -196,7 +197,7 @@ def smoke_test(s: Setup, bot: Path, axes: list[Axis]) -> None:
     overrides = {**s.overrides, **{axis.target: axis.values[0] for axis in axes}}
     day = s.days[0]
     sample = Day(day.name, day.products, day.limits, day.ticks[:SMOKE_TEST_TICKS])
-    result = run_day(sample, s.format.load_bot(bot, overrides, strict=True), s.config)
+    result = run_with_rivals(s.format, sample, bot, overrides, s.rivals, s.config)[0]
     if result.errors:
         raise ValueError(f"the bot fails with the first combination: {report.last_line(result.errors[0][1])}")
 
@@ -347,6 +348,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m arena.grid", description="Grid-search bot parameters, with robustness checks."
     )
     add_common_arguments(parser)
+    add_rival_argument(parser)
     parser.add_argument(
         "--grid",
         dest="axes",
@@ -379,6 +381,8 @@ def main(argv: list[str] | None = None) -> int:
     jobs = max(1, min(args.jobs, combos + 1))
     runs = (combos + 1) * len(s.days) * len(modes)
     print(f"{combos} combinations × {len(s.days)} days × {len(modes)} modes ({runs} backtests) on {jobs} workers")
+    if s.rivals:
+        print(f"each against {', '.join(participant_names(args.bot, s.rivals)[1:])} in the same market")
     start = time.perf_counter()
     baseline, outcomes = run_grid(s, args.bot, axes, modes, jobs, args.format, args.data, args.days)
     print(f"done in {time.perf_counter() - start:.1f} s\n")

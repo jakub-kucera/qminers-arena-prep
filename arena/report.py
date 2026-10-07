@@ -84,6 +84,24 @@ def format_day(result: DayResult) -> str:
             f"  ! {len(result.limit_breaches)} ticks with orders cancelled for breaching a limit, "
             f"first {product} at {timestamp}"
         )
+    if result.races:
+        lines.append(f"  {len(result.races)} ticks with orders rejected after another bot's fill moved your position (a race)")
+    return "\n".join(lines)
+
+
+def format_rivals(names: list[str], results: list[DayResult]) -> str:
+    """One line per rival bot that traded in the same market."""
+    lines = []
+    for name, result in zip(names, results):
+        total = total_pnl(result)
+        line = f"  vs {name}: pnl {total[-1] if total else 0:,.0f} · {len(result.fills):,} fills"
+        if result.errors:
+            line += f" · ! {len(result.errors)} errors"
+        if result.limit_breaches:
+            line += f" · ! {len(result.limit_breaches)} limit breaches"
+        if result.races:
+            line += f" · {len(result.races)} races"
+        lines.append(line)
     return "\n".join(lines)
 
 

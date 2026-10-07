@@ -21,6 +21,7 @@ uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # on
 uv run python -m arena.backtest bots/template.py 1                # Prosperity 3 round 1, every day
 uv run python -m arena.backtest bots/template.py 1-0 --data p2    # Prosperity 2, round 1 day 0
 uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
+uv run python -m arena.backtest bots/template.py 1 --resting --vs bots/template.py   # orders rest; a rival copy shares the market
 uv run python -m arena.validate bots/template.py 1                # pre-submission checks, exit 1 on FAIL
 uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
 uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
@@ -81,6 +82,13 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 
 `--fill-ratio` thins out liquidity with binomial draws, seeded and independent of the bot's orders, so variants of a bot can be compared fairly.
 
+**Shared market** (`run_market(day, [(name, bot), ...], config)`, CLI `--vs BOT`):
+- **One engine:** `run_day` is `run_market` with one participant. Every helper works on `_Live` orders carrying an `owner`, and fills are routed to their owner by `order_id`.
+- **Arrival:** all bots see the same tick and decide at once. Their actions are then processed in a seeded shuffle, drawn from its own random stream so the `--fill-ratio` draws don't depend on the number of bots.
+- **Matching:** `_take` matches a new order against the recorded levels and other owners' working orders, best price first. At one price the recorded volume goes first. Each bot's book (`_seen_by`) adds the others' resting orders, never its own.
+- **Breaches vs races:** limits are checked twice. Orders that don't fit the position the bot saw are `limit_breaches`, the bot's bug. Orders that fitted but don't fit after another bot's fill are `races`. Both are rejected, but the grid only discards combinations with breaches.
+- **CLI:** `arena.cli.run_with_rivals` loads the bot and its `--vs` rivals and runs them, for both the backtest and the grid. `--set` only applies to the main bot.
+
 **Grid search** (`arena/grid.py`):
 - **Parallel runs:** a `ProcessPoolExecutor` runs every combination as (bot file + `--set` + grid values) × days × `--modes`. Each worker loads the days once, in `_init_worker`, into the module-level `_WORKER` dict. `--jobs 1` runs in-process.
 - **Smoke test:** before the pool starts, a 200-tick run of the first combination makes typos fail fast.
@@ -123,7 +131,7 @@ lets editors resolve imports; it is never submitted.
 
 - **The queue model is an estimate.** It assumes the back of the queue, and only moves an order up when visible volume shrinks.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
-- **Shared-market competition is only approximated** by `--fill-ratio`.
+- **Rivals are only the bots you bring** with `--vs`. Real teams will behave differently.
 
 ## Repo conventions
 

@@ -1,6 +1,6 @@
 import pytest
 
-from arena.engine import EngineConfig, TradeMatching, run_day
+from arena.engine import EngineConfig, TradeMatching, run_day, run_market
 from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Order, Tick
 
 
@@ -266,3 +266,64 @@ def test_resting_orders_count_towards_the_limit():
     # 8 resting + 3 new could take the position to 11: only the new order is rejected.
     assert result.limit_breaches == [(1, "X")]
     assert bot.open_orders[2] == [OpenOrder(1, "X", 100, 8, 0)]
+
+
+# ---------------------------------------------------------------------------- shared market
+
+
+def market(d, *bots, config=EngineConfig()):
+    return run_market(d, [(f"b{i}", bot) for i, bot in enumerate(bots)], config)
+
+
+def test_bots_compete_for_the_same_book_level():
+    d = day(*[tick(t, asks=[(101, 3)]) for t in range(20)], limits={"X": 100})
+    script = {t: [Order("X", 101, 3)] for t in range(20)}
+    a, b = market(d, ScriptedBot(script), ScriptedBot(script))
+    for t in range(20):  # the level fills one of them each tick
+        assert sum(f.quantity for f in a.fills + b.fills if f.timestamp == t) == 3
+    assert a.fills and b.fills  # who arrives first changes from tick to tick
+
+
+def test_bots_trade_with_each_other_at_the_resting_price():
+    quiet = dict(bids=[(98, 5)], asks=[(104, 5)])
+    d = day(tick(0, **quiet), tick(1, **quiet), tick(2, **quiet))
+    buyer, seller, watcher = ScriptedBot({0: [Order("X", 101, 2)]}), ScriptedBot({1: [Order("X", 100, -3)]}), ScriptedBot()
+    a, b, _ = market(d, buyer, seller, watcher, config=RESTING)
+
+    assert seller.books[1]["X"].bids == ((101, 2), (98, 5))  # others' resting orders are in the book
+    assert buyer.books[1]["X"].bids == ((98, 5),)  # but never your own
+    assert a.fills == [Fill(1, "X", 101, 2, "trade", "b1", order_id=1)]
+    assert b.fills == [Fill(1, "X", 101, -2, "book", "b0", order_id=2)]
+    assert watcher.books[2]["X"].asks == ((100, 1), (104, 5))  # the seller's last unit rests
+    assert watcher.seen[2][2]["X"] == [MarketTrade("X", 101, 2, "b0", "b1", 1)]
+    assert "X" not in buyer.seen[2][2] and "X" not in seller.seen[2][2]  # they got fills instead
+
+
+def test_losing_a_race_is_not_a_limit_breach():
+    # A rests a bid for 6 at 100. At tick 1 it cancels that and bids 10 at 99, which fits the
+    # position it saw (0). If B's sell reaches A's 100 bid first, A is already long 6, the cancel
+    # finds nothing, and the bid for 10 is rejected as a race.
+    quiet = dict(bids=[(98, 5)], asks=[(104, 5)])
+    d = day(tick(0, **quiet), tick(1, **quiet), limits={"X": 10})
+    raced = []
+    for seed in range(10):
+        a, b = market(
+            d,
+            ScriptedBot({0: [Order("X", 100, 6)], 1: [Cancel(1), Order("X", 99, 10)]}),
+            ScriptedBot({1: [Order("X", 100, -6)]}),
+            config=EngineConfig(resting=True, seed=seed),
+        )
+        assert a.errors == [] and a.limit_breaches == [] and max(a.positions["X"]) <= 10
+        raced.append(a.races == [(1, "X")] and a.positions["X"][-1] == 6)
+    assert any(raced) and not all(raced)
+
+
+def test_breaching_the_position_you_saw_is_still_a_breach():
+    d = day(tick(0, asks=[(104, 5)]), limits={"X": 2})
+    a, _ = market(d, ScriptedBot({0: [Order("X", 99, 3)]}), ScriptedBot())
+    assert a.limit_breaches == [(0, "X")] and a.races == []
+
+
+def test_market_names_must_be_unique():
+    with pytest.raises(ValueError, match="unique"):
+        run_market(day(tick(0)), [("a", ScriptedBot()), ("a", ScriptedBot())])
