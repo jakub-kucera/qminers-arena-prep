@@ -3,6 +3,9 @@ references/*
 !references/README.md
 !references/clone.sh
 
+# Source PDFs for literature_md/ (large, mostly copyrighted books); not committed
+literature_raw/
+
 # Backtest output
 results/
 

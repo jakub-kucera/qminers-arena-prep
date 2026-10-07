@@ -11,6 +11,7 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 | `bots/template.py` | Single-file market maker to copy for each round |
 | `notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
+| `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |
 | `tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
 
 ## Setup
