@@ -13,6 +13,8 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |
 | `tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
+| [`ON_THE_DAY.md`](ON_THE_DAY.md) | What to find out about the real Arena at the event, and what each answer changes here |
+| [`TODO.md`](TODO.md) | Prep work left before the event |
 
 ## Setup
 

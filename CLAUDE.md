@@ -135,6 +135,7 @@ lets editors resolve imports; it is never submitted.
 
 ## Repo conventions
 
+- **`TODO.md`:** prep work left before the event, each item with a "done when". Tick items off when that holds, and add new ones as they come up.
 - **`ON_THE_DAY.md`:** the checklist of what to find out about the real Arena. For each item it gives our current assumption and what to change if the Arena differs, and it ends with playground probes. When a session learns an answer, write it in under that item with its source. When a session adds an assumption about the real format, add an item.
 
 - **`references/`:** third-party clones listed in `references/clone.sh`. Read them for ideas, but don't edit or import from them.
