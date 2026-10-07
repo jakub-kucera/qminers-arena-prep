@@ -1,0 +1,101 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+Prep tooling for the Qminers Algo Trade Arena, a 24-hour in-person hackathon (7–8 Nov 2026). It
+has four 5-hour rounds, and teams submit a Python bot file at the end of each one. The real API
+won't be known until the event, so everything here runs on **IMC Prosperity data and its bot
+format as a stand-in**. Keep competition-specific code isolated so it can be swapped quickly on
+the day (see "Formats" below).
+
+## Commands
+
+```sh
+references/clone.sh                 # fetch the reference repos + Prosperity data (gitignored, ~2 GB)
+uv sync                             # Python 3.12; the core package uses only the standard library
+uv run pytest                       # all tests (~6 s)
+uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
+
+uv run python -m arena.backtest bots/template.py 1                # Prosperity 3 round 1, every day
+uv run python -m arena.backtest bots/template.py 1-0 --data p2    # Prosperity 2, round 1 day 0
+uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
+uv run python -m arena.validate bots/template.py 1                # pre-submission checks, exit 1 on FAIL
+```
+
+- **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
+- **`--data` aliases:** `p2` and `p3` point into `references/prosperity{2,3}-backtester-jmerle/.../resources`.
+- **Tests without the data:** `tests/test_parity.py` skips if `references/` hasn't been cloned. All other tests use a tiny CSV fixture from `tests/conftest.py`.
+- **No linter or formatter is configured.**
+
+## Architecture
+
+**The engine doesn't know any format.**
+- `arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive.
+- `arena/engine.py` `run_day(day, bot, config)` replays a `Day` against any object with `step(tick, positions, own_fills, market_trades) -> list[Order]`.
+- It records per-tick positions, marks, PnL, errors, limit breaches and timings in a `DayResult`.
+- The engine catches the bot's exceptions and records them per tick, so a run never aborts.
+
+**Formats are plug-ins** (`arena/formats/`). A format module must provide:
+- `PROVIDED_MODULES`
+- `resolve_data_dir`
+- `load_days`
+- `load_bot`
+- `check_source`
+
+It is registered in `arena/formats/__init__.py` `FORMATS`. `prosperity.py` is the only format today. It holds:
+- **The CSV loader:** `;`-separated. Prosperity 2 trade files have `_wn`/`_nn` name variants.
+- **The `LIMITS` table:** the loader raises on any product without a limit.
+- **`ProsperityBot`:** it builds a `TradingState`, calls `Trader().run(state)`, type-checks the returned `(orders, conversions, traderData)`, and converts the orders.
+
+`prosperity_datamodel.py` is our own copy of IMC's `datamodel` module, without jsonpickle. On the day, the plan is to add `arena/formats/qminers.py`, modelled on `prosperity.py`.
+
+**Bot loading** (`arena/botfile.py`). `BotFile` compiles the bot source once. Each `load()` execs it into a fresh module, then:
+- **Injects provided modules:** the format's modules go into `sys.modules`, so `from datamodel import ...` resolves to ours.
+- **Sets `STRICT = True`:** only in strict mode, and only if the bot defines `STRICT`.
+- **Applies `--set` overrides:** `GLOBAL.key.key=literal`. Missing intermediate keys raise `OverrideError`; a new leaf key is allowed.
+
+The validator's `fresh_each_tick` mode reloads the module every tick to catch state kept outside `traderData`.
+
+**Matching rules (Prosperity semantics):**
+1. The bot quotes against the current tick's book.
+2. If a product's orders could breach its position limit (all buys, or all sells, filling), every order for that product is cancelled.
+3. Each order matches the visible book at the book's prices.
+4. What's left matches that tick's market trades at the order's own price. `--match-trades all|worse|none` controls which trades qualify.
+5. Everything unfilled is cancelled. Nothing rests between ticks.
+
+`--fill-ratio` thins out liquidity with binomial draws, seeded and independent of the bot's orders, so variants of a bot can be compared fairly.
+
+**Parity with prosperity3bt is pinned.** The engine matched jmerle's prosperity3bt 0.12.0 fill for fill. `tests/test_parity.py` (needs `references/`) asserts fill counts and PnL for `tests/fixtures/parity_bot.py`.
+- **Engine changes:** any change to matching, limits or marking must keep this test passing.
+- **The fixture:** it is a frozen snapshot. Don't edit it, even when `bots/template.py` changes.
+- **PnL conventions differ:** ours is marked after each tick's fills. prosperity3bt reports final PnL before the last tick's fills, and the test converts between the two.
+
+## Bot files (`bots/`)
+
+The competition runs one file, so a bot must stay **self-contained, standard library only, and keep all
+cross-tick state in `traderData`**. The real engine may not keep instance or module variables
+between calls.
+
+`bots/template.py` has four sections:
+- **PARAMS:** `DEFAULTS` plus a per-product dict. Products not listed aren't traded. Unknown keys raise, which catches typos.
+- **STRATEGY:** format-agnostic. Fair value (fixed, mid, or `wall_mid`) → take → clear → make. `Plan` keeps all orders inside the limit, counting buys and sells separately.
+- **ADAPTER:** the only Prosperity-specific code.
+- **`Trader.run`:** a try/except per product, swallowed unless `STRICT`.
+
+New strategy logic goes in STRATEGY, and format changes go in ADAPTER. `bots/datamodel.py` only
+lets editors resolve imports; it is never submitted.
+
+## Known gaps (from README)
+
+- **No resting orders or queue model.** If the Arena keeps orders open between ticks, matching rule 5 breaks.
+- **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
+- **Shared-market competition is only approximated** by `--fill-ratio`.
+
+## Repo conventions
+
+- **`references/`:** third-party clones listed in `references/clone.sh`. Read them for ideas, but don't edit or import from them.
+  - `references/algotrade2026-pitfa19/` contains its own `CLAUDE.md` and `AGENTS.md`. They describe that repo, not this one, so don't follow them.
+  - `references/README.md` summarises what each repo is useful for.
+- **Commits:** author commits as the user (Jakub) only. Never put a `Co-Authored-By: Claude …` trailer, or any other Claude attribution, in commit messages or PR descriptions.
