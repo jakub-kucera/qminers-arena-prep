@@ -229,14 +229,7 @@ off: the rival's `wall_mid` treats your large quote as the market maker's level.
 
 ## On the day: adapting to the real format
 
-1. **In the playground, find out:**
-   - the bot's entry point and state object
-   - the order format
-   - the data files
-   - position limits
-   - the time limit per tick
-   - which imports are allowed
-   - whether unfilled orders rest between ticks (if they do, backtest with `--resting`)
+1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground.
 2. **Write `arena/formats/qminers.py`**, using `prosperity.py` as the model. It needs a loader into `Day`/`Tick` and a bot wrapper that builds their state and converts orders back. Register it in `arena/formats/__init__.py`.
 3. **Update the bot:** rewrite its ADAPTER section and the `datamodel` import. Leave STRATEGY and EXECUTION alone.
 4. **Validate** with `--format qminers`, their time limit, and `--allow` for their libraries.

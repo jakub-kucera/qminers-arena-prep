@@ -135,6 +135,8 @@ lets editors resolve imports; it is never submitted.
 
 ## Repo conventions
 
+- **`ON_THE_DAY.md`:** the checklist of what to find out about the real Arena. For each item it gives our current assumption and what to change if the Arena differs, and it ends with playground probes. When a session learns an answer, write it in under that item with its source. When a session adds an assumption about the real format, add an item.
+
 - **`references/`:** third-party clones listed in `references/clone.sh`. Read them for ideas, but don't edit or import from them.
   - `references/algotrade2026-pitfa19/` contains its own `CLAUDE.md` and `AGENTS.md`. They describe that repo, not this one, so don't follow them.
   - `references/README.md` summarises what each repo is useful for.
