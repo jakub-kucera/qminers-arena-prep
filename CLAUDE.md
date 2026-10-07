@@ -104,13 +104,19 @@ The competition runs one file, so a bot must stay **self-contained, standard lib
 cross-tick state in `traderData`**. The real engine may not keep instance or module variables
 between calls.
 
-`bots/template.py` has four sections:
+`bots/template.py` has five sections:
 - **PARAMS:** `DEFAULTS` plus a per-product dict. Products not listed aren't traded. Unknown keys raise, which catches typos.
-- **STRATEGY:** format-agnostic. Fair value (fixed, mid, or `wall_mid`) → take → clear → make. `Plan` keeps all orders inside the limit, counting buys and sells separately.
-- **ADAPTER:** the only Prosperity-specific code.
-- **`Trader.run`:** a try/except per product, swallowed unless `STRICT`.
+- **STRATEGY:** format-agnostic. Fair value (fixed, mid, or `wall_mid`) → take → clear → make. `Plan` keeps all orders inside the full room under the limit, counting buys and sells separately. It holds `takes` (take, clear) and `quotes` (make) apart.
+- **EXECUTION:** format-agnostic. `execute(plan, resting)` returns cancels and new orders:
+  - takes are sent as IOC
+  - a resting quote is kept while a quote on its side and price still wants at least its size
+  - everything else is cancelled
 
-New strategy logic goes in STRATEGY, and format changes go in ADAPTER. `bots/datamodel.py` only
+  The engine applies cancels before the limit check, which is why planning with the full room is safe. With nothing resting, it sends the whole plan, so one file works in both engine modes.
+- **ADAPTER:** the only Prosperity-specific code, including the resting extensions (`state.open_orders`, `Cancel`, `ioc`).
+- **`Trader.run`:** a try/except per product, swallowed unless `STRICT`. A product that errors cancels its resting orders.
+
+New strategy logic goes in STRATEGY, order-management changes go in EXECUTION, and format changes go in ADAPTER. `bots/datamodel.py` only
 lets editors resolve imports; it is never submitted.
 
 ## Known gaps (from README)

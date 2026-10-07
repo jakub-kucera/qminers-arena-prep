@@ -57,16 +57,19 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 
 Same template, Prosperity 3 round 1, all three days:
 
-| Fills from | PnL |
-|---|---|
-| book + market trades at your price or worse (`all`, default) | 81,292 |
-| book + market trades strictly worse than your price (`worse`) | 57,774 |
-| visible book only (`none`) | 28,216 |
-| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 44,900 |
+| Fills from | per tick (default) | `--resting` |
+|---|---|---|
+| book + market trades at your price or worse (`all`, default) | 81,292 | 68,043 |
+| book + market trades strictly worse than your price (`worse`) | 57,774 | 57,958 |
+| visible book only (`none`) | 28,216 | 28,412 |
+| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 44,900 | 35,088 |
 
 Most of the default PnL comes from assuming bots would have traded with your resting quotes
 instead of with each other. When comparing variants, check that the better one also wins under
 `--match-trades worse`; if the ranking flips, the gain is probably a backtest artefact.
+
+With `--resting`, a quote that joins an existing level waits behind it, so `all` loses about a
+sixth. Under `worse` and `none`, fills don't depend on the queue, so the two modes are close.
 
 ## Grid search
 
@@ -181,7 +184,7 @@ adding orders until every new one breaches the limit.
 
 ## The bot template
 
-`bots/template.py` is one file in four sections:
+`bots/template.py` is one file in five sections:
 
 - **PARAMS:** per-product settings. Products not listed aren't traded. Keys missing from a product's entry come from `DEFAULTS`.
 - **STRATEGY:** format-agnostic. Each product goes through four steps:
@@ -189,6 +192,7 @@ adding orders until every new one breaches the limit.
   - **Take:** trade against book orders at least `take_edge` better than fair.
   - **Clear:** cut inventory at fair to free room under the limit.
   - **Make:** quote `make_edge` from fair, or one tick inside the book, moved by `skew` against inventory.
+- **EXECUTION:** format-agnostic order management. Takes go out immediate-or-cancel. A resting quote is kept, with its place in the queue, while the plan still wants at least its size at its price. Everything else is cancelled and re-sent. When nothing rests between ticks, every planned order is simply sent, so the same file works under both engine modes.
 - **ADAPTER:** the only part that knows the Prosperity types.
 - **Trader:** the entry point. It isolates each product, so one product's bug doesn't stop the others. It keeps all state in `traderData`, and it swallows exceptions unless `STRICT` is set. The backtester sets `STRICT` so errors show up.
 
@@ -203,7 +207,7 @@ adding orders until every new one breaches the limit.
    - which imports are allowed
    - whether unfilled orders rest between ticks (if they do, backtest with `--resting`)
 2. **Write `arena/formats/qminers.py`**, using `prosperity.py` as the model. It needs a loader into `Day`/`Tick` and a bot wrapper that builds their state and converts orders back. Register it in `arena/formats/__init__.py`.
-3. **Update the bot:** rewrite its ADAPTER section and the `datamodel` import. Leave STRATEGY alone.
+3. **Update the bot:** rewrite its ADAPTER section and the `datamodel` import. Leave STRATEGY and EXECUTION alone.
 4. **Validate** with `--format qminers`, their time limit, and `--allow` for their libraries.
 
 ## Known gaps
