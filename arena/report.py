@@ -101,16 +101,38 @@ def last_line(text: str) -> str:
 
 
 def write_csvs(result: DayResult, out_dir: Path) -> None:
-    """Writes <day>_timeline.csv (position, mark, pnl per product per tick) and <day>_fills.csv."""
+    """Writes three CSVs per day, read back by arena.analysis.
+
+    <day>_timeline.csv  per product per tick: position, mark, pnl, best bid/ask, limit
+    <day>_fills.csv     every fill
+    <day>_orders.csv    every order that reached the market (after the limit check)
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     with (out_dir / f"{result.day}_timeline.csv").open("w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["timestamp", "product", "position", "mark", "pnl"])
+        writer.writerow(["timestamp", "product", "position", "mark", "pnl", "best_bid", "best_ask", "limit"])
         for product in result.products:
-            for row in zip(result.timestamps, result.positions[product], result.marks[product], result.pnl[product]):
-                writer.writerow([row[0], product, *row[1:]])
+            rows = zip(
+                result.timestamps,
+                result.positions[product],
+                result.marks[product],
+                result.pnl[product],
+                result.best_bids[product],
+                result.best_asks[product],
+            )
+            for timestamp, position, mark, pnl, bid, ask in rows:
+                writer.writerow([timestamp, product, position, mark, pnl, _blank(bid), _blank(ask), result.limits[product]])
     with (out_dir / f"{result.day}_fills.csv").open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["timestamp", "product", "price", "quantity", "source", "counterparty"])
         for fill in result.fills:
             writer.writerow([fill.timestamp, fill.product, fill.price, fill.quantity, fill.source, fill.counterparty])
+    with (out_dir / f"{result.day}_orders.csv").open("w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["timestamp", "product", "price", "quantity"])
+        for timestamp, order in result.orders:
+            writer.writerow([timestamp, order.product, order.price, order.quantity])
+
+
+def _blank(value: float | None) -> float | str:
+    return "" if value is None else value

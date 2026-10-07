@@ -21,7 +21,7 @@ from arena.engine import run_day
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m arena.backtest", description="Backtest a bot file on recorded data.")
     add_common_arguments(parser)
-    parser.add_argument("--out", type=Path, help="write <day>_timeline.csv and <day>_fills.csv to this folder")
+    parser.add_argument("--out", type=Path, help="write <day>_timeline.csv, _fills.csv and _orders.csv to this folder")
     parser.add_argument("--print", action="store_true", help="show the bot's prints")
     parser.add_argument(
         "--no-strict",

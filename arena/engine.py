@@ -68,6 +68,9 @@ class DayResult:
     positions: dict[str, list[int]] = field(default_factory=dict)
     marks: dict[str, list[float]] = field(default_factory=dict)
     pnl: dict[str, list[float]] = field(default_factory=dict)
+    best_bids: dict[str, list[float | None]] = field(default_factory=dict)  # None: that side was empty
+    best_asks: dict[str, list[float | None]] = field(default_factory=dict)
+    orders: list[tuple[int, Order]] = field(default_factory=list)  # (timestamp, order) that passed the limit check
     fills: list[Fill] = field(default_factory=list)
     errors: list[tuple[int, str]] = field(default_factory=list)  # (timestamp, traceback or message)
     limit_breaches: list[tuple[int, str]] = field(default_factory=list)  # (timestamp, product)
@@ -83,6 +86,8 @@ def run_day(day: Day, bot: Bot, config: EngineConfig = EngineConfig()) -> DayRes
         positions={product: [] for product in day.products},
         marks={product: [] for product in day.products},
         pnl={product: [] for product in day.products},
+        best_bids={product: [] for product in day.products},
+        best_asks={product: [] for product in day.products},
     )
     rng = random.Random(config.seed)
     position = dict.fromkeys(day.products, 0)
@@ -94,6 +99,7 @@ def run_day(day: Day, bot: Bot, config: EngineConfig = EngineConfig()) -> DayRes
     for tick in day.ticks:
         orders = _call_bot(bot, tick, position, own_fills, market_trades, config, result)
         orders = _within_limits(orders, position, day.limits, tick.timestamp, result)
+        result.orders.extend((tick.timestamp, order) for order in orders)
         books, trades = _liquidity(tick, config.fill_ratio, rng)
         own_fills = [
             fill
@@ -113,6 +119,9 @@ def run_day(day: Day, bot: Bot, config: EngineConfig = EngineConfig()) -> DayRes
             result.positions[product].append(position[product])
             result.marks[product].append(mark[product])
             result.pnl[product].append(cash[product] + position[product] * mark[product])
+            book = tick.books.get(product)
+            result.best_bids[product].append(book.bids[0][0] if book and book.bids else None)
+            result.best_asks[product].append(book.asks[0][0] if book and book.asks else None)
 
     return result
 
