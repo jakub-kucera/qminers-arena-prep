@@ -16,6 +16,16 @@ REPOS=(
   "prosperity2-backtester-jmerle  jmerle/imc-prosperity-2-backtester"
   "prosperity3-visualizer-jmerle  jmerle/imc-prosperity-3-visualizer"
   "algotrade2026-pitfa19          pitfa19/algotrade2026"
+  "prosperity3-frankfurt-hedgehogs TimoDiehm/imc-prosperity-3"
+  "prosperity4-baguette-fromage   Durpie-Git/imc-prosperity-4"
+  "prosperity4-du-trading         FoxHenderson/imc-prosperity-4"
+  "prosperity4-dtu-quant-lab      DataAthleteChamp/dtu-quant-lab-imc-prosperity-4"
+  "prosperity4-ryan-challman      nathanw3456/Prosperity_4_Writeup"
+  "prosperity4-alpha-search       fabianbaiertum/IMC-Prosperity-4"
+  "prosperity4-backtester         nabayansaha/imc-prosperity-4-backtester"
+  "uchicago-trading-2026          konnorlo/UChicago-Trading-Competition-2026"
+  "qminers-hackathon-2025         vitktor/Qminers-Hackathon-2025"
+  "hftbacktest                    nkaz001/hftbacktest"
 )
 
 case "${1:-}" in

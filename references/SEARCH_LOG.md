@@ -1,0 +1,205 @@
+# Reference search log
+
+What the 2026-10-10 search for sources looked at, what it found, what we used and what we didn't, and why.
+**Read this before searching again.** Skip everything under [Seen](#seen), start from
+[Open leads](#open-leads), and reuse the [methods that worked](#methods-that-worked-and-didnt).
+How to use the sources themselves is in [`README.md`](README.md). Ranks below are the teams' own
+claims from their READMEs, not checked against any leaderboard.
+
+## Headline results
+
+1. **The Arena's own site is the best source, and it was hidden.** `arena.qminers.com` is a JavaScript
+   app, so a page fetch shows only the title. Its text, the official rules and the submission portal's
+   messages are in the bundle `assets/index-*.js`. It answers several `ON_THE_DAY.md` items: one `.py`
+   file uploaded to a portal, a capped number of submissions per round, a backtest on public data, rounds
+   weighted 10/20/30/40%. `check_arena_site.py` re-extracts it and diffs it against `arena-site-snapshot.txt`.
+2. **Prosperity 4 (2026) write-ups and data now exist**, and the newest ones are the best matched
+   to a "submit one file, we run it" event. Two top-10 teams built on Frankfurt Hedgehogs' Prosperity 3 write-up.
+3. **DTU Quant Lab's literature review is a ready-made kill list** for the papers we planned to try.
+4. **Qminers' earlier Quant Hackathon is a weak prior** for this year (a different task, and the Arena is expected to be a big shift).
+5. **No public winning bot or write-up exists** for AlgoTrade 2026, Ready Trader Go, or the Jane Street ETC that we could find.
+6. **Books and articles: few are worth it.** The winners' own sources (DTU's review, hftbacktest's notebooks) point to a short list. We added eight free papers (queue position, queue imbalance, multi-asset market making, and three on backtest overfitting) and read two queue-position articles; no book is worth buying yet. The queue articles also exposed a wrong statement of ours: `ProbQueueModel`'s `p` is the chance a decrease was *behind* the order. Fixed in `TODO.md` and `references/README.md`.
+
+## Seen
+
+Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in the README), **Skipped** (reason given).
+"Used" means a file in this repo changed because of it.
+
+### Prosperity write-ups and code
+
+| Source | Claim | Verdict | Why |
+|---|---|---|---|
+| TimoDiehm/imc-prosperity-3 (Frankfurt Hedgehogs) | P3 2nd of 12,000+ | Cloned | Origin of the wall mid; the FAQ on backtesting and bot reuse; small (<1 MB). |
+| Durpie-Git/imc-prosperity-4 (Baguette Fromage) | P4 4th of 18,803 | Cloned | Most detailed P4 write-up: hidden takers, repeated takers across days, the extra-market-access trap, backtester limits. |
+| DataAthleteChamp/dtu-quant-lab-imc-prosperity-4 | P4 28th | Cloned | `literature_review.md` (shipped vs killed papers) and an honest first-timer arc. Largest clone (212 MB, half of it round 5 data). |
+| FoxHenderson/imc-prosperity-4 (DU Trading) | P4 10th | Cloned | Tiny; the clearest use of one informed counterparty (Mark 67). Code for rounds 2, 4, 5 only. |
+| nathanw3456/Prosperity_4_Writeup (Ryan Challman) | P4 57th | Cloned | The "what didn't work" and "opened the new day too early" notes. 2 MB. |
+| fabianbaiertum/IMC-Prosperity-4 (Alpha Search) | R4 4th (round rank, not overall) | Cloned | README only, no code. Cheap, covers options and the 50-asset round. Lowest value of the cloned set. |
+| nabayansaha/imc-prosperity-4-backtester | 77★, PyPI `prosperity4btest` | Cloned | **Has the P4 data, rounds 0 to 5**, in our CSV format. Its limits table is incomplete. |
+| nkaz001/hftbacktest | 4,873★, MIT | Cloned | Queue models to check ours against (ours = its `RiskAdverseQueueModel`). 131 MB is mostly docs and examples. |
+| konnorlo/UChicago-Trading-Competition-2026 | UChicago algo case 1st of 41 | Cloned | The only write-up from a live exchange shared with other teams. Book-sniping, exchange freezes. |
+| vitktor/Qminers-Hackathon-2025 | Qminers hackathon solution, MIT | Cloned | Has the organisers' `environment.py` and problem statement. Weak prior only. |
+| chrispyroberts/imc-prosperity-3 (CMU Physics) | P3 7th | Online | Good README, but 1.2 GB of data (GitHub's listed size says 126 MB). |
+| Leo-Hawking/IMC-Prosperity-4-Review | P4 top 0.5% | Online | The retrospective on working with an AI agent is the point; 245 MB. |
+| heyman7913/imc-prosperity-4 | P4 19th (JaneRT) | Online | 184 MB. Headings only, unread: micro-price, BS IV scalping, named-participant signals. |
+| MarkBrezina/Ctrl-Alt-DefeatTheMarket | 172★ guide | Online | `RESOURCES.md` ranks the public repos of P1 to P3 top teams; `Webinar notes.md` has IMC's answers. Used as a cross-check of our shortlist. |
+| oscar-chw/imc-prosperity-4-shdc, alexyesilyurt/imc-prosperity-writeup | P4 904th, 83rd | Online | Short; SHDC's lesson is that replay warnings had no go/no-go rule. |
+| jmerle/imc-prosperity-2 and -3, ShubhamAnandJain/IMC-Prosperity-2023-Stanford-Cardinal | P2 9th, P3 25th, P1 2nd | Online | Older editions. Already covered by Linear Utility and the Frankfurt write-up. |
+| GeyzsoN/prosperity_rust_backtester | 90★ | Online | A faster port with the P4 data. Ours is Python and doesn't need the speed yet. |
+| Diego-2510/prosperity4-mark-analyzer | | Online | Only matters if the Arena names counterparties. |
+| kevin-fu1 and Xeeshan85 `imc-prosperity-4-backtester` | 63★, 49★ | Skipped | Same project as nabayansaha's (the PyPI one); no reason for three copies. |
+| sukesan7/astra, TahaKhanM/Prosperity, GauravS11112003/...PythonBacktester, ~10 more P4 backtester repos | | Skipped | Backtesters and toolkits. We have our own engine with fill-for-fill parity to prosperity3bt. |
+| YBansal95/imc-prosperity-3 (P3 #10), JackRao123/prosperity-crushers (P3 19th), awatatani, fenilPatel-IITD, others | | Skipped, **unread** | Not opened. Candidates if a broader search wants more P3 detail. |
+| theov07/IMC_PROSPERITY_4_COMPETITION, neelsani (78th), tintinphong (620th), varshaasj, Chamoy-code (583rd), jacknoel3 (top 5%, 332 MB), Ape108, harpreetsinghiitd | | Skipped, **unread** | Lower ranks or big repos; unread. |
+| Kayzerjali/Prosperity2026 | | Skipped, **unread** | Has a `CLAUDE.md`, so it is an AI-assisted attempt. Might show prompts worth stealing. |
+| gabsens/IMC-Prosperity-2-Manual | 75★ | Skipped, **unread** | Manual-round write-ups. We have no manual-round plan yet. |
+
+### Other competitions
+
+| Source | Verdict | Why |
+|---|---|---|
+| Optiver Ready Trader Go (kit mirror jpli02/Optiver_autotrader, 2023, AGPL) | Online | Event-driven callbacks (`OrderBookMessageHandler`, ...), a readable exchange simulator and four data files. The model for an event-driven API. No winning bot is public. |
+| UT Austin blog on UChicago 2026 | Online | Fair value worked, execution failed once books thinned (market orders of 40 walked the book). |
+| UChicago repos from 2022, 2023, 2025 (gurish165, haoyuwu03, HumzahM/UTC2025-Case2-Writeup, ...) | Skipped, **unread** | Older cases. HumzahM's #1 write-up on a 2025 case is the one to open first. |
+| Jane Street ETC bots (manoflearning/jane-street-etc 2023, kamiyaa/janestreet-rs 2019) | Skipped | A live JSON-over-TCP bot. The Arena looks like a file upload, so the protocol doesn't carry over. Their strategy notes (spread of 1 lost, 2 earned; a regime shift cost $10k a round) are generic. |
+| Citadel Terminal | Skipped | A tower-defence game, not trading. |
+| cryptotradingaddiction/TradingArenaPrep | Online (as a warning) | Someone's guess at this Arena: 4 commits, invented callbacks. Not Qminers' API. |
+| ABIDES (abides-sim, arXiv 1904.12066) | Online | The proper way to model rivals, but far heavier than `--vs`. |
+| AlgoTrade 2026 winners (Negative Eevee) | Not found | Their LinkedIn post says a short write-up exists on GitHub. The link was a redirect and `gh search` found nothing. Searching the three teammates' names was not tried. |
+
+### Qminers and the Arena
+
+| Source | Finding |
+|---|---|
+| arena.qminers.com JS bundle | The portal, the rules, the 10/20/30/40 weights. See `ON_THE_DAY.md` "Known so far". Saved as `arena-site-snapshot.txt`. |
+| quantchallenges.com listing QC-2947 | Entry deadline 6 Oct 2026, event 7 Nov. Nothing on the API. |
+| qminers.com "Competitions & events" and blog | Confirms the Arena is new ("for the first time"). Nothing technical. |
+| Quant Hackathon 2020, 2022, 2024, 2025 (CTU news pages, team repos BrystofKlazek, malek-luky, vitktor) | Task is sports betting. The layout of what they hand out is in the README. |
+| `gh api orgs/qminers` | 404: no public GitHub org found. |
+
+### Papers (titles and IDs checked against the arXiv API; PDFs checked with `pdfinfo` and `pdftotext`)
+
+**Added to `literature_raw/` and `literature_md/` on 2026-10-10** (all free; the papers' first pages and one theorem were checked, the rest is **unread**):
+
+| Paper | Source | Why |
+|---|---|---|
+| Huang, Lehalle & Rosenbaum, *Simulating and analyzing order book data: The queue-reactive model* | arXiv 1312.0563 | DTU shipped it for queue-aware quoting. (The first version of this log had the title wrong.) |
+| Guo, Ruan & Zhu, *Dynamics of Order Positions and Related Queues in a Limit Order Book* | arXiv 1505.04810 | Queue position and fill probability, for the `--resting` model. |
+| Moallemi & Yuan, *A Model for Queue Position Valuation in a Limit Order Book* | moallemi.com/ciamac/papers/queue-value-2016.pdf (SSRN 2996221 returns 403) | Treats a place in the queue as an asset with a value, and validates the model against backtest simulations (per its abstract). |
+| Gould & Bonart, *Queue Imbalance as a One-Tick-Ahead Price Predictor in a Limit Order Book* | arXiv 1512.03492 | A simple, testable signal; complements the micro-price and order-flow-imbalance papers we have. |
+| Guéant, *Optimal market making* | arXiv 1605.01862 | Many assets with inventory limits, the closest paper to a many-product Arena. hftbacktest's `Making Multiple Markets.ipynb` implements it. |
+| Bailey, Borwein, López de Prado & Zhu, *The Probability of Backtest Overfitting* | davidhbailey.com/dhbpapers/backtest-prob.pdf (34 pp.) | How to test for a lucky "best of N" result, for `arena.grid` and capped submissions. |
+| Bailey & López de Prado, *The Deflated Sharpe Ratio* | davidhbailey.com/dhbpapers/deflated-sharpe.pdf (22 pp.) | The same idea for a single selected result. |
+| Bailey & Borwein et al., *Pseudo-Mathematics and Financial Charlatanism* | carmamaths.org/jon/backtest.pdf (34 pp.) | The readable one; Theorem 3.1 bounds the backtest length you need for N trials (`MinBTL < 2 ln N / E[max_N]^2`). |
+
+**Seen, not added (free, but DTU found little use or the topic hasn't come up):**
+
+| Paper | ID or URL | Verdict |
+|---|---|---|
+| Gatheral & Jacquier, *Arbitrage-free SVI volatility surfaces* | arXiv 1204.0646 | Conditional: DTU fitted a parabola to the smile and found full SVI added parameter risk. |
+| Avellaneda & Lee, *Statistical arbitrage in the US equities market* | math.nyu.edu/~avellane/AvellanedaLeeStatArb071108.pdf (reachable) | Conditional: DTU shipped it only on the 50-product round. |
+| Fodra & Labadie, *High-frequency market-making with inventory constraints and directional bets* | arXiv 1206.4810 | Conditional: quoting with a drift signal. |
+| Lipton, Pesavento & Sotiropoulos, *Trade arrival dynamics and quote imbalance in a limit order book* | arXiv 1312.0514 | Skipped: overlaps Gould & Bonart. |
+| Cartea, Donnelly & Jaimungal, *Enhancing trading strategies with order book signals* | Applied Mathematical Finance 2018 (found in OpenAlex, not downloaded) | Unread. The next thing to look at if book imbalance becomes a signal. |
+| Leung & Li, *Optimal mean reversion trading with transaction costs and stop-loss exit* | arXiv 1411.5062 | Skipped: DTU's closed-form exits didn't beat a fixed z-score. |
+| ABIDES, ABIDES-MARL | arXiv 1904.12066, 2511.02016 | Skipped: heavier than the question needs. |
+
+### Books and articles
+
+The first pass had searched repos and listed books as "not tried". This is that search. **The finding is that the
+winners' own sources point to few books.** DTU surveyed several dozen references, shipped 13, and
+marked most of the rest "did not survive backtesting". Baguette Fromage shipped a linear skew, not
+Avellaneda–Stoikov. So more reading has diminishing returns for strategy; the marginal gains are in *validation*
+(Bailey et al.) and in *queue modelling* (the queue papers and articles), which feed our engine and process.
+
+**Articles (all free). Rigtorp and Databento were read through `WebFetch` summaries, so check any formula against the page before coding it:**
+
+| Article | Verdict | Notes |
+|---|---|---|
+| [Rigtorp, *Estimating order queue position*](https://rigtorp.se/2013/06/08/estimating-order-queue-position.html) | **Used** (`TODO.md`, `references/README.md`) | The probability model behind hftbacktest's `ProbQueueModel`. A decrease at your level is attributed ahead of you with `p = f(ahead) / (f(ahead) + f(behind))`. The URL was found in hftbacktest's source (our earlier guess was a 404). |
+| [Databento, *Getting queue position from L2 and order book data*](https://databento.com/blog/getting-queue-position-from-l2-and-order-book-data) | **Used** | Compares L2 estimates against order-by-order data: cancels come mostly from the back of the queue, and models that assume too little of that bias overstate passive fills. Our inference, not the article's: `f(x) = log(1 + x)` blames the back more than `f(x) = x` does (front 100, back 10: 9% behind with `x`, 34% with `log(1 + x)`), so it is the closer fit. Our `--resting` model sits at the pessimistic end. |
+| hftbacktest `examples/` notebooks (local) | **Already cloned**, newly listed | Worked examples of GLFT quoting, multi-asset quoting, queue-based quoting for large ticks, order-book imbalance as an alpha, and the probability queue models. Read these before writing a new quoting module. |
+| [keanekwa/Optiver-Ready-Trader-Go](https://github.com/keanekwa/Optiver-Ready-Trader-Go) README (102★) | Read, **not cloned** | A team that ran their bots against each other in a shared simulator: arbitrage bots were "effective by themselves" but "performed poorly when put alongside other traders", so they moved to Avellaneda–Stoikov, which they found most reliable. Their inventory-adjusted mid trader did not beat the plain one, which echoes Baguette Fromage. Supports keeping `--vs`. One team's untested claim. |
+| Hummingbot [guide](https://hummingbot.org/blog/guide-to-the-avellaneda--stoikov-strategy/) and [technical deep dive](https://hummingbot.org/blog/technical-deep-dive-into-the-avellaneda--stoikov-strategy/) on Avellaneda–Stoikov | Seen in a search summary, **unread** | Practical calibration of gamma and kappa. The RTG README's link to it (blog.hummingbot.org) no longer resolves. |
+| Quant.SE thread "How do we estimate position of our order in order book" | **Unread** | Cited by hftbacktest next to Rigtorp. |
+| Optiver's [explainers](https://www.optiver.com/insights/explainers/) | Titles only, **unread** | Free background on market making; probably basic for us. |
+
+**Books (paid, none bought; verdicts rest on blog reading lists of uneven quality, plus DTU's notes):**
+
+| Book | Evidence | Verdict |
+|---|---|---|
+| Natenberg, *Option Volatility and Pricing* | Most-cited options book in the lists; one list says options market makers give it to new hires (not checked). | Only if options come back. DTU shipped the voucher round with Black–Scholes and a fitted smile (`references/prosperity4-dtu-quant-lab/round_3`). |
+| Sinclair, *Option Trading* and *Volatility Trading* | An Optiver careers note (2022) says its in-house training used *Option Trading* for years. DTU read *Volatility Trading* and said it informed the smile fit. | Same condition. |
+| Vidyamurthy, *Pairs Trading* | The same Optiver note recommends it for Ready Trader Go. DTU: "no cointegrated pair in the R3 mix". | Skip unless a pairs or basket round appears. |
+| Chan, *Algorithmic Trading* | Beginner-friendly mean reversion and momentum. | Skip: generic. |
+| Hasbrouck, *Empirical Market Microstructure* | A list calls it more quantitative than Harris. | Skip: Cartea et al. (already here) covers the maths. |
+| Guéant, *The Financial Mathematics of Market Liquidity*; Lehalle & Laruelle, *Market Microstructure in Practice*; Bouchaud et al., *Trades, Quotes and Prices* (full book) | Fuller versions of papers and an excerpt we have. | Skip: paywalled, and the papers cover what a bot needs. |
+| López de Prado, *Advances in Financial Machine Learning* | Its backtesting chapters overlap the Bailey papers. | Skip: the free papers carry the same ideas. |
+| Aldridge, *High Frequency Trading*; Johnson, *Algorithmic Trading & DMA* | Generic introductions in the lists. | Skip. |
+
+We only fetched papers that their authors host for free. `literature_raw/` already held the books (Harris, Cartea et al.).
+
+## Used and not used
+
+**Used (files changed):**
+- `references/clone.sh` (ten repos), `README.md` (table rows, "Where to look", "Read online", reading order), this log, `check_arena_site.py`, `arena-site-snapshot.txt`.
+- `references/wiki/` (written later the same day): a wiki built from reading the strategy code of the clones, in the LLM-wiki pattern (schema, index, log, source and concept pages, lint). Open leads that need the clones should start there; each source page ends with a "Read depth" section.
+- `literature_raw/` and `literature_md/convert.sh` (eight papers), `literature_md/README.md`, and `references/README.md` (the two queue articles; a corrected statement of `ProbQueueModel`).
+- `ON_THE_DAY.md`: "Known so far" rewritten from the site; the submissions, backtest-data and evaluation-data items; the bot-interface prior.
+- `TODO.md`: the research item ticked; new items for the Prosperity 4 data, the conditional papers, the queue model (copy `ProbQueueModel` with `log(1 + x)`), a prior on inventory skew, and a grid item from the Bailey papers (count the trials). The first draft of the queue item stated the probability backwards (the code's `p` is the chance a decrease was *behind* the order); fixed after reading `queue.rs`.
+
+**Not used, and why:**
+- *Backtesters other than ours.* Ours matches prosperity3bt fill for fill, and the other P4 backtester copies add nothing we need except the data.
+- *Strategy code.* Third-party team code has no licence. We read it for ideas, and `README.md` says not to paste it.
+- *The Quant Hackathon's model.* A sports-betting model. Only the layout of what Qminers gave out matters, and only weakly.
+- *Live-protocol kits (Jane Street ETC, Ready Trader Go).* Kept as models for an event-driven API, but the Arena's portal suggests a file upload.
+- *Heavy simulators (ABIDES).* Heavier than the question needs.
+- *The rest of DTU's reading list and the books above.* DTU killed most of it in backtests, and the books are paywalled with no evidence they changed a result.
+
+## Methods that worked and didn't
+
+**Worked:**
+- `gh search repos --topic imc-prosperity-4 --sort stars --limit 25 --json ...` and `gh search repos "<phrase>" --sort stars`. Far better recall than `WebSearch`, which returned mostly noise for GitHub content.
+- Reading a README without cloning: `gh api repos/OWNER/REPO/readme --jq .content | base64 -d`. Scan its headings first (`grep -n '^#'`), then read only the sections that matter.
+- Checking the real size before cloning: sum the blobs from `gh api "repos/OWNER/REPO/git/trees/HEAD?recursive=1"`. GitHub's listed `size` understated chrispyroberts' repo by about 10 times.
+- Community aggregators: `Ctrl-Alt-DefeatTheMarket/RESOURCES.md` lists previous top teams by rank for three editions.
+- **Single-page apps:** fetch the HTML, find the `<script src>` bundle, fetch it, and pull out the string literals. This is what found the Arena rules. Quotes must be paired from a real string boundary, and short strings must still be matched, or the pairing flips (the bug the first version of `check_arena_site.py` had).
+- `WebFetch` for blog posts and docs (hftbacktest docs, CTU news, UT Austin blog).
+- The arXiv API over HTTPS (`https://export.arxiv.org/api/query?id_list=...`) to verify paper IDs. Plain HTTP returned nothing.
+- **Take references from sources that already won:** DTU's `literature_review.md` (shipped vs dropped, with reasons) and the links inside hftbacktest's example notebooks and source docstrings (that is where the Rigtorp URL came from). Far better than a blind search.
+- OpenAlex (`api.openalex.org/works?search=...`, no key) to check that a paper exists and has an open PDF. Search for the exact title; the default relevance order is fine.
+- Testing a PDF link with `curl -sIL` (status and content type), then downloading into a fresh directory and confirming with `pdfinfo` and `pdftotext -l 1` that it is the paper, before moving it to `literature_raw/`.
+- `WebFetch` works on rigtorp.se and databento.com.
+
+**Didn't work:**
+- `WebFetch` on Medium (403), Notion (returns only "Notion"), and SPAs in general.
+- `WebSearch` for "winning bot" or "write-up" for AlgoTrade, Ready Trader Go and the Jane Street ETC: nothing public that we could find.
+- `gh search repos` with `OR` in the query, and `--owner qminers` (no such org).
+- `gh search repos` queries for AlgoTrade: five phrasings returned nothing.
+- Guessing URLs from memory (Rigtorp's article, `davidhbailey.com/dhbpapers/pseudo-math.pdf`): both 404. Find the link in a source that cites it.
+- Semantic Scholar's unauthenticated API: HTTP 429 on every query.
+- OpenAlex with `sort=cited_by_count:desc`: returns unrelated, highly cited papers. Do not sort by citations on a fuzzy search.
+- `WebSearch` for book recommendations: returns commercial interview-prep listicles. No official IMC, Optiver or Qminers reading list exists that we could find.
+- PDFs behind 403 for `curl`: ams.org Notices, escholarship.org, SSRN. Look for an author-hosted copy (davidhbailey.com, carmamaths.org, moallemi.com).
+
+## Open leads
+
+In rough order of value for the effort:
+1. **Read what's already cloned.** The suggested order is in `README.md`; `references/wiki/index.md` says where things are, and each source page's "Read depth" says which parts were never read. This is worth more than another search.
+2. **Re-run `references/check_arena_site.py` before the event** (and whenever the organisers e-mail). It costs almost nothing and shows rule changes.
+3. **Unread but promising:** HumzahM/UTC2025-Case2-Writeup (a #1 write-up of a live shared-exchange case), Kayzerjali/Prosperity2026 (`CLAUDE.md` for an AI-assisted attempt), YBansal95 and JackRao123 (P3 10th and 19th), heyman7913 (P4 19th), and the CMU Physics README.
+4. **AlgoTrade 2026 winners' write-up:** search GitHub for the three teammates named in the LinkedIn post, or open the post in a browser.
+5. **The queue TODO's reading:** the hftbacktest "Probability Queue Models" and "Queue-Based Market Making in Large Tick Size Assets" notebooks and Moallemi & Yuan (now in `literature_md/`). Rigtorp and Databento are done.
+6. **If the interface turns out to be event-driven:** find the Ready Trader Go Python kit (2021 to 2022 editions) and the Jane Street ETC wrappers, and build a callback adapter.
+7. **Manual-round practice:** gabsens/IMC-Prosperity-2-Manual and the manual sections of the P3 and P4 write-ups, if the Arena has manual-style puzzles. Nothing says it does.
+8. **Books:** searched, see the table above. None is worth buying now. If a round brings options, Natenberg or Sinclair become worth a look, and DTU's `round_3` code is the quicker start.
+9. **Read the eight new papers properly.** Only their first pages and one theorem (`pseudo-math`, Theorem 3.1) were checked. Check any formula against the PDF before using it, as `literature_md/README.md` requires.
+10. **Cartea, Donnelly & Jaimungal on order-book signals**, and the Hummingbot A–S guide, if quoting gets a signal-driven skew.
+
+## Do not repeat
+
+- Searching Prosperity topics on GitHub (`imc-prosperity`, `-2`, `-3`, `-4`): done to the top 25 by stars each, plus the queries "imc prosperity 2", "imc prosperity 3", "imc prosperity backtester".
+- `WebSearch` for Qminers Arena information: returns the registration form, the listing and the CTU pages, all seen.
+- The registration form (it only says "capacity of competition was reached") and Czech or Matfyzák searches (they return only the CTU hackathon pages; one search summary even claimed the Arena doesn't exist, which the site itself disproves).
+- Fetching `arena.qminers.com` with `WebFetch` (returns the title only). Use `check_arena_site.py`.
+- Searching for book recommendations (done: only blog listicles; the verdicts are in the Books table) and ranking papers by citation counts (Semantic Scholar is rate-limited, OpenAlex sorts badly).
