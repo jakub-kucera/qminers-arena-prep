@@ -21,6 +21,14 @@ PAPERS=(
   "dealing-with-inventory-risk    Dealing with the inventory risk"
   "trades-quotes-prices           trades_quotes_prices"
   "kelly-criterion                THE KEILY CRITERION"
+  "queue-reactive-model           queue-reactive-model"
+  "dynamics-of-order-positions    dynamics-of-order-positions"
+  "queue-position-valuation       queue-position-valuation"
+  "queue-imbalance-predictor      queue-imbalance-predictor"
+  "optimal-market-making          optimal-market-making"
+  "probability-of-backtest-overfitting probability-of-backtest-overfitting"
+  "deflated-sharpe-ratio          deflated-sharpe-ratio"
+  "pseudo-math                    pseudo-math"
 )
 
 for entry in "${PAPERS[@]}"; do

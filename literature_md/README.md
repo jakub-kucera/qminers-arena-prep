@@ -19,6 +19,14 @@ Marker's `meta.json` (table of contents with page numbers).
 | `kelly-criterion/` | Thorp, *The Kelly criterion in blackjack, sports betting, and the stock market* (1997, 40 pp.) | Position sizing: bet fraction from edge and variance, fractional Kelly, growth rate vs. risk |
 | `algorithmic-and-hft/` | Cartea, Jaimungal & Penalva, *Algorithmic and High-Frequency Trading* (360 pp.) | Optimal execution, market making, stochastic-control derivations |
 | `harris-trading-and-exchanges/` | Harris, *Trading and Exchanges* (656 pp., 2003 draft) | Market structure, order types, who trades and why |
+| `queue-position-valuation/` | Moallemi & Yuan, *A Model for Queue Position Valuation in a Limit Order Book* (33 pp.) | What a place in the FIFO queue is worth: a static part (spread earned against adverse selection, which grows with queue position) and an option-like part (value of keeping the position). Backs the queue model in `--resting` |
+| `queue-reactive-model/` | Huang, Lehalle & Rosenbaum, *Simulating and analyzing order book data: The queue-reactive model* (29 pp.) | The book as a Markov queue system whose arrival and cancel rates depend on its state; fitting the rates from data and simulating a book. DTU Quant Lab shipped it for queue-aware quoting |
+| `dynamics-of-order-positions/` | Guo, Ruan & Zhu, *Dynamics of Order Positions and Related Queues in a Limit Order Book* (42 pp.) | Fluid and diffusion limits for an order's queue position, with closed forms for fill-related quantities. Heavy maths; a reference |
+| `queue-imbalance-predictor/` | Gould & Bonart, *Queue Imbalance as a One-Tick-Ahead Price Predictor in a Limit Order Book* (30 pp.) | Logistic regression of the next mid-price move on bid/ask queue imbalance, on 10 Nasdaq stocks. A simple signal to test on the Prosperity data |
+| `optimal-market-making/` | Guéant, *Optimal market making* (43 pp.) | Market making over many assets with inventory limits and skewed quotes. The closest paper to a many-product Arena. hftbacktest's `Making Multiple Markets.ipynb` implements it |
+| `probability-of-backtest-overfitting/` | Bailey, Borwein, López de Prado & Zhu, *The Probability of Backtest Overfitting* (34 pp.) | Why the best of many backtests is usually luck, and CSCV, a way to estimate the probability that it is. For `arena.grid` and a capped number of portal submissions |
+| `deflated-sharpe-ratio/` | Bailey & López de Prado, *The Deflated Sharpe Ratio* (22 pp.) | A Sharpe ratio corrected for how many strategies were tried, for non-normal returns and for short samples |
+| `pseudo-math/` | Bailey, Borwein et al., *Pseudo-Mathematics and Financial Charlatanism* (34 pp.) | The readable version of the above. Theorem 3.1 bounds the backtest length needed for N trials: `MinBTL < 2 ln N / E[max_N]^2` years, for annualized Sharpe ratios on independent trials |
 
 ## Suggested reading order
 
@@ -30,6 +38,10 @@ Marker's `meta.json` (table of contents with page numbers).
    short-term price changes; test it on the Prosperity data).
 4. **Sizing:** Thorp on the Kelly criterion (bet fraction from edge; use fractional Kelly because
    edge estimates are noisy; position limits are the bankroll cap).
+
+5. **Queue position** (to check and extend `--resting`): Moallemi & Yuan for the idea, then the two articles in `references/README.md` (Rigtorp, Databento) for the estimate, then Huang et al. and Guo et al. if you need the model behind it.
+6. **Validation** (before trusting a grid result or spending a portal submission): `pseudo-math`, then `probability-of-backtest-overfitting`, then `deflated-sharpe-ratio`. They are about long daily-return samples; how far the numbers transfer to a few days of tick data is an open question in `TODO.md`.
+7. **Signals and many products:** Gould & Bonart (queue imbalance) next to Cont et al., and Guéant's multi-asset quoting next to Guéant et al.
 
 Cartea et al. and Bouchaud et al. are references to look things up in, not to read through.
 
