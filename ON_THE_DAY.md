@@ -18,17 +18,29 @@ Three tracks can run in parallel:
 
 ## Known so far
 
-- 24 hours in person, 7–8 Nov 2026 at MFF UK: four rounds of 5 hours each.
-- Python bots trading on a simulated limit-order-book exchange.
-- Probably one Python file submitted at the end of each round (unconfirmed).
-- Unknown whether all teams share one market or each team trades alone.
-- Pre-written code, internet and AI tools are allowed.
+From the Arena site's own front-end code (arena.qminers.com is a JavaScript app, so its text, including the
+official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-check with `references/check_arena_site.py`):
+- 24 hours in person, 7–8 Nov 2026 at MFF UK: four rounds of 5 hours each. Teams of 2 to 4 university students.
+- Python bots trading on a simulated limit-order-book exchange, through "a simple API". Qminers says it will "simulate a realistic exchange", mimicking a limit order book "without many real-world operational complexities".
+- **Submission is a web portal, not a live connection.** Teams log in with an e-mailed one-time link. Each round you upload **a single `.py` file** (a size cap exists, value not in the code). The portal shows a table of submissions with status Waiting / Running / Completed / Failed, a score, downloadable result files and the strategy.
+- **Submissions per round are capped** (the number is not in the code). The newest upload becomes your final one automatically, and you can mark an earlier one as final instead.
+- **Evaluation:** a new upload is "queued for evaluation on the public backtest", and a button offers **"Download public backtest data"** for each round, so historical data is provided. Submissions have a type, PUBLIC or PRIVATE, and the detail page has an "Evaluated submission" link, which suggests a private run of a public submission. The final score is probably on hidden data.
+- **Round weights:** the live leaderboard ("Market simulation rankings") shows Phase 1 to 4 at **10%, 20%, 30% and 40%**, plus a weighted total. The first round, the "forgiving market", is worth the least.
+- **Technical Rules are published at the start** and explained in the opening briefing: permitted resources and tools, evaluation process, scoring, tie-breaks and technical limits. Read them before anything else.
+- The final solution must be Python. Other languages, AI tools, literature and public online resources are allowed for preparing it, unless the Technical Rules say otherwise.
+- Teams must work independently, and may not post questions about the task publicly or ask anyone outside the team during the event. (Reading public material is fine.)
+- All leaderboards are preliminary. The organisers verify the validity and **reproducibility** of the top solutions and may rerun them. Keep the bot deterministic: seed any randomness and don't depend on wall-clock time.
+- Prizes: 100,000 / 60,000 / 40,000 CZK for places 1 to 3. Bring your own internet connection or use eduroam.
+- Still unknown: whether all teams share one market or each team trades alone (the leaderboard calls itself a market simulation, and one of the four skills listed is "game theory... anticipate competitors"), the bot interface, the data format, and the runtime limits.
 
 ## First hour: answers that change the code
 
 - [ ] **How is the bot called?**
   - Find out: the entry point (class or function), its arguments, and what it must return. Is it called once per tick with a snapshot, or fed events as they happen? AlgoTrade 2026 was a websocket with a broadcast every 100 ms.
   - We assume: `Trader().run(state)` once per tick, returning `(orders, conversions, traderData)`.
+  - What the Arena site implies: a single `.py` file uploaded to a portal and run by their simulator on a backtest, not a live socket client. That favours our file-and-adapter setup over an event-driven client. Read the Technical Rules for the entry point.
+  - Weak prior only: Qminers' earlier Quant Hackathon (2022, 2025) was a different task, and this year is expected to be a big shift from those. There they gave out the server's own evaluation loop and a stub `Model` class called per step with pandas DataFrames (see `references/README.md`), so keep the ADAPTER the only place that touches their types, and check whether pandas and numpy are allowed (probe 10).
+  - If it does turn out to be event-driven, `references/` has a model for it: Optiver's Ready Trader Go kit (see the "Read online" list) uses callbacks for book updates and fills.
   - If different: write `arena/formats/qminers.py`, modelled on `prosperity.py`, and rewrite the template's ADAPTER. An event-driven API also needs engine work, so flag it at once.
 - [ ] **Do unfilled orders rest between ticks?**
   - Find out: probe 1.
@@ -53,6 +65,7 @@ Three tracks can run in parallel:
   - If different: update the limits table (`LIMITS` in the format module), the template's `Plan` room, and the engine's `_breaches` if backtests need to match.
   - In a shared market: another team can fill one of your orders between your decision and your next orders. If a breach cancels every order for the product, the whole tick's quotes go. Leaving a few lots of room under the limit avoids that.
 - [ ] **Is the market shared with the other teams?**
+  - Hints from the site, which point both ways: the leaderboard is called "Market simulation rankings", one of four listed skills is "game theory... anticipate competitors", and submissions come in PUBLIC and PRIVATE types. That fits a solo run on historical data for the public score and a shared simulation of the final files for the private one. It also fits two solo runs. Nothing says which.
   - Find out: do trades or book levels appear that the exchange's own bots couldn't explain? Are counterparties named?
   - Find out also: when several teams' orders arrive at the same tick, who goes first? Random, by time sent, or a fixed order?
   - We assume (with `--vs`): a random order, drawn again every tick.
@@ -66,7 +79,7 @@ Three tracks can run in parallel:
   - Find out: Python version, allowed imports (probe 10), time limit per call (probe 8), and what happens to prints (probe 9).
   - Then: run `arena.validate` with `--allow numpy` (etc.) and `--time-limit-ms` set to their limit.
 - [ ] **What data can you backtest on?**
-  - Find out: are historical files provided, and in which format? Does the live data look the same (book depth, tick spacing)?
+  - Find out: in which format are the files behind each round's "Download public backtest data" button (the site says they exist)? Does the data the private evaluation uses look the same (book depth, tick spacing)?
   - Then: write the loader in `arena/formats/qminers.py`, and run the template and validator on it before changing any strategy.
   - If no data is provided: have the probe bot print the full book and trades every tick, and build a dataset from the logs.
 - [ ] **Which backtest settings match the playground?**
@@ -76,7 +89,9 @@ Three tracks can run in parallel:
 
 ## Before the first submission
 
-- [ ] **How do submissions work?** The exact deadline, whether you can resubmit, which submission counts, and whether you can test-run one before it counts.
+- [ ] **How do submissions work?** The exact deadline, how many submissions you get per round, the file size cap, and whether the public backtest score counts or only a private run.
+  - From the site (see Known so far): single `.py` upload, a cap per round, newest upload becomes final unless you mark another, public and private evaluations.
+  - So: run `arena.validate` before every upload. Never spend a submission on untested code. Before the deadline, check which submission is marked final.
 - [ ] **What does an exception do?** Probe 6. Is the tick skipped, the bot stopped, or the round lost? The template catches errors per product unless `STRICT` is set.
 - [ ] **What are the price units?** Integer ticks? Tick size? Cents? The template rounds prices to `int`.
 - [ ] **How is PnL scored?**
@@ -90,7 +105,7 @@ Three tracks can run in parallel:
 - [ ] **Products:** the new products, their position limits, and whether any are related, such as baskets, ETFs or options. AlgoTrade defined each ETF's fair value as the mean of its constituents.
 - [ ] **Other traders:** are there exchange bots, and are counterparties named? In Prosperity's round 5, the names gave away informed traders.
 - [ ] **Is `wall_mid` still the market maker's price?** It takes the largest level on each side. In a shared market, another team's large quote can be the largest level and drag your fair value with it. Against a rival copy, this cost Kelp `make_edge=0` 12,474. Check that the walls have the stable size and spacing of an exchange bot. If teams' orders compete, pick out the market maker by its usual size instead.
-- [ ] **Evaluation data:** is the round scored on the data you were given, or on fresh data? If fresh, trust the grid's `nbhd` and `min day` measures over its best `pnl`.
+- [ ] **Evaluation data:** is the round scored on the data you were given, or on fresh data? The site hints at a private evaluation next to the public backtest. If fresh, trust the grid's `nbhd` and `min day` measures over its best `pnl`.
 - [ ] **Extra information:** news, external prices, or conversions to another market.
 - [ ] **Rule changes:** anything different from the previous round, such as limits, fees or matching.
 
