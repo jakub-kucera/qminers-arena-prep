@@ -1,0 +1,32 @@
+---
+title: Backtesting and tooling
+type: concept
+updated: 2026-10-10
+---
+
+# Backtesting and tooling
+
+## Summary
+The community backtesters (jmerle's, then the Prosperity 4 fork) implement the matching rules every team relied on, and our engine matches the Prosperity 3 one fill for fill. What the teams added on top, and what they say the backtester cannot do, shapes what to build in our own tooling.
+
+## What the sources say
+- **Matching rules:** limits are enforced before matching; an order matches the book first and then market trades at its own price; `--match-trades worse` is the stricter variant Linear Utility used (`prosperity3-backtester-jmerle/README.md:59-67`, `prosperity3-backtester-jmerle/prosperity3bt/runner.py:123-310`). Conversions are not supported (`prosperity3-backtester-jmerle/README.md:83`), which cost Alpha Animals money (`prosperity3-alpha-animals/README.md:88`).
+- **Prosperity 4 fork:** per-fill limit clamp, `--limit`, `--round2-access`, `--counterparty-info`, risk metrics (`prosperity4-backtester/prosperity4bt/__main__.py:255-284`, `prosperity4-backtester/prosperity4bt/metrics.py:14`). Default limit 50 for unlisted products (`prosperity4-backtester/prosperity4bt/data.py:8`).
+- **Turn a submission log into data** with `parse_submission_logs.py` (`prosperity3-backtester-jmerle/prosperity3bt/parse_submission_logs.py:8-81`): this is how a portal run becomes backtest data.
+- **Log format and viewers:** traders print a compressed state (`Logger`) that the visualizer parses (`prosperity3-visualizer-jmerle/src/utils/algorithm.tsx:203-225`); every team built its own dashboard (Frankfurt's: `prosperity3-frankfurt-hedgehogs/README.md:96-163`; DTU's: `prosperity4-dtu-quant-lab/tools/dashboard.py`; Linear Utility's: `prosperity2-linear-utility/README.md:78`).
+- **Speed matters for sweeps:** Ryan Challman ran a 50-variant sweep in minutes on a Rust port instead of an afternoon on the Python engine (`prosperity4-ryan-challman/README.md:23`); DTU wrote that a port to a faster language is needed past ~20 products (`prosperity4-dtu-quant-lab/README.md:343`).
+- **Per-product PnL attribution on day 1:** DTU's own advice (`prosperity4-dtu-quant-lab/README.md:343`); Alpha Search's carry-versus-capture decomposition (`prosperity4-alpha-search/README.md:44`).
+- **What a backtester cannot do** (Frankfurt, Baguette Fromage): bot interactions after inserting liquidity, market impact, conversions (`prosperity3-frankfurt-hedgehogs/README.md:899-900`, `prosperity4-baguette-fromage/README.md:236-243`).
+- **Reading the website's PnL** works as a probe of the true price (buy one lot and hold) *(see [fair-value-and-wall-mid](fair-value-and-wall-mid.md))*.
+
+## Where they disagree
+Nothing material.
+
+## What it means for our code
+`arena.backtest`, `arena.grid`, `arena.analysis` and `arena.validate` exist; the engine is pinned to jmerle's P3 rules by `tests/test_parity.py` and also has a resting-order mode and a shared-market mode (`CLAUDE.md`). Missing: `--data p4`, conversions, a visualizer-compatible log writer, PnL decomposition (`TODO.md`).
+
+## How to test it here
+`TODO.md`: run the cloned teams' traders through our engine once `--data p4` exists; record PnL next to the claim in the source pages. Frankfurt's file has already been run (see its source page).
+
+## Sources
+[jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md), [P2 backtester](../sources/prosperity2-backtester-jmerle.md), [prosperity4btest](../sources/prosperity4-backtester.md), [visualizer](../sources/prosperity3-visualizer-jmerle.md), [hftbacktest](../sources/hftbacktest.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md).
