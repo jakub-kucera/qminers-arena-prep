@@ -37,7 +37,7 @@ def _norm(text: str) -> str:
 @cache
 def markers(slug: str) -> list[tuple[int, int]]:
     """(line, zero-based page) for every page marker in SLUG/SLUG.md, in line order."""
-    lines = (HERE / slug / f"{slug}.md").read_text().splitlines()
+    lines = (HERE / slug / f"{slug}.md").read_text().split("\n")  # grep's line numbers: splitlines() also splits on \f
     toc = json.loads((HERE / slug / "meta.json").read_text()).get("table_of_contents", [])
     entries = [(_norm(t.get("title", "")), t["page_id"]) for t in toc if t.get("title") and "page_id" in t]
     found, next_entry = [], 0
@@ -90,7 +90,7 @@ def words_near(lines: list[str], number: int, want: int = 12) -> set[str]:
         text = re.sub(r"\\[A-Za-z]+|<[^>]+>|\$[^$]*\$", " ", lines[i - 1]) if 1 <= i <= len(lines) else ""
         return {w.lower() for w in WORD.findall(text)}
     found, span = words(number), 0
-    while len(found) < want and span < 5:
+    while len(found) < want and span < want:
         span += 1
         found |= words(number - span) | words(number + span)
     return found
@@ -104,11 +104,15 @@ def locate(slug: str, number: int) -> tuple[int | None, list[tuple[float, int]],
         return None, [], (low, high)
     high_search = high if high is not None else low + 3
     pages = pdf_pages(pdf, low, high_search)
-    lines = (HERE / slug / f"{slug}.md").read_text().splitlines()
-    target = words_near(lines, number)
-    scored = sorted(((len(target & {w.lower() for w in WORD.findall(text)}) / max(len(target), 1), page)
-                     for page, text in pages.items()), reverse=True)
-    best = scored[0][1] if scored and scored[0][0] >= 0.3 else None
+    lines = (HERE / slug / f"{slug}.md").read_text().split("\n")  # grep's line numbers: splitlines() also splits on \f
+    page_words = {page: {w.lower() for w in WORD.findall(text)} for page, text in pages.items()}
+    for want in (12, 40, 120):  # a near-tie (words common to both pages) is settled by more context
+        target = words_near(lines, number, want)
+        scored = sorted(((len(target & words) / max(len(target), 1), page) for page, words in page_words.items()),
+                        reverse=True)
+        if len(scored) < 2 or scored[0][0] - scored[1][0] > 0.05:
+            break
+    best = scored[0][1] if scored and scored[0][0] >= 0.3 and (len(scored) < 2 or scored[0][0] > scored[1][0]) else None
     return best, scored, (low, high)
 
 

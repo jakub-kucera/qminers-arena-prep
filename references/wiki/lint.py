@@ -126,7 +126,7 @@ def main() -> int:
                 else:
                     errors.append(f"{rel}: cited file not found: {path}")
                 continue
-            lines = found.read_text(errors="replace").splitlines()
+            lines = found.read_text(errors="replace").split("\n")  # not splitlines(): it also splits on \f and \u2028, unlike grep
             first, last = int(start), int(end or start)
             if not 1 <= first <= last <= len(lines):
                 errors.append(f"{rel}: {path}:{start}{'-' + end if end else ''} is outside the file ({len(lines)} lines)")
