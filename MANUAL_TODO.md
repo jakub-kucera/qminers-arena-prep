@@ -70,12 +70,31 @@ Save scans or ebooks of the chapters named, as `literature_raw/<short-name>.pdf`
 like the rest of `literature_md/`; say so if a book should stay out of git. The agent then follows the workflow
 "Add a document to the literature" in `references/wiki/SCHEMA.md` (a chapter map, then only the chapters a question needs).
 
-- [ ] **Bouchaud, Bonart, Donier & Gould, *Trades, Quotes and Prices* (Cambridge University Press, 2018)**: chapters
-  4–7 (order-book statistics and queue dynamics, from p. 58), 11–13 (price impact) and 15–17 (the Kyle model, what
-  sets the spread, whether market making pays, from p. 290), about 150 pages. Save as `trades-quotes-prices-chapters.pdf`.
-  - Why: we have only a 47-page excerpt (front matter, contents, preface, chapter 1 and the start of chapter 2);
-    the chapters we lack are the ones on queues and market making.
-  - Done when: the chapters are converted and indexed in `literature_md/README.md`.
+- [ ] **Bouchaud, Bonart, Donier & Gould, *Trades, Quotes and Prices: Financial Markets Under the Microscope*
+  (Cambridge University Press, 2018), the full book** (about 460 pages). Save it as `trades_quotes_prices.pdf`, replacing
+  the excerpt, so it keeps the slug `trades-quotes-prices`.
+  - Why: of all the documents in `literature_raw/`, this is the only incomplete one (checked 2026-10-13). We have a
+    47-page excerpt: front matter, contents, preface, chapter 1 and chapter 2 up to section 2.1.4. The chapters we lack
+    are the ones we need most: 4–7 (order-book statistics, queue dynamics), 11–14 (price impact), 15–17 (the Kyle
+    model, what sets the spread, whether market making pays).
+  - Done when: the full book replaces the excerpt and the wiki is rebuilt from it, following "Replace a document with a
+    fuller copy" in `references/wiki/SCHEMA.md`: a new chapter map, chapters 11, 16 and 17 read first, every existing
+    citation re-pointed to the full copy's lines and pages, and `python3 references/wiki/lint.py --pages` clean.
+- [ ] **(Low priority) Final versions of five documents we have as drafts or preprints.** All five are complete in
+  content (checked 2026-10-13); only the version differs. Save each under its current file name in `literature_raw/`.
+  - Avellaneda & Stoikov, "High-frequency trading in a limit order book", *Quantitative Finance* 8(3), 2008. **The
+    one worth getting:** our copy is the 24 April 2006 preprint, whose spread formula has no `γσ²(T−t)` term, while
+    Hummingbot's version has one (`references/wiki/sources/hft-in-a-limit-order-book.md`, Traps). The published
+    version would settle which formula the paper ends with.
+  - Cont, Kukanov & Stoikov, "The price impact of order book events", *Journal of Financial Econometrics* 12(1), 2014
+    (ours: the March 2011 working paper).
+  - Cartea, Donnelly & Jaimungal, "Enhancing trading strategies with order book signals", *Applied Mathematical
+    Finance* 25(1), 2018 (ours: the accepted manuscript).
+  - Harris, *Trading and Exchanges: Market Microstructure for Practitioners* (Oxford University Press, 2003), the
+    printed edition (ours: a 2003 draft with all 29 chapters). Only if a page number must match the printed book:
+    swapping it in means re-citing every Harris line in the wiki.
+  - Done when: each is obtained and the wiki rebuilt from it as for the full Bouchaud book, or ticked as "the
+    version we have is enough".
 - [ ] **(Only if you expect options) one options text**: Natenberg, *Option Volatility and Pricing* (2nd ed.), or Sinclair,
   *Option Trading*, or Hull, *Options, Futures and Other Derivatives* (probably in your library). Only the Greeks and
   volatility chapters, as `options-chapters.pdf`.

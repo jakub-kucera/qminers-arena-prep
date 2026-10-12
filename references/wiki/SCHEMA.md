@@ -114,6 +114,13 @@ This is how Phase 1 of the literature ingest ran (`log.md`, 2026-10-12). Follow 
 2. Answer with citations. If the cited line no longer says what the page says, the page is stale: fix it and log a `lint` entry.
 3. If the answer is reusable, file it back (rule 8) and log a `query` entry.
 
+### Replace a document with a fuller copy (a full book for an excerpt, a published version for a preprint)
+The wiki is rebuilt from the new copy; nothing keeps citing the old one.
+1. Save the new PDF under the old file name in `literature_raw/`, so the slug stays the same, and move the old one out. Delete `literature_md/<slug>/` and run `literature_md/convert.sh`.
+2. Every citation into the slug now points at the wrong lines. List them with `grep -rn "<slug>.md:" references/wiki`. For each, find the passage in the new markdown, then cite the new line and its page from `pdfpage.py`. Re-check every formula marked `checked` on the new page images; the version may differ.
+3. Rewrite the source page from the new copy: "What it is" and "Read depth" for the new version, a new chapter map for a book, and the parts that were missing read now, in the order the open questions need them. File what they add into the concept pages (steps D–E of "Add a document to the literature").
+4. Update `literature_md/README.md` (pages, version), run `python3 references/wiki/lint.py --pages` until it is clean, and log a `restructure` entry.
+
 ### Lint (before the event and after any large edit)
 1. Run `python3 references/wiki/lint.py --pages` (mechanical: front matter, index coverage, links, citations, orphans, log format; for the literature, the cited page against the markers and, with `--pages`, against the PDF text; a status on every formula next to a literature citation; no `unchecked` formula under "What it means for our code"). A `--pages` warning is either a wrong page or a matcher miss: check the PDF, then fix the page or add the line to `MATCH_MISSES` in `lint.py` with the reason.
 2. Then check by hand: a seeded random sample of about 40 literature citations, each read against its cited lines; contradictions not yet in `contradictions.md`; claims marked *their claim* that you can now check; clones updated since `updated:` (`clone.sh --update`); concepts mentioned in three or more pages that have no page; gaps a search could fill (list them in `index.md`, "Gaps").

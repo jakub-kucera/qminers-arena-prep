@@ -3,7 +3,7 @@ title: Bouchaud, Bonart, Donier & Gould, "Trades, Quotes and Prices" (book excer
 type: source
 repo: literature_md/trades-quotes-prices
 status: read
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Bouchaud, Bonart, Donier & Gould, *Trades, Quotes and Prices: Financial Markets Under the Microscope* (Cambridge University Press, 2018; our copy is a 47-page excerpt)
@@ -82,7 +82,7 @@ The empirical-physics textbook of market microstructure, built on NASDAQ (LOBSTE
 
 ## Read depth
 - **Read:** everything in the excerpt: preface, chapter 1, chapter 2 to section 2.1.4 (which is cut off mid-sentence).
-- **Not in our copy:** chapters 2.2 onward, including the impact chapters 11–14, the Kyle model (15), the spread (16) and market-making profitability (17). If the full book is added, chapters 11, 16 and 17 are the ones to read first.
+- **Not in our copy:** chapters 2.2 onward, including the impact chapters 11–14, the Kyle model (15), the spread (16) and market-making profitability (17). The full book is requested in `MANUAL_TODO.md`. When it arrives, this page is rebuilt from it (`SCHEMA.md`, "Replace a document with a fuller copy"), and chapters 11, 16 and 17 are the ones to read first.
 - **Checked against the PDF (page images):** eq. (1.9), (2.1), `s/2 − R∞`, (1.10)–(1.11), (2.9), (2.10), (2.12), (2.13). (2.9) and (2.10) were also derived here.
 
 ## Cited by
