@@ -41,6 +41,7 @@ Position limits (confirmed by [DTU](prosperity4-dtu-quant-lab.md)): Osmium 80 (`
 - **Their round 2 caveat** that the hard-coded 10,000 pinned Osmium at the limit (`README.md:527-539`) doesn't show on the round 2 data: Osmium sits at the limit on 0–5% of ticks. It happened on the live day, which we don't have.
 - Our engine cancels a few ticks' Osmium orders for breaching the limit (1–28 ticks a day), as Prosperity would.
 - `bid()` returns −10,000,000 (`Strategies/Phase1.py:254-255`), which the backtester reads as no bid for extra market access.
+- **Rounds 3–5** (`Strategies/Phase2_Options.py` on rounds 3 and 4, `Strategies/Phase2_Final.py` on round 5, 3-day totals): 851,152, 888,554 and 1,091,014. The vouchers give about 610k of each options round and the Robots about 508k of round 5. The comparison by product is in `IDEAS.md`, "Benchmark".
 
 ## Traps
 - Imports `prosperity3bt.datamodel` with a fallback and `Phase1.py` uses `jsonpickle`: rewrite, don't paste (no licence).

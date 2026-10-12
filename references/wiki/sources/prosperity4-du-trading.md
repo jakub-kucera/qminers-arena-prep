@@ -34,6 +34,7 @@ Code:
 
 - **Claim tested:** ranks 5th and 3rd in rounds 1 and 2 (`README.md:9-12`); no PnL is given. The backtest is level with Baguette Fromage's (4th overall) and about 4–8k a day above DTU's round 2 trader, which fits the ranks.
 - **The Pepper Root edge is the long bias** of +76 (`README.md:71`): about 83k a day of the ~102k comes from riding Pepper Root's drift.
+- **Rounds 3–5** (`round4.py` on rounds 3 and 4, `round5.py` on round 5, 3-day totals): 504,955, 524,261 and 726,507. The vouchers give about 370k of each options round and the Robots about 309k of round 5. The comparison by product is in `IDEAS.md`, "Benchmark".
 
 ## Traps
 - **The published code does not match the README on counterparties** *(checked: grep)*: `round4.py` never reads `buyer`/`seller`, so the Mark 67 and Mark 22 logic is not in it. `SpikeTrader._detect_spike_side` (`round4.py:319`) says "levels below wall mid" in its docstring but counts every ask level.

@@ -37,6 +37,7 @@ A team repo with traders for all five rounds, data, and two documents that matte
 - **Claims tested:** live algorithmic PnL of +67,585 in round 1 and +84,889 in round 2 (`README.md:51-52`). The round 1 trader's backtest days are within 4% of its live result. The round 2 trader's are 12–16% above its live result; the live day is not in our data, and the trader has no `bid()`, so no market-access fee explains it.
 - **The round 1 trader caps both products at 50** (`round_1/algorithmic/trader.py:89`, `round_1/algorithmic/trader.py:92`), below the real limit of 80. Pepper Root's PnL is the drift on a held long of 50, about 1,000 a day per lot.
 - **The round 2 trader sends more than its room on Osmium:** 124–347 ticks a day have every Osmium order cancelled for a possible limit breach, in both engines.
+- **Rounds 3–5** (the round 3, 4 and 5 traders on their own rounds, 3-day totals): 135,842, 116,090 and 501,498. Their live single days were +3,686, +25,351 and +702,835 (`README.md:53-55`), so these backtests on the development days say little about live results. The comparison by product is in `IDEAS.md`, "Benchmark".
 
 ## Traps
 - `_clip_orders` is stricter than the engine's limit rule and dropped orders the engine would accept; they bypass it for the plain market maker (`round_5/algorithmic/trader.py:2918-2921`).

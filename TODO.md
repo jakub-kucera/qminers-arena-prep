@@ -84,6 +84,7 @@ items as they come up.
   - **From the literature (2026-10-12):** Cartea et al.'s optimal entry and exit bands for a mean-reverting spread reproduce with a standard-library integral, so they can be computed offline per basket. Harris: only pure arbitrages (known weights, fixed sums) must revert. See `references/wiki/concepts/baskets-and-fixed-sums.md`.
   - Done when: the module trades a basket spread profitably on both datasets, under `worse` fills as well as `all`.
 - [ ] **Prepare the other later-round mechanics:**
+  - **Priority from the P4 benchmark (2026-10-13, `IDEAS.md`):** options first (the teams make about 370–610k on the vouchers per options round, plain market making 11k), then fading round-number jumps (Robots: 309–509k against 11k), then spot products that revert to a level (Hydrogel, Velvetfruit: up to 160k against 5–30k). Read the teams' files for each before writing ours; they all run in our engine.
   - options: implied volatility and delta hedging, on Prosperity 3 round 3's volcanic vouchers and Prosperity 2 round 4's coconut coupons
   - mean reversion: Squid Ink
   - counterparty names: Prosperity round 5, to follow the traders who know something

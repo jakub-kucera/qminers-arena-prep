@@ -1,7 +1,7 @@
 ---
 title: Drift, regime change and fixed anchors
 type: concept
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Drift, regime change and fixed anchors
@@ -19,13 +19,15 @@ Products come in three shapes: pegged (Resin, Osmium), drifting deterministicall
 - **The opening price can reveal the regime** (heyman7913): some Velvetfruit days opened already 2.5σ above the anchor and a fixed z = 2 short entry lost money before reverting; they blended thresholds across three regime centres (5245, 5267.5, 5295.5) with Gaussian weights keyed to the day's opening price (`online-snapshots/heyman7913_imc-prosperity-4.README.md:356-371`, their claim).
 
 ## Where they disagree
-Buy-and-hold (many teams) versus market making around the drift (Baguette Fromage, Alpha Search): the market-making teams argue the spread (~14) is too large to ignore (`prosperity4-baguette-fromage/README.md:429`). Not settled; see [contradictions](../contradictions.md), row 6.
+Buy-and-hold (many teams) versus market making around the drift (Baguette Fromage, Alpha Search): the market-making teams argue the spread (~14) is too large to ignore (`prosperity4-baguette-fromage/README.md:429`). See [contradictions](../contradictions.md), row 7.
+
+**Measured in our engine (2026-10-13, P4 rounds 1–2):** every published approach that holds a long position wins. Pepper Root alone earns 83–84k a day with Baguette Fromage's thresholds, 82–84k with DU's +76 bias and 79–80k with DTU at the limit ([DU](../sources/prosperity4-du-trading.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md)). Market making around the drift with no target made −25k to +58k a day. These are the teams' traders on their own development days, and the drift never broke in them.
 
 ## What it means for our code
-`bots/template.py` has `fixed_fair` and smoothed `mid`/`wall_mid`, no drift line, no regime detector and no fail-safe for a pinned inventory. These would be additions to the fair-value section, not the execution section (`CLAUDE.md`).
+`bots/template.py` has `fixed_fair` and smoothed `mid`/`wall_mid`, and since 2026-10-13 a `target` position that `clear` and `skew` work toward (`bots/template.py:173-185`, `bots/template.py:206`). With `target` 80 and `skew` 20, Pepper Root makes 76–78k a day on rounds 1–2, about 6k short of the best published trader (`IDEAS.md`). There is still no drift line, no regime detector and no fail-safe for a pinned inventory; those would be additions to the fair-value section, not the execution section (`CLAUDE.md`).
 
 ## How to test it here
-Needs `--data p4`: Pepper Root (rounds 1–2) for drift, Hydrogel (rounds 3–4) for the broken anchor. A fixed anchor versus a rolling median versus DTU's detector, ranked by the worst day (`validation-and-overfitting.md`).
+With `--data p4`: Pepper Root (rounds 1–2) for drift, done for the long bias; Hydrogel (rounds 3–4) for the broken anchor, not yet. A fixed anchor versus a rolling median versus DTU's detector, ranked by the worst day (`validation-and-overfitting.md`).
 
 ## Sources
 [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md). Related: [fair-value-and-wall-mid](fair-value-and-wall-mid.md), [validation-and-overfitting](validation-and-overfitting.md). [heyman7913](../sources/prosperity4-heyman7913.md).
