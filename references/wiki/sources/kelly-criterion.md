@@ -12,7 +12,7 @@ updated: 2026-10-12
 Thorp's practitioner survey of the Kelly criterion: bet the fraction of capital that maximises the expected log of wealth. It covers coin tossing, formulas for practitioners, how long "the long run" takes, a continuous-time version for securities, fractional Kelly, a portfolio case study, and Thorp's 28 years of using it. It is the theory behind the 25% Kelly staking in the [Qminers 2025](qminers-hackathon-2025.md) solution. For us the value is not the optimal fraction itself, since the Arena has position limits rather than a bankroll that compounds, but three facts about sizing: size scales with edge over variance, betting more than the optimum costs as much growth as betting less while adding risk, and estimated edges are usually too high.
 
 ## Main results
-- **Maximising expected wealth means betting everything, which makes ruin almost sure** (`kelly-criterion.md:47` (p. 3)). Kelly instead maximises `g(f) = E log(X_n/X_0)/n`.
+- **Maximising expected wealth means betting everything, which makes ruin almost sure** (`kelly-criterion.md:47` (p. 3)). Kelly instead maximises `g(f) = E log(X_n/X_0)/n` (`kelly-criterion.md:67-71` (p. 4, checked)).
 - **Even-money coin, win probability p:** `g(f) = p log(1 + f) + q log(1 − f)`, maximised at **`f* = p − q`**, the edge (`kelly-criterion.md:75` (p. 4, checked)).
 - **Theorem 1** (`kelly-criterion.md:85` (p. 5)):
   - `g(f) > 0` makes wealth grow without bound, `g(f) < 0` sends it to zero, and `g(f) = 0` makes it oscillate between both.
@@ -38,7 +38,7 @@ Thorp's practitioner survey of the Kelly criterion: bet the fraction of capital 
   - The estimate `m_e` is likely above the truth `m_t`: markets are non-stationary, systems may be "partly or entirely based on data mining", and "systems that do work attract capital", which pushes their returns down.
   - Lessons: **assume `m_t < m_e` and bet `f < f*_e`** by enough to keep growth positive; **`0.5f*_e ≤ f < f*_e`** protects against that and is likely to cost at most 25% of growth.
 - **Many securities** (eq. 8.2, `kelly-criterion.md:781` (p. 36, checked)):
-  - **`F* = C⁻¹(M − R)`**, with `C` the covariance matrix and `M − R` the excess drifts. Uncorrelated securities each get `(mᵢ − r)/sᵢ²` (`kelly-criterion.md:783` (p. 37)).
+  - **`F* = C⁻¹(M − R)`**, with `C` the covariance matrix and `M − R` the excess drifts. Uncorrelated securities each get `(mᵢ − r)/sᵢ²` (`kelly-criterion.md:783` (p. 37, checked)).
   - Two securities with an exact price ratio make `C` singular, so `C⁻¹` doesn't exist (`kelly-criterion.md:787` (p. 37)).
 - **Thorp's record:** his partnership compounded at about 20% a year with a standard deviation of about 6% over 28.5 years, across about 1.25 million bets (`kelly-criterion.md:811` (p. 37–38)). This is his claim.
 - **Conclusion:** use Kelly or less, never more, and limit the fraction further when the probabilities are uncertain (`kelly-criterion.md:815` (p. 38)).
@@ -72,7 +72,7 @@ Thorp's practitioner survey of the Kelly criterion: bet the fraction of capital 
 ## Read depth
 - **Read:** sections 1–4 (coin tossing, formulas, the long run), 7 (securities, fractional Kelly, the remarkable formula), 8(d) (the portfolio formula), 9 (experience) and 10 (conclusion).
 - **Not read:** sections 5 (blackjack) and 6 (sports betting), and the case study tables of section 8.
-- **Checked against the PDF (page images):** `f* = p − q`, Example 2.1, `(bp − q)/b`, `m/(ab)`, (3.2), Table 4.2, (7.3), (7.4)–(7.6), `c(2 − c)`, the lessons, (7.13) and its 1/2, 1/8, 2/3 and 8/9, and (8.2). `c(2 − c)` and `m/(ab)` were also derived here.
+- **Checked against the PDF (page images):** `g(f)`, `f* = p − q`, Example 2.1, `(bp − q)/b`, `m/(ab)`, (3.2), Table 4.2, (7.3), (7.4)–(7.6), `c(2 − c)`, the lessons, (7.13) and its 1/2, 1/8, 2/3 and 8/9, (8.2) and its uncorrelated case. `c(2 − c)` and `m/(ab)` were also derived here.
 
 ## Cited by
 [risk-and-protecting-a-lead](../concepts/risk-and-protecting-a-lead.md).

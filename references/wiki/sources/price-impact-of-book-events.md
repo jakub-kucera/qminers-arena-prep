@@ -18,9 +18,9 @@ A 26-page empirical paper on one month (April 2010) of TAQ Level-1 data for 50 r
   - **The ask:** the same with signs reversed.
 - **OFI over an interval:** `OFI_k = Σ e_n` over the events in `[t_{k−1}, t_k]`. The mid change in ticks is `ΔP_k = (P_k − P_{k−1})/δ` (`price-impact-of-book-events.md:79-87` (p. 4, checked)).
 - **Stylised book** (every level behind the best has depth D, events only at the best): `ΔP = OFI/(2D) + ε` (eq. 1, `price-impact-of-book-events.md:114-129` (p. 6, checked)).
-- **The model** (eq. 2–3, `price-impact-of-book-events.md:137-150` (p. 6, checked)): `ΔP_k = β·OFI_k + ε_k` and `β_i = c/AD_i^λ + ν_i`. `AD_i` is the average of `(q^B + q^A)/2` over the half hour.
+- **The model** (eq. 2–3, `price-impact-of-book-events.md:137-150` (p. 6–7, checked)): `ΔP_k = β·OFI_k + ε_k` and `β_i = c/AD_i^λ + ν_i`. `AD_i` is the average of `(q^B + q^A)/2` over the half hour.
 - **Fit:** 10-second intervals, OLS per half-hour per stock, about 180 points each (`price-impact-of-book-events.md:178-191` (p. 8–9)).
-  - **Average R² is 65%** (`price-impact-of-book-events.md:48` (p. 2)). β is significant almost always, and the intercept almost never.
+  - **Average R² is 65%** (`price-impact-of-book-events.md:48` (p. 3)). β is significant almost always, and the intercept almost never.
   - A quadratic term adds 3 points of R², so the relation is linear.
   - Without the price-changing events, R² drops to 35–60% (`price-impact-of-book-events.md:189` (p. 8)).
   - Results hold from 10 quote updates to 10 minutes, with R² rising with the interval.

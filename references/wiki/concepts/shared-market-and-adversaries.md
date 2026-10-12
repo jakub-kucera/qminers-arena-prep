@@ -25,7 +25,7 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 - **Competition erodes the edge:** with n competing market makers, the liquidity discount a trader pays falls like 1/(n+1) (Grossman–Miller, `literature_md/algorithmic-and-hft/algorithmic-and-hft.md:575-579` (p. 41)). Competition among arbitrageurs narrows arbitrage spreads to the costs of the most efficient one (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:8801` (p. 391)). This is the theory behind "crowded edges decay".
 
 ## Where they disagree
-Nothing to compare: the Prosperity record has no shared-market evidence.
+The Prosperity record has no shared-market evidence. Theory against practice on quoting inside the wall, which Harris's trapper exploits: [contradictions](../contradictions.md), row 16.
 
 ## What it means for our code
 `arena.run_market` and `--vs BOT` simulate other bots' resting orders in the same market (`CLAUDE.md`, "Shared market"). Rivals are only bots we bring.

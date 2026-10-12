@@ -16,7 +16,7 @@ A 42-page probability paper: fluid limits (law-of-large-numbers), diffusion limi
   - Six order types: limit, market and cancel at the best bid and at the best ask.
   - Orders arrive at rate `λ`; the mean sizes are `V̄¹` (bid limit), `V̄²` (market sell at the bid), `V̄³` (bid cancel), and `V̄⁴…V̄⁶` for the ask.
   - `Z(t)` is the volume ahead of our order.
-- **Fluid limit** (Theorem 11, `dynamics-of-order-positions.md:253-300` (p. 10, checked)):
+- **Fluid limit** (Theorem 11, `dynamics-of-order-positions.md:253-300` (p. 10–11, checked)):
   - `Q^b(t) = q^b − λv^b·t` and `Q^a(t) = q^a − λv^a·t`, with net depletion rates `v^b = −V̄¹ + V̄² + V̄³` and `v^a = −V̄⁴ + V̄⁵ + V̄⁶`.
   - **`dZ/dt = −λ·(V̄² + V̄³·Z/Q^b)`:** the position advances by every market order, plus the *share of cancellations that falls ahead of it*, which is `Z/Q^b` under uniform cancellation.
   - The time to execution `τ^z` has a closed form in `a = λV̄²`, `b = q^b/(λV̄³)` and `c = −v^b/V̄³` (eq. 2.11–2.12). The queues empty at `τ^b = q^b/(λv^b)` and `τ^a = q^a/(λv^a)`.

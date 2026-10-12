@@ -6,7 +6,7 @@ Read this first, then the pages it points to. Conventions, workflows and the lin
 
 ## Overview and open questions
 - [overview.md](overview.md): what the Prosperity record teaches and what probably carries to the Arena.
-- [contradictions.md](contradictions.md): disagreements between sources, README-versus-code mismatches, open questions, each with what would settle it.
+- [contradictions.md](contradictions.md): disagreements between sources, README-versus-code mismatches, theory against the teams' practice (rows 12–16), open questions, each with what would settle it.
 
 ## Concepts (synthesised across sources)
 - [fair-value-and-wall-mid](concepts/fair-value-and-wall-mid.md): the mark is the market maker's mid; five definitions of "wall mid".

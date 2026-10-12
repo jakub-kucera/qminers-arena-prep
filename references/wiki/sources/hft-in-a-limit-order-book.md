@@ -17,7 +17,7 @@ The 13-page paper behind every "Avellaneda–Stoikov" market maker. A dealer quo
   - `r^a = s + (1 − 2q)γσ²(T−t)/2` and `r^b = s + (−1 − 2q)γσ²(T−t)/2`.
   - Their average is `r(s, q, t) = s − qγσ²(T − t)`. Long inventory pushes the price at which the dealer is indifferent below the mid.
 - **Infinite horizon** (`hft-in-a-limit-order-book.md:79-93` (p. 4, checked)): with a discount `ω`, `r̄^a = s + (1/γ)·ln(1 − (2q+1)γ²σ²/(2ω − γ²q²σ²))` and `r̄^b` with `(2q−1)`, valid for `ω > ½γ²σ²q²`. Choosing `ω = ½γ²σ²(q_max + 1)²` ties it to a maximum inventory. This is a stationary skew with no `T`, non-linear in `q`.
-- **Fill intensity** (`hft-in-a-limit-order-book.md:135-157` (p. 6–7)): a power law for market-order sizes and a log impact give `λ(δ) = A·e^{−kδ}`, with `A = Λ/α` and `k = αK`. A power-law impact gives `λ(δ) = B·δ^{−α/β}` instead.
+- **Fill intensity** (`hft-in-a-limit-order-book.md:135-157` (p. 6–7, checked)): a power law for market-order sizes and a log impact give `λ(δ) = A·e^{−kδ}`, with `A = Λ/α` and `k = αK`. A power-law impact gives `λ(δ) = B·δ^{−α/β}` instead.
 - **Optimal quotes** (implicit, eq. 3.6–3.7, `hft-in-a-limit-order-book.md:193-197` (p. 8, checked)): `s − r^b = δ^b − (1/γ)·ln(1 − γλ^b(δ^b)/∂_δλ^b(δ^b))`, and the same for the ask.
 - **Closed-form approximation** (`hft-in-a-limit-order-book.md:207-231` (p. 8–9, checked)):
   - `λ(δ) = A·e^{−kδ}`, and use the static `r` as a proxy for both reservation prices. Then `δ^b = γqσ²(T−t) + (1/γ)·ln(1 + γ/k)` and `δ^a = −γqσ²(T−t) + (1/γ)·ln(1 + γ/k)`.
@@ -55,7 +55,7 @@ The 13-page paper behind every "Avellaneda–Stoikov" market maker. A dealer quo
 
 ## Read depth
 - **Read:** all sections.
-- **Checked against the PDF (page images):** (2.1), the reservation prices, the infinite-horizon prices, (3.6)–(3.12) and the spread. The simulation numbers were checked against Table 1's text and recomputed for the spread.
+- **Checked against the PDF (page images):** (2.1), the intensities (2.8) and the power-law variant, the reservation prices, the infinite-horizon prices, (3.6)–(3.12) and the spread. The simulation numbers were checked against Table 1's text and recomputed for the spread.
 - **Not checked:** the HJB derivation (3.3).
 
 ## Cited by

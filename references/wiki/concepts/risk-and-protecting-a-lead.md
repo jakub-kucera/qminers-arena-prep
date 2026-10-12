@@ -35,7 +35,7 @@ Only part of this carries over *(inferred)*:
 - **Rank changes the appetite.** Behind, more variance can raise the chance of a top place; ahead, it only adds the risk of losing it. That is the rest of this page, and no part of Kelly.
 
 ## Where they disagree
-No team argues for more variance after taking a lead.
+No team argues for more variance after taking a lead. How much of the position limit to use, Kelly against full-room market making: [contradictions](../contradictions.md), row 14.
 
 ## What it means for our code
 Nothing yet. The decision is a policy (flatten, or stop) rather than a strategy; the template has no end-of-round flatten parameter (a deferred item in `TODO.md`).

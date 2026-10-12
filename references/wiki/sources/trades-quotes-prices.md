@@ -29,7 +29,7 @@ The empirical-physics textbook of market microstructure, built on NASDAQ (LOBSTE
   - Large orders must be split, so supply and demand are digested slowly and "prices cannot be in equilibrium" (`trades-quotes-prices.md:555` (p. 39)).
 
 **Chapter 2, the statistics of price changes:**
-- **Bachelier's first law:** with uncorrelated changes, the variogram `V(τ) = E[(p_{t+τ} − p_t)²]` grows linearly, `V(τ) = Dτ` (eq. 2.1, `trades-quotes-prices.md:618-622` (p. 44)).
+- **Bachelier's first law:** with uncorrelated changes, the variogram `V(τ) = E[(p_{t+τ} − p_t)²]` grows linearly, `V(τ) = Dτ` (eq. 2.1, `trades-quotes-prices.md:618-622` (p. 44, checked)).
 - **The signature plot** (eq. 2.8–2.9, `trades-quotes-prices.md:670-676` (p. 45, checked)):
   - **`σ²(τ) = V(τ)/(τ p̄²) = σ_r² [1 + 2 Σ_{u=1}^{τ} (1 − u/τ) C_r(u)]`**, the variance per unit time of changes over `τ`, against `τ`.
   - It is flat for a random walk, rises with trends (`C_r > 0`) and falls with mean reversion (`C_r < 0`).
@@ -83,7 +83,7 @@ The empirical-physics textbook of market microstructure, built on NASDAQ (LOBSTE
 ## Read depth
 - **Read:** everything in the excerpt: preface, chapter 1, chapter 2 to section 2.1.4 (which is cut off mid-sentence).
 - **Not in our copy:** chapters 2.2 onward, including the impact chapters 11–14, the Kyle model (15), the spread (16) and market-making profitability (17). If the full book is added, chapters 11, 16 and 17 are the ones to read first.
-- **Checked against the PDF (page images):** eq. (1.9), `s/2 − R∞`, (1.10)–(1.11), (2.9), (2.10), (2.12), (2.13). (2.9) and (2.10) were also derived here.
+- **Checked against the PDF (page images):** eq. (1.9), (2.1), `s/2 − R∞`, (1.10)–(1.11), (2.9), (2.10), (2.12), (2.13). (2.9) and (2.10) were also derived here.
 
 ## Cited by
 [price-impact](../concepts/price-impact.md), [fair-value-and-wall-mid](../concepts/fair-value-and-wall-mid.md).

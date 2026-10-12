@@ -34,11 +34,13 @@ Every team that did well on the final rounds describes the same discipline: trea
   - Split per-period PnL into S blocks. For each of the `C(S, S/2)` halvings, pick the in-sample best and record its out-of-sample rank.
   - PBO is the share of halvings where it lands at or below the median (`literature_md/probability-of-backtest-overfitting/probability-of-backtest-overfitting.md:117-150` (p. 11–12, checked)).
   - It needs N well above 10. Report every trial, and never optimise on PBO itself.
-- **The deflated Sharpe ratio** tests the chosen configuration against `SR₀`, the expected best of N̂ independent trials. N̂ comes from M correlated ones as `ρ̂ + (1 − ρ̂)M` (`literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:109-117` (p. 8–9, checked), `literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:213` (p. 15)).
+- **The deflated Sharpe ratio** tests the chosen configuration against `SR₀`, the expected best of N̂ independent trials. N̂ comes from M correlated ones as `ρ̂ + (1 − ρ̂)M` (`literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:109-117` (p. 8–9, checked), `literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:213` (p. 14)).
 - **Hold-out alone doesn't protect:** repeated 20 times at 95%, a false positive is expected (`literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:77` (p. 6)). That is the theory behind "don't open the unseen day early".
 - **Stopping rule** (secretary problem): explore a random 37% of the planned candidates, then stop at the first that beats them all (`literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:141-145` (p. 10–11)). This is a pre-committed plan for capped portal submissions.
 
 ## Where they disagree
+Theory against practice: whether a held-out day still protects when it is reused across many variants ([contradictions](../contradictions.md), row 15).
+
 None on the principle. On the cost of caution: Baguette Fromage notes they shipped parts they suspected were over-fit "because at some point you have to stop researching" (`prosperity4-baguette-fromage/README.md:1099`).
 
 ## What it means for our code

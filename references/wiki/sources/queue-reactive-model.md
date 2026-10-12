@@ -15,7 +15,7 @@ A 29-page model of the order book as a Markov queueing system. The arrival rates
 - **Setup** (`queue-reactive-model.md:45-60` (p. 3–4)):
   - Track K = 3 levels a side around a reference price. Queue sizes are counted in average event sizes.
   - Within a period of constant reference price, the book is a continuous-time Markov jump process: each level gains an order at rate `f_i(q)` and loses one at rate `g_i(q)`.
-- **Model I, independent queues** (`queue-reactive-model.md:130` (p. 7)): `f_i = λ^L_i(q_i)` and `g_i = λ^C_i(q_i) + λ^M_i(q_i)`, estimated by maximum likelihood from waiting times between events.
+- **Model I, independent queues** (`queue-reactive-model.md:130` (p. 7, checked)): `f_i = λ^L_i(q_i)` and `g_i = λ^C_i(q_i) + λ^M_i(q_i)`, estimated by maximum likelihood from waiting times between events.
 - **Estimated shapes** (France Telecom, `queue-reactive-model.md:160-172` (p. 8–10)):
   - At the best level, limit-order arrivals are roughly constant in queue size, and lower when the queue is empty.
   - **Cancellations rise concavely, then flatten**, not linearly as in the classic Poisson models.
@@ -52,7 +52,7 @@ A 29-page model of the order book as a Markov queueing system. The arrival rates
 
 ## Read depth
 - **Read:** abstract, introduction, section 2.1, 2.3 (Model I and its empirical shapes), 2.5 (execution probability), section 3 (the queue-reactive model and the tactic study), conclusion.
-- **Checked against the PDF (page images):** Assumptions 3–4 and the execution-probability comparison (p. 16).
+- **Checked against the PDF (page images):** Model I's `f_i`, `g_i` (p. 7), Assumptions 3–4 and the execution-probability comparison (p. 16).
 - **Mapped only:** sections 2.2 (reference-price estimation), 2.3.3 and 2.4 (Models II-a and II-b, asymptotics), the appendix (proofs, quasi-birth-death solution, Alcatel-Lucent results).
 
 ## Cited by

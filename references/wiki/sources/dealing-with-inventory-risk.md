@@ -15,7 +15,7 @@ The Avellaneda–Stoikov model with a **hard inventory bound Q**, solved exactly
 - **Model** (`dealing-with-inventory-risk.md:61-93` (p. 4–5)):
   - Arithmetic Brownian reference price `dS = σdW`; fill intensities `λ(δ) = A·e^{−kδ}` on each side; CARA utility at T.
   - **No bid at q = Q and no ask at q = −Q.** The reference price "can be thought of as a smoothed mid-price" (`dealing-with-inventory-risk.md:75` (p. 4)).
-- **Exact solution** (Propositions 1–2, Theorem 1, `dealing-with-inventory-risk.md:121-159` (p. 6–7, checked)):
+- **Exact solution** (Propositions 1–2, Theorem 1, `dealing-with-inventory-risk.md:121-159` (p. 6–8, checked)):
   - Let `α = (k/2)γσ²` and `η = A(1 + γ/k)^{−(1 + k/γ)}`, and `M` the tridiagonal (2Q+1)-square matrix with diagonal `αq²` and off-diagonal `−η`.
   - Then `v(t) = exp(−M(T−t))·(1, …, 1)'`, and the optimal quotes are `δ^{b*}(t, q) = (1/k)·ln(v_q/v_{q+1}) + (1/γ)·ln(1 + γ/k)` and `δ^{a*}(t, q) = (1/k)·ln(v_q/v_{q−1}) + (1/γ)·ln(1 + γ/k)`.
   - That is a matrix exponential of a (2Q+1)-square matrix: 101 × 101 for a limit of 50.

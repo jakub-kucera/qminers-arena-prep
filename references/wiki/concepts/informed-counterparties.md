@@ -29,6 +29,8 @@ When the data names buyers and sellers (Prosperity 3 round 5, Prosperity 4 round
 - **Copying them can be a trap:** a dealer who speculates on what it infers from a trade can be baited by a small order in the other direction ("Bagging a frontrunning dealer", `literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6831-6835` (p. 305)).
 
 ## Where they disagree
+Whether market trades in general carry information (theory: yes; Prosperity's wall mid: barely): [contradictions](../contradictions.md), row 13.
+
 Which Mark, if any, is worth acting on: see [contradictions](../contradictions.md), row 3. By team: Mark 67 (DU, heyman7913; Alpha Search found it real but too small), Mark 14 (DTU, Leo-Hawking), Mark 55 (Leo-Hawking, heyman7913), none that survived (Ryan Challman, Baguette Fromage).
 
 ## What it means for our code

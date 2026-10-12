@@ -89,7 +89,7 @@ A 34-page survey of limit order books (LOBs): a precise vocabulary for them (sec
 - **Typo in the paper itself:** Gabaix et al.'s result is printed as "the mean mid-price logarithmic return followed the relationship `Ω^ω(T)^0.5`" with the proportionality sign missing (`limit-order-books.md:588` (p. 16)). Eq. (19) uses `α` though its legend defines `μ`, `λ` and `ν` (`limit-order-books.md:565-567` (p. 16)).
 - **Table 1 is garbled** (`limit-order-books.md:197-209` (p. 5)): every number is split across cells.
 - **Sign convention:** the paper's bid depths are negative and its sizes negative for buys. Ours are positive volumes and signed quantities.
-- **Equations (11) and the text around it are out of order** (`limit-order-books.md:375-379` (p. 9)).
+- **Equations (11) and the text around it are out of order** (`limit-order-books.md:375-379` (p. 10)).
 - **Old data:** most findings come from before 2010, and the authors warn that markets have changed since (`limit-order-books.md:767` (p. 24)).
 
 ## Read depth

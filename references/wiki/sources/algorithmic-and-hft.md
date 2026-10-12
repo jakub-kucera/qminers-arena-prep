@@ -13,9 +13,9 @@ The standard textbook on stochastic-control trading strategies (360 PDF pages). 
 
 ## Main results
 **Chapter 2, microstructure primer:**
-- **Grossman–Miller:** n competing risk-averse market makers take a liquidity trader's sale of i units at a discount, `S₁ = μ − γσ²·i/(n+1)`. The discount vanishes as competition n grows (`algorithmic-and-hft.md:575-579` (p. 41)).
-- **The static depth trade-off:** maximise `p·e^{−κδ}·δ` per side, giving **`δ* = 1/κ`**, the mean depth of the book (`algorithmic-and-hft.md:685-688` (p. 46)).
-- **Kyle (1985):** an insider trades `x* = (v − μ)/(2λ)`, and the price moves linearly with net order flow, `S = μ + λ(x + u)` (`algorithmic-and-hft.md:725-755` (p. 49–50)).
+- **Grossman–Miller:** n competing risk-averse market makers take a liquidity trader's sale of i units at a discount, `S₁ = μ − γσ²·i/(n+1)`. The discount vanishes as competition n grows (`algorithmic-and-hft.md:575-579` (p. 41, checked)).
+- **The static depth trade-off:** maximise `p·e^{−κδ}·δ` per side, giving **`δ* = 1/κ`**, the mean depth of the book (`algorithmic-and-hft.md:685-688` (p. 46, checked)).
+- **Kyle (1985):** an insider trades `x* = (v − μ)/(2λ)`, and the price moves linearly with net order flow, `S = μ + λ(x + u)` (`algorithmic-and-hft.md:725-755` (p. 49–50, checked)).
 - **Glosten–Milgrom:** a market maker facing a share α of informed traders breaks even with an ask half-spread `Δa = (V_H − μ)/(1 + ((1−α)/α)·(½)/p)`, and the bid likewise (`algorithmic-and-hft.md:785-791` (p. 52, checked)). If liquidity traders are price-sensitive and the spread gets too wide, the market can collapse to no trade (`algorithmic-and-hft.md:825` (p. 54)).
 
 **Chapter 10, market making:**
@@ -26,9 +26,9 @@ The standard textbook on stochastic-control trading strategies (360 PDF pages). 
 - **Optimal depths** (eq. 10.8, `algorithmic-and-hft.md:5788-5796` (p. 265, checked)): `δ^{±*}(t, q) = 1/κ± − [h(t, q∓1) − h(t, q)]`, with no quote on the side that would breach the bound.
   - With equal κ on both sides, `h = (1/κ)·log ω` and **`ω(t) = e^{A(T−t)}·z`**, a matrix exponential (eq. 10.10–10.11, `algorithmic-and-hft.md:5820-5830` (p. 266, checked)).
   - `A` is tridiagonal: `−φκq²` on the diagonal, `λ±e^{−1}` off it, and `z_j = e^{−ακj²}`.
-- **Without inventory constraints, `δ* = 1/κ` on both sides** (eq. 10.13, `algorithmic-and-hft.md:5884` (p. 270)).
+- **Without inventory constraints, `δ* = 1/κ` on both sides** (eq. 10.13, `algorithmic-and-hft.md:5884` (p. 270, checked)).
 - The penalty induces **mean reversion of inventory**. In the book's simulation the bound is ±10, yet the path never goes beyond ±5 (`algorithmic-and-hft.md:5868` (p. 269)).
-- **Quoting only at the touch** (eq. 10.17, `algorithmic-and-hft.md:5950-5956` (p. 272)): post a side iff `Δ/2 + h(t, q∓1) − h(t, q) > 0`. That is the half-spread against the value lost by taking on a unit, the same structure as Cartea et al. 2018.
+- **Quoting only at the touch** (eq. 10.17, `algorithmic-and-hft.md:5950-5956` (p. 272–273, checked)): post a side iff `Δ/2 + h(t, q∓1) − h(t, q) > 0`. That is the half-spread against the value lost by taking on a unit, the same structure as Cartea et al. 2018.
 - **Choosing the quoted volume** (`algorithmic-and-hft.md:5976-6032` (p. 273–276)): the size posted on the side that reduces inventory grows with inventory, but not enough to flatten in one fill. With φ = 10⁻³, the agent stops quoting a side once inventory reaches ±7 of a ±20 bound.
 - **Utility versus penalty are the same strategy** (eq. 10.19–10.20, `algorithmic-and-hft.md:6064-6090` (p. 277–278, checked)):
   - With exponential utility the depths are `(1/γ)·log(1 + γ/κ) + g(t, q) − g(t, q∓1)`.
@@ -52,7 +52,7 @@ The standard textbook on stochastic-control trading strategies (360 PDF pages). 
   - The entry level solves the analogous equation (11.3).
   - Faster mean reversion or more urgency moves both levels toward the mean.
   - **Double-sided:** the optimal long entry equals the optimal short exit, and vice versa (table, `algorithmic-and-hft.md:6561-6566` (p. 300, checked)). Exit level 1.7460 for κ = 1 and 1.4367 for κ = 4, with θ = 1, σ = 0.5, ρ = c = 0.01; **both recomputed here from (11.2)** *(checked)*.
-- **Co-integrated drifts across n assets** (`algorithmic-and-hft.md:6553-6840` (p. 300–310)): a Merton-style allocation `π* = (1/γ)(Ω⁻¹δ)α + correction`, where the co-integration correction fades toward the horizon (eq. 11.16). Read for the idea; the formulas were not checked.
+- **Co-integrated drifts across n assets** (`algorithmic-and-hft.md:6553-6840` (p. 300–310, unchecked)): a Merton-style allocation `π* = (1/γ)(Ω⁻¹δ)α + correction`, where the co-integration correction fades toward the horizon (eq. 11.16). Read for the idea; the formulas were not checked.
 
 **Chapter 12, order imbalance:**
 - `ρ` is defined as in Cartea et al. 2018. Studies suggest the touch alone gives the best trade-off between prediction and complexity (`algorithmic-and-hft.md:6885-6911` (p. 312–313)).
@@ -108,7 +108,7 @@ Chapter map (PDF pages, one-based; markdown lines):
 | A | Stochastic Calculus for Finance | 332–352 | 7269–7580 | mapped |
 | — | Bibliography, glossary, index | 353–360 | 7581–7623 | mapped |
 
-Checked against the PDF (page images): Glosten–Milgrom half-spreads, Kyle's λ (found the typo), (10.8)–(10.11), (10.19)–(10.20), (10.22)–(10.27), (11.1)–(11.2) with `F±`, the chapter 11 trigger table (and recomputed), (12.1), Table 12.1. Read but not checked: (10.13), (10.17), (11.16), ch. 12's likelihood derivations.
+Checked against the PDF (page images): Grossman–Miller's `S₁`, the static depth `δ* = 1/κ` (2.3), Glosten–Milgrom half-spreads, Kyle's `x*`, `S` and λ (found the typo), (10.13), (10.17), (10.8)–(10.11), (10.19)–(10.20), (10.22)–(10.27), (11.1)–(11.2) with `F±`, the chapter 11 trigger table (and recomputed), (12.1), Table 12.1. Read but not checked: (11.16), ch. 12's likelihood derivations.
 
 ## Cited by
 [optimal-quoting-models](../concepts/optimal-quoting-models.md), [book-imbalance-and-micro-price](../concepts/book-imbalance-and-micro-price.md), [informed-counterparties](../concepts/informed-counterparties.md), [baskets-and-fixed-sums](../concepts/baskets-and-fixed-sums.md), [shared-market-and-adversaries](../concepts/shared-market-and-adversaries.md).

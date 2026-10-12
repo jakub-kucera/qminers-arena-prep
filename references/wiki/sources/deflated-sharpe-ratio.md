@@ -12,7 +12,7 @@ updated: 2026-10-12
 A short, 22-page paper with one usable formula: the **deflated Sharpe ratio (DSR)**, the probability that the chosen strategy's true Sharpe ratio is above what the best of N skill-less trials would show. It needs the number of independent trials, the variance of their Sharpe ratios, the sample length, and the skew and kurtosis of the chosen strategy's returns. It is parametric where [PBO](probability-of-backtest-overfitting.md) is not, and cheap when the trials' full PnL series aren't kept. It also gives a rule for estimating the number of independent trials and a stopping rule for testing.
 
 ## Main results
-- **Expected best of N trials** (eq. 1, `deflated-sharpe-ratio.md:91-95` (p. 7)): `E[max SR_n] ≈ E[SR_n] + √V[SR_n] · ((1 − γ)Z⁻¹[1 − 1/N] + γZ⁻¹[1 − 1/(Ne)])`. It is [pseudo-math](pseudo-math.md)'s Proposition 2.1, scaled to the trials' own mean and variance.
+- **Expected best of N trials** (eq. 1, `deflated-sharpe-ratio.md:91-95` (p. 7, checked)): `E[max SR_n] ≈ E[SR_n] + √V[SR_n] · ((1 − γ)Z⁻¹[1 − 1/N] + γZ⁻¹[1 − 1/(Ne)])`. It is [pseudo-math](pseudo-math.md)'s Proposition 2.1, scaled to the trials' own mean and variance.
 - **DSR** (eq. 2, `deflated-sharpe-ratio.md:109-117` (p. 8–9, checked)):
   - **`DSR = Z[ (SR − SR₀)·√(T − 1) / √(1 − γ̂₃·SR + ((γ̂₄ − 1)/4)·SR²) ]`**
   - **`SR₀ = √V[{SR_n}] · ((1 − γ)Z⁻¹[1 − 1/N] + γZ⁻¹[1 − 1/(Ne)])`**
@@ -45,13 +45,13 @@ A short, 22-page paper with one usable formula: the **deflated Sharpe ratio (DSR
 | `γ̂₃`, `γ̂₄` | skew and kurtosis of the chosen cell's per-block PnL |
 
 ## Traps
-- **OCR lost nearly all inline math.** The definition of `SR₀`, the example's inputs (N = 100, V = ½, T = 1,250, γ̂₃ = −3, γ̂₄ = 10) and its computed values are blank in the markdown (`deflated-sharpe-ratio.md:113` (p. 8), `deflated-sharpe-ratio.md:125-127` (p. 9–10)). Exhibits are missing ("[EXHIBIT 2 HERE]"). This document must be read from the PDF.
+- **OCR lost nearly all inline math.** The definition of `SR₀`, the example's inputs (N = 100, V = ½, T = 1,250, γ̂₃ = −3, γ̂₄ = 10) and its computed values are blank in the markdown (`deflated-sharpe-ratio.md:113` (p. 8–9), `deflated-sharpe-ratio.md:125-127` (p. 9–10)). Exhibits are missing ("[EXHIBIT 2 HERE]"). This document must be read from the PDF.
 - `γ̂₄` is kurtosis, not excess kurtosis: `(γ̂₄ − 1)/4` is ½ for normal returns.
 - `V[{SR_n}]` and `SR` must be in the same units, both per period. The example converts an annualised variance of ½ into `1/(2·250)` per day.
 
 ## Read depth
 - **Read:** the whole paper, including the appendices.
-- **Checked against the PDF (page images):** eq. (2), `SR₀`, the worked example (and recomputed); eq. (9) via the markdown, which kept it.
+- **Checked against the PDF (page images):** eq. (1), eq. (2), `SR₀`, the worked example (and recomputed); eq. (9) via the markdown, which kept it.
 - **Not read:** the exhibits (images only).
 
 ## Cited by
