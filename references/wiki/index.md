@@ -70,6 +70,8 @@ Tools:
 
 So a literature page stores those three things, and the theory sits on the same concept pages as the teams' evidence instead of in a second wiki. For the two books finding the passage *is* the problem: their source pages are chapter maps with PDF pages, and only the chapters our questions need are read.
 
+**What it found:** [`overview.md`](overview.md), "What the literature adds". **How to add a document:** `SCHEMA.md`, "Add a document to the literature".
+
 **How to use it:** start from the concept page; its literature citations carry the PDF page and say whether a formula was `checked` against the PDF (`SCHEMA.md`, rule 9). To see a page: `python3 literature_md/pdfpage.py <slug> <line>`. Only `checked` formulas should reach the code.
 
 Documents with a source page (each says which formulas were checked against the PDF):

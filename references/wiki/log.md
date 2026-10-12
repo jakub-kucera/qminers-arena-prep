@@ -45,3 +45,6 @@ OCR traps found, all recorded on the source pages:
 - typos in the papers themselves: Stoikov's spread with `+`, pseudo-math eq. (6.3), PBO's 12,780 for C(16, 8) = 12,870, Moallemi & Yuan's jump sign.
 
 Our A–S copy is the 2006 preprint, without the `γσ²(T−t)` spread term Hummingbot uses. `lint.py` and `pdfpage.py` now split lines on `\n` only: `splitlines()` also splits on form feeds, which Guo et al.'s markdown contains, and shifted its line numbers against grep's.
+
+## [2026-10-12] restructure | the literature workflow and findings written down
+`SCHEMA.md` replaces the short literature-ingest steps with "Add a document to the literature": get it in, triage (a paper is read whole; a book gets a chapter map and only the chapters a question needs), read and check (page images, tables from the PDF, recomputed examples, OCR checklist), write, close. It is the procedure Phase 1 followed, for future books. `literature_md/README.md` lists the OCR failure modes seen so far. `overview.md` has a new section, "What the literature adds", with the eight findings that change what we do. `MANUAL_TODO.md` (books) and the `TODO.md` plan point to the workflow.

@@ -23,6 +23,7 @@ items as they come up.
     - fair values and skew: `micro-price`, `queue-imbalance-predictor`, `order-book-signals`, `price-impact-of-book-events` → new concept page `book-imbalance-and-micro-price`; `hft-in-a-limit-order-book`, `dealing-with-inventory-risk`, `optimal-market-making` → new concept page `optimal-quoting-models`, with the reduction of each model to the template's `skew` and `make_edge`.
     - the grid trial count: `pseudo-math`, `probability-of-backtest-overfitting`, `deflated-sharpe-ratio` → `validation-and-overfitting`, enough to decide whether a CSCV estimate is worth building.
     - the queue option: `queue-position-valuation` (read), `queue-reactive-model` and `dynamics-of-order-positions` (partly read) → `queue-position-and-fills`.
+  - **Phases 2–3 follow** the workflow "Add a document to the literature" in `references/wiki/SCHEMA.md`, steps B–E.
   - **Phase 2, the books:** chapter maps of both from `meta.json`; read Cartea et al. ch. 2, 10, 11 and 12 and Harris ch. 10–14 and 17; file what they add into the concept pages. The rest stays `mapped` and is read when a question needs it.
   - **Phase 3, the rest:** `kelly-criterion` (a sizing section in `risk-and-protecting-a-lead`; Kelly maximises log growth, not rank, so only its edge-over-variance scaling and fractional use carry over), `limit-order-books`, `trades-quotes-prices`, and a `price-impact` concept page.
   - **Phase 4:** theory-versus-practice rows in `contradictions.md`, a manual citation check, `log.md` entries.

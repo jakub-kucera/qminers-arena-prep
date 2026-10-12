@@ -66,11 +66,48 @@ status: read | partly-read | mapped | unread    # source pages only
 5. Add it to `index.md`; append an `ingest` entry to `log.md`.
 6. Run `python3 references/wiki/lint.py`.
 
-### Ingest a document from `literature_md/`
-1. Convert it first (`literature_md/convert.sh`, a row in its table, a row in `literature_md/README.md`).
-2. Read it; for a book, map the chapters from `meta.json` (pages there are zero-based) and read only the chapters a question needs.
-3. For each formula you keep, run `python3 literature_md/pdfpage.py <slug> <line>`, compare it with the PDF text it prints (or the PDF itself, for anything `pdftotext` garbles), and mark it `checked`.
-4. Write `sources/<slug>.md`, then steps 4–6 of the ingest above. Translate the result into our setting on the concept page ("What it means for our code"), not only on the source page.
+### Add a document to the literature (a paper, a book or book chapters, a printed web page)
+This is how Phase 1 of the literature ingest ran (`log.md`, 2026-10-12). Follow it for every new document. When several arrive at once, plan them as a batch in `TODO.md`, ordered by the to-do items they unblock, and log the batch as one `ingest` entry.
+
+**A. Get it in (a person or the agent):**
+1. Put the PDF in `literature_raw/` (gitignored). For a download, check that it is the paper it claims to be: `pdfinfo` and `pdftotext -l 1`. For a book, save only the chapters needed if possible. Things only a person can obtain are listed in `MANUAL_TODO.md`.
+2. Add a row to `PAPERS` in `literature_md/convert.sh` (slug and file-name prefix) and run `./convert.sh`. It converts only what has no output yet.
+3. Sanity-check the conversion:
+   - `python3 literature_md/pdfpage.py <slug> <line>` on a few lines at the start, middle and end must find a page. Most documents have no Marker page anchors; the script falls back to figure names and the headings in `meta.json`.
+   - Remove decorative images.
+   - Glance at one table and one display formula against the PDF.
+4. Add a row to the table in `literature_md/README.md` and the slug to "Not yet ingested" in `index.md`.
+
+**B. Triage:**
+- **Paper:** read it whole. Status `read`, or `partly-read` when the proofs are skipped.
+- **Book:** don't summarise it.
+  - Build a chapter map from `meta.json`: chapter titles with one-based PDF pages (`page_id` + 1), with the OCR'd titles fixed by hand. It goes in the source page's `Read depth`.
+  - Read only the chapters a current question or `TODO.md` item needs, and mark the rest `mapped`. Status `partly-read`. The page grows as later questions read more chapters (query workflow, rule 8).
+- **Priority:** name the `TODO.md` items or concept pages the document feeds. A document that feeds none can stay mapped.
+
+**C. Read and check:**
+1. Read with the question in mind: what result, under which assumptions, measured on what data.
+2. For each formula, number or table you keep:
+   - Find its page with `pdfpage.py`.
+   - **Look at the page image** (the Read tool on the PDF with `pages`); `pdftotext` garbles mathematics.
+   - Mark it `(p. N, checked)` or `(p. N, unchecked)` (rule 9).
+   - Read every number taken from a table off the PDF: Marker drops minus signs and decimal points.
+3. **Recompute worked examples** where the paper gives one (a few lines of standard-library Python). That catches both OCR and the paper's own errors.
+4. Go through the OCR failure modes in `literature_md/README.md` ("Caveats"). Record each slip under the source page's `Traps`, as either "OCR: … where the PDF has …" or "Typo in the paper itself" (when the PDF has it too).
+5. Where it is cheap, **measure the paper's key assumption on our data** (spread in ticks, how often the mid moves, queue length) and put the number under "Assumptions against the Arena", marked *checked*.
+
+**D. Write:**
+1. `sources/<slug>.md` with the literature sections (Page format above). "In our notation" maps the paper's symbols to `path:line` in our code and to CSV columns.
+2. The concept pages it touches, under "What the sources say" (theory next to the teams' evidence). A new concept page only when no page covers the idea. Translate the result into our setting under "What it means for our code" and "How to test it here".
+3. `contradictions.md` if theory and practice disagree, or theory explains an open row.
+4. A dated "From the literature" note on each `TODO.md` item it changes. If it settles a "done when" question, write the decision there.
+5. If it changes a conclusion, a bullet in `overview.md`, "What the literature adds".
+
+**E. Close:**
+1. Move the slug from "Not yet ingested" to the list in `index.md`, with one line.
+2. Add an `ingest` entry to `log.md` naming the documents, the concept pages changed, and the OCR traps found.
+3. Run `python3 references/wiki/lint.py` until there are no errors. Read the `unchecked` count it prints: each one is a formula not yet read on the PDF.
+4. Commit the wiki pages, `literature_md/<slug>/`, `convert.sh` and the README together.
 
 ### Query (answering a question from the wiki)
 1. Read `index.md`, then the relevant concept pages, then source pages, and only then the raw file at the cited line.

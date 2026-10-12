@@ -67,7 +67,8 @@ registers it in `literature_md/convert.sh` and converts it. All links returned H
 ## C. Books (library access or purchase; use legal copies)
 
 Save scans or ebooks of the chapters named, as `literature_raw/<short-name>.pdf`. The converted markdown is committed
-like the rest of `literature_md/`; say so if a book should stay out of git.
+like the rest of `literature_md/`; say so if a book should stay out of git. The agent then follows the workflow
+"Add a document to the literature" in `references/wiki/SCHEMA.md` (a chapter map, then only the chapters a question needs).
 
 - [ ] **Bouchaud, Bonart, Donier & Gould, *Trades, Quotes and Prices* (Cambridge University Press, 2018)**: chapters
   4–7 (order-book statistics and queue dynamics, from p. 58), 11–13 (price impact) and 15–17 (the Kyle model, what

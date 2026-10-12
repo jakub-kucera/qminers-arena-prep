@@ -62,6 +62,28 @@ Cartea et al. and Bouchaud et al. are references to look things up in, not to re
   in only 9 of the 19 documents, so the script also uses figure names (`_page_5_Figure_2.jpeg`) and
   the headings' pages in `meta.json` to bound the page, then matches the line's words against
   `pdftotext` to pick it. Wiki pages cite the page it gives, which `references/wiki/lint.py` checks.
+- **OCR failure modes seen so far** (2026-10-12, 13 papers; details on each source page under `Traps`).
+  Check for these whenever a document is ingested:
+  - **Tables:** minus signs dropped (Cartea et al. 2018: an all-negative Sharpe table reads as partly
+    positive), decimal points dropped ("2 49" for 2.49), columns shifted. Read every table number
+    from the PDF.
+  - **Scope of roots and exponents:** a factor moved outside `√…` (every GLFT and Guéant closed form),
+    an exponent's parentheses moved (`k/(ξΔ+1)` for `k/(ξΔ)+1`).
+  - **Wrong letter in a subscript or superscript:** `P^A` for `P^B` (Cont et al.), `S_{τ1}` for `I_{τ1}`
+    (Stoikov), a missing `k/` or `γ` in a parameter definition.
+  - **Lost decorations:** bars, hats and tildes vanish, so in-sample and out-of-sample symbols look the
+    same (PBO). Indicator functions disappear from expectations.
+  - **Inline math lost entirely** in some PDFs (the deflated Sharpe ratio: definitions and example
+    values are blank). Such a document must be read from the PDF.
+  - **Garbled theorem statements**, a sum turned into "+i k=1 gk", and figure text spilled into the
+    body.
+  - **Typos in the paper itself** look the same as OCR slips: check the PDF before blaming Marker
+    (Stoikov's `S = P^a + P^b`, PBO's 12,780 for C(16, 8) = 12,870).
+  - **Form feeds** (`\f`) in the markdown make Python's `splitlines()` disagree with grep's line
+    numbers; the tools split on `\n` only.
 - **Figures are images only.** Plot contents aren't transcribed.
+- **Adding a document:** put the PDF in `../literature_raw/`, add a row to `PAPERS` in `convert.sh`, run
+  it, and add a row to the table above. The rest (sanity check, triage, reading, checking, wiki pages)
+  is the workflow "Add a document to the literature" in `../references/wiki/SCHEMA.md`.
 - Authors and titles in the table above come from the papers' first pages and common knowledge,
   not from the converted text. Fix them if one is wrong.
