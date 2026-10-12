@@ -73,7 +73,7 @@ This is how Phase 1 of the literature ingest ran (`log.md`, 2026-10-12). Follow 
 1. Put the PDF in `literature_raw/` (gitignored). For a download, check that it is the paper it claims to be: `pdfinfo` and `pdftotext -l 1`. For a book, save only the chapters needed if possible. Things only a person can obtain are listed in `MANUAL_TODO.md`.
 2. Add a row to `PAPERS` in `literature_md/convert.sh` (slug and file-name prefix) and run `./convert.sh`. It converts only what has no output yet.
 3. Sanity-check the conversion:
-   - `python3 literature_md/pdfpage.py <slug> <line>` on a few lines at the start, middle and end must find a page. Most documents have no Marker page anchors; the script falls back to figure names and the headings in `meta.json`.
+   - `python3 literature_md/pdfpage.py <slug> <line>` on a few lines at the start, middle and end must find a page. Most documents have no Marker page anchors; the script falls back to figure names and the headings in `meta.json`. If it reports no text layer (a scanned PDF), every page must be confirmed on the page image.
    - Remove decorative images.
    - Glance at one table and one display formula against the PDF.
 4. Add a row to the table in `literature_md/README.md` and the slug to "Not yet ingested" in `index.md`.

@@ -62,6 +62,10 @@ Cartea et al. and Bouchaud et al. are references to look things up in, not to re
   in only 9 of the 19 documents, so the script also uses figure names (`_page_5_Figure_2.jpeg`) and
   the headings' pages in `meta.json` to bound the page, then matches the line's words against
   `pdftotext` to pick it. Wiki pages cite the page it gives, which `references/wiki/lint.py` checks.
+  A scanned PDF has no text layer (the Kelly paper), so there is nothing to match: the script
+  then says so and prints the pages the markers allow plus a linear interpolation between them.
+  Confirm that page on the page image before citing it; the interpolation was off by one page for
+  about a third of the Kelly lines checked.
 - **OCR failure modes seen so far** (2026-10-12, 13 papers; details on each source page under `Traps`).
   Check for these whenever a document is ingested:
   - **Tables:** minus signs dropped (Cartea et al. 2018: an all-negative Sharpe table reads as partly

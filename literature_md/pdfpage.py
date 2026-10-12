@@ -68,6 +68,19 @@ def page_range(slug: str, first: int, last: int | None = None) -> tuple[int, int
     return low + 1, None if high is None else high + 1
 
 
+def estimate_page(slug: str, number: int) -> int:
+    """One-based page interpolated between the nearest markers around the line (for PDFs without a text layer)."""
+    marks = markers(slug)
+    before = [(line, page) for line, page in marks if line <= number]
+    after = [(line, page) for line, page in marks if line > number]
+    if not before:
+        return (after[0][1] if after else 0) + 1
+    if not after:
+        return before[-1][1] + 1
+    (l0, p0), (l1, p1) = before[-1], after[0]
+    return round(p0 + (p1 - p0) * (number - l0) / (l1 - l0)) + 1
+
+
 def pdf_path(slug: str) -> Path | None:
     """The source PDF, from the slug-to-filename table in convert.sh."""
     for entry in re.findall(r'^\s*"([^"]+)"', (HERE / "convert.sh").read_text(), re.M):
@@ -123,6 +136,11 @@ def report(slug: str, number: int) -> int | None:
         print(f"{slug}.md:{number}: markers allow {allowed}; PDF not found in {RAW}")
         return None
     others = ", ".join(f"p. {p} {s:.2f}" for s, p in scored[1:3])
+    if best is None and scored and all(s == 0 for s, _ in scored):  # scanned PDF: pdftotext finds no words
+        guess = estimate_page(slug, number)
+        print(f"{slug}.md:{number}: the PDF has no text layer; markers allow {allowed}, "
+              f"interpolation suggests p. {guess}. Confirm on the page image")
+        return None
     if best is None:
         print(f"{slug}.md:{number}: no confident match; markers allow {allowed} (scores: {others or 'none'})")
         return None
