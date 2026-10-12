@@ -30,7 +30,7 @@ uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
-- **`--data` aliases:** `p2` and `p3` point into `references/prosperity{2,3}-backtester-jmerle/.../resources`.
+- **`--data` aliases:** `p2` and `p3` point into `references/prosperity{2,3}-backtester-jmerle/.../resources`, `p4` into `references/prosperity4-backtester/prosperity4bt/resources` (rounds 0–5).
 - **Tests without the data:** `tests/test_parity.py` skips if `references/` hasn't been cloned. All other tests use a tiny CSV fixture from `tests/conftest.py`.
 - **Notebook check:** `uv run --group analysis jupyter nbconvert --to notebook --execute notebooks/analysis.ipynb --output-dir <scratch>` runs it end to end. Commit the notebook without outputs.
 - **No linter or formatter is configured.**
@@ -137,6 +137,7 @@ lets editors resolve imports; it is never submitted.
 
 - **`TODO.md`:** prep work left before the event, each item with a "done when". Tick items off when that holds, and add new ones as they come up.
 - **`ON_THE_DAY.md`:** the checklist of what to find out about the real Arena. For each item it gives our current assumption and what to change if the Arena differs, and it ends with playground probes. When a session learns an answer, write it in under that item with its source. When a session adds an assumption about the real format, add an item.
+- **`IDEAS.md`:** every strategy idea tested on Prosperity data, with its result (date, data, command, numbers), and the ideas not yet tested. Results there are priors for the Arena, not verdicts: never remove an idea because it failed on Prosperity data; mark it `dropped here`, so it is re-tested on the day. Record every new test result in its row.
 - **`MANUAL_TODO.md`:** things only a person can obtain (organiser documents, web pages the agent's fetch tool is blocked from, books). Each item says where to save the file and what "done" means. When the user hands something over, ingest it as `references/wiki/SCHEMA.md` describes and tick the item.
 
 - **`references/`:** third-party clones listed in `references/clone.sh`. Read them for ideas, but don't edit or import from them.

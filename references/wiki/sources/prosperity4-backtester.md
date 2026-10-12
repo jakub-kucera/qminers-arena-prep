@@ -3,7 +3,7 @@ title: prosperity4btest (the only copy of the Prosperity 4 data)
 type: source
 repo: prosperity4-backtester
 status: partly-read
-updated: 2026-10-10
+updated: 2026-10-12
 ---
 
 # `prosperity4btest` (nabayansaha, PyPI, MIT; a fork of jmerle's Prosperity 3 backtester)
@@ -17,10 +17,10 @@ The Prosperity 4 port (`prosperity4bt/`, 1,681 lines) **with the Prosperity 4 da
 - Differences from the Prosperity 3 runner *(checked: diff)*: matching clamps each fill to the remaining room (`volume = min(order, book, max_buy)` and skip if ≤ 0); `--limit PRODUCT:LIMIT` override; `--round2-access unknown|accepted|rejected` for the blind `Trader.bid()`; `--counterparty-info/--no-counterparty-info`; `prosperity4bt/metrics.py` (drawdown, Sharpe, Sortino, Calmar); an `invest` sub-command for round 2's manual puzzle (`prosperity4bt/__main__.py:382`).
 
 ## What carries over
-The P4 data for our `--data p4` (TODO). Position limits for P4 products come from the teams' code (see [submission-and-scoring-mechanics](../concepts/submission-and-scoring-mechanics.md)).
+The P4 data, which our `--data p4` loads (2026-10-12). Position limits for P4 products come from IMC's round pages and the teams' code (see [submission-and-scoring-mechanics](../concepts/submission-and-scoring-mechanics.md)).
 
 ## Traps
-Default limit 50 for unlisted products; no conversions; tutorial products' limits unknown.
+Default limit 50 for unlisted products; no conversions. The tutorial products' limits are 80 each: the README's own example passes `--limit EMERALDS:80 --limit TOMATOES:80` (`prosperity4-backtester/README.md:146`). An empty book has `mid_price` 0.0 in the price files *(checked: 203 rows across the six rounds)*; marked at face value, a held position shows a fake loss for that tick.
 
 ## Read depth
 - **Read:** README head, `prosperity4bt/__main__.py` options, runner diff against Prosperity 3, data listings and `LIMITS`.
