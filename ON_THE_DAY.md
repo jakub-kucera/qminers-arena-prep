@@ -127,3 +127,7 @@ at a time:
 10. **Imports:** inside `try`, import numpy, pandas and scipy, and print which ones loaded.
 11. **Queue position:** join the best bid with a small order. Note the volume shown ahead of you, and how much trades at that price before you fill.
 12. **Cancelling a filled order:** send a buy at the best ask, then cancel it by id on the next tick.
+13. **What the score is marked to:** in the first tick buy one lot at the best ask and hold it. Compare the platform's PnL (or mark) over time with the mid, the volume-weighted mid and the wall-mid variants in `references/wiki/concepts/fair-value-and-wall-mid.md`. Linear Utility, Frankfurt and Baguette Fromage found the market maker's mid this way.
+14. **Far quotes on an empty side:** when one side of the book is empty, quote a small order at increasing distances from the last fair value (for example 20, 50, 100). Note the distance at which it stops filling. Baguette Fromage and DU found hidden takers at about 100 (`references/wiki/concepts/hidden-takers-and-empty-sides.md`).
+15. **Is the practice data part of the scored data?** Compare the first rows of the public backtest data with the first ticks of an evaluated run (timestamps, prices, trade sizes). In Prosperity 3 the website's sample was the first 1,000 timestamps of live day 1.
+16. **Same trader, two oracles:** run one deterministic trader on the portal's public backtest and in our engine, and compare the fill lists. One team measured +2,415 locally against +436 live on the same window (`references/wiki/contradictions.md`, row 10).
