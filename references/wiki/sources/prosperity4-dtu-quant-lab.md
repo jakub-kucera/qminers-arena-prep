@@ -3,7 +3,7 @@ title: DTU Quant Lab (Prosperity 4, 28th)
 type: source
 repo: prosperity4-dtu-quant-lab
 status: partly-read
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # DTU Quant Lab (Prosperity 4, 28th of 18,803, first-time team, their claim)
@@ -23,6 +23,20 @@ A team repo with traders for all five rounds, data, and two documents that matte
 - Best stdlib-only option helpers in the clones; a master-trader skeleton with per-cluster state; the regime-detector idea.
 - Their claims: worst-day rule killed ~80% of ideas (`README.md:260`, `README.md:334`); `OXYGEN_SHAKE_CHOCOLATE` made +587,831 of +702,835 in round 5 with plain inside-the-spread market making (`README.md:191-202`); pebbles sum to `[49982, 50016]` (`docs/journey.md:32`); Hydrogel drifted 70 ticks in one session in R3 and the fixed-anchor quoter kept buying (`docs/journey.md:16`).
 - **The capsule misled them**: Hydrogel's handed-out days were ~99% pinned and the live day 100% noisy (`round_4/algorithmic/trader.py:261-296`).
+
+## Checked in our engine (2026-10-13)
+`round_1/algorithmic/trader.py` and `round_2/algorithmic/trader.py` on the P4 round 1 and 2 data. Both engines give identical PnL per product per day: ours (`uv run python -m arena.backtest <file> <round> --data p4`, default per-tick mode) and the P4 backtester (`prosperity4btest cli <file> <round> --limit ASH_COATED_OSMIUM:80 --limit INTARIAN_PEPPER_ROOT:80`; see [prosperity4-backtester](prosperity4-backtester.md)).
+
+| Trader | Data | Days (−2/−1/0 or −1/0/1) | Osmium per day | Pepper Root per day |
+|---|---|---|---|---|
+| round 1 | Round 1 | 65,540 / 67,565 / 64,963 | 15,344–18,010 | 49,555–49,724 |
+| round 1 | Round 2 | 68,732 / 66,663 / 68,240 | 17,078–19,156 | 49,526–49,585 |
+| round 2 | Round 1 | 95,537 / 97,043 / 96,235 | 15,860–17,676 | 79,367–79,677 |
+| round 2 | Round 2 | 98,306 / 98,650 / 97,394 | 18,025–19,030 | 79,369–79,620 |
+
+- **Claims tested:** live algorithmic PnL of +67,585 in round 1 and +84,889 in round 2 (`README.md:51-52`). The round 1 trader's backtest days are within 4% of its live result. The round 2 trader's are 12–16% above its live result; the live day is not in our data, and the trader has no `bid()`, so no market-access fee explains it.
+- **The round 1 trader caps both products at 50** (`round_1/algorithmic/trader.py:89`, `round_1/algorithmic/trader.py:92`), below the real limit of 80. Pepper Root's PnL is the drift on a held long of 50, about 1,000 a day per lot.
+- **The round 2 trader sends more than its room on Osmium:** 124–347 ticks a day have every Osmium order cancelled for a possible limit breach, in both engines.
 
 ## Traps
 - `_clip_orders` is stricter than the engine's limit rule and dropped orders the engine would accept; they bypass it for the plain market maker (`round_5/algorithmic/trader.py:2918-2921`).

@@ -3,7 +3,7 @@ title: DU Trading (Prosperity 4, 10th)
 type: source
 repo: prosperity4-du-trading
 status: partly-read
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # DU Trading (Prosperity 4, 10th globally and 1st in the UK, their claim)
@@ -23,6 +23,17 @@ Code:
 - The admins' statement that the data generator generated the bots' quotes and then **randomly removed 20% of orders** (`README.md:77`): the origin of the empty book sides.
 - The three-line snap-back rule; pebbles sold/bought as a five-leg basket around 49,990/50,010 (`README.md:201`).
 - Their classification of the `Mark XX` names (`README.md:141-149`): Mark 67 was the informed buyer in velvetfruit.
+
+## Checked in our engine (2026-10-13)
+`round2.py` (rounds 1 and 2) on the P4 round 1 and 2 data. Both engines give identical PnL per product per day: ours (`uv run python -m arena.backtest <file> <round> --data p4`, default per-tick mode) and the P4 backtester (`prosperity4btest cli <file> <round> --limit ASH_COATED_OSMIUM:80 --limit INTARIAN_PEPPER_ROOT:80`; see [prosperity4-backtester](prosperity4-backtester.md)).
+
+| Data | Days | Osmium per day | Pepper Root per day |
+|---|---|---|---|
+| Round 1 (−2/−1/0) | 100,586 / 102,117 / 101,540 | 17,517–19,700 | 82,417–83,069 |
+| Round 2 (−1/0/1) | 102,980 / 103,863 / 105,010 | 20,361–21,059 | 82,618–83,951 |
+
+- **Claim tested:** ranks 5th and 3rd in rounds 1 and 2 (`README.md:9-12`); no PnL is given. The backtest is level with Baguette Fromage's (4th overall) and about 4–8k a day above DTU's round 2 trader, which fits the ranks.
+- **The Pepper Root edge is the long bias** of +76 (`README.md:71`): about 83k a day of the ~102k comes from riding Pepper Root's drift.
 
 ## Traps
 - **The published code does not match the README on counterparties** *(checked: grep)*: `round4.py` never reads `buyer`/`seller`, so the Mark 67 and Mark 22 logic is not in it. `SpikeTrader._detect_spike_side` (`round4.py:319`) says "levels below wall mid" in its docstring but counts every ask level.

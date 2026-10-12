@@ -3,7 +3,7 @@ title: Une Baguette Fromage (Prosperity 4, 4th)
 type: source
 repo: prosperity4-baguette-fromage
 status: partly-read
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Une Baguette Fromage (Prosperity 4, 4th of 18,803, their claim)
@@ -24,6 +24,23 @@ Round 5 (`Strategies/Phase2_Final.py`): one `ProductTrader` per listing (`Strate
 
 ## What carries over
 Position limits (confirmed by [DTU](prosperity4-dtu-quant-lab.md)): Osmium 80 (`README.md:314`), Hydrogel 200, Velvetfruit 200, vouchers 300, round 5 products 10. Findings (their claims): hidden takers on empty sides ~8% of the time (`README.md:354`); takers repeat day to day (`README.md:557-668`); Velvetfruit as an Ornstein–Uhlenbeck process, buy below 5232 and sell above 5268 (`README.md:740-759`); in round 5 in-sample scanners found "unlimited alpha" and fitting on two days and testing on the third wiped it out (`README.md:885-901`).
+
+## Checked in our engine (2026-10-13)
+`Strategies/Phase1.py` on the P4 round 1 and 2 data, run with `uv run --with jsonpickle` (the file imports jsonpickle). Both engines give identical PnL per product per day: ours (`uv run python -m arena.backtest <file> <round> --data p4`, default per-tick mode) and the P4 backtester (`prosperity4btest cli <file> <round> --limit ASH_COATED_OSMIUM:80 --limit INTARIAN_PEPPER_ROOT:80`; see [prosperity4-backtester](prosperity4-backtester.md)).
+
+| Data | Day | Osmium | Pepper Root | Total |
+|---|---|---|---|---|
+| Round 1 | −2 | 19,087 | 83,369 | 102,456 |
+| Round 1 | −1 | 19,953 | 82,834 | 102,787 |
+| Round 1 | 0 | 18,788 | 83,132 | 101,920 |
+| Round 2 | −1 | 21,184 | 83,058 | 104,242 |
+| Round 2 | 0 | 20,712 | 83,625 | 104,337 |
+| Round 2 | 1 | 21,357 | 84,268 | 105,624 |
+
+- **Claim tested:** "roughly 18.6k expected PnL for OSMIUM" a day from quoting about 100 away on an empty side (`README.md:365`). Our Osmium totals are 18.8–21.4k a day for their whole Osmium strategy, so the size is consistent; the empty-side part alone wasn't separated.
+- **Their round 2 caveat** that the hard-coded 10,000 pinned Osmium at the limit (`README.md:527-539`) doesn't show on the round 2 data: Osmium sits at the limit on 0–5% of ticks. It happened on the live day, which we don't have.
+- Our engine cancels a few ticks' Osmium orders for breaching the limit (1–28 ticks a day), as Prosperity would.
+- `bid()` returns −10,000,000 (`Strategies/Phase1.py:254-255`), which the backtester reads as no bid for extra market access.
 
 ## Traps
 - Imports `prosperity3bt.datamodel` with a fallback and `Phase1.py` uses `jsonpickle`: rewrite, don't paste (no licence).
