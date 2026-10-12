@@ -5,6 +5,10 @@ Market-microstructure literature converted from `../literature_raw/*.pdf` to mar
 converted output is committed; the source PDFs in `literature_raw/` are gitignored. Regenerate with
 `./convert.sh` (setup is in the script header).
 
+**Start from the wiki, not from here.** `../references/wiki/index.md` (section "Literature") lists the documents
+that have a source page: their results with the PDF page, which formulas were checked against the PDF, and what
+they mean for our code. This folder is the raw text those pages cite.
+
 Each document lives in `<slug>/<slug>.md`, with extracted figures as `_page_N_*.jpeg` next to it and
 Marker's `meta.json` (table of contents with page numbers).
 
@@ -51,11 +55,13 @@ Cartea et al. and Bouchaud et al. are references to look things up in, not to re
 
 - **Equations are OCR, not copied.** Marker emits LaTeX, but it can misread symbols or subscripts
   (e.g. `S_{τ1}, S_{τ1}` where the paper has `I_{τ1}, S_{τ1}`) and leaves stray `---` lines.
-  **Check any formula against the PDF before implementing it.** The pages are zero-based in the
-  anchors below and in `meta.json`, so page `N` in the markdown is page `N+1` in a PDF viewer.
-- **Finding the page.** The markdown has anchors like `<span id="page-4-0">`, and figures are
-  named `_page_5_Figure_2.jpeg`; both give the zero-based page. Read the page with
-  `pdftotext -f N+1 -l N+1 -layout ../literature_raw/<file>.pdf -` or open the PDF at that page.
+  **Check any formula against the PDF before implementing it.** Marker's page numbers (anchors,
+  figure names, `meta.json`) are zero-based, so page `N` in the markdown is page `N+1` in a PDF viewer.
+- **Finding the page.** `python3 pdfpage.py <slug> <line>` (or `<first>-<last>`) gives the one-based
+  PDF page of a markdown line and prints that page's text. Anchors like `<span id="page-4-0">` exist
+  in only 9 of the 19 documents, so the script also uses figure names (`_page_5_Figure_2.jpeg`) and
+  the headings' pages in `meta.json` to bound the page, then matches the line's words against
+  `pdftotext` to pick it. Wiki pages cite the page it gives, which `references/wiki/lint.py` checks.
 - **Figures are images only.** Plot contents aren't transcribed.
 - Authors and titles in the table above come from the papers' first pages and common knowledge,
   not from the converted text. Fix them if one is wrong.

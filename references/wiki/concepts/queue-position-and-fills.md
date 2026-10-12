@@ -18,7 +18,7 @@ In Prosperity, orders live one tick against a snapshot, so queue position hardly
 - **Event-driven venues** (AlgoTrade) are price-time FIFO with trades at the passive order's price (`algotrade2026-pitfa19/.firecrawl/algotrade-participant-guide.md:407-413`).
 
 - **In Prosperity there is no queue at all** (Leo-Hawking, from a round 0 probe): orders at the best price are processed regardless of arrival time, bots only hit the best price, and "posting at the best price requires no consideration of queue priority" (`online-snapshots/Leo-Hawking_IMC-Prosperity-4-Review.README.md:198-214`). So the `--resting` queue assumption only matters if the Arena has a real queue.
-- **Where market orders fill** (Cartea et al. 2018, Nasdaq): 91.6–99.9% of market orders are filled by the volume at the best price alone (`literature_md/order-book-signals/order-book-signals.md:61`), which is why quotes deeper than the touch rarely fill.
+- **Where market orders fill** (Cartea et al. 2018, Nasdaq): 91.6–99.9% of market orders are filled by the volume at the best price alone (`literature_md/order-book-signals/order-book-signals.md:61` (p. 4)), which is why quotes deeper than the touch rarely fill.
 
 ## Where they disagree
 No disagreement among sources; open is which `f` to use.

@@ -2,7 +2,9 @@
 """Mechanical health check of references/wiki (see SCHEMA.md, "Lint").
 
 Checks: front matter, every page listed in index.md, relative links, `path:line` citations (file exists,
-line in range, line not blank), orphan pages, log.md entry format.
+line in range, line not blank), orphan pages, log.md entry format. A citation into literature_md/ must be
+followed by its PDF page, `(p. N)` or `(p. N, checked)`, and N must agree with the page markers around the line
+(literature_md/pdfpage.py); formulas marked `unchecked` are counted.
 Citations into a clone that is not present (references/clone.sh not run) are reported as skipped, not as errors.
 
 Usage: python3 references/wiki/lint.py        exit code 1 if there are errors. Standard library only.
@@ -10,6 +12,7 @@ Usage: python3 references/wiki/lint.py        exit code 1 if there are errors. S
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import sys
 from pathlib import Path
@@ -22,6 +25,8 @@ TYPES = {"source", "concept", "comparison", "overview"}
 STATUSES = {"read", "partly-read", "mapped", "unread"}
 CITATION = re.compile(r"`([A-Za-z0-9_./+\-]+\.(?:md|py|rs|tsx|ts|rst|cpp|txt|toml|yml)):(\d+)(?:[-–](\d+))?`")
 LINK = re.compile(r"\]\(([^)#\s]+)(?:#[^)]*)?\)")
+PDF_PAGE = re.compile(r"\s*\(p\.\s*(\d+)(?:[-–](\d+))?(?:,\s*(checked|unchecked))?\)")
+LITERATURE = ROOT / "literature_md"
 LOG_ENTRY = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|restructure|search) \| .+")
 
 
@@ -60,8 +65,28 @@ def clone_missing(path: str, repo: str | None) -> bool:
     return "/" in path and not (REFERENCES / first).is_dir() and first.startswith(clones)
 
 
+def pdfpage():
+    spec = importlib.util.spec_from_file_location("pdfpage", LITERATURE / "pdfpage.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def check_page(text: str, end: int, found: Path, first: int, last: int, where: str, errors: list, warnings: list) -> None:
+    """A literature citation needs `(p. N)` right after it, and N must lie within the pages its markers allow."""
+    note = PDF_PAGE.match(text, end)
+    if note is None:
+        warnings.append(f"{where}: literature citation without its PDF page '(p. N)'")
+        return
+    low, high = pdfpage().page_range(found.parent.name, first, last)
+    cited_low, cited_high = int(note.group(1)), int(note.group(2) or note.group(1))
+    if cited_high < low or (high is not None and cited_low > high):
+        allowed = f"pp. {low}-{high}" if high is not None else f"p. {low} or later"
+        errors.append(f"{where}: cited p. {note.group(1)} but the page markers allow {allowed}")
+
+
 def main() -> int:
-    errors, warnings, skipped, cites = [], [], 0, 0
+    errors, warnings, skipped, cites, unchecked = [], [], 0, 0, 0
     index_text = (WIKI / "index.md").read_text()
     inbound: dict[Path, int] = {}
     for page in pages():
@@ -90,7 +115,9 @@ def main() -> int:
                 errors.append(f"{rel}: broken link {target}")
             else:
                 inbound[resolved] = inbound.get(resolved, 0) + 1
-        for path, start, end in CITATION.findall(text):
+        unchecked += len(re.findall(r"\(p\.\s*\d+(?:[-–]\d+)?,\s*unchecked\)", text))
+        for match in CITATION.finditer(text):
+            path, start, end = match.groups()
             cites += 1
             found = resolve(path, repo)
             if found is None:
@@ -105,6 +132,8 @@ def main() -> int:
                 errors.append(f"{rel}: {path}:{start}{'-' + end if end else ''} is outside the file ({len(lines)} lines)")
             elif not lines[first - 1].strip():
                 warnings.append(f"{rel}: {path}:{first} is a blank line")
+            if found.is_relative_to(LITERATURE) and found.name == f"{found.parent.name}.md":
+                check_page(text, match.end(), found, first, last, f"{rel}: {path}:{start}", errors, warnings)
     for line in (WIKI / "index.md").read_text().splitlines():
         for target in LINK.findall(line):
             if not target.startswith(("http", "mailto")):
@@ -119,7 +148,8 @@ def main() -> int:
         print("warn ", message)
     for message in errors:
         print("ERROR", message)
-    print(f"{len(pages())} pages, {cites} citations ({skipped} skipped: clone absent), {len(warnings)} warnings, {len(errors)} errors")
+    print(f"{len(pages())} pages, {cites} citations ({skipped} skipped: clone absent), {unchecked} formulas unchecked, "
+          f"{len(warnings)} warnings, {len(errors)} errors")
     return 1 if errors else 0
 
 

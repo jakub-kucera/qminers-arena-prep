@@ -19,7 +19,7 @@ order) and `references/SEARCH_LOG.md` (how the sources were found and what was r
 
 | Type | Folder | Purpose |
 |---|---|---|
-| `source` | `sources/` | one page per raw source: what it is, a code map, **how deeply it was read**, traps |
+| `source` | `sources/` | one page per raw source: what it is, a code map, **how deeply it was read**, traps. A document in `literature_md/` is a source too, with `repo: literature_md/<slug>` and the page named after the slug |
 | `concept` | `concepts/` | one page per idea, **synthesised across sources**: what they say, where they disagree, what it means for our code, how to test it here |
 | `comparison` | `contradictions.md` | disagreements between sources, README-versus-code mismatches, open questions |
 | `overview` | `overview.md` | the one-page synthesis, with links down to the concepts |
@@ -42,6 +42,7 @@ status: read | partly-read | mapped | unread    # source pages only
 
 - **Concept pages** use these sections, in this order: `Summary` (3 lines), `What the sources say`, `Where they disagree`, `What it means for our code`, `How to test it here`, `Sources`.
 - **Source pages** use: `What it is`, `Layout and code map`, `What carries over`, `Traps`, `Read depth`, `Cited by` (the concept pages that use it).
+- **Literature source pages** (papers and books in `literature_md/`) use: `What it is`, `Main results` (each formula with its status, rule 9), `Assumptions against the Arena` (what the model assumes that a discrete-tick, hard-limit, bot-filled market breaks), `In our notation` (the paper's symbols against our parameters and data columns), `Traps` (OCR slips found, results that need conditions we lack), `Read depth`, `Cited by`. A book's `Read depth` is a chapter map with PDF pages, saying which chapters were read.
 
 ## Rules
 
@@ -53,6 +54,7 @@ status: read | partly-read | mapped | unread    # source pages only
 6. **No third-party code in the wiki, no secrets.** Describe an algorithm in words and formulas; third-party team repos have no licence (see `sources/` for each). Never copy shared credentials, even public ones from a README.
 7. **Plain relative markdown links.** No wiki-link syntax, so the pages render on GitHub.
 8. **File good answers back.** If a question needed a synthesis the wiki lacked, write it into a concept page (or extend one) and log it.
+9. **Literature: the PDF page, and a status for every formula.** A citation into `literature_md/` is followed by the one-based PDF page, as a viewer shows it: `` `literature_md/micro-price/micro-price.md:52` (p. 3) `` or `(p. 3–4)`. `literature_md/pdfpage.py <slug> <line>` finds the page and prints it; `lint.py` checks that the page agrees with the markers around the line. A formula's citation also says whether it was read on the PDF page: `(p. 3, checked)` or `(p. 3, unchecked)` when it is only Marker's OCR. **Only checked formulas go under "What it means for our code"** or into `TODO.md`. A slip found on the way goes under the source page's `Traps`, as `OCR: … where the PDF has …`.
 
 ## Workflows
 
@@ -63,6 +65,12 @@ status: read | partly-read | mapped | unread    # source pages only
 4. Update every concept page it touches (usually 3–8) and `contradictions.md` if it conflicts with anything.
 5. Add it to `index.md`; append an `ingest` entry to `log.md`.
 6. Run `python3 references/wiki/lint.py`.
+
+### Ingest a document from `literature_md/`
+1. Convert it first (`literature_md/convert.sh`, a row in its table, a row in `literature_md/README.md`).
+2. Read it; for a book, map the chapters from `meta.json` (pages there are zero-based) and read only the chapters a question needs.
+3. For each formula you keep, run `python3 literature_md/pdfpage.py <slug> <line>`, compare it with the PDF text it prints (or the PDF itself, for anything `pdftotext` garbles), and mark it `checked`.
+4. Write `sources/<slug>.md`, then steps 4–6 of the ingest above. Translate the result into our setting on the concept page ("What it means for our code"), not only on the source page.
 
 ### Query (answering a question from the wiki)
 1. Read `index.md`, then the relevant concept pages, then source pages, and only then the raw file at the cited line.
@@ -76,4 +84,4 @@ status: read | partly-read | mapped | unread    # source pages only
 
 ## Scale note
 
-About 16 sources and 15 concepts: the index file is enough to navigate. Add search tooling only if the wiki grows by an order of magnitude.
+About 25 repo sources, 19 literature documents and 20 concepts: the index file is enough to navigate. Add search tooling only if the wiki grows by an order of magnitude.
