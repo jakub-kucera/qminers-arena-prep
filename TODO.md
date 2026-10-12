@@ -1,7 +1,8 @@
 # Prep to-do
 
 Work left before the Arena (7–8 Nov 2026). Things to find out at the event itself are in
-[`ON_THE_DAY.md`](ON_THE_DAY.md). Tick an item off when its "done when" holds, and add new
+[`ON_THE_DAY.md`](ON_THE_DAY.md). Things only a person can obtain (organiser documents, blocked web pages, books)
+are in [`MANUAL_TODO.md`](MANUAL_TODO.md). Tick an item off when its "done when" holds, and add new
 items as they come up.
 
 ## Research
