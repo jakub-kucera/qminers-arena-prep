@@ -27,7 +27,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("bot", type=Path, help="bot file")
     parser.add_argument("days", nargs="+", help="days to replay: ROUND for all its days, or ROUND-DAY (e.g. 1, 1-0, 1--1)")
     parser.add_argument("--format", default="prosperity", choices=sorted(FORMATS), help="competition format (default: prosperity)")
-    parser.add_argument("--data", default="p3", help="data folder, or p2 / p3 for the Prosperity data in references/ (default: p3)")
+    parser.add_argument("--data", default="p3", help="data folder, or p2 / p3 / p4 for the Prosperity data in references/ (default: p3)")
     parser.add_argument(
         "--match-trades",
         type=TradeMatching,

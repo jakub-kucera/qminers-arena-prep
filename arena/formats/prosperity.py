@@ -4,6 +4,7 @@ Data layout (as in jmerle's backtesters):
     <data>/round<R>/prices_round_<R>_day_<D>.csv   book snapshots (3 levels a side) and mid price
     <data>/round<R>/trades_round_<R>_day_<D>.csv   market trades; Prosperity 2 adds _wn (with
                                                    trader names) and _nn (without) variants
+Trade files carry a `currency` column (always SEASHELLS or XIRECS); it is ignored.
 Conversions (Prosperity 2 orchids, Prosperity 3 macarons) are not supported.
 
 In resting mode, bots see their resting orders in `state.open_orders`, cancel them by returning
@@ -29,6 +30,7 @@ _REFERENCES = Path(__file__).resolve().parents[2] / "references"
 DATA_DIRS = {
     "p2": _REFERENCES / "prosperity2-backtester-jmerle" / "prosperity2bt" / "resources",
     "p3": _REFERENCES / "prosperity3-backtester-jmerle" / "prosperity3bt" / "resources",
+    "p4": _REFERENCES / "prosperity4-backtester" / "prosperity4bt" / "resources",
 }
 
 LIMITS = {
@@ -58,6 +60,30 @@ LIMITS = {
     "VOLCANIC_ROCK_VOUCHER_10250": 200,
     "VOLCANIC_ROCK_VOUCHER_10500": 200,
     "MAGNIFICENT_MACARONS": 75,
+    # Prosperity 4 (2026), from IMC's round pages in references/prosperity-wikis/prosperity4/
+    "EMERALDS": 80,
+    "TOMATOES": 80,
+    "ASH_COATED_OSMIUM": 80,
+    "INTARIAN_PEPPER_ROOT": 80,
+    "HYDROGEL_PACK": 200,
+    "VELVETFRUIT_EXTRACT": 200,
+    **{f"VEV_{strike}": 300 for strike in (4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500)},
+    **{  # round 5: ten families of five products, 10 each
+        f"{family}_{kind}": 10
+        for family, kinds in {
+            "GALAXY_SOUNDS": ("BLACK_HOLES", "DARK_MATTER", "PLANETARY_RINGS", "SOLAR_FLAMES", "SOLAR_WINDS"),
+            "MICROCHIP": ("CIRCLE", "OVAL", "RECTANGLE", "SQUARE", "TRIANGLE"),
+            "OXYGEN_SHAKE": ("CHOCOLATE", "EVENING_BREATH", "GARLIC", "MINT", "MORNING_BREATH"),
+            "PANEL": ("1X2", "1X4", "2X2", "2X4", "4X4"),
+            "PEBBLES": ("L", "M", "S", "XL", "XS"),
+            "ROBOT": ("DISHES", "IRONING", "LAUNDRY", "MOPPING", "VACUUMING"),
+            "SLEEP_POD": ("COTTON", "LAMB_WOOL", "NYLON", "POLYESTER", "SUEDE"),
+            "SNACKPACK": ("CHOCOLATE", "PISTACHIO", "RASPBERRY", "STRAWBERRY", "VANILLA"),
+            "TRANSLATOR": ("ASTRO_BLACK", "ECLIPSE_CHARCOAL", "GRAPHITE_MIST", "SPACE_GRAY", "VOID_BLUE"),
+            "UV_VISOR": ("AMBER", "MAGENTA", "ORANGE", "RED", "YELLOW"),
+        }.items()
+        for kind in kinds
+    },
 }
 
 SUBMISSION = "SUBMISSION"  # how Prosperity names us in trades
@@ -117,11 +143,11 @@ def load_day(data_dir: Path, round_num: int, day_num: int) -> Day:
         next(rows)
         for row in rows:
             timestamp, product = int(row[1]), row[2]
-            books[timestamp][product] = Book(
-                bids=tuple(sorted(_levels(row, 3), reverse=True)),
-                asks=tuple(sorted(_levels(row, 9))),
-            )
-            if row[15]:
+            book = Book(bids=tuple(sorted(_levels(row, 3), reverse=True)), asks=tuple(sorted(_levels(row, 9))))
+            books[timestamp][product] = book
+            # An empty book has mid_price 0.0 in Prosperity 4's files: that is no price, not a price of 0, so the
+            # engine keeps the last mark. (A deep out-of-the-money voucher can be quoted at 0 with a book: kept.)
+            if row[15] and (book.bids or book.asks or float(row[15]) != 0):
                 marks[timestamp][product] = float(row[15])
 
     trades: dict[int, dict[str, list[MarketTrade]]] = defaultdict(lambda: defaultdict(list))

@@ -48,7 +48,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 
 | Option | Meaning |
 |---|---|
-| `--data` | `p3` (default), `p2`, or a folder in the same layout |
+| `--data` | `p3` (default), `p2`, `p4`, or a folder in the same layout |
 | `--set PATH=VALUE` | Override a bot global, e.g. `PARAMS.KELP.skew=2`. Repeatable. |
 | `--match-trades` | Which market trades leftover orders can fill against: `all` (default), `worse`, `none`. See below. |
 | `--resting` | Unfilled orders rest on the book until filled or cancelled, with a queue model. See [Resting mode](#resting-mode). |

@@ -48,6 +48,9 @@ PARAMS = {
     # IMC Prosperity 2, round 1
     "AMETHYSTS": {"limit": 20, "fair": "fixed", "fixed_fair": 10_000},
     "STARFRUIT": {"limit": 20, "fair": "wall_mid", "make_edge": 1},
+    # IMC Prosperity 4, rounds 1-2 (untuned starting points)
+    "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "make_edge": 1},
+    "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1},
 }
 
 

@@ -42,6 +42,29 @@ def test_unknown_product_needs_a_limit(data_dir):
         prosperity.load_day(data_dir, 1, 0)
 
 
+def test_an_empty_book_has_no_mark(data_dir):
+    path = data_dir / "round1" / "prices_round_1_day_0.csv"
+    path.write_text(path.read_text() + "0;200;KELP;;;;;;;;;;;;;0.0;0.0\n")
+    day = prosperity.load_day(data_dir, 1, 0)
+    tick = next(tick for tick in day.ticks if tick.timestamp == 200)
+    assert tick.books["KELP"] == Book()
+    assert "KELP" not in tick.marks
+
+
+@pytest.mark.parametrize("alias", sorted(prosperity.DATA_DIRS))
+def test_every_product_in_the_cloned_data_has_a_limit(alias):
+    data_dir = prosperity.DATA_DIRS[alias]
+    if not data_dir.is_dir():
+        pytest.skip(f"{alias} data missing: run references/clone.sh")
+    products = set()
+    for path in data_dir.glob("round*/prices_round_*_day_*.csv"):
+        with path.open() as file:
+            next(file)
+            products |= {line.split(";", 3)[2] for line in file}
+    assert products
+    assert sorted(products - set(prosperity.LIMITS)) == []
+
+
 def test_bot_gets_a_prosperity_state_and_its_orders_are_converted(tmp_path):
     path = write_bot(
         tmp_path,
