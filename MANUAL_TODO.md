@@ -80,7 +80,7 @@ like the rest of `literature_md/`; say so if a book should stay out of git. The 
   - Done when: the full book replaces the excerpt and the wiki is rebuilt from it, following "Replace a document with a
     fuller copy" in `references/wiki/SCHEMA.md`: a new chapter map, chapters 11, 16 and 17 read first, every existing
     citation re-pointed to the full copy's lines and pages, and `python3 references/wiki/lint.py --pages` clean.
-- [ ] **(Low priority) Final versions of five documents we have as drafts or preprints.** All five are complete in
+- [ ] **(Low priority) Final versions of four documents we have as drafts or preprints.** All four are complete in
   content (checked 2026-10-13); only the version differs. Save each under its current file name in `literature_raw/`.
   - Avellaneda & Stoikov, "High-frequency trading in a limit order book", *Quantitative Finance* 8(3), 2008. **The
     one worth getting:** our copy is the 24 April 2006 preprint, whose spread formula has no `γσ²(T−t)` term, while
