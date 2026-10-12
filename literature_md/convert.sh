@@ -29,6 +29,8 @@ PAPERS=(
   "probability-of-backtest-overfitting probability-of-backtest-overfitting"
   "deflated-sharpe-ratio          deflated-sharpe-ratio"
   "pseudo-math                    pseudo-math"
+  "order-book-signals             Enhancing_Trading_Strategies_CARTEA"
+  "how-to-almost-win              How to (almost) win in Competitive"
 )
 
 for entry in "${PAPERS[@]}"; do

@@ -26,6 +26,8 @@ Marker's `meta.json` (table of contents with page numbers).
 | `optimal-market-making/` | Guéant, *Optimal market making* (43 pp.) | Market making over many assets with inventory limits and skewed quotes. The closest paper to a many-product Arena. hftbacktest's `Making Multiple Markets.ipynb` implements it |
 | `probability-of-backtest-overfitting/` | Bailey, Borwein, López de Prado & Zhu, *The Probability of Backtest Overfitting* (34 pp.) | Why the best of many backtests is usually luck, and CSCV, a way to estimate the probability that it is. For `arena.grid` and a capped number of portal submissions |
 | `deflated-sharpe-ratio/` | Bailey & López de Prado, *The Deflated Sharpe Ratio* (22 pp.) | A Sharpe ratio corrected for how many strategies were tried, for non-normal returns and for short samples |
+| `order-book-signals/` | Cartea, Donnelly & Jaimungal, *Enhancing trading strategies with order book signals*, Applied Mathematical Finance 2018 (accepted manuscript, 42 pp.; free copy from King's College London's repository) | Best-level volume imbalance `ρ` as a predictor of the next market order and its use in a limit-order market-making control problem; why quoting only at the touch suffers adverse selection. Only the definition of `ρ` has been checked against the PDF |
+| `how-to-almost-win/` | Diehm, *How to (almost) win in Competitive Environments*, Medium, 2025 (7 pp. browser print; decorative images removed) | Not a paper: a mindset essay by a Prosperity 3 runner-up on questioning assumptions and probing the environment. Indexed in the references wiki, not a source of formulas |
 | `pseudo-math/` | Bailey, Borwein et al., *Pseudo-Mathematics and Financial Charlatanism* (34 pp.) | The readable version of the above. Theorem 3.1 bounds the backtest length needed for N trials: `MinBTL < 2 ln N / E[max_N]^2` years, for annualized Sharpe ratios on independent trials |
 
 ## Suggested reading order
@@ -41,7 +43,7 @@ Marker's `meta.json` (table of contents with page numbers).
 
 5. **Queue position** (to check and extend `--resting`): Moallemi & Yuan for the idea, then the two articles in `references/README.md` (Rigtorp, Databento) for the estimate, then Huang et al. and Guo et al. if you need the model behind it.
 6. **Validation** (before trusting a grid result or spending a portal submission): `pseudo-math`, then `probability-of-backtest-overfitting`, then `deflated-sharpe-ratio`. They are about long daily-return samples; how far the numbers transfer to a few days of tick data is an open question in `TODO.md`.
-7. **Signals and many products:** Gould & Bonart (queue imbalance) next to Cont et al., and Guéant's multi-asset quoting next to Guéant et al.
+7. **Signals and many products:** Gould & Bonart (queue imbalance) and Cartea et al. 2018 (volume imbalance, adverse selection at the touch) next to Cont et al., and Guéant's multi-asset quoting next to Guéant et al.
 
 Cartea et al. and Bouchaud et al. are references to look things up in, not to read through.
 
