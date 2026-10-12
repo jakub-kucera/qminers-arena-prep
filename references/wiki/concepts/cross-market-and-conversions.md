@@ -16,6 +16,8 @@ Prosperity 2 (Orchids) and Prosperity 3 (Macarons) let you buy from or sell to a
 - **Cross-venue (AlgoTrade):** the same ticker bid on one nearby venue far above the ask on another was the scale signal, with latency deciding who got filled (`algotrade2026-pitfa19/docs/VOIDMAKER_EDGE_PROOF.md:48-60`, replays of their own recordings).
 - **Creation/redemption (UChicago):** the ETF swap with a 5-tick fee is a conversion in the same sense (`uchicago-trading-2026/README.md:103`).
 
+- **Cross-exchange IOC arbitrage won AlgoTrade 2026** (Negative Eevee): fair value as the average of the latest mids from all exchanges listing a product, IOC buys and sells about ±1 cent around it into every relevant exchange, books polled every ~7 ms adaptively, no hedging (`algotrade2026-negative-eevee/README.md:15-21`). Speed and exclusivity were the contest; see [shared-market-and-adversaries](shared-market-and-adversaries.md).
+
 ## Where they disagree
 Nothing to compare.
 
@@ -26,4 +28,4 @@ Nothing to compare.
 Not testable until the engine supports conversions. Cost of building: new order type, observation fields and fee handling in `arena/engine.py` and the Prosperity format.
 
 ## Sources
-[Linear Utility](../sources/prosperity2-linear-utility.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [UChicago](../sources/uchicago-trading-2026.md), [jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md).
+[Linear Utility](../sources/prosperity2-linear-utility.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [UChicago](../sources/uchicago-trading-2026.md), [jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md). [Negative Eevee](../sources/algotrade2026-negative-eevee.md).

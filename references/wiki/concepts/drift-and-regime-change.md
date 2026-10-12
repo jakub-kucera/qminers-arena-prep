@@ -16,6 +16,8 @@ Products come in three shapes: pegged (Resin, Osmium), drifting deterministicall
 - **The handed-out days can mislead.** DTU's Hydrogel capsule days were ~99% pinned; the live day was 100% noisy (`prosperity4-dtu-quant-lab/round_4/algorithmic/trader.py:261-296`).
 - **Mean-reverting underlying.** Baguette Fromage: Ornstein–Uhlenbeck with mean ≈ 5250, θ ≈ 0.15, σ ≈ 9.8, long-run σ ≈ 18, buy below 5232 and sell above 5268 (`prosperity4-baguette-fromage/README.md:740-759`); DU faded moves beyond 8 from 5,250 (`prosperity4-du-trading/round4.py:240`). Ryan Challman's tape fell 65 ticks net on day 3 and the mean-reversion book that had been tuned on rising days lost (`prosperity4-ryan-challman/README.md:79-87`).
 
+- **The opening price can reveal the regime** (heyman7913): some Velvetfruit days opened already 2.5σ above the anchor and a fixed z = 2 short entry lost money before reverting; they blended thresholds across three regime centres (5245, 5267.5, 5295.5) with Gaussian weights keyed to the day's opening price (`online-snapshots/heyman7913_imc-prosperity-4.README.md:356-371`, their claim).
+
 ## Where they disagree
 Buy-and-hold (many teams) versus market making around the drift (Baguette Fromage, Alpha Search): the market-making teams argue the spread (~14) is too large to ignore (`prosperity4-baguette-fromage/README.md:429`). Not settled; see [contradictions](../contradictions.md), row 6.
 
@@ -26,4 +28,4 @@ Buy-and-hold (many teams) versus market making around the drift (Baguette Fromag
 Needs `--data p4`: Pepper Root (rounds 1–2) for drift, Hydrogel (rounds 3–4) for the broken anchor. A fixed anchor versus a rolling median versus DTU's detector, ranked by the worst day (`validation-and-overfitting.md`).
 
 ## Sources
-[Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md). Related: [fair-value-and-wall-mid](fair-value-and-wall-mid.md), [validation-and-overfitting](validation-and-overfitting.md).
+[Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md). Related: [fair-value-and-wall-mid](fair-value-and-wall-mid.md), [validation-and-overfitting](validation-and-overfitting.md). [heyman7913](../sources/prosperity4-heyman7913.md).

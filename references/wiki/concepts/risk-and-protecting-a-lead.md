@@ -19,6 +19,8 @@ How much variance to take depends on how the competition scores. Teams that were
 - **Rank is partly luck:** Alpha Animals' 2nd place after round 3 came from a bug that happened to pay (`prosperity3-alpha-animals/README.md:135`).
 - **Fractional Kelly** was the staking rule in the Qminers sports-betting solution: 25% Kelly, 5% per bet, 20% per day (`qminers-hackathon-2025/README.md:25-27`; theory in `literature_md/kelly-criterion/`).
 
+- **Correlated books stack risk** (Leo-Hawking): applying the same mean-reversion logic to all highly correlated assets makes every asset build positions in the same direction at once, which hurt in round 4 (rank 95th to 132nd) though the market had been friendly in round 3 (`online-snapshots/Leo-Hawking_IMC-Prosperity-4-Review.README.md:408-446`).
+
 ## Where they disagree
 No team argues for more variance after taking a lead.
 
@@ -29,4 +31,4 @@ Nothing yet. The decision is a policy (flatten, or stop) rather than a strategy;
 Once the Technical Rules give the scoring formula, compute what rank or PnL secures each outcome and decide in advance, in writing, when to stop. Log per-product PnL from the first run.
 
 ## Sources
-[Linear Utility](../sources/prosperity2-linear-utility.md), [UChicago](../sources/uchicago-trading-2026.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [Qminers 2025](../sources/qminers-hackathon-2025.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md).
+[Linear Utility](../sources/prosperity2-linear-utility.md), [UChicago](../sources/uchicago-trading-2026.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [Qminers 2025](../sources/qminers-hackathon-2025.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md).

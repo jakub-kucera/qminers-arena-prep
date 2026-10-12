@@ -5,6 +5,7 @@ references/*
 !references/SEARCH_LOG.md
 !references/wiki/
 !references/check_arena_site.py
+!references/fetch_notion.py
 !references/arena-site-snapshot.txt
 
 # Source PDFs for literature_md/ (large, mostly copyrighted books); not committed

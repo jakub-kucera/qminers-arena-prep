@@ -16,6 +16,8 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 - **Crowded edges decay:** a Ready Trader Go team's arbitrage bots worked alone but "performed poorly when put alongside other traders" (online README, `references/SEARCH_LOG.md`, "Books and articles"); Linear Utility's orchids arbitrage was leaked on Discord and they fell from 2nd to 17th as everyone found it (`prosperity2-linear-utility/README.md:118-137`); UChicago's ETF mispricings became rarer in later rounds (`uchicago-trading-2026/README.md:229`).
 - **Exchange failures are part of a live shared event:** sporadic freezes (UChicago, `uchicago-trading-2026/README.md:231`); AlgoTrade's rate-limit disconnects and segment resets (`algotrade2026-pitfa19/.firecrawl/algotrade-participant-guide.md:397`).
 
+- **A winner's account of a shared market** (Negative Eevee, AlgoTrade 2026): "all teams traded in the same shared market" (`algotrade2026-negative-eevee/README.md:7`). Their cross-exchange IOC arbitrage took "almost all of these inefficiencies out of the market as soon as they appeared", and "several teams mentioned that their own cross-exchange arbitrage became much worse around round 2, which was also when our first prototypes went live"; mean reversion "still allowed other teams to enter later; cross-exchange arbitrage did not" (`algotrade2026-negative-eevee/README.md:23`). The edge that survives in a shared market is the one others cannot join late.
+
 ## Where they disagree
 Nothing to compare: the Prosperity record has no shared-market evidence.
 
@@ -26,4 +28,4 @@ Nothing to compare: the Prosperity record has no shared-market evidence.
 `ON_THE_DAY.md`, "Is the market shared?" lists the Arena site's hints (they point both ways). If shared: test the bot against a `--vs` rival that snipes one side; add a "no resting orders in thin books" mode; decide beforehand what to do when a book empties.
 
 ## Sources
-[UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Linear Utility](../sources/prosperity2-linear-utility.md).
+[UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Linear Utility](../sources/prosperity2-linear-utility.md). [Negative Eevee](../sources/algotrade2026-negative-eevee.md), [Diehm essay](../sources/timo-diehm-medium-article.md).

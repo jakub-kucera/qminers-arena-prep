@@ -16,6 +16,7 @@ REPOS=(
   "prosperity2-backtester-jmerle  jmerle/imc-prosperity-2-backtester"
   "prosperity3-visualizer-jmerle  jmerle/imc-prosperity-3-visualizer"
   "algotrade2026-pitfa19          pitfa19/algotrade2026"
+  "algotrade2026-negative-eevee   alexbolfa/algotrade-negative-eevee"
   "prosperity3-frankfurt-hedgehogs TimoDiehm/imc-prosperity-3"
   "prosperity4-baguette-fromage   Durpie-Git/imc-prosperity-4"
   "prosperity4-du-trading         FoxHenderson/imc-prosperity-4"
@@ -24,6 +25,7 @@ REPOS=(
   "prosperity4-alpha-search       fabianbaiertum/IMC-Prosperity-4"
   "prosperity4-backtester         nabayansaha/imc-prosperity-4-backtester"
   "uchicago-trading-2026          konnorlo/UChicago-Trading-Competition-2026"
+  "uchicago-2025-case2-humzah     HumzahM/UTC2025-Case2-Writeup"
   "qminers-hackathon-2025         vitktor/Qminers-Hackathon-2025"
   "hftbacktest                    nkaz001/hftbacktest"
 )

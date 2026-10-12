@@ -22,6 +22,9 @@ Each edition had a call option on a product (coconut coupon, volcanic vouchers, 
 - **UChicago:** put–call parity and box-spread bots found no edge because spreads exceeded any mispricing, and thin option books were the most prone to sniping (`uchicago-trading-2026/README.md:181-195`).
 - **Stdlib helpers you can reuse as a pattern:** `bs_call_price`, delta, vega, `implied_vol` and a 3×3 parabola fit in plain `math` (`prosperity4-dtu-quant-lab/round_3/algorithmic/trader.py:416-466`, `prosperity4-dtu-quant-lab/round_3/algorithmic/trader.py:1464`).
 
+- **A fitted smile can stop fitting** (CMU Physics, Prosperity 3): their quadratic implied-volatility fit was a poor model on the submission day, so they held long or short vol all day and made almost nothing; using the mean of a short rolling window of mid implied volatility as fair IV took their backtest from about 80k to 200k per day (`online-snapshots/chrispyroberts_imc-prosperity-3.README.md:236`, their claim).
+- **A free primer if options appear:** Optiver's explainers on options pricing, Greeks and volatility ([online articles](../sources/online-articles.md)); a shorter route than a textbook.
+
 ## Where they disagree
 Smile trading: DTU fitted and traded a parabola; Baguette Fromage, Alpha Search and DU concluded it was not worth it. See [contradictions](../contradictions.md), row 5.
 
@@ -32,4 +35,4 @@ Smile trading: DTU fitted and traded a parabola; Baguette Fromage, Alpha Search 
 Needs `--data p4` (rounds 3–4). Reproduce "implied vol nearly constant per strike" first (a plot), then test the underlying-view approach against a smile approach by the worst day. `literature_md` has no options material; the conditional SVI paper is in `TODO.md`.
 
 ## Sources
-[Linear Utility](../sources/prosperity2-linear-utility.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [UChicago](../sources/uchicago-trading-2026.md).
+[Linear Utility](../sources/prosperity2-linear-utility.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [UChicago](../sources/uchicago-trading-2026.md). [CMU Physics](../sources/prosperity3-cmu-physics.md), [online articles](../sources/online-articles.md).

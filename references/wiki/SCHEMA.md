@@ -8,7 +8,7 @@ pages and kept current**, instead of re-derived from the raw clones on every que
 
 | Layer | Where | Who writes it |
 |---|---|---|
-| **Raw sources** | the clones in `references/<repo>/` (gitignored), `references/arena-site-snapshot.txt`, and `literature_md/` | nobody: **read-only**. Never edit, never import from them |
+| **Raw sources** | the clones in `references/<repo>/` (gitignored), downloaded documents (`references/prosperity-wikis/`, made by `references/fetch_notion.py`), saved README snapshots of repos read online (`references/online-snapshots/`), `references/arena-site-snapshot.txt`, and `literature_md/` | nobody: **read-only**. Never edit, never import from them |
 | **The wiki** | `references/wiki/` (committed) | the agent. A human reads it |
 | **The schema** | this file | human and agent together; change it when a convention stops working |
 
@@ -35,7 +35,7 @@ Every page except `index.md` and `log.md` starts with this front matter (plain `
 title: Short human title
 type: source | concept | comparison | overview
 updated: 2026-10-10
-repo: prosperity4-dtu-quant-lab    # source pages only: the clone folder
+repo: prosperity4-dtu-quant-lab    # source pages only: the folder under references/ (or under the repo root, e.g. literature_md/<doc>), or `none` if there is no local copy
 status: read | partly-read | mapped | unread    # source pages only
 ---
 ```

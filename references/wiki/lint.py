@@ -44,7 +44,8 @@ def pages() -> list[Path]:
 
 
 def resolve(path: str, repo: str | None) -> Path | None:
-    for base in ([REFERENCES / repo] if repo else []) + [REFERENCES, ROOT]:
+    local = [] if not repo or repo == "none" else [REFERENCES / repo, ROOT / repo]
+    for base in local + [REFERENCES, ROOT]:
         if (base / path).is_file():
             return base / path
     return None
@@ -53,9 +54,10 @@ def resolve(path: str, repo: str | None) -> Path | None:
 def clone_missing(path: str, repo: str | None) -> bool:
     """True if the citation points into a clone folder that is absent (not cloned here)."""
     first = path.split("/")[0]
-    return bool(repo and not (REFERENCES / repo).is_dir()) or (
-        "/" in path and not (REFERENCES / first).is_dir() and first.startswith(("prosperity", "algotrade", "uchicago", "qminers", "hftbacktest"))
-    )
+    if repo and repo != "none" and not ((REFERENCES / repo).is_dir() or (ROOT / repo).is_dir()):
+        return True
+    clones = ("prosperity", "algotrade", "uchicago", "qminers", "hftbacktest", "online-snapshots")
+    return "/" in path and not (REFERENCES / first).is_dir() and first.startswith(clones)
 
 
 def main() -> int:

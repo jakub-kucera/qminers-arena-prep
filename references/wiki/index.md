@@ -26,6 +26,7 @@ Read this first, then the pages it points to. Conventions, workflows and the lin
 - [backtesting-and-tooling](concepts/backtesting-and-tooling.md): matching rules, the P4 fork, log conversion, what backtesters cannot do.
 - [ai-assisted-work](concepts/ai-assisted-work.md): how the winners used agents and what they warn about.
 - [cross-market-and-conversions](concepts/cross-market-and-conversions.md): orchids, macarons, cross-venue; unsupported by the backtesters.
+- [probing-the-environment](concepts/probing-the-environment.md): experiments on the simulator before strategies: the PnL mark, bot tolerances, no-queue, sample data that is really live data.
 
 ## Sources (one page per clone; each ends with a "Read depth" section)
 Team write-ups and code:
@@ -37,10 +38,21 @@ Team write-ups and code:
 - [prosperity4-alpha-search](sources/prosperity4-alpha-search.md): P4; README only; multiple testing, PnL decomposition.
 - [prosperity2-linear-utility](sources/prosperity2-linear-utility.md): P2 2nd; ancestor of `bots/template.py`.
 - [prosperity3-alpha-animals](sources/prosperity3-alpha-animals.md): P3 9th; conversions, copy-trading; state on `self`.
+More team write-ups and code (added 2026-10-11; the first four are read from saved README snapshots in `references/online-snapshots/`):
+- [prosperity4-leo-hawking-review](sources/prosperity4-leo-hawking-review.md): human-plus-AI workflow, round 0 probe (no queue), the limits of agent consensus.
+- [prosperity4-heyman7913](sources/prosperity4-heyman7913.md): P4 19th; capacity reservation, signal fair, opening-price regimes, Mark 67 event study.
+- [prosperity3-cmu-physics](sources/prosperity3-cmu-physics.md): P3 7th; a Lambda restart wiped trading state; sample data was live data; a fitted IV smile broke.
+- [prosperity4-kayzerjali](sources/prosperity4-kayzerjali.md): an agent loop using the live result as the oracle; one measured backtest-versus-live gap.
+- [algotrade2026-negative-eevee](sources/algotrade2026-negative-eevee.md): the AlgoTrade 2026 winners; a shared market; cross-exchange IOC arbitrage.
+- [uchicago-2025-case2-humzah](sources/uchicago-2025-case2-humzah.md): a #1 file-upload entry that found the generator's 10-tick structure.
 Other competitions and organisers' files:
 - [algotrade2026-pitfa19](sources/algotrade2026-pitfa19.md): live WebSocket event; market-maker reverse engineering.
 - [uchicago-trading-2026](sources/uchicago-trading-2026.md): shared live exchange; Case 2 is a file upload with a restricted library set.
 - [qminers-hackathon-2025](sources/qminers-hackathon-2025.md): Qminers' earlier competition; stub, upload, hidden seasons.
+Documents and articles:
+- [timo-diehm-medium-article](sources/timo-diehm-medium-article.md): Frankfurt Hedgehogs' essay on questioning assumptions and understanding the environment; no tactics.
+- [prosperity-wikis](sources/prosperity-wikis.md): IMC's own documentation (Notion) for Prosperity 2, 3 and 4: the bot interface, libraries, limits and time limit.
+- [online-articles](sources/online-articles.md): Rigtorp, Databento, Hummingbot's Avellaneda–Stoikov guides, Optiver's explainers (read as summaries; no local copy).
 Tools:
 - [prosperity3-backtester-jmerle](sources/prosperity3-backtester-jmerle.md): the rules our engine matches; log-to-data converter.
 - [prosperity2-backtester-jmerle](sources/prosperity2-backtester-jmerle.md): P2 data and limits.
@@ -52,10 +64,11 @@ Tools:
 Things the wiki does not cover yet, in rough order of value:
 1. **Manual-round puzzles.** No page. Unread: Baguette Fromage `README.md:1105-1485`, Alpha Search `README.md:181-638`, Ryan Challman `README.md:147-255`, Frankfurt `README.md:786-876`. The Arena may have none.
 2. **Cross-check against our engine.** No team's PnL claim is reproduced except Frankfurt's Resin and Kelp. Needs `--data p4` (`TODO.md`).
-3. **Unread source parts** (listed per source page): Frankfurt `README.md:325-876`; most of DU `round5.py`; DTU round 1–3 bodies; AlgoTrade's API reference.
-4. **Online-only sources, unread by us:** Leo-Hawking's retrospective, heyman7913, chrispyroberts, Ctrl-Alt-DefeatTheMarket (see `references/README.md`, "Read online"). Ingest one as a source page before relying on it.
-5. **`literature_md/` is not in this wiki.** `TODO.md` has an item to turn it into one; reuse this schema.
-6. **A concept page on "reading the public data on day one"** (a checklist of the facts above to test on the Arena's first download).
+3. **Unread source parts** (listed per source page): Frankfurt `README.md:325-876`; most of DU `round5.py`; DTU round 1–3 bodies; AlgoTrade's API reference; the Prosperity wikis' FAQ, round pages and glossary; most of the Leo-Hawking, heyman7913 and CMU Physics READMEs; Negative Eevee's `runner.rs`, `state.rs`, `config.rs`.
+4. **Sources not obtainable by the agent:** the Quant.SE queue-position thread (the fetch tool is blocked on that domain), exact copies of the queue and Avellaneda–Stoikov articles, books (Bouchaud et al. full text, an options text), and any organiser material. All tracked in [`MANUAL_TODO.md`](../../MANUAL_TODO.md); see also `references/SEARCH_LOG.md`.
+5. **`literature_md/` is not in this wiki.** `TODO.md` has an item to turn it into one; reuse this schema. The Cartea et al. 2018 paper is cited from here, but only its imbalance definition (`ρ`) has been checked against the PDF.
+6. **Ready Trader Go winning bots** and the Jane Street trading-challenge bots: none public that we found.
+7. **A concept page on "reading the public data on day one"**: a checklist of the facts above to test on the Arena's first download (partly covered by [probing-the-environment](concepts/probing-the-environment.md)).
 
 ## Outside the wiki
 - [`../README.md`](../README.md): the human-facing table of repos, reading order and cloning.
