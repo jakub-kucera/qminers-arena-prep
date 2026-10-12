@@ -1,7 +1,7 @@
 ---
 title: Shared markets and adversaries
 type: concept
-updated: 2026-10-10
+updated: 2026-10-12
 ---
 
 # Shared markets and adversaries
@@ -18,6 +18,12 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 
 - **A winner's account of a shared market** (Negative Eevee, AlgoTrade 2026): "all teams traded in the same shared market" (`algotrade2026-negative-eevee/README.md:7`). Their cross-exchange IOC arbitrage took "almost all of these inefficiencies out of the market as soon as they appeared", and "several teams mentioned that their own cross-exchange arbitrage became much worse around round 2, which was also when our first prototypes went live"; mean reversion "still allowed other teams to enter later; cross-exchange arbitrage did not" (`algotrade2026-negative-eevee/README.md:23`). The edge that survives in a shared market is the one others cannot join late.
 
+**What the literature says** ([Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md)):
+- **Our template is a quote matcher.** Quoting one tick in front of the bot's large quote ("penny jumping") gives an option-like payoff: full gain if the price moves our way, a one-tick loss if not, because we can sell back to the large order (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5889` (p. 261)). That backstop exists only while the large order stays. A rival can **trap** a quote matcher: bait with size, sell into the matcher, cancel the bait (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5919` (p. 263)).
+- **Resting orders give away a timing option.** A faster trader picks off a stale quote after news. Spreads must cover order-management cost plus twice the option's value, more so when cancelling is slow or the product volatile (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:7140-7146` (p. 320)).
+- **Bluff-proof pricing:** if our quotes react to the flow we see, they must move by the same amount per unit for buys and sells, large or small, fast or slow. Otherwise a rival can buy with one kind of order and sell with the other at a profit (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6369-6381` (p. 283–284)). A flow- or imbalance-driven fair value needs this check ([book imbalance](book-imbalance-and-micro-price.md)).
+- **Competition erodes the edge:** with n competing market makers, the liquidity discount a trader pays falls like 1/(n+1) (Grossman–Miller, `literature_md/algorithmic-and-hft/algorithmic-and-hft.md:575-579` (p. 41)). Competition among arbitrageurs narrows arbitrage spreads to the costs of the most efficient one (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:8801` (p. 391)). This is the theory behind "crowded edges decay".
+
 ## Where they disagree
 Nothing to compare: the Prosperity record has no shared-market evidence.
 
@@ -25,7 +31,9 @@ Nothing to compare: the Prosperity record has no shared-market evidence.
 `arena.run_market` and `--vs BOT` simulate other bots' resting orders in the same market (`CLAUDE.md`, "Shared market"). Rivals are only bots we bring.
 
 ## How to test it here
+Two `--vs` rivals to build: a **quote-matching trapper** (posts a large bid, sells into anyone who bids one tick above it, cancels), and a **sniper** that takes our resting quotes after the mid moves (the timing option, under `--resting`).
+
 `ON_THE_DAY.md`, "Is the market shared?" lists the Arena site's hints (they point both ways). If shared: test the bot against a `--vs` rival that snipes one side; add a "no resting orders in thin books" mode; decide beforehand what to do when a book empties.
 
 ## Sources
-[UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Linear Utility](../sources/prosperity2-linear-utility.md). [Negative Eevee](../sources/algotrade2026-negative-eevee.md), [Diehm essay](../sources/timo-diehm-medium-article.md).
+[Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Linear Utility](../sources/prosperity2-linear-utility.md). [Negative Eevee](../sources/algotrade2026-negative-eevee.md), [Diehm essay](../sources/timo-diehm-medium-article.md).

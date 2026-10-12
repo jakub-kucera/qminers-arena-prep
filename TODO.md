@@ -24,7 +24,7 @@ items as they come up.
     - the grid trial count: `pseudo-math`, `probability-of-backtest-overfitting`, `deflated-sharpe-ratio` → `validation-and-overfitting`, enough to decide whether a CSCV estimate is worth building.
     - the queue option: `queue-position-valuation` (read), `queue-reactive-model` and `dynamics-of-order-positions` (partly read) → `queue-position-and-fills`.
   - **Phases 2–3 follow** the workflow "Add a document to the literature" in `references/wiki/SCHEMA.md`, steps B–E.
-  - **Phase 2, the books:** chapter maps of both from `meta.json`; read Cartea et al. ch. 2, 10, 11 and 12 and Harris ch. 10–14 and 17; file what they add into the concept pages. The rest stays `mapped` and is read when a question needs it.
+  - **Phase 2, the books** (done 2026-10-12: source pages with chapter maps for both; Cartea et al. ch. 2, 10, 11, 12 and Harris ch. 10–14, 17 read; findings filed into six concept pages): chapter maps of both from `meta.json`; read Cartea et al. ch. 2, 10, 11 and 12 and Harris ch. 10–14 and 17; file what they add into the concept pages. The rest stays `mapped` and is read when a question needs it.
   - **Phase 3, the rest:** `kelly-criterion` (a sizing section in `risk-and-protecting-a-lead`; Kelly maximises log growth, not rank, so only its edge-over-variance scaling and fractional use carry over), `limit-order-books`, `trades-quotes-prices`, and a `price-impact` concept page.
   - **Phase 4:** theory-versus-practice rows in `contradictions.md`, a manual citation check, `log.md` entries.
   - Done when: phases 0–3 are done, every formula on a literature page has a status, the lint passes, and CLAUDE.md points sessions to the wiki before the raw text.
@@ -64,9 +64,13 @@ items as they come up.
 - [ ] **Let the template flatten before the close.** If the Arena liquidates open positions at a bad price, the bot should cut inventory near the end. Add a parameter now, so on the day it only needs a value.
   - Done when: a parameter like `flatten_from` (a timestamp) makes `clear` and `make` work the position to zero after it, with a test.
 
+- [ ] **Build two adversarial `--vs` rivals.** From Harris (`references/wiki/concepts/shared-market-and-adversaries.md`): a *quote-matching trapper* that posts a large bid, sells into anyone who bids one tick above it, then cancels; and a *sniper* that takes resting quotes right after the mid moves (the timing option, under `--resting`). Our template quotes one tick inside the best quote, so it is exactly what the trapper hunts.
+  - Done when: both are bots in `bots/`, the template has been run against each with `--vs` (and `--resting` for the sniper), and the PnL cost is recorded on the shared-market page.
+
 ## Strategy
 
 - [ ] **Explain Kelp's long drift.** Passive buys exceed passive sells (3,629 against 2,330 over round 1), Kelp sits at +50 about 10% of the time, and `skew` doesn't help. Find out whether fair value or quoting is biased, using the fill tables and product charts.
+  - **Two tests from the literature (2026-10-12):** (1) Harris: if counterparties are informed, our inventory is *negatively* correlated with the next price changes. Compute corr(`position`, future change in `mark`) for Kelp per day. (2) Cartea et al.: when one side's market orders arrive more often, the mid drifts and a maker without skew accumulates the side being hit. Compare the fill rates of our bids and asks with the drift of `mark`. See `references/wiki/concepts/informed-counterparties.md`.
   - Done when: the cause is known, and the fix (or the reason not to fix it) is in the template or in a note here.
 - [ ] **Try the literature's fair values and skew in the template.** Candidates: the micro-price, order-book imbalance (Cont et al.; best-level volume imbalance `ρ = (Vᵇ − Vᵃ)/(Vᵇ + Vᵃ)` from Cartea, Donnelly & Jaimungal 2018, `literature_md/order-book-signals/`), heyman7913's blend `0.30 × volume-weighted mid + 0.70 × slow EMA + 2.0 × ρ` (`references/wiki/sources/prosperity4-heyman7913.md`), and Avellaneda–Stoikov's inventory skew in place of our linear one. Compare them with `wall_mid` under `worse` fills, `--resting` and `--vs`.
   - **Prior from Prosperity 4:** teams disagree about inventory skew on a pegged product. DTU Quant Lab lost 16,593 in backtest with an Avellaneda–Stoikov reservation price on Osmium against a fixed fair value with a micro-price refinement, while Baguette Fromage shipped a linear reserve-price shift (γ = 1/12) there. DTU also dropped VPIN, PIN, Hawkes, square-root impact and Kalman betas. Their rule is worth copying: a variant ships only if its worst single day is positive (`arena.grid` already reports `min day`).
@@ -75,6 +79,7 @@ items as they come up.
   - Done when: each is a `fair` or skew option with a backtest result recorded here, kept or dropped.
 - [ ] **Add multi-product strategies.** The later rounds of both Prosperity editions, and AlgoTrade's ETFs, priced products against each other. The template trades every product on its own, so add a cross-product hook to STRATEGY.
   - Then build a spread module: basket against components, z-score entries and exits, and hedging within the limits. Practise on Prosperity 3 round 2 (picnic baskets) and Prosperity 2 round 3 (gift basket).
+  - **From the literature (2026-10-12):** Cartea et al.'s optimal entry and exit bands for a mean-reverting spread reproduce with a standard-library integral, so they can be computed offline per basket. Harris: only pure arbitrages (known weights, fixed sums) must revert. See `references/wiki/concepts/baskets-and-fixed-sums.md`.
   - Done when: the module trades a basket spread profitably on both datasets, under `worse` fills as well as `all`.
 - [ ] **Prepare the other later-round mechanics:**
   - options: implied volatility and delta hedging, on Prosperity 3 round 3's volcanic vouchers and Prosperity 2 round 4's coconut coupons

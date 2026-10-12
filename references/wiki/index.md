@@ -88,8 +88,10 @@ Documents with a source page (each says which formulas were checked against the 
 - [queue-position-valuation](sources/queue-position-valuation.md): Moallemi & Yuan 2017; order value = fill probability × (premium − adverse selection); front against back of the queue on ITCH data.
 - [queue-reactive-model](sources/queue-reactive-model.md): Huang, Lehalle & Rosenbaum 2015; queue-size-dependent order flow as a simulator; uniform cancellation overstates fills.
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
+- [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
+- [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.
 
-Not yet ingested (all in `literature_md/README.md`): `algorithmic-and-hft`, `harris-trading-and-exchanges`, `kelly-criterion`, `limit-order-books`, `trades-quotes-prices`. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The order is in `TODO.md`.
+Not yet ingested (all in `literature_md/README.md`): `kelly-criterion`, `limit-order-books`, `trades-quotes-prices`. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The order is in `TODO.md`.
 
 ## Gaps
 Things the wiki does not cover yet, in rough order of value:

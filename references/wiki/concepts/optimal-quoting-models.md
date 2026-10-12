@@ -27,6 +27,12 @@ The standard theory of where to quote is "fair ± half-spread − skew × invent
   - A price drift `μ` shifts both quotes by `(μ/(γσ²))·c₂`.
   - Adverse selection (the price jumps `ξ` against each fill) adds `ξ/2` to each side.
 
+- **The textbook version** ([Cartea et al., book](../sources/algorithmic-and-hft.md) ch. 10):
+  - The running-penalty maker has depths `δ± = 1/κ − [h(t, q∓1) − h(t, q)]`, with `h` from a matrix exponential `ω(t) = e^{A(T−t)}z` (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:5788-5830` (p. 265–266, checked)). That is computable offline for a limit of 50.
+  - The utility maximiser is the same strategy up to a constant shift once `φ = ½σ²γ` (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:6064-6090` (p. 277–278, checked)). So A–S/GLFT and the penalty models agree.
+  - If each market order moves the mid by ε, each quote moves out by ε (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:6114-6162` (p. 279–280, checked)).
+  - **When buy and sell market orders arrive at different rates, the optimal inventory is not zero:** the maker leans toward the side the drift favours (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:6218` (p. 283)).
+
 **Calibration in practice:**
 - GLFT chose `γ` so that inventory stayed within ±10 average trade sizes. They note that `A` and `k` "have to depend at least on the actual market bid-ask spread" (`literature_md/dealing-with-inventory-risk/dealing-with-inventory-risk.md:416-418` (p. 20)).
 - Hummingbot derives `γ` and `κ` from a user-chosen minimum and maximum spread ([online articles](../sources/online-articles.md)).
@@ -70,4 +76,4 @@ The standard theory of where to quote is "fair ± half-spread − skew × invent
 4. **Pegged products separately:** check whether any skew beats none on Resin and Osmium.
 
 ## Sources
-[Avellaneda–Stoikov](../sources/hft-in-a-limit-order-book.md), [GLFT](../sources/dealing-with-inventory-risk.md), [Guéant 2017](../sources/optimal-market-making.md), [Cartea et al. 2018](../sources/order-book-signals.md), [hftbacktest](../sources/hftbacktest.md), [online articles](../sources/online-articles.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md).
+[Cartea et al., book](../sources/algorithmic-and-hft.md), [Avellaneda–Stoikov](../sources/hft-in-a-limit-order-book.md), [GLFT](../sources/dealing-with-inventory-risk.md), [Guéant 2017](../sources/optimal-market-making.md), [Cartea et al. 2018](../sources/order-book-signals.md), [hftbacktest](../sources/hftbacktest.md), [online articles](../sources/online-articles.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md).

@@ -1,7 +1,7 @@
 ---
 title: Informed counterparties (named traders)
 type: concept
-updated: 2026-10-10
+updated: 2026-10-12
 ---
 
 # Informed counterparties
@@ -22,6 +22,12 @@ When the data names buyers and sellers (Prosperity 3 round 5, Prosperity 4 round
 
 - **More Prosperity 4 readings of the Marks:** Leo-Hawking bucketed each bot's trades by price deviation from an EMA and found **Mark 14 and Mark 55** informed; following them added stable execution but "limited alpha", and their rank fell from 95th to 132nd (`online-snapshots/Leo-Hawking_IMC-Prosperity-4-Review.README.md:408-446`). heyman7913 (JaneRT) matched six recurring fingerprints before names were revealed and traded **Mark 67** (963 Velvetfruit buys in three days, 58.8% positive at 50 ticks, effect lasting ~3,000 ticks), **Mark 55** (informed Velvetfruit flow) and **Mark 01 with Mark 22** (multi-strike option baskets), each with a time-to-live of 3,000 or 6,000 ticks (`online-snapshots/heyman7913_imc-prosperity-4.README.md:373-398`).
 
+**What the literature says about trading against the informed** ([Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md)):
+- **The signature of informed flow:** the market maker's inventory becomes *inversely correlated with future price changes*, because it buys before falls and sells before rises (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6689` (p. 299)). This can be measured on our own runs without knowing who the counterparty is.
+- **The break-even spread:** in Glosten–Milgrom, the ask half-spread is `(V_H − μ)/(1 + ((1−α)/α)·(½)/p)`. It grows with the share α of informed traders and with how much they know (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:785-791` (p. 52, checked)). Harris's version: quote the ask at the value *given that the next trader buys* (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6768` (p. 302)).
+- **How informed traders trade:** aggressively when their edge will soon be public or shared, slowly ("stealth") otherwise (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5373-5387` (p. 238–239)). A bot that knows the price and trades in small pieces looks like noise until its trades are aggregated, which is what Frankfurt's running-extrema detector of Olivia did.
+- **Copying them can be a trap:** a dealer who speculates on what it infers from a trade can be baited by a small order in the other direction ("Bagging a frontrunning dealer", `literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6831-6835` (p. 305)).
+
 ## Where they disagree
 Which Mark, if any, is worth acting on: see [contradictions](../contradictions.md), row 3. By team: Mark 67 (DU, heyman7913; Alpha Search found it real but too small), Mark 14 (DTU, Leo-Hawking), Mark 55 (Leo-Hawking, heyman7913), none that survived (Ryan Challman, Baguette Fromage).
 
@@ -29,7 +35,9 @@ Which Mark, if any, is worth acting on: see [contradictions](../contradictions.m
 `arena/model.py` `MarketTrade` already has `buyer` and `seller` (`arena/model.py:27-35`), and the Prosperity format passes them through. No strategy uses them.
 
 ## How to test it here
+Without names: per product, the correlation between our position and the next 10–100 ticks of `mark` change in `_timeline.csv`. A clearly negative value means someone is picking us off (Harris's test). Then split our fill markouts by the trade's size and by time of day to find who.
+
 If the Arena names counterparties: forward-return table per name at 100/200/500 ticks, **leave-one-day-out**, a hard switch-off if any name flips sign across days. Do not ship a name-based signal that fails a held-out day (rule from [validation-and-overfitting](validation-and-overfitting.md)).
 
 ## Sources
-[Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [heyman7913](../sources/prosperity4-heyman7913.md).
+[Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [heyman7913](../sources/prosperity4-heyman7913.md).

@@ -48,3 +48,11 @@ Our A–S copy is the 2006 preprint, without the `γσ²(T−t)` spread term Hum
 
 ## [2026-10-12] restructure | the literature workflow and findings written down
 `SCHEMA.md` replaces the short literature-ingest steps with "Add a document to the literature": get it in, triage (a paper is read whole; a book gets a chapter map and only the chapters a question needs), read and check (page images, tables from the PDF, recomputed examples, OCR checklist), write, close. It is the procedure Phase 1 followed, for future books. `literature_md/README.md` lists the OCR failure modes seen so far. `overview.md` has a new section, "What the literature adds", with the eight findings that change what we do. `MANUAL_TODO.md` (books) and the `TODO.md` plan point to the workflow.
+
+## [2026-10-12] ingest | literature phase 2: the two books
+Source pages with full chapter maps (PDF pages and markdown lines) for Cartea, Jaimungal & Penalva and for Harris.
+- **Read:** Cartea et al. ch. 2 (Grossman–Miller, Kyle, Glosten–Milgrom), 10 (market making), 11 (pairs trading), 12 (order imbalance); Harris ch. 10–14 and 17. The rest is `mapped`.
+- **Checked against page images:** Glosten–Milgrom, (10.8)–(10.11), (10.19)–(10.27), (11.1)–(11.2) with `F±`, (12.1), Tables 12.1 and the ch. 11 trigger table. The trigger table was **recomputed** from (11.2) with a standard-library integral (1.746, 1.4367).
+- **Found:** Kyle's λ printed inverted in Cartea et al. (`2σ_u/σ`; the book's own derivation gives `σ/(2σ_u)`). OCR garbled the `F±` integrals and put `z` inside the exponent of (10.29).
+
+Filed into `informed-counterparties` (Glosten–Milgrom, Harris's inventory–price test), `shared-market-and-adversaries` (quote matching and its trap, the timing option, bluff-proof pricing, Grossman–Miller competition), `baskets-and-fixed-sums` (pure against speculative arbitrage, optimal bands), `market-making-and-inventory-skew`, `optimal-quoting-models` and `book-imbalance-and-micro-price`. Three new findings in `overview.md`. A new `TODO.md` item: adversarial `--vs` rivals (trapper, sniper).

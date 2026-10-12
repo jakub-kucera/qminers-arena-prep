@@ -6,7 +6,7 @@ updated: 2026-10-12
 
 # Overview of what the references teach
 
-A synthesis of 25 sources (17 team or competition sources, three documents and articles, five tools) read on 2026-10-10 and 2026-10-11, plus the literature in `literature_md/` (14 documents with a source page, from 2026-10-12; see "What the literature adds"). Every line links to the concept page with the evidence and the caveats. The Prosperity record is the best match to the Arena's described format (a file uploaded to a portal and run on a backtest), but the Arena is a different competition, so treat all of it as a prior.
+A synthesis of 25 sources (17 team or competition sources, three documents and articles, five tools) read on 2026-10-10 and 2026-10-11, plus the literature in `literature_md/` (16 documents with a source page, from 2026-10-12, including chapter maps of the two books; see "What the literature adds"). Every line links to the concept page with the evidence and the caveats. The Prosperity record is the best match to the Arena's described format (a file uploaded to a portal and run on a backtest), but the Arena is a different competition, so treat all of it as a prior.
 
 ## What the record says about doing well
 
@@ -41,7 +41,10 @@ Market-microstructure theory, read against the Prosperity record. Most of it was
    - Pre-commit how portal submissions will be spent (the 37% stopping rule).
 6. **Queue position matters for large-tick FIFO books, not for wide spreads** ([queue position](concepts/queue-position-and-fills.md)). In Prosperity, one tick of price buys priority, and Leo-Hawking found no queue at all, so the `--queue` options matter only if the Arena runs a FIFO book. Models with uniform cancellation overstate fills at the back.
 7. **Order-flow imbalance explains moves, it doesn't forecast them** ([Cont et al.](sources/price-impact-of-book-events.md)). R² 65% on the same 10 seconds, and no test on the next interval. Its use for us is the impact of our own takes.
-8. **The converted text is not the paper.** OCR dropped minus signs from tables and moved factors in and out of square roots. Several papers have typos of their own. Read every formula and table off the PDF before coding it (`literature_md/README.md`, "Caveats").
+8. **Our template quotes the way Harris calls quote matching** ([shared market](concepts/shared-market-and-adversaries.md)). It quotes one tick in front of the bot's large quote, with that quote as a backstop. That is safe against a bot that doesn't cancel, and exactly what a rival can trap in a shared market. Resting quotes also give faster traders a timing option.
+9. **Adverse selection has a measurable signature:** if counterparties are informed, the market maker's inventory is negatively correlated with the next price changes ([informed counterparties](concepts/informed-counterparties.md)). It is the first test for Kelp's long drift.
+10. **Only pure arbitrages must revert** ([baskets](concepts/baskets-and-fixed-sums.md)). Known baskets and fixed sums revert; searched relationships may not. For a mean-reverting spread, optimal entry and exit bands are computable offline (Cartea et al. ch. 11, reproduced).
+11. **The converted text is not the paper.** OCR dropped minus signs from tables and moved factors in and out of square roots. Several papers have typos of their own. Read every formula and table off the PDF before coding it (`literature_md/README.md`, "Caveats").
 
 ## What to read next
 [`index.md`](index.md) for the page list, [`contradictions.md`](contradictions.md) for what is unsettled, and `ON_THE_DAY.md` for what to find out first on the day. The weakest parts of the evidence are listed on each source page under "Read depth".

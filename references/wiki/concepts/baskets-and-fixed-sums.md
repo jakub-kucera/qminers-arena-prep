@@ -1,7 +1,7 @@
 ---
 title: Baskets, ETFs and fixed-sum identities
 type: concept
-updated: 2026-10-10
+updated: 2026-10-12
 ---
 
 # Baskets, ETFs and fixed-sum identities
@@ -16,6 +16,15 @@ Every edition had a product that is a known combination of others (gift baskets,
 - **Execution.** Take all legs at once (DU), keep a residual accounting so two strategies share one limit (UChicago: 150 directional, 40 arb, 10 buffer: `uchicago-trading-2026/README.md:205-213`), and give each product to one structural strategy (`prosperity4-alpha-search/README.md:174`).
 - **Lead-lag** within a family: Microchip Circle leads the others at 50/100/150/200 ticks (`prosperity4-alpha-search/README.md:160`); an earlier cross-category finding was a pandas alignment bug (`prosperity4-alpha-search/README.md:162`).
 
+**What the literature says** ([Cartea et al., book](../sources/algorithmic-and-hft.md) ch. 11, [Harris](../sources/harris-trading-and-exchanges.md) ch. 17):
+- **Pure against speculative arbitrage.** In a pure arbitrage the basis *must* revert. A known basket with a stable premium, or the Pebbles sum, is that kind. In a speculative one (pairs, statistical arbitrage) the basis can be non-stationary and never revert (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:8294` (p. 369)). Round 5's "unlimited alpha" that collapsed out of sample is the speculative kind.
+- **"The most common mistake that arbitrageurs make is to incorrectly identify a change in the basis as an arbitrage opportunity"** (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:8574` (p. 381)). Slow convergence is a loss in itself, through carrying costs and the position limit it occupies (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:8667` (p. 385)).
+- **Ad hoc bands:** with "enter at ±k standard deviations, exit near the mean", the PnL bunches at multiples of the band. **Sharpe first rises, then falls, as k grows.** A position may still be open at the end (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:6339-6373` (p. 291–294)).
+- **Optimal bands for an Ornstein–Uhlenbeck spread** `dε = κ(θ−ε)dt + σdW`, with cost c and urgency ρ (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:6381-6451` (p. 294–296, checked)):
+  - The exit level solves `(ε* − c)F₊'(ε*) = F₊(ε*)`, where `F₊(ε) = ∫₀^∞ u^{ρ/κ−1} e^{−√(2κ/σ²)(θ−ε)u − u²/2} du`.
+  - Double-sided, the long entry equals the short exit.
+  - The book's table (exit 1.7460 at κ = 1, 1.4367 at κ = 4) **reproduces with a standard-library integral**, so the bands can be computed offline per basket and pasted into `PARAMS` *(checked: recomputed 2026-10-12)*.
+
 ## Where they disagree
 Whether residual baskets beyond Pebbles pay live (Alpha Search traded several; Baguette Fromage lost on Microchips and Sleep Pods).
 
@@ -23,7 +32,9 @@ Whether residual baskets beyond Pebbles pay live (Alpha Search traded several; B
 Nothing yet: `bots/template.py` is per product. A basket module would add a product-level trader that owns its legs, in the pattern of [many-products-architecture](many-products-architecture.md).
 
 ## How to test it here
+For a known basket: fit κ, θ, σ of the premium on the training days, compute the optimal bands from Cartea et al.'s (11.2)–(11.4), and compare them with ad hoc ±1σ/±2σ bands under `worse` fills, ranked by worst day.
+
 Needs `--data p4`. First reproduce the Pebbles sum and its σ from the round 5 files; then test the integer-weight search with out-of-sample days per [validation-and-overfitting](validation-and-overfitting.md). On the day: check the Arena's public data for exact sums before searching anything.
 
 ## Sources
-[Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md).
+[Cartea et al., book](../sources/algorithmic-and-hft.md), [Harris](../sources/harris-trading-and-exchanges.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md).
