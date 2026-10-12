@@ -25,3 +25,23 @@ The user downloaded both PDFs into `literature_raw/`; converted with `literature
 
 ## [2026-10-12] restructure | the literature joins this wiki
 `literature_md/` gets its pages here rather than in a second wiki: the fit analysis is at the top of the new Literature section of `index.md`. `SCHEMA.md` adds literature source pages (Main results, Assumptions against the Arena, In our notation), rule 9 (a citation into `literature_md/` carries its one-based PDF page, and a formula says `checked` or `unchecked`) and an ingest workflow for documents. New `literature_md/pdfpage.py` finds the PDF page of a markdown line: only 9 of 19 documents have Marker's page anchors, so it also bounds the page by figure names and the headings' pages in `meta.json`, then matches words against `pdftotext` (tried on six documents, including Theorem 3.1 of `pseudo-math` on p. 11, confirmed by `pdftotext`). `lint.py` now warns on a literature citation without `(p. N)` and fails when N disagrees with the markers (it catches the zero-based slip: p. 4 cited for a line on p. 5). The 12 existing literature citations got their pages; only `ρ` (Cartea et al. 2018, p. 5) is marked checked.
+
+## [2026-10-12] ingest | literature phase 1: thirteen papers
+Source pages for the papers that feed open `TODO.md` items:
+- fair value and quoting: Stoikov, Gould & Bonart, Cartea et al. 2018, Cont et al., Avellaneda–Stoikov, GLFT, Guéant 2017;
+- validation: the three Bailey et al. papers;
+- queue position: Moallemi & Yuan, Huang et al., Guo et al.
+
+New concept pages `book-imbalance-and-micro-price` and `optimal-quoting-models`. Theory added to `validation-and-overfitting` (with the decision that a CSCV PBO for `arena.grid` is worth building), `queue-position-and-fills`, `market-making-and-inventory-skew`, `many-products-architecture` and `fair-value-and-wall-mid`. Rows 1 and 11 of `contradictions.md` got the theory's explanation.
+
+Every kept formula was read on the PDF page image, except those marked `unchecked` (9). Worked numbers were recomputed where the papers give them: the DSR example, `E[max_N]` for N = 10, the A–S spread of 1.29.
+
+OCR traps found, all recorded on the source pages:
+- minus signs dropped from Cartea et al.'s Sharpe tables, which turns a uniformly losing table into a partly winning one;
+- the square root misplaced in every GLFT and Guéant closed form, and Guéant's exponent `k/(ξΔ+1)` for `k/(ξΔ)+1`;
+- `P^A` for `P^B` in Cont et al.'s `e_n`;
+- decimal points dropped from Gould & Bonart's tables;
+- nearly all inline math lost in the DSR paper;
+- typos in the papers themselves: Stoikov's spread with `+`, pseudo-math eq. (6.3), PBO's 12,780 for C(16, 8) = 12,870, Moallemi & Yuan's jump sign.
+
+Our A–S copy is the 2006 preprint, without the `γσ²(T−t)` spread term Hummingbot uses. `lint.py` and `pdfpage.py` now split lines on `\n` only: `splitlines()` also splits on form feeds, which Guo et al.'s markdown contains, and shifted its line numbers against grep's.

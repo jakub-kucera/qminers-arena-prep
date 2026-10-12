@@ -1,0 +1,59 @@
+---
+title: Book imbalance and the micro-price
+type: concept
+updated: 2026-10-12
+---
+
+# Book imbalance and the micro-price
+
+## Summary
+The volumes at the best bid and ask predict the direction of the next mid move, and a fair value can be built from that: the weighted mid, or Stoikov's micro-price. The literature agrees the effect is strong only when the spread is about one tick and the queues are long. Prosperity's spreads are 2–21 ticks and its best levels are bot quotes, so on paper the signal should be weak there. Test it per product before building on it, and use the cheapest form that survives.
+
+## What the sources say
+**Definitions** (all from the best levels only; formulas checked against the PDFs):
+- **Imbalance:** `ρ = (Vᵇ − Vᵃ)/(Vᵇ + Vᵃ) ∈ [−1, 1]` (`literature_md/order-book-signals/order-book-signals.md:77` (p. 5, checked); Gould & Bonart's `I` is the same: `literature_md/queue-imbalance-predictor/queue-imbalance-predictor.md:112` (p. 7, checked)). Stoikov uses `I = Vᵇ/(Vᵇ + Vᵃ) = (1 + ρ)/2` (`literature_md/micro-price/micro-price.md:73` (p. 3, checked)).
+- **Weighted mid:** `W = I·Pᵃ + (1 − I)·Pᵇ` (`literature_md/micro-price/micro-price.md:69` (p. 3, checked)). This is what heyman7913 and most teams call the "micro-price" ([heyman7913](../sources/prosperity4-heyman7913.md)).
+- **Micro-price:** `M + G*(I, S)`, the expected mid after many more mid changes, read from a table indexed by imbalance bucket and spread. The table is estimated from the data by a Markov chain on symmetrised samples, `G* = G¹ + Σ Bⁱ G¹` (`literature_md/micro-price/micro-price.md:276-286` (p. 6, checked)). It lies between the mid and the weighted mid ([micro-price](../sources/micro-price.md)).
+- **Order flow imbalance (OFI):** the net *change* in the best queues between snapshots. It explains the *same* interval's mid change linearly, with R² 65% on 10-second TAQ data. It is not a forecast; the paper never tests one ([Cont et al.](../sources/price-impact-of-book-events.md)).
+
+**Evidence that `ρ` predicts:**
+- **Gould & Bonart, 10 Nasdaq stocks** ([source](../sources/queue-imbalance-predictor.md)): a logistic regression of the next mid move's direction on `ρ`. Out of sample, the ROC area is 0.75–0.81 for 1-tick-spread stocks and 0.58–0.64 for small-tick stocks. The squared error drops 20–30% against a coin flip for the first group and **2–6%** for the second (`literature_md/queue-imbalance-predictor/queue-imbalance-predictor.md:356-384` (p. 20–21, checked)).
+- **Cartea et al. 2018, 11 Nasdaq stocks** ([source](../sources/order-book-signals.md)): a buy-heavy book means more market buys and larger mid jumps after them.
+- **The signal fades with the spread** (Stoikov, [source](../sources/micro-price.md)): at a 4-tick spread, CVX's micro-price "is indistinguishable from the mid-price" (`literature_md/micro-price/micro-price.md:308` (p. 8)). Gould & Bonart give the mechanism: at a 1-tick spread the mid moves only when a queue empties; at wider spreads a new order inside the spread can move it, and the imbalance can't see that coming (`literature_md/queue-imbalance-predictor/queue-imbalance-predictor.md:453` (p. 26)).
+
+**How it changes quoting** (Cartea et al. 2018):
+- **Always quoting at the touch loses money:** the annualised Sharpe ratio is negative for all 11 stocks at every inventory cap (`literature_md/order-book-signals/order-book-signals.md:462-477` (p. 30, checked)).
+- **Rule of thumb:** quote a side only if the half-spread you earn exceeds `ε±(J)`, the expected adverse mid move after a fill on that side in the current imbalance-and-spread state (`literature_md/order-book-signals/order-book-signals.md:306-312` (p. 20, checked)). In a buy-heavy book, stop offering.
+- **Out of sample:** with the honest fill model (back of the queue), the gain is small and uneven: Sharpe −5…+12, negative for one stock at every setting (`literature_md/order-book-signals/order-book-signals.md:559-574` (p. 33, checked)).
+
+**What the teams found:**
+- **heyman7913** blended `0.30 × W + 0.70 × slow EMA + 2.0 × ρ`, minus an inventory penalty, and report a significant Spearman correlation on Osmium. That is their claim (`online-snapshots/heyman7913_imc-prosperity-4.README.md:195-233`).
+- **AlgoTrade 2026:** a top-3-level depth imbalance predicts the mid 500 ms ahead with correlations up to ±0.49, **with the sign flipping per instrument** (`algotrade2026-pitfa19/analysis/mm_analysis.md:172-197`). Note it is a different definition (three levels) on a live venue.
+- **Baguette Fromage** listed "microstructure imbalance signals" among the round 5 scanners that looked like "unlimited alpha" in sample. Fit on two days and tested on the third, these relationships collapsed (`prosperity4-baguette-fromage/README.md:866-890`).
+- **Leo-Hawking:** LLMs "gravitate toward generic topics — microstructure imbalance signals", while local alpha decided ranks (`online-snapshots/Leo-Hawking_IMC-Prosperity-4-Review.README.md:581-609`).
+- **DTU** lists Stoikov's micro-price among the papers it read; its literature review records what shipped (`prosperity4-dtu-quant-lab/README.md:258`).
+
+## Where they disagree
+- **Strong or useless?** On Nasdaq large-tick stocks the signal is strong, and on small-tick ones it is barely better than a coin flip. AlgoTrade and Baguette Fromage found it unstable or not robust out of sample. These are less in conflict than they look: the literature *predicts* a weak signal at wide spreads, which is Prosperity's regime. See [contradictions](../contradictions.md), row 11.
+- **Forecast or mark?** In Prosperity the PnL is marked to the market maker's mid, which the wall mid estimates directly ([fair value](fair-value-and-wall-mid.md)). An imbalance forecast can only add to that on the horizon of our holding time; it does not replace the mark.
+- **Weighted mid or micro-price?** Stoikov argues the weighted mid is noisy, isn't a martingale and can move the wrong way: a small sell inside the spread *raises* it (`literature_md/micro-price/micro-price.md:79` (p. 3, checked)). Teams use it anyway. Our `wall_mid` ignores small orders for a similar reason ([fair value](fair-value-and-wall-mid.md)).
+
+## What it means for our code
+- **Fair value:** `bots/template.py` offers `fair` = `fixed`, `mid` or `wall_mid` (`bots/template.py:34`, `bots/template.py:123-142`). Candidates, all from checked formulas:
+  - `weighted_mid`: `W` from the best levels, one line.
+  - `micro`: `mid + G*[bucket(ρ)][spread]`, with the table estimated offline from the CSVs and pasted into `PARAMS`, since the bot must stay standard library.
+- **Quote filter** (Cartea's rule): skip a side when the expected markout of a passive fill on that side, in the current `ρ` bucket, is below zero. `arena/analysis.py` already computes markouts, as `sign × (mark later − fill price)` per unit, which is Cartea's `Δ/2 − ε±` at a short horizon. But it is per product and fill type, not per imbalance state (`arena/analysis.py:189-215`).
+- **OFI** is no fair-value input on this evidence. Its use is sizing our takes: taking `x` at a level of depth `D` moves the mid by about `x/(2D)` ticks.
+- `TODO.md`, "Try the literature's fair values and skew in the template", is where these land.
+
+## How to test it here
+1. **Gould & Bonart's design, per product and day, before any code in the bot.**
+   - On P3 and P4 rounds 1–2, take the ticks where the mid changes, `y` = up or down, and `ρ` at the previous tick.
+   - Fit `P(up) = 1/(1 + e^{−(x₀ + x₁ρ)})` with leave-one-day-out.
+   - Report the ROC area and the squared error against 0.25.
+   - Split by spread (Stoikov), and check that the sign of `x₁` is the same on every day (row 11).
+2. **Markouts by `ρ` bucket:** group our passive fills by the `ρ` at fill time (three buckets at ±⅓, as Cartea) and compare markouts at 1–5 ticks. A side whose markout is negative in a bucket is a candidate for the filter.
+3. **Only then a `fair` option or filter**, compared with `wall_mid` under `--match-trades worse`, `--resting` and `--vs`. Ship only if its worst day is positive (DTU's rule, [validation](validation-and-overfitting.md)).
+
+## Sources
+[Stoikov, micro-price](../sources/micro-price.md), [Gould & Bonart](../sources/queue-imbalance-predictor.md), [Cartea, Donnelly & Jaimungal](../sources/order-book-signals.md), [Cont, Kukanov & Stoikov](../sources/price-impact-of-book-events.md), [heyman7913](../sources/prosperity4-heyman7913.md), [AlgoTrade pitfa19](../sources/algotrade2026-pitfa19.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [DTU](../sources/prosperity4-dtu-quant-lab.md).

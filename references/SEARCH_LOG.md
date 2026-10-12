@@ -197,8 +197,8 @@ In rough order of value for the effort:
 6. **If the interface turns out to be event-driven:** find the Ready Trader Go Python kit (2021 to 2022 editions) and the Jane Street ETC wrappers, and build a callback adapter.
 7. **Manual-round practice:** gabsens/IMC-Prosperity-2-Manual and the manual sections of the P3 and P4 write-ups, if the Arena has manual-style puzzles. Nothing says it does.
 8. **Books:** searched, see the table above. None is worth buying now. If a round brings options, Natenberg or Sinclair become worth a look, and DTU's `round_3` code is the quicker start.
-9. **Read the eight new papers properly.** Only their first pages and one theorem (`pseudo-math`, Theorem 3.1) were checked. Check any formula against the PDF before using it, as `literature_md/README.md` requires.
-10. **Check the rest of Cartea, Donnelly & Jaimungal's formulas against the PDF** before coding anything beyond the imbalance `ρ`; the Hummingbot A–S formulas against `literature_md/hft-in-a-limit-order-book/`.
+9. ~~**Read the eight new papers properly.**~~ Done 2026-10-12 for all papers except Kelly, Gould et al. 2013 and the Bouchaud excerpt: each has a source page in `references/wiki/sources/` saying which formulas were checked against the PDF.
+10. ~~**Check the rest of Cartea, Donnelly & Jaimungal's formulas against the PDF.**~~ Done 2026-10-12 (`references/wiki/sources/order-book-signals.md`). Still open: the Hummingbot A–S formulas against `literature_md/hft-in-a-limit-order-book/`. Our copy is the 2006 preprint, whose spread lacks Hummingbot's `γσ²(T − t)` term (`references/wiki/sources/hft-in-a-limit-order-book.md`).
 
 ## Do not repeat
 

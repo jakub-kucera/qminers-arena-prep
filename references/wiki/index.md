@@ -26,6 +26,8 @@ Read this first, then the pages it points to. Conventions, workflows and the lin
 - [backtesting-and-tooling](concepts/backtesting-and-tooling.md): matching rules, the P4 fork, log conversion, what backtesters cannot do.
 - [ai-assisted-work](concepts/ai-assisted-work.md): how the winners used agents and what they warn about.
 - [cross-market-and-conversions](concepts/cross-market-and-conversions.md): orchids, macarons, cross-venue; unsupported by the backtesters.
+- [book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md): `ρ`, the weighted mid, Stoikov's micro-price and order-flow imbalance; strong only at 1-tick spreads, so test per product first.
+- [optimal-quoting-models](concepts/optimal-quoting-models.md): Avellaneda–Stoikov, GLFT and Guéant; the closed form is our linear `skew` with coefficients from `σ`, `A`, `k`; cross-product skew.
 - [probing-the-environment](concepts/probing-the-environment.md): experiments on the simulator before strategies: the PnL mark, bot tolerances, no-queue, sample data that is really live data.
 
 ## Sources (one page per clone; each ends with a "Read depth" section)
@@ -70,7 +72,22 @@ So a literature page stores those three things, and the theory sits on the same 
 
 **How to use it:** start from the concept page; its literature citations carry the PDF page and say whether a formula was `checked` against the PDF (`SCHEMA.md`, rule 9). To see a page: `python3 literature_md/pdfpage.py <slug> <line>`. Only `checked` formulas should reach the code.
 
-Documents with a source page: none yet. Not yet ingested (all in `literature_md/README.md`): `micro-price`, `queue-imbalance-predictor`, `order-book-signals`, `price-impact-of-book-events`, `hft-in-a-limit-order-book`, `dealing-with-inventory-risk`, `optimal-market-making`, `pseudo-math`, `probability-of-backtest-overfitting`, `deflated-sharpe-ratio`, `queue-position-valuation`, `queue-reactive-model`, `dynamics-of-order-positions`, `algorithmic-and-hft`, `harris-trading-and-exchanges`, `kelly-criterion`, `limit-order-books`, `trades-quotes-prices`. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The order is in `TODO.md`.
+Documents with a source page (each says which formulas were checked against the PDF):
+- [micro-price](sources/micro-price.md): Stoikov 2018; the micro-price as a Markov-chain table on (imbalance, spread); no information at a 4-tick spread.
+- [queue-imbalance-predictor](sources/queue-imbalance-predictor.md): Gould & Bonart 2015; logistic test of `ρ` on the next mid move; strong at 1-tick spreads, 2–6% better than a coin flip otherwise.
+- [order-book-signals](sources/order-book-signals.md): Cartea, Donnelly & Jaimungal 2018; quoting at the touch loses; post a side only if the half-spread beats the expected adverse move. OCR dropped the minus signs in its tables.
+- [price-impact-of-book-events](sources/price-impact-of-book-events.md): Cont, Kukanov & Stoikov 2011; order-flow imbalance explains the same interval's move (R² 65%), not the next.
+- [hft-in-a-limit-order-book](sources/hft-in-a-limit-order-book.md): Avellaneda & Stoikov (2006 preprint); reservation price and spread; our copy lacks the `γσ²(T−t)` spread term that Hummingbot uses.
+- [dealing-with-inventory-risk](sources/dealing-with-inventory-risk.md): Guéant, Lehalle & Fernandez-Tapia 2013; hard inventory bound, stationary closed-form quotes (GLFT). OCR misplaces the square root in every closed form.
+- [optimal-market-making](sources/optimal-market-making.md): Guéant 2017; any intensity, PnL-with-penalty objective, multi-asset skew through `Γ`.
+- [pseudo-math](sources/pseudo-math.md): Bailey et al. 2014; the best of N null trials, MinBTL, and why memory makes the in-sample winner lose.
+- [probability-of-backtest-overfitting](sources/probability-of-backtest-overfitting.md): Bailey et al. 2017; PBO and CSCV, the recipe for `arena.grid`.
+- [deflated-sharpe-ratio](sources/deflated-sharpe-ratio.md): Bailey & López de Prado 2014; DSR, independent trials from correlated ones, the 37% stopping rule. OCR lost the inline math; read the PDF.
+- [queue-position-valuation](sources/queue-position-valuation.md): Moallemi & Yuan 2017; order value = fill probability × (premium − adverse selection); front against back of the queue on ITCH data.
+- [queue-reactive-model](sources/queue-reactive-model.md): Huang, Lehalle & Rosenbaum 2015; queue-size-dependent order flow as a simulator; uniform cancellation overstates fills.
+- [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
+
+Not yet ingested (all in `literature_md/README.md`): `algorithmic-and-hft`, `harris-trading-and-exchanges`, `kelly-criterion`, `limit-order-books`, `trades-quotes-prices`. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The order is in `TODO.md`.
 
 ## Gaps
 Things the wiki does not cover yet, in rough order of value:

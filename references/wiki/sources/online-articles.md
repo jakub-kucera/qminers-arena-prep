@@ -19,6 +19,7 @@ Pages that could be fetched but are not saved in `references/`, so nothing here 
 - **Quant.SE, "How do we estimate position of our order in order book"** (<https://quant.stackexchange.com/questions/3782/how-do-we-estimate-position-of-our-order-in-order-book>): **not fetchable** with our tools (the domain is blocked). Cited next to Rigtorp in hftbacktest's source.
 
 ## What carries over
+- **Hummingbot's spread differs from our copy of A–S.** Its spread includes `γσ²(T − t)`; the A–S preprint in `literature_md/` has only `(2/γ)·ln(1 + γ/k)`. GLFT's footnote quotes A–S with the extra term, so the published A–S probably has it ([Avellaneda–Stoikov](hft-in-a-limit-order-book.md), "Traps").
 - Hummingbot shows that the textbook Avellaneda–Stoikov is run in practice with heuristic parameters and a skew `q·γ·σ²·(T − t)` that depends on volatility and time left; compare with the linear skews teams shipped ([market-making-and-inventory-skew](../concepts/market-making-and-inventory-skew.md)). Check the formulas against `literature_md/hft-in-a-limit-order-book/` before use.
 
 ## Traps
