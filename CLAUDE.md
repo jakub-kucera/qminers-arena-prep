@@ -41,7 +41,7 @@ uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis
 - `arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Cancel`, `OpenOrder`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive.
 - `arena/engine.py` `run_day(day, bot, config)` replays a `Day` against any object with `step(tick, positions, own_fills, market_trades, open_orders) -> list[Order | Cancel]`.
 - It records per-tick positions, marks, PnL and best bid/ask, plus orders, fills, errors, limit breaches and timings, in a `DayResult`.
-- `arena/report.py` `write_csvs` turns it into `<day>_timeline.csv`, `_fills.csv` and `_orders.csv`. Those columns are the contract with `arena/analysis.py`, so change both together.
+- `arena/report.py` `write_csvs` turns it into `<day>_timeline.csv` (with the book's `wall_mid`), `_fills.csv`, `_orders.csv` and `_trades.csv` (the data's market trades). Those columns are the contract with `arena/analysis.py`, so change both together.
 - **Only `arena/analysis.py` imports pandas and matplotlib.** Everything else is standard library.
 - The engine catches the bot's exceptions and records them per tick, so a run never aborts.
 
@@ -100,6 +100,8 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **Product colors:** `Run.colors` gives each product the same color in every chart of a run. It covers the `MAX_SERIES` products with the largest |PnL|; charts fold the rest into "other".
 - **Fill edge:** measured against the **arrival mid**, one tick before the fill. A taken order is part of its own tick's book and skews that tick's mid.
 - **Markout horizons start at 1 tick**, for the same reason.
+- **Reference price:** fill edge, markouts and `pnl_split` take `reference="mark"` (default) or `"wall_mid"` (`Book.wall_mid`, carried over ticks with an empty side). `pnl_split` adds up to the engine's PnL exactly for either.
+- **`trade_impact`:** per product and reference, the taker's edge and the signed move after the data's market trades. A tick's trades are classified against that tick's book. Pass a list of runs to pool days.
 
 **Parity with prosperity3bt is pinned.** The engine matched jmerle's prosperity3bt 0.12.0 fill for fill. `tests/test_parity.py` (needs `references/`) asserts fill counts and PnL for `tests/fixtures/parity_bot.py`.
 - **Engine changes:** any change to matching, limits or marking must keep this test passing.

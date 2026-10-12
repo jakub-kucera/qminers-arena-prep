@@ -122,16 +122,17 @@ def last_line(text: str) -> str:
 
 
 def write_csvs(result: DayResult, out_dir: Path) -> None:
-    """Writes three CSVs per day, read back by arena.analysis.
+    """Writes four CSVs per day, read back by arena.analysis.
 
-    <day>_timeline.csv  per product per tick: position, mark, pnl, best bid/ask, limit
+    <day>_timeline.csv  per product per tick: position, mark, pnl, best bid/ask, limit, wall mid
     <day>_fills.csv     every fill
     <day>_orders.csv    every order working at each tick (placed then, or resting from earlier)
+    <day>_trades.csv    every market trade in the data, for measuring how the price moves after trades
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     with (out_dir / f"{result.day}_timeline.csv").open("w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["timestamp", "product", "position", "mark", "pnl", "best_bid", "best_ask", "limit"])
+        writer.writerow(["timestamp", "product", "position", "mark", "pnl", "best_bid", "best_ask", "limit", "wall_mid"])
         for product in result.products:
             rows = zip(
                 result.timestamps,
@@ -140,9 +141,12 @@ def write_csvs(result: DayResult, out_dir: Path) -> None:
                 result.pnl[product],
                 result.best_bids[product],
                 result.best_asks[product],
+                result.wall_mids[product],
             )
-            for timestamp, position, mark, pnl, bid, ask in rows:
-                writer.writerow([timestamp, product, position, mark, pnl, _blank(bid), _blank(ask), result.limits[product]])
+            for timestamp, position, mark, pnl, bid, ask, wall in rows:
+                writer.writerow(
+                    [timestamp, product, position, mark, pnl, _blank(bid), _blank(ask), result.limits[product], _blank(wall)]
+                )
     with (out_dir / f"{result.day}_fills.csv").open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["timestamp", "product", "price", "quantity", "source", "counterparty", "order_id"])
@@ -155,6 +159,11 @@ def write_csvs(result: DayResult, out_dir: Path) -> None:
         writer.writerow(["timestamp", "id", "product", "price", "quantity"])
         for timestamp, order in result.orders:
             writer.writerow([timestamp, order.id, order.product, order.price, order.quantity])
+    with (out_dir / f"{result.day}_trades.csv").open("w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["timestamp", "product", "price", "quantity", "buyer", "seller"])
+        for timestamp, trade in result.market_trades:
+            writer.writerow([timestamp, trade.product, trade.price, trade.quantity, trade.buyer, trade.seller])
 
 
 def _blank(value: float | None) -> float | str:

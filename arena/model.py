@@ -22,6 +22,19 @@ class Book:
             return None
         return (self.bids[0][0] + self.asks[0][0]) / 2
 
+    @property
+    def wall_mid(self) -> float | None:
+        """Midpoint of the largest level on each side (ties go to the level nearer the touch).
+
+        In Prosperity the largest levels are the market maker's quotes, so this tracks its price
+        with less noise than the mid. The same rule as `_wall` in bots/template.py.
+        """
+        if not self.bids or not self.asks:
+            return None
+        bid = max(self.bids, key=lambda level: level[1])[0]
+        ask = max(self.asks, key=lambda level: level[1])[0]
+        return (bid + ask) / 2
+
 
 @dataclass(frozen=True)
 class MarketTrade:

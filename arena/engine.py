@@ -92,6 +92,10 @@ class DayResult:
     pnl: dict[str, list[float]] = field(default_factory=dict)
     best_bids: dict[str, list[float | None]] = field(default_factory=dict)  # None: that side was empty
     best_asks: dict[str, list[float | None]] = field(default_factory=dict)
+    wall_mids: dict[str, list[float | None]] = field(default_factory=dict)  # Book.wall_mid; None: a side was empty
+    # (timestamp, trade) for every market trade in the data, as recorded: not the trades between
+    # bots in a shared market, and not reduced by this bot's fills against them.
+    market_trades: list[tuple[int, MarketTrade]] = field(default_factory=list)
     # (timestamp, order) for every order working during that tick, before its fills: placed then
     # (after the limit check), or resting from earlier.
     orders: list[tuple[int, OpenOrder]] = field(default_factory=list)
@@ -248,6 +252,7 @@ def _new_result(day: Day) -> DayResult:
         pnl={product: [] for product in day.products},
         best_bids={product: [] for product in day.products},
         best_asks={product: [] for product in day.products},
+        wall_mids={product: [] for product in day.products},
     )
 
 
@@ -261,6 +266,8 @@ def _record(player: _Participant, tick: Tick, mark: dict[str, float]) -> None:
         book = tick.books.get(product)
         result.best_bids[product].append(book.bids[0][0] if book and book.bids else None)
         result.best_asks[product].append(book.asks[0][0] if book and book.asks else None)
+        result.wall_mids[product].append(book.wall_mid if book else None)
+    result.market_trades.extend((tick.timestamp, trade) for trades in tick.trades.values() for trade in trades)
 
 
 def _call_bot(bot, tick, position, own_fills, market_trades, open_orders, config, result) -> list[Order | Cancel]:

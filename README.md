@@ -9,7 +9,7 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 |---|---|
 | `arena/` | Backtesting engine; the `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `arena/formats/` |
 | `bots/template.py` | Single-file market maker to copy for each round |
-| `notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, grid heatmaps |
+| `notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, PnL split, market-trade impact, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |
 | `tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
@@ -120,16 +120,20 @@ per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL.
 uv run python -m arena.backtest bots/template.py 1 --out results/run
 uv run python -m arena.analysis results/run                              # every day in the folder
 uv run python -m arena.analysis results/run r1d0 --start 300000 --end 330000
+uv run python -m arena.analysis results/run --reference wall_mid            # measure fills against the wall mid
 uv run python -m arena.analysis --grid results/grid.csv                  # heatmaps
 ```
 
-This saves PNGs to `plots/` next to the input (`--dark` for a dark theme) and prints two tables.
+This saves PNGs to `plots/` next to the input (`--dark` for a dark theme) and prints four tables per day, plus the market-trade table pooled over all days.
 The notebook does the same steps interactively, through the same functions in `arena/analysis.py`.
 
 - **PnL:** total and per product over the day.
-- **Product:** price with the book spread and your fills, then position against the limit, then PnL. Blue ▲ marks buys and orange ▼ marks sells; solid means you took liquidity, hollow means a resting quote was filled. In a short window (≤ 1,500 ticks) your quotes are drawn too.
+- **Product:** price (the mark, and the wall mid dashed) with the book spread and your fills, then position against the limit, then PnL. Blue ▲ marks buys and orange ▼ marks sells; solid means you took liquidity, hollow means a resting quote was filled. In a short window (≤ 1,500 ticks) your quotes are drawn too.
 - **Fills table:** fills, volume and bought/sold per product, split into took vs passive. `edge` is the average profit per unit against the mid one tick before the fill. It isn't measured against the mid at the fill tick, because an order you take is part of that tick's book and drags the mid toward its own price.
 - **Markouts:** the mid 1–500 ticks after each fill, minus the fill price (flipped for sells), per unit. Flat lines mean fills keep their value. Falling lines mean the market moves against you after you trade, i.e. adverse selection.
+- **Reference price (`--reference`):** the fills table, markouts and PnL split measure against the mark (the data's mid) by default, or against the wall mid, the midpoint of the largest level on each side. On Prosperity data the mid is mostly noise at one tick, so markouts against it mix that noise into adverse selection.
+- **PnL split:** per product, spread captured on taken and passive fills, plus inventory carried through price moves (and, against the wall mid, the end position's gap between mark and wall mid). The parts add up to the PnL exactly. Against the mark, taking can look like a loss because the taken order skews that tick's mid.
+- **Market trades:** for the data's trades (buys at the ask, sells at the bid), what the taker paid against each reference and how far that reference moves in the trade's direction 1–50 ticks later. A move that stays above zero means trades carry information.
 - **Grid heatmap:** one metric over two parameters, with the best cell outlined. With more than two parameters, each cell shows the best value over the rest.
 
 ## Validate before submitting

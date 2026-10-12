@@ -6,18 +6,27 @@ Needs the dev dependencies (pandas, matplotlib). In a notebook:
     run = analysis.load_run("results", "r1d0")
     analysis.plot_pnl(run)
     analysis.plot_product(run, "KELP", start=200_000, end=230_000)
-    analysis.markouts(run)
+    analysis.markouts(run)                          # against the mark (the data's mid)
+    analysis.markouts(run, reference="wall_mid")    # against the market maker's quotes
+    analysis.pnl_split(run)                         # PnL = spread captured + inventory carry
+    analysis.trade_impact(run)                      # how the price moves after market trades
 
 From the command line, saving PNGs to <results>/plots/ and printing the tables:
 
     uv run python -m arena.analysis results/                # every day in the folder
     uv run python -m arena.analysis results/ r1d0 --start 200000 --end 230000
+    uv run python -m arena.analysis results/ --reference wall_mid
     uv run python -m arena.analysis --grid results/grid.csv
 
-Markouts measure adverse selection. For each fill, take the mark price h ticks later minus the
-fill price (flipped for sells), per unit. At h=0 it's the edge captured against the mid. If it
-shrinks as h grows, prices tend to move against you right after you trade: the fills you get
-are the ones better-informed traders wanted to give you.
+Markouts measure adverse selection. For each fill, take the reference price h ticks later minus
+the fill price (flipped for sells), per unit. If it shrinks as h grows, prices tend to move
+against you right after you trade: the fills you get are the ones better-informed traders wanted
+to give you.
+
+The reference is the mark (what PnL is valued at; in the Prosperity format, the data's mid) or the
+wall mid (the midpoint of the largest level on each side). On Prosperity data the mid is mostly
+noise at one tick and the wall mid much less so (references/wiki/concepts/price-impact.md), so a
+markout against the mid mixes that noise into what looks like adverse selection.
 """
 
 from __future__ import annotations
@@ -42,6 +51,8 @@ from matplotlib.ticker import FuncFormatter
 DEFAULT_HORIZONS = (1, 2, 5, 10, 20, 50, 100, 200, 500)
 SOURCES = {"book": "took", "trade": "passive", "cross": "passive"}  # Fill.source -> fill type
 TYPES = ("took", "passive")
+REFERENCES = ("mark", "wall_mid")  # prices fills and trades are measured against
+IMPACT_HORIZONS = (1, 2, 5, 20, 50)
 MAX_SERIES = 7  # products drawn individually; the rest fold into "other"
 
 # Categorical slots validated (CVD and contrast) with the dataviz palette checker, per theme.
@@ -119,6 +130,7 @@ class Run:
     timeline: pd.DataFrame  # timestamp, product, position, mark, pnl, best_bid, best_ask, limit
     fills: pd.DataFrame  # timestamp, product, price, quantity, source, counterparty, order_id
     orders: pd.DataFrame  # timestamp, id, product, price, quantity
+    trades: pd.DataFrame  # the data's market trades: timestamp, product, price, quantity, buyer, seller
 
     @property
     def colors(self) -> dict[str, str]:
@@ -153,21 +165,26 @@ def days_in(out_dir: str | Path) -> list[str]:
 
 def load_run(out_dir: str | Path, day: str) -> Run:
     out_dir = Path(out_dir)
-    orders_path = out_dir / f"{day}_orders.csv"
+    orders_path, trades_path = out_dir / f"{day}_orders.csv", out_dir / f"{day}_trades.csv"
     return Run(
         day=day,
         timeline=pd.read_csv(out_dir / f"{day}_timeline.csv"),
         fills=pd.read_csv(out_dir / f"{day}_fills.csv", keep_default_na=False),
         orders=pd.read_csv(orders_path) if orders_path.exists() else pd.DataFrame(columns=["timestamp", "id", "product", "price", "quantity"]),
+        trades=(
+            pd.read_csv(trades_path, keep_default_na=False)
+            if trades_path.exists()
+            else pd.DataFrame(columns=["timestamp", "product", "price", "quantity", "buyer", "seller"])
+        ),
     )
 
 
 # ---------------------------------------------------------------------------- tables
 
 
-def fill_summary(run: Run) -> pd.DataFrame:
-    """Per product and fill type: fills, volume, and the average edge per unit against the arrival mid."""
-    fills = _with_marks(run)
+def fill_summary(run: Run, reference: str = "mark") -> pd.DataFrame:
+    """Per product and fill type: fills, volume, and the average edge per unit against the arrival reference."""
+    fills = _with_marks(run, reference)
     if fills.empty:
         return pd.DataFrame(columns=["fills", "volume", "bought", "sold", "edge"])
     fills["bought"] = fills["volume"].where(fills["quantity"] > 0, 0)
@@ -186,15 +203,17 @@ def fill_summary(run: Run) -> pd.DataFrame:
     return table.round({"edge": 2})
 
 
-def markouts(run: Run, horizons=DEFAULT_HORIZONS) -> pd.DataFrame:
+def markouts(run: Run, horizons=DEFAULT_HORIZONS, reference: str = "mark") -> pd.DataFrame:
     """Average markout per unit, by product and fill type (rows) and ticks after the fill (columns).
 
-    Fills too close to the end of the day for a horizon are left out of that horizon.
+    Measured against `reference` ("mark" or "wall_mid"). Fills too close to the end of the day for
+    a horizon are left out of that horizon.
     """
     rows = []
+    prices = _with_reference(run.timeline, reference)
     for product, fills in run.fills.groupby("product"):
-        timeline = run.series(product)
-        timestamps, marks = timeline.index.to_numpy(), timeline["mark"].to_numpy()
+        timeline = prices[prices["product"] == product].set_index("timestamp").sort_index()
+        timestamps, marks = timeline.index.to_numpy(), timeline["ref"].to_numpy()
         at = np.searchsorted(timestamps, fills["timestamp"].to_numpy())
         sign, volume = np.sign(fills["quantity"].to_numpy()), np.abs(fills["quantity"].to_numpy())
         price, kind = fills["price"].to_numpy(), fills["source"].map(SOURCES).to_numpy()
@@ -214,14 +233,107 @@ def markouts(run: Run, horizons=DEFAULT_HORIZONS) -> pd.DataFrame:
     return table.reindex(columns=list(horizons)).round(2)
 
 
-def _with_marks(run: Run) -> pd.DataFrame:
-    """Fills with their edge per unit against the mid one tick before the fill (the arrival mid).
+def pnl_split(run: Run, reference: str = "mark") -> pd.DataFrame:
+    """Per product: PnL as spread captured on fills plus inventory carried through price moves.
 
-    Not the mid at the fill tick: an order you take is part of that tick's book, so it drags the
+    capture_took, capture_passive: the sum over fills of quantity × (reference at the fill tick − price)
+    carry: the sum over ticks of the position held into the tick × the reference's change
+    end_gap: final position × (mark − reference) at the end; zero for the mark itself
+
+    The four add up to the PnL exactly: valued at the mark, PnL changes each tick by the carry plus,
+    for each fill, quantity × (mark − price). Against the wall mid, the gap between the mark and the
+    wall mid only survives at the end, where the position is valued at the mark.
+    """
+    prices = _with_reference(run.timeline, reference).sort_values(["product", "timestamp"])
+    held = prices.groupby("product")["position"].shift(1).fillna(0)
+    prices["carry"] = held * prices.groupby("product")["ref"].diff().fillna(0)
+    fills = run.fills.merge(prices[["timestamp", "product", "ref"]], on=["timestamp", "product"], how="left")
+    fills["capture"] = fills["quantity"] * (fills["ref"] - fills["price"])
+    fills["type"] = fills["source"].map(SOURCES)
+    last = prices.groupby("product").last()
+    table = pd.DataFrame(index=sorted(set(prices["product"])))
+    table.index.name = "product"
+    for label in TYPES:
+        captured = fills[fills["type"] == label].groupby("product")["capture"].sum()
+        table[f"capture_{label}"] = captured.reindex(table.index, fill_value=0.0)
+    table["carry"] = prices.groupby("product")["carry"].sum()
+    table["end_gap"] = last["position"] * (last["mark"] - last["ref"])
+    table["pnl"] = last["pnl"]
+    active = run.products
+    return table.loc[[p for p in table.index if p in active]].round(2)
+
+
+def trade_impact(runs: Run | list[Run], horizons=IMPACT_HORIZONS) -> pd.DataFrame:
+    """How the price moves after the data's market trades, per product and reference price.
+
+    Give one day, or a list of days to pool their trades (each trade's moves stay within its day).
+
+    A trade at or above the best ask of its tick's book was a buy (+1); at or below the best bid,
+    a sell (−1); trades inside the spread are counted in `inside` and left out. The trades of a tick
+    print against that tick's book (checked on Prosperity 3: 96–97% are at one of its prices).
+    For each reference: `taker_edge` is the mean of sign × (reference − price), so negative means
+    the taker paid; the horizon columns are the mean of sign × (reference h ticks later − reference
+    now). A move that stays above zero is permanent impact: trades carry information. Means are per
+    trade, not per unit.
+    """
+    runs = [runs] if isinstance(runs, Run) else runs
+    pooled: dict[tuple[str, str], dict] = {}  # (product, reference) -> counts and lists of values
+    for run in runs:
+        for reference in REFERENCES:
+            if run.trades.empty or reference not in run.timeline:
+                continue
+            prices = _with_reference(run.timeline, reference)
+            for product, trades in run.trades.groupby("product"):
+                timeline = prices[prices["product"] == product].set_index("timestamp").sort_index()
+                at = timeline.index.get_indexer(trades["timestamp"])
+                at, price = at[at >= 0], trades["price"].to_numpy()[at >= 0]
+                bid, ask = timeline["best_bid"].to_numpy()[at], timeline["best_ask"].to_numpy()[at]
+                sign = np.where(price >= ask, 1, np.where(price <= bid, -1, 0))
+                keep = sign != 0
+                at, price, sign = at[keep], price[keep], sign[keep]
+                ref = timeline["ref"].to_numpy()
+                entry = pooled.setdefault((product, reference), {"trades": 0, "inside": 0, "edge": [], **{h: [] for h in horizons}})
+                entry["trades"] += int(keep.sum())
+                entry["inside"] += int((~keep).sum())
+                entry["edge"].append(sign * (ref[at] - price))
+                for horizon in horizons:
+                    later = at + horizon
+                    valid = later < len(ref)
+                    entry[horizon].append(sign[valid] * (ref[later[valid]] - ref[at[valid]]))
+    if not pooled:
+        return pd.DataFrame()
+
+    def mean(parts):
+        values = np.concatenate(parts) if parts else np.array([])
+        return float(values.mean()) if len(values) else np.nan
+
+    rows = [
+        {"product": product, "reference": reference, "trades": e["trades"], "inside": e["inside"],
+         "taker_edge": mean(e["edge"]), **{h: mean(e[h]) for h in horizons}}
+        for (product, reference), e in sorted(pooled.items())
+    ]
+    return pd.DataFrame(rows).set_index(["product", "reference"]).round(3)
+
+
+def _with_reference(timeline: pd.DataFrame, reference: str) -> pd.DataFrame:
+    """The timeline with a `ref` column: the mark, or the wall mid carried over ticks where a side was empty."""
+    if reference not in REFERENCES:
+        raise ValueError(f"reference must be one of {', '.join(REFERENCES)}")
+    if reference not in timeline:
+        raise ValueError(f"no {reference} column: these CSVs predate it, so run the backtest again")
+    timeline = timeline.sort_values(["product", "timestamp"])
+    ref = timeline[reference] if reference == "mark" else timeline.groupby("product")["wall_mid"].ffill()
+    return timeline.assign(ref=ref.fillna(timeline["mark"]))
+
+
+def _with_marks(run: Run, reference: str = "mark") -> pd.DataFrame:
+    """Fills with their edge per unit against the reference one tick before the fill (the arrival price).
+
+    Not the price at the fill tick: an order you take is part of that tick's book, so it drags the
     mid toward its own price and makes taking look worse than it is.
     """
-    timeline = run.timeline.sort_values(["product", "timestamp"])
-    prior = timeline.assign(prior_mark=timeline.groupby("product")["mark"].shift(1))
+    timeline = _with_reference(run.timeline, reference)
+    prior = timeline.assign(prior_mark=timeline.groupby("product")["ref"].shift(1))
     fills = run.fills.merge(prior[["timestamp", "product", "prior_mark"]], on=["timestamp", "product"], how="left")
     fills["type"] = fills["source"].map(SOURCES)
     fills["volume"] = fills["quantity"].abs()
@@ -291,6 +403,9 @@ def plot_product(
             color=t["muted"], alpha=0.16, linewidth=0,
         )
         ax_price.plot(timeline.index, timeline["mark"], color=t["secondary"], linewidth=1.2, drawstyle="steps-post")
+        walls = "wall_mid" in timeline and timeline["wall_mid"].notna().any()
+        if walls:
+            ax_price.plot(timeline.index, timeline["wall_mid"], color=t["ink"], linewidth=1.0, linestyle=(0, (4, 2)), drawstyle="steps-post")
         if quotes and not orders.empty:
             for side, color in ((orders["quantity"] > 0, buy_color), (orders["quantity"] < 0, sell_color)):
                 ax_price.scatter(orders.loc[side, "timestamp"], orders.loc[side, "price"], marker="_", s=30, linewidths=1.2, color=color, alpha=0.55)
@@ -304,7 +419,7 @@ def plot_product(
                     edgecolors=color if hollow else t["surface"],
                     linewidths=1.2 if hollow else 0.8,
                 )
-        handles = _product_legend(quotes and not orders.empty)
+        handles = _product_legend(quotes and not orders.empty, walls)
         ax_price.legend(handles=handles, loc="lower left", bbox_to_anchor=(0, 1.0), ncols=len(handles), borderaxespad=0.3)
         pnl = timeline["pnl"].iloc[-1] - (timeline["pnl"].iloc[0] if start else 0)
         window = "" if start is None and end is None else f" · {first:,}–{last:,}"
@@ -329,10 +444,10 @@ def plot_product(
     return fig
 
 
-def plot_markouts(run: Run, horizons=DEFAULT_HORIZONS) -> Chart:
+def plot_markouts(run: Run, horizons=DEFAULT_HORIZONS, reference: str = "mark") -> Chart:
     """Average markout per unit against ticks after the fill: one panel per fill type."""
     t = _t()
-    table = markouts(run, horizons)
+    table = markouts(run, horizons, reference)
     with _style():
         fig = Chart(figsize=(11, 4.2), layout="constrained")
         axes = fig.subplots(1, 2, sharey=True)
@@ -354,7 +469,8 @@ def plot_markouts(run: Run, horizons=DEFAULT_HORIZONS) -> Chart:
         axes[0].set_ylabel("markout per unit")
         if len(run.colors) > 1:
             axes[0].legend(loc="best")
-        _figure_title(fig, f"Markouts · {run.day} · average profit per unit, some ticks after each fill")
+        against = "" if reference == "mark" else " · against the wall mid"
+        _figure_title(fig, f"Markouts · {run.day} · average profit per unit, some ticks after each fill{against}")
     return fig
 
 
@@ -486,7 +602,7 @@ def _figure_title(fig: Chart, text: str) -> None:
     fig.suptitle(text, x=0.01, ha="left", fontweight="bold", fontsize=11, color=_t()["ink"])
 
 
-def _product_legend(with_quotes: bool) -> list:
+def _product_legend(with_quotes: bool, with_walls: bool = False) -> list:
     t = _t()
     buy, sell = t["series"][0], t["series"][1]
 
@@ -502,6 +618,8 @@ def _product_legend(with_quotes: bool) -> list:
     labels = ["buy, took", "buy, passive", "sell, took", "sell, passive"]
     for handle, label in zip(handles[2:], labels):
         handle.set_label(label)
+    if with_walls:
+        handles.insert(2, Line2D([], [], color=t["ink"], linewidth=1.0, linestyle=(0, (4, 2)), label="wall mid"))
     if with_quotes:
         handles += [
             Line2D([], [], linestyle="", marker="_", markersize=9, color=buy, label="your bids"),
@@ -583,6 +701,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--start", type=int, help="first timestamp of the product charts")
     parser.add_argument("--end", type=int, help="last timestamp of the product charts")
     parser.add_argument("--grid", type=Path, help="chart a CSV from arena.grid --out instead")
+    parser.add_argument("--reference", choices=REFERENCES, default="mark", help="price fills are measured against (default: mark)")
     parser.add_argument("--dark", action="store_true", help="dark theme")
     parser.add_argument("--out", type=Path, help="folder for the PNGs (default: plots/ next to the input)")
     args = parser.parse_args(argv)
@@ -607,13 +726,25 @@ def main(argv: list[str] | None = None) -> int:
     out = args.out or args.results / "plots"
     out.mkdir(parents=True, exist_ok=True)
     with pd.option_context("display.width", 160, "display.max_columns", 20):
+        runs = []
         for day in days:
             run = load_run(args.results, day)
+            runs.append(run)
+            ref = args.reference
             _save(plot_pnl(run), out / f"{day}_pnl.png")
-            _save(plot_markouts(run), out / f"{day}_markouts.png")
+            _save(plot_markouts(run, reference=ref), out / f"{day}_markouts.png")
             for product in run.products:
                 _save(plot_product(run, product, args.start, args.end), out / f"{day}_{product}.png")
-            print(f"{day}\n\nfills\n{fill_summary(run)}\n\nmarkouts (per unit, by ticks after the fill)\n{markouts(run)}\n")
+            against = f"against the {'wall mid' if ref == 'wall_mid' else 'mark'}"
+            print(f"{day}\n\nfills (edge {against})\n{fill_summary(run, ref)}")
+            print(f"\nmarkouts (per unit, by ticks after the fill, {against})\n{markouts(run, reference=ref)}")
+            print(f"\npnl split ({against})\n{pnl_split(run, ref)}")
+            impact = trade_impact(run)
+            if not impact.empty:
+                print(f"\nmarket trades: taker's edge and the signed move after them, by ticks (per trade)\n{impact}")
+            print()
+        if len(runs) > 1 and not (impact := trade_impact(runs)).empty:
+            print(f"market trades over all {len(runs)} days\n{impact}\n")
     print(f"charts written to {out}/")
     return 0
 

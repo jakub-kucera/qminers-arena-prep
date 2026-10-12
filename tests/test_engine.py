@@ -113,6 +113,20 @@ def test_pnl_values_position_at_the_mark():
     assert result.pnl["X"] == [-2, 6]
 
 
+def test_wall_mid_takes_the_largest_level_on_each_side():
+    book = Book(bids=((99, 2), (98, 20), (97, 20)), asks=((101, 3), (103, 25)))
+    assert book.wall_mid == (98 + 103) / 2  # a tie goes to the level nearer the touch
+    assert Book(bids=((99, 2),)).wall_mid is None
+
+
+def test_result_records_wall_mids_and_the_data_trades():
+    trade = MarketTrade("X", 101, 4, timestamp=0)
+    day = Day("d0", ["X"], {"X": 10}, [Tick(0, {"X": Book(bids=((99, 9),), asks=((101, 9),))}, {"X": [trade]}, {})])
+    result = run_day(day, ScriptedBot({0: [Order("X", 101, 2)]}))
+    assert result.wall_mids["X"] == [100.0]
+    assert result.market_trades == [(0, trade)]  # as recorded, not reduced by the bot's fill against it
+
+
 def test_mark_falls_back_to_the_book_mid():
     d = day(tick(0, bids=[(98, 1)], asks=[(101, 5)]), tick(1))
     result = run_day(d, ScriptedBot({0: [Order("X", 101, 1)]}))
