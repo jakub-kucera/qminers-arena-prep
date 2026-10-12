@@ -47,7 +47,7 @@ Price impact is how far the price moves after a trade, in the trade's direction.
 - **Against the wall mid, `R∞` is close to zero** for every product except the two baskets (0.5–0.8 at 50 ticks). The bots' takers pay 0.6–2.2 ticks per unit and the price doesn't follow them, so a maker at the wall mid keeps almost all of it.
 - **Against the mid, the same trades look informed** in Kelp, Resin, Squid Ink, Starfruit and the baskets, with a 0.3–1.4 tick "impact" at one tick. It comes at once and doesn't decay, which is not impact but selection. Trades hit quotes that sit off the wall (a bot's ask stepping inside the spread pulls the mid down), and the mid returns to the wall once that quote is gone.
 - **An average near zero doesn't exclude rare informed traders.** Olivia's trades in Prosperity 3 were few ([informed counterparties](informed-counterparties.md)); Bouchaud's toy model says exactly that such flow barely moves the mean.
-- The scripts are not in the repo.
+- **Reproduce it** with `arena.analysis.trade_impact`: backtest any bot with `--out`, then pass every day's run to pool them (`uv run python -m arena.analysis <out>` prints it per day and pooled). It reproduces the P3 round 1 rows above exactly.
 
 ## Where they disagree
 - **Whether trades carry information at all:** theory says yes on average, Prosperity's bots mostly don't ([contradictions](../contradictions.md), rows 12–13).
@@ -55,13 +55,13 @@ Price impact is how far the price moves after a trade, in the trade's direction.
 - **The reference price:** the literature measures impact against the mid, which works for liquid stocks whose mid is close to a random walk. On Prosperity the mid is mostly noise at one tick ([fair value](fair-value-and-wall-mid.md)), and the same trades show impact against the mid and none against the wall mid.
 
 ## What it means for our code
-- **Markouts in `arena/analysis.py` are measured against `mark`,** which in the Prosperity format is the CSV's mid (`arena/formats/prosperity.py:125`). On Kelp, Resin or Starfruit that mixes the mid's noise and the selection effect above into what is meant to be adverse selection. A markout against the wall mid would separate them (a Tooling item in `TODO.md`).
+- **Measure fills against the wall mid.** `mark` is the CSV's mid in the Prosperity format (`arena/formats/prosperity.py:125`). On Kelp, Resin or Starfruit, markouts against it mix the mid's noise and the selection effect above into what is meant to be adverse selection. `arena.analysis` takes `reference="wall_mid"` (CLI `--reference wall_mid`) for the fill edge, markouts and the PnL split. The split shows the size of the effect: on P3 round 1, day −1, Resin's takes look like a 6,048 loss against the mark and earn 6,272 against the wall mid.
 - **Our own takes have no lasting impact in the backtester:** the next tick's book is the recorded one. Prosperity teams listed market impact and the bots' reaction to inserted liquidity among what their backtesters couldn't model, and used the website for those questions ([backtesting](backtesting-and-tooling.md)). If the Arena's market reacts to our trades, takes cost more than the backtest says, and a take that clears a level moves the mid by about `x/(2D)` (Cont et al.). `ON_THE_DAY.md` has an item and a probe for it.
 - **The template quotes symmetrically:** `skew` moves both quotes by the same amount per unit of position (`bots/template.py:200`), which is Harris's bluff-proof rule. A fair value driven by trade flow would need the same symmetry.
 
 ## How to test it here
 - **Per product, each round:** taker's edge against the wall mid and the signed wall-mid move at 1–50 ticks after market trades. A product whose wall mid follows the trades has informed flow: widen or skew there, and quote tighter where it doesn't.
-- **Our own fills:** once wall-mid markouts exist, compare the markout of our passive fills at 1 and 50 ticks. A markout that keeps falling after 1 tick is `R∞`; one that recovers is noise.
+- **Our own fills:** compare the wall-mid markout of our passive fills at 1 and 50 ticks (`analysis.markouts(run, reference="wall_mid")`). A markout that keeps falling after 1 tick is `R∞`; one that recovers is noise.
 - **On the portal:** probe 17 in `ON_THE_DAY.md`.
 
 ## Sources
