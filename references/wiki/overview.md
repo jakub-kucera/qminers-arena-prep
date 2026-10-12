@@ -6,7 +6,7 @@ updated: 2026-10-12
 
 # Overview of what the references teach
 
-A synthesis of 25 sources (17 team or competition sources, three documents and articles, five tools) read on 2026-10-10 and 2026-10-11, plus the literature in `literature_md/` (16 documents with a source page, from 2026-10-12, including chapter maps of the two books; see "What the literature adds"). Every line links to the concept page with the evidence and the caveats. The Prosperity record is the best match to the Arena's described format (a file uploaded to a portal and run on a backtest), but the Arena is a different competition, so treat all of it as a prior.
+A synthesis of 25 sources (17 team or competition sources, three documents and articles, five tools) read on 2026-10-10 and 2026-10-11, plus the literature in `literature_md/` (19 documents with a source page, from 2026-10-12, including chapter maps of the two books; see "What the literature adds"). Every line links to the concept page with the evidence and the caveats. The Prosperity record is the best match to the Arena's described format (a file uploaded to a portal and run on a backtest), but the Arena is a different competition, so treat all of it as a prior.
 
 ## What the record says about doing well
 
@@ -45,6 +45,10 @@ Market-microstructure theory, read against the Prosperity record. Most of it was
 9. **Adverse selection has a measurable signature:** if counterparties are informed, the market maker's inventory is negatively correlated with the next price changes ([informed counterparties](concepts/informed-counterparties.md)). It is the first test for Kelp's long drift.
 10. **Only pure arbitrages must revert** ([baskets](concepts/baskets-and-fixed-sums.md)). Known baskets and fixed sums revert; searched relationships may not. For a mean-reverting spread, optimal entry and exit bands are computable offline (Cartea et al. ch. 11, reproduced).
 11. **The converted text is not the paper.** OCR dropped minus signs from tables and moved factors in and out of square roots. Several papers have typos of their own. Read every formula and table off the PDF before coding it (`literature_md/README.md`, "Caveats").
+
+12. **On Prosperity data, the bots' trades don't move the fair value** ([price impact](concepts/price-impact.md)). Measured against the wall mid, the long-run move after a market trade is near zero in every product of P2 round 1 and P3 rounds 1–2 except the baskets, while takers pay 0.6–2.2 ticks. Against the raw mid the same trades seem to have a lasting impact, but it is selection: trades hit quotes that sit off the wall.
+13. **The top-of-book mid is mostly noise at one tick** ([fair value](concepts/fair-value-and-wall-mid.md)). Bouchaud's volatility signature plot puts numbers on it: Kelp's mid varies 28 times more per tick at lag 1 than at lag 200, its wall mid 3 times. Our markouts use the mid, so they mix that noise into adverse selection.
+14. **Size by edge over variance, then shade down** ([risk](concepts/risk-and-protecting-a-lead.md)). Kelly's `f* = (m − r)/s²` carries over only as a scaling: the Arena has position limits and a rank, not a compounding bankroll. Its useful facts are that half Kelly keeps 3/4 of the growth, that oversizing costs as much as undersizing with more risk, and that estimated edges run high.
 
 ## What to read next
 [`index.md`](index.md) for the page list, [`contradictions.md`](contradictions.md) for what is unsettled, and `ON_THE_DAY.md` for what to find out first on the day. The weakest parts of the evidence are listed on each source page under "Read depth".

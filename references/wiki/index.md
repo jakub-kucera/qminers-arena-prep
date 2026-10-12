@@ -29,6 +29,7 @@ Read this first, then the pages it points to. Conventions, workflows and the lin
 - [book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md): `ρ`, the weighted mid, Stoikov's micro-price and order-flow imbalance; strong only at 1-tick spreads, so test per product first.
 - [optimal-quoting-models](concepts/optimal-quoting-models.md): Avellaneda–Stoikov, GLFT and Guéant; the closed form is our linear `skew` with coefficients from `σ`, `A`, `k`; cross-product skew.
 - [probing-the-environment](concepts/probing-the-environment.md): experiments on the simulator before strategies: the PnL mark, bot tolerances, no-queue, sample data that is really live data.
+- [price-impact](concepts/price-impact.md): instantaneous and permanent impact, the maker's `s/2 − R∞`, the shapes in the literature; on Prosperity data the bots' trades don't move the wall mid.
 
 ## Sources (one page per clone; each ends with a "Read depth" section)
 Team write-ups and code:
@@ -90,8 +91,11 @@ Documents with a source page (each says which formulas were checked against the 
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
 - [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.
+- [kelly-criterion](sources/kelly-criterion.md): Thorp 1997; `f* = edge/variance`, fractional Kelly keeps `c(2 − c)` of the growth, estimated edges run high. A scanned PDF with no text layer.
+- [limit-order-books](sources/limit-order-books.md): Gould et al. 2013, survey; LOB vocabulary, priority rules, impact and stylized facts, mostly from pre-2010 data.
+- [trades-quotes-prices](sources/trades-quotes-prices.md): Bouchaud et al. 2018, a 47-page excerpt (preface, chapters 1–2.1); `s/2 − R∞`, market making as selling insurance, the volatility signature plot.
 
-Not yet ingested (all in `literature_md/README.md`): `kelly-criterion`, `limit-order-books`, `trades-quotes-prices`. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The order is in `TODO.md`.
+Not yet ingested: none; every document in `literature_md/README.md` has a source page. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The two books are partly read; their chapter maps say what is left.
 
 ## Gaps
 Things the wiki does not cover yet, in rough order of value:
@@ -99,7 +103,7 @@ Things the wiki does not cover yet, in rough order of value:
 2. **Cross-check against our engine.** No team's PnL claim is reproduced except Frankfurt's Resin and Kelp. Needs `--data p4` (`TODO.md`).
 3. **Unread source parts** (listed per source page): Frankfurt `README.md:325-876`; most of DU `round5.py`; DTU round 1–3 bodies; AlgoTrade's API reference; the Prosperity wikis' FAQ, round pages and glossary; most of the Leo-Hawking, heyman7913 and CMU Physics READMEs; Negative Eevee's `runner.rs`, `state.rs`, `config.rs`.
 4. **Sources not obtainable by the agent:** the Quant.SE queue-position thread (the fetch tool is blocked on that domain), exact copies of the queue and Avellaneda–Stoikov articles, books (Bouchaud et al. full text, an options text), and any organiser material. All tracked in [`MANUAL_TODO.md`](../../MANUAL_TODO.md); see also `references/SEARCH_LOG.md`.
-5. **`literature_md/` is only partly ingested.** See the Literature section above for what has a source page; `TODO.md` has the order.
+5. **The two books are only partly read** (Harris, Cartea et al.), and our Bouchaud et al. copy is an excerpt without its impact and market-making chapters. The chapter maps on their source pages say where to look next.
 6. **Ready Trader Go winning bots** and the Jane Street trading-challenge bots: none public that we found.
 7. **A concept page on "reading the public data on day one"**: a checklist of the facts above to test on the Arena's first download (partly covered by [probing-the-environment](concepts/probing-the-environment.md)).
 

@@ -56,3 +56,19 @@ Source pages with full chapter maps (PDF pages and markdown lines) for Cartea, J
 - **Found:** Kyle's λ printed inverted in Cartea et al. (`2σ_u/σ`; the book's own derivation gives `σ/(2σ_u)`). OCR garbled the `F±` integrals and put `z` inside the exponent of (10.29).
 
 Filed into `informed-counterparties` (Glosten–Milgrom, Harris's inventory–price test), `shared-market-and-adversaries` (quote matching and its trap, the timing option, bluff-proof pricing, Grossman–Miller competition), `baskets-and-fixed-sums` (pure against speculative arbitrage, optimal bands), `market-making-and-inventory-skew`, `optimal-quoting-models` and `book-imbalance-and-micro-price`. Three new findings in `overview.md`. A new `TODO.md` item: adversarial `--vs` rivals (trapper, sniper).
+
+## [2026-10-12] ingest | literature phase 3: Kelly, the LOB survey, Bouchaud et al., price impact
+Source pages for the last three documents:
+- **Thorp on Kelly.** The PDF is a scan with no text layer, so `pdfpage.py` now reports that and interpolates a page between Marker's markers; every page cited was confirmed on the page image, and about a third of the interpolations were one page off. All kept formulas are checked: `f* = p − q`, `(bp − q)/b`, `m/(ab)`, (3.2), (7.3)–(7.6), `c(2 − c)`, (7.13), (8.2). OCR slip: `f*_e` rendered as `f_*^*` in the fractional-Kelly lesson.
+- **Gould et al., "Limit order books".** Read whole; no formulas used. The OCR (and the PDF's own text layer) print Φ as `+` and Ω as `0`; the paper itself drops a `∝` in the Gabaix result.
+- **Bouchaud et al.** Our copy is a 47-page excerpt (preface, ch. 1, ch. 2 to 2.1.4); the impact and market-making chapters are not in it. Checked: (1.9), `s/2 − R∞`, (1.10)–(1.11), (2.9), (2.10), (2.12), (2.13). OCR slip: `e^{−τ/η_t}` for `e^{−τ/τ_η}` in (2.12).
+
+New concept page `price-impact`. A sizing section in `risk-and-protecting-a-lead` (Kelly's edge-over-variance scaling and fractional use carry over; its log-growth objective doesn't). The signature plot in `fair-value-and-wall-mid`; priority rules and tick size in `queue-position-and-fills`.
+
+Measured on Prosperity data with throwaway scripts (not in the repo), recorded on the pages:
+- market trades at tick `t` print at book `t`'s prices (96–97%), so book `t` is their arrival book;
+- against the wall mid, the signed move after market trades is near zero in P2 round 1 and P3 rounds 1–2 except the baskets; against the mid it looks like a lasting 0.3–1.4 tick impact, which is selection;
+- Kelp's mid varies 28 times more per tick at lag 1 than at lag 200, its wall mid 3 times;
+- lag-1 autocorrelation of mid changes −0.48 (Kelp), −0.50 (Resin), −0.17 (Squid Ink).
+
+New items: `TODO.md` "Markouts and fill edge against the wall mid"; `ON_THE_DAY.md` "Do our own trades move the market?" with probe 17. Overview findings 12–14.

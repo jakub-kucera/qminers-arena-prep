@@ -86,6 +86,10 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out: run one bot (the template is fine) in the playground, then backtest it over the same period. Try each `--match-trades` mode, with and without `--resting`. Compare the number of passive fills, which fill rule decides most, and the PnL.
   - We assume: the per-tick mode with `--match-trades all`, which was the most optimistic on Prosperity data (81k, against 58k under `worse` and 28k under `none`).
   - Then: use the closest settings for every backtest and grid. If none is close, rank grid results by the most conservative mode.
+- [ ] **Do our own trades move the market?**
+  - Find out: probe 17. After a take that clears a level, does the next tick's book match the downloaded data (a replay), or does the price move and the level refill slowly (bots that react)?
+  - We assume: a replay. Our engine shows the recorded book on the next tick, so our takes have no lasting impact, and on Prosperity data the bots' own trades left the wall mid where it was (`references/wiki/concepts/price-impact.md`).
+  - If the market reacts: takes cost more than the backtest says. Take smaller pieces, expect the mid to move about the taken volume over twice the depth, and judge take-heavy variants on the portal rather than in the grid.
 
 ## Before the first submission
 
@@ -131,3 +135,4 @@ at a time:
 14. **Far quotes on an empty side:** when one side of the book is empty, quote a small order at increasing distances from the last fair value (for example 20, 50, 100). Note the distance at which it stops filling. Baguette Fromage and DU found hidden takers at about 100 (`references/wiki/concepts/hidden-takers-and-empty-sides.md`).
 15. **Is the practice data part of the scored data?** Compare the first rows of the public backtest data with the first ticks of an evaluated run (timestamps, prices, trade sizes). In Prosperity 3 the website's sample was the first 1,000 timestamps of live day 1.
 16. **Same trader, two oracles:** run one deterministic trader on the portal's public backtest and in our engine, and compare the fill lists. One team measured +2,415 locally against +436 live on the same window (`references/wiki/contradictions.md`, row 10).
+17. **Own impact:** in a quiet product, take the whole best ask once, then send nothing for 20 ticks. Compare those ticks' books with the same timestamps in the downloaded data: identical books mean a replay; a moved wall or a slow refill means the market reacts to us.
