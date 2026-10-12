@@ -38,6 +38,7 @@ DEFAULTS = {
     "clear_edge": 0,  # cut inventory at prices up to this much worse than fair
     "make_edge": 2,  # quote at least this far from fair
     "skew": 0.0,  # move quotes this far against inventory when at the full position limit
+    "target": 0,  # position to hold: clear and skew work inventory toward it (e.g. long with a steady drift)
     "make_size": None,  # largest quote; None quotes all remaining room under the limit
 }
 
@@ -48,9 +49,10 @@ PARAMS = {
     # IMC Prosperity 2, round 1
     "AMETHYSTS": {"limit": 20, "fair": "fixed", "fixed_fair": 10_000},
     "STARFRUIT": {"limit": 20, "fair": "wall_mid", "make_edge": 1},
-    # IMC Prosperity 4, rounds 1-2 (untuned starting points)
+    # IMC Prosperity 4, rounds 1-2. Pepper Root rises about 1,000 a day, so it holds a long target
+    # (grid over target and skew on rounds 1-2, IDEAS.md); Osmium is untuned.
     "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "make_edge": 1},
-    "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1},
+    "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "target": 80, "skew": 20},
 }
 
 
@@ -169,17 +171,18 @@ def take(book: Book, fair: float, p: dict, plan: Plan) -> None:
 
 
 def clear(book: Book, fair: float, p: dict, plan: Plan) -> None:
-    """Cut inventory at (or close to) fair, freeing room under the limit for better trades later."""
-    if plan.net > 0:
+    """Trade inventory back to target at (or close to) fair, freeing room for better trades later."""
+    target = p["target"]
+    if plan.net > target:
         for level in book.bids:
-            if level[0] < fair - p["clear_edge"] or plan.net <= 0:
+            if level[0] < fair - p["clear_edge"] or plan.net <= target:
                 break
-            level[1] -= plan.sell(level[0], min(level[1], plan.net))
-    elif plan.net < 0:
+            level[1] -= plan.sell(level[0], min(level[1], plan.net - target))
+    elif plan.net < target:
         for level in book.asks:
-            if level[0] > fair + p["clear_edge"] or plan.net >= 0:
+            if level[0] > fair + p["clear_edge"] or plan.net >= target:
                 break
-            level[1] -= plan.buy(level[0], min(level[1], -plan.net))
+            level[1] -= plan.buy(level[0], min(level[1], target - plan.net))
 
 
 def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
@@ -187,8 +190,8 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
 
     Each quote sits make_edge from fair, or one tick inside the best remaining book quote if
     that's further out (no point quoting better than needed). skew then moves both quotes down
-    when long and up when short, by up to skew ticks at the full limit, to work the position
-    back toward zero. Quotes never cross the book.
+    when above target and up when below, by up to skew ticks a full limit away, to work the
+    position back toward target. Quotes never cross the book.
     """
     best_bid = next((price for price, volume in book.bids if volume > 0), None)
     best_ask = next((price for price, volume in book.asks if volume > 0), None)
@@ -200,7 +203,7 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
     if best_ask is not None:
         ask = max(ask, best_ask - 1)
 
-    shift = round(p["skew"] * plan.net / plan.limit)
+    shift = round(p["skew"] * (plan.net - p["target"]) / plan.limit)
     bid, ask = bid - shift, ask - shift
     if best_ask is not None:
         bid = min(bid, best_ask - 1)

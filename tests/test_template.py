@@ -62,6 +62,19 @@ def test_clear_cuts_inventory_at_fair(bot):
     assert plan.takes == [(100, -2)]
 
 
+def test_clear_and_skew_work_toward_the_target(bot):
+    book = bot.Book([[100, 3]], [[100, 9], [101, 9]])
+    plan = bot.Plan(position=2, limit=10)
+    bot.clear(book, 100, params(bot, clear_edge=0, target=6), plan)
+    assert plan.takes == [(100, 4)]  # buys up to the target at fair, not down to zero
+    plan = bot.Plan(position=6, limit=10)  # at target: no skew
+    bot.make(bot.Book([[90, 5]], [[110, 5]]), 100, params(bot, make_edge=2, skew=4, target=6), plan)
+    assert plan.quotes == [(91, 4), (109, -16)]  # one inside the 90/110 book
+    plan = bot.Plan(position=-4, limit=10)  # a full limit below target: quotes move up 4
+    bot.make(bot.Book([[90, 5]], [[110, 5]]), 100, params(bot, make_edge=2, skew=4, target=6), plan)
+    assert plan.quotes == [(95, 14), (113, -6)]
+
+
 def test_make_steps_inside_a_wide_book(bot):
     plan = bot.Plan(0, 10)
     bot.make(bot.Book([[95, 5]], [[105, 5]]), 100, params(bot, make_edge=2), plan)
