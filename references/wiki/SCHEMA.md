@@ -115,8 +115,8 @@ This is how Phase 1 of the literature ingest ran (`log.md`, 2026-10-12). Follow 
 3. If the answer is reusable, file it back (rule 8) and log a `query` entry.
 
 ### Lint (before the event and after any large edit)
-1. Run `python3 references/wiki/lint.py` (mechanical: front matter, index coverage, links, citations, orphans, log format).
-2. Then check by hand: contradictions not yet in `contradictions.md`; claims marked *their claim* that you can now check; clones updated since `updated:` (`clone.sh --update`); concepts mentioned in three or more pages that have no page; gaps a search could fill (list them in `index.md`, "Gaps").
+1. Run `python3 references/wiki/lint.py --pages` (mechanical: front matter, index coverage, links, citations, orphans, log format; for the literature, the cited page against the markers and, with `--pages`, against the PDF text; a status on every formula next to a literature citation; no `unchecked` formula under "What it means for our code"). A `--pages` warning is either a wrong page or a matcher miss: check the PDF, then fix the page or add the line to `MATCH_MISSES` in `lint.py` with the reason.
+2. Then check by hand: a seeded random sample of about 40 literature citations, each read against its cited lines; contradictions not yet in `contradictions.md`; claims marked *their claim* that you can now check; clones updated since `updated:` (`clone.sh --update`); concepts mentioned in three or more pages that have no page; gaps a search could fill (list them in `index.md`, "Gaps").
 3. Append a `lint` entry to `log.md` saying what changed.
 
 ## Scale note

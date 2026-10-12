@@ -91,6 +91,7 @@ def pdf_path(slug: str) -> Path | None:
     return None
 
 
+@cache
 def pdf_pages(pdf: Path, low: int, high: int) -> dict[int, str]:
     out = subprocess.run(["pdftotext", "-f", str(low), "-l", str(high), "-layout", str(pdf), "-"],
                          capture_output=True, text=True, check=True).stdout
