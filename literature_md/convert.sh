@@ -34,6 +34,11 @@ PAPERS=(
   "rigtorp-queue-position         rigtorp-queue-position"
   "databento-queue-position       databento-queue-position"
   "quant-se-order-position        quant-se-order-position"
+  "mean-reverting-reference-price mean-reverting-reference-price"
+  "limit-and-market-orders        limit-and-market-orders"
+  "online-learning-market-making  online-learning-market-making"
+  "competing-dealers              competing-dealers"
+  "pro-rata-microstructure        pro-rata-microstructure"
 )
 
 for entry in "${PAPERS[@]}"; do

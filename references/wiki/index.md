@@ -94,6 +94,11 @@ Documents with a source page (each says which formulas were checked against the 
 - [rigtorp-queue-position](sources/rigtorp-queue-position.md): Rigtorp 2013; the queue estimate behind `ProbQueueModel`; `log(1 + x)` is not a back bias at every position.
 - [quant-se-order-position](sources/quant-se-order-position.md): Quant.SE 2012 (Lehalle's answer); the risk-averse rule (ours) and the neutral one (`ProbQueueModel`).
 - [databento-queue-position](sources/databento-queue-position.md): Databento 2025; one ES order against MBO data: cancels come from the back, `P(ahead) = x^{1/(1+k)}` (the page's formula is inverted).
+- [mean-reverting-reference-price](sources/mean-reverting-reference-price.md): Ahuja et al. 2017; A–S with an OU price: constant quotes around the mean far from the end, a skew of γ × stationary variance between; on Osmium the skew half holds, the constant-quote half loses.
+- [limit-and-market-orders](sources/limit-and-market-orders.md): Guilbaud & Pham 2012; best or one tick inside, or cross: a policy table over (inventory, spread in ticks); fill rates per state from data.
+- [online-learning-market-making](sources/online-learning-market-making.md): Fernandez-Tapia 2016; learn the half-spread by stochastic gradient; the Brownian optimum `ψ*`; its numerical example contradicts its theorem.
+- [competing-dealers](sources/competing-dealers.md): Yang et al. 2017; N dealers, no price priority; only qualitative for a shared market.
+- [pro-rata-microstructure](sources/pro-rata-microstructure.md): Guilbaud & Pham 2013 (mapped); one-tick pro-rata book; only if the Arena matches pro-rata.
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
 - [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.

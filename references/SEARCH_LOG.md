@@ -105,7 +105,7 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | Leung & Li, *Optimal mean reversion trading with transaction costs and stop-loss exit* | arXiv 1411.5062 | Skipped: DTU's closed-form exits didn't beat a fixed z-score. |
 | ABIDES, ABIDES-MARL | arXiv 1904.12066, 2511.02016 | Skipped: heavier than the question needs. |
 
-**Triaged from a list of about 90 search results the user passed on (2026-10-13), not fetched yet.** Titles and venues are as the list gave them; authors only where known, not checked. Get free versions (arXiv, SSRN, the authors' pages) or library copies only.
+**Triaged from a list of about 90 search results the user passed on (2026-10-13).** The first three and the two conditional ones were saved by the user the same day and are in `literature_md/` with source pages; the rest are not fetched. Titles and venues are as the list gave them; authors only where known, not checked. Get free versions (arXiv, SSRN, the authors' pages) or library copies only.
 
 | Paper | Venue | Verdict |
 |---|---|---|
