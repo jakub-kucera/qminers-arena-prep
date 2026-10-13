@@ -69,7 +69,7 @@ What it says, as priorities for strategy work:
 3. **The spot products of rounds 3–4** (Hydrogel, Velvetfruit): 100–160k each for Baguette Fromage against 5–30k.
 4. **Plain market making holds its own** on the other six round 5 families: 316k against 226–310k for the teams. It leads on Galaxy Sounds and Panels and trails mainly on Sleep Pods (54k against Baguette Fromage's 75k).
 
-**Since 2026-10-13 the template trades rounds 3–4 with its level mode and the vouchers following Velvetfruit** (PARAMS tuned on these days, so in-sample): round 3 860k (Hydrogel 122k, Velvetfruit 96k, vouchers 642k), round 4 832k (110k, 91k, 631k), level with Baguette Fromage's 851k and 889k. Scored on days it wasn't tuned on, 884k over the four distinct days (`experiments.p4_level_template`, `experiments.p4_vouchers_template`). Priorities 1 and 3 are covered on P4; the Robots are next.
+**Since 2026-10-13 the template trades rounds 3–4 with its level mode and the vouchers following Velvetfruit** (PARAMS tuned on these days, so in-sample): round 3 860k (Hydrogel 122k, Velvetfruit 96k, vouchers 642k), round 4 832k (110k, 91k, 631k), level with Baguette Fromage's 851k and 889k. Scored on days it wasn't tuned on, 884k over the four distinct days (`experiments.p4_level_template`, `experiments.p4_vouchers_template`). Under `--resting` the four days make 1,161k against 1,166k (`uv run python -m arena.backtest bots/template.py 3 4-3 --data p4 --resting`): it trades by crossing the spread, so the fill model barely matters. Priorities 1 and 3 are covered on P4; the Robots are next.
 
 ## Not yet tested
 
