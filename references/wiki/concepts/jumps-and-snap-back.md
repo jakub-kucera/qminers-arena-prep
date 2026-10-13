@@ -1,7 +1,7 @@
 ---
 title: Jumps that snap back (round-number discretisation)
 type: concept
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Jumps that snap back
@@ -22,10 +22,14 @@ In Prosperity 4 round 5 several products' prices jumped by multiples of 100 and 
 Sizing: DU applied the rule to every product at full size; Ryan Challman cut a similar signal to a small weight on purpose; Baguette Fromage's family gain was concentrated in one product. No team shows the rule failing live.
 
 ## What it means for our code
-Nothing in `bots/template.py`. It needs a per-product "last k wall mids were multiples of N" detector in the fair-value section and an aggressive taker in the execution section.
+The template's `jump` mode (`bots/template.py:304-330`), off by default. A move of the fair value of at least `jump_min` is a jump; once `jump_seen` of the day's jumps have followed another and `jump_share` of those reversed it, the target is the full limit against each jump, held until the next one (or `jump_hold` ticks), and `clear` crosses up to `jump_edge` toward it. Unlike DU's round-100 test, the gate doesn't assume a grid: it measures the reversal on the day, so the mode can be switched on for every product. *(checked: `experiments/p4_jumps.py`, 2026-10-13)*:
+- **The teams' Robots PnL is one product-day.** ROBOT_DISHES on day 4 made 280k of DU's 309k and 437k of Baguette Fromage's 445k in our engine. That day its wall mid sits on a multiple of 100 on 88% of ticks and 87% of its 741 jumps reverse the one before. Baguette Fromage's README says the Robots lost 4.3k live (`prosperity4-baguette-fromage/README.md:1041`).
+- **Both rules reproduce in the template:** holding until the next jump makes 432k on that day (Baguette Fromage 437k), holding 3 ticks and then crossing back 278k (DU 280k).
+- **On all 50 products**, on top of plain market making: +501k over the three days, every day positive (+46k, +4k, +451k); also positive under `worse` fills and `--resting` taking only. Fading every jump without the gate lost 184k on day 3, on Pebbles and Microchips, whose jumps reverse about half the time.
+- **Nowhere else in P2–P4:** no other round has a product with 20 jumps of 50 a day, and P3's jumps of 10 reverse 37–57%.
 
 ## How to test it here
-Needs `--data p4` (round 5). Scan the wall mids for multiples of 100 and the share of jumps that revert within 3 ticks, per product and per day; then run the rule with the worst-day criterion. On the day: look for a grid in the Arena's prices before anything else; this is a property of one generator.
+`uv run python -m experiments.p4_jumps` (part 1 scans any data with `--data`, `--days` and `--jump-min`; part 2 runs the template on P4 round 5). Results and the parameter sweep are in `IDEAS.md`, "Fading jumps that snap back". On the day: look for a grid in the Arena's prices before anything else; this is a property of one generator, and in P4 it came on one product-day in the data and on another live.
 
 ## Sources
 [DU Trading](../sources/prosperity4-du-trading.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [HumzahM](../sources/uchicago-2025-case2-humzah.md).

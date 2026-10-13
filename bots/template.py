@@ -59,6 +59,13 @@ DEFAULTS = {
     "basket": None,
     "hedge_ratio": 0.0,  # the legs that hedge hold -weight * hedge_ratio per basket held
     "hedge": False,  # a basket leg: hold what the baskets it belongs to want against them
+    # Fading jumps that snap back (see jump_target): a move of the fair value at least this big
+    # is a jump. None turns it off. While on, it sets target instead.
+    "jump_min": None,
+    "jump_hold": None,  # ticks to hold against a jump; None: until the next jump
+    "jump_edge": 10,  # clear_edge while the target is against a jump: worth paying, a jump is worth jump_min
+    "jump_seen": 5,  # jumps seen today before trading on them
+    "jump_share": 0.6,  # the least share of them that reversed the jump before
 }
 
 PARAMS = {
@@ -188,6 +195,9 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
         p = {**p, "target": basket_target(fair, p, memory, market, plan)}
     elif p["level"] is not None:
         p = {**p, "target": level_target(fair, p, memory)}
+    elif p["jump_min"] is not None:
+        target = jump_target(fair, p, memory)
+        p = {**p, "target": target, "clear_edge": p["jump_edge"] if target else p["clear_edge"]}
     elif p["follow"] is not None:
         p = {**p, "target": follow_target(book, fair, p, memory, market.plans.get(p["follow"]))}
     elif p["hedge"]:
@@ -289,6 +299,35 @@ def estimate_level(fair: float, p: dict, memory: dict) -> float:
     if p["level_weight"] is None:
         return p["level"]
     return (p["level"] * p["level_weight"] + memory["level_sum"]) / (p["level_weight"] + memory["level_n"])
+
+
+def jump_target(fair: float, p: dict, memory: dict) -> int:
+    """The position to hold when the price jumps and snaps back: the full limit against the last jump.
+
+    A move of the fair value by at least jump_min is a jump. Once jump_seen jumps have followed
+    another today, and at least jump_share of those went the opposite way, each jump sets the
+    target to the full limit against it, held for jump_hold ticks or until the next jump. Before
+    that, or when too few reverse, the target is 0. The share is measured on the day itself, so
+    the rule can run on every product: in P4 round 5's data the jumps came on one product and day
+    (ROBOT_DISHES, steps of 100, 87% reversed), and a team reports them on another one live. On
+    every round 5 product it added 501k over three days to plain market making, its worst day
+    +4k; fading every jump instead lost 184k on one day (IDEAS.md).
+    """
+    last, memory["jump_last"] = memory.get("jump_last"), fair
+    held, age = memory.get("held", 0), memory.get("jump_age", 0) + 1
+    if last is not None and abs(fair - last) >= p["jump_min"]:
+        sign = 1 if fair > last else -1
+        if memory.get("jump_sign"):
+            memory["jump_n"] = memory.get("jump_n", 0) + 1
+            memory["jump_rev"] = memory.get("jump_rev", 0) + (sign != memory["jump_sign"])
+        memory["jump_sign"] = sign
+        n, reversed_ = memory.get("jump_n", 0), memory.get("jump_rev", 0)
+        held = -sign * p["limit"] if n >= p["jump_seen"] and reversed_ >= p["jump_share"] * n else 0
+        age = 0
+    elif p["jump_hold"] is not None and age >= p["jump_hold"]:
+        held = 0
+    memory["held"], memory["jump_age"] = held, age
+    return held
 
 
 def follow_target(book: Book, fair: float, p: dict, memory: dict, underlying: Plan | None) -> int:

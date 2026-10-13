@@ -46,7 +46,7 @@ The volumes at the best bid and ask predict the direction of the next mid move, 
 - **Weighted mid or micro-price?** Stoikov argues the weighted mid is noisy, isn't a martingale and can move the wrong way: a small sell inside the spread *raises* it (`literature_md/micro-price/micro-price.md:79` (p. 3, checked)). Teams use it anyway. Our `wall_mid` ignores small orders for a similar reason ([fair value](fair-value-and-wall-mid.md)).
 
 ## What it means for our code
-- **Fair value:** `bots/template.py` offers `fair` = `fixed`, `mid`, `wall_mid`, `outer_mid` or `sized_mid` (`bots/template.py:35`, `bots/template.py:203-237`). Candidates, all from checked formulas:
+- **Fair value:** `bots/template.py` offers `fair` = `fixed`, `mid`, `wall_mid`, `outer_mid` or `sized_mid` (`bots/template.py:35`, `bots/template.py:213-247`). Candidates, all from checked formulas:
   - `weighted_mid`: `W` from the best levels, one line.
   - `micro`: `mid + G*[bucket(ρ)][spread]`, with the table estimated offline from the CSVs and pasted into `PARAMS`, since the bot must stay standard library.
 - **Quote filter** (Cartea's rule): skip a side when the expected markout of a passive fill on that side, in the current `ρ` bucket, is below zero. `arena/analysis.py` already computes markouts, as `sign × (mark later − fill price)` per unit, which is Cartea's `Δ/2 − ε±` at a short horizon. But it is per product and fill type, not per imbalance state (`arena/analysis.py:206-233`).

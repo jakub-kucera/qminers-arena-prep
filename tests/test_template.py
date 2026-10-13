@@ -118,6 +118,42 @@ def test_the_level_from_the_day_or_blended_with_it(bot):
     assert bot.estimate_level(106, params(bot, level=100), {}) == 100  # no weight: it never moves
 
 
+def test_jump_target_fades_jumps_once_enough_have_reversed(bot):
+    p = params(bot, jump_min=50, jump_seen=2, jump_share=0.6)
+    memory = {}
+    fairs = (100, 200, 100, 105, 200, 100, 200)
+    targets = [bot.jump_target(fair, p, memory) for fair in fairs]
+    # Jumps at 200, 100, 200, 100, 200; the move to 105 is not one. From the third jump on, two
+    # jumps have followed another and both reversed it: the full limit against each jump.
+    assert targets == [0, 0, 0, 0, -10, 10, -10]
+
+
+def test_jump_target_stays_flat_when_jumps_keep_going(bot):
+    p = params(bot, jump_min=50, jump_seen=2, jump_share=0.6)
+    memory = {}
+    targets = [bot.jump_target(fair, p, memory) for fair in (100, 200, 300, 400, 300, 400, 500)]
+    assert targets == [0] * 7  # at most half the jumps reversed the one before, under 60%
+
+
+def test_jump_hold_flattens_after_that_many_ticks(bot):
+    p = params(bot, jump_min=50, jump_seen=0, jump_share=0, jump_hold=2)
+    memory = {}
+    targets = [bot.jump_target(fair, p, memory) for fair in (100, 200, 200, 200, 100)]
+    assert targets == [0, -10, -10, 0, 10]
+
+
+def test_a_jump_target_crosses_up_to_jump_edge(bot):
+    p = params(bot, fair="wall_mid", jump_min=50, jump_seen=0, jump_share=0, jump_edge=10, make_size=0)
+    memory = {}
+    bot.trade_product("X", bot.Book([[96, 10]], [[104, 10]]), 0, p, memory)
+    plan = bot.trade_product("X", bot.Book([[196, 10]], [[204, 10]]), 0, p, memory)
+    assert plan.takes == [(196, -10)]  # wall mid 200: sells at 4 below it, inside jump_edge
+    plan = bot.trade_product("X", bot.Book([[195, 10]], [[205, 10]]), -10, p, memory)
+    assert plan.takes == []  # no jump: target held, nothing to do
+    flat = params(bot, fair="wall_mid", make_size=0)  # clear_edge 0 alone wouldn't cross
+    assert bot.trade_product("X", bot.Book([[196, 10]], [[204, 10]]), 10, flat, {}).takes == []
+
+
 def test_a_price_far_above_the_level_sells_toward_a_short_target(bot):
     book = bot.Book([[109, 4], [108, 9]], [[111, 4]])
     p = params(bot, fair="wall_mid", level=100, level_band=5, clear_edge=2)
