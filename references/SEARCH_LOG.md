@@ -105,6 +105,23 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | Leung & Li, *Optimal mean reversion trading with transaction costs and stop-loss exit* | arXiv 1411.5062 | Skipped: DTU's closed-form exits didn't beat a fixed z-score. |
 | ABIDES, ABIDES-MARL | arXiv 1904.12066, 2511.02016 | Skipped: heavier than the question needs. |
 
+**Triaged from a list of about 90 search results the user passed on (2026-10-13), not fetched yet.** Titles and venues are as the list gave them; authors only where known, not checked. Get free versions (arXiv, SSRN, the authors' pages) or library copies only.
+
+| Paper | Venue | Verdict |
+|---|---|---|
+| *Limit order trading with a mean reverting reference price* | Risk and Decision Analysis, 2017 | **Worth reading first.** A–S with a mean-reverting price: the case of a pegged product and of `contradictions.md` row 1 (does a skew help on a pegged product?). |
+| Guilbaud & Pham, *Optimal high-frequency trading with limit and market orders* | Quantitative Finance, 2013 (SSRN 2011) | **Worth reading.** The spread is a tick-valued Markov chain, and the maker quotes at the best or one tick inside, and may cross: the template's discrete `make`/`take` choice, which the continuous-depth models miss. |
+| Fernandez-Tapia, *High-frequency trading meets online learning* | Market Microstructure and Liquidity, 2016 (SSRN 2015) | **Worth reading.** Tunes A–S-style quotes by stochastic approximation while trading: a way to calibrate within a round when the Arena's data gives nothing beforehand. |
+| Cont, Stoikov & Talreja, *A stochastic model for order book dynamics* | Operations Research, 2010 (SSRN 2008) | Maybe: fill probability before the mid moves, from queue sizes. Overlaps the micro-price and queue-imbalance papers. |
+| *On optimal pricing model for multiple dealers in a competitive market* | Computational Economics, 2017 | Conditional: only if the Arena is a shared market between teams. |
+| Guilbaud & Pham, *Optimal HFT in a pro rata microstructure with predictive information* | Mathematical Finance, 2013 | Conditional: only if the Arena matches pro-rata (probe 11). |
+| *Instantaneous order impact and high-frequency strategy optimization in limit order books* | Market Microstructure and Liquidity, 2017 | Maybe: a discrete Markov chain on the last order and imbalance, with an optimal limit/market/cancel policy. |
+| Lu & Abergel, *Order-book modeling and market making strategies* | Market Microstructure and Liquidity, 2018 | Maybe: argues Markovian book models misstate real participants, and backtests makers in a richer simulator. |
+| Kearns et al., *Empirical limitations on high frequency trading profitability* | SSRN, 2010 | Maybe: market-order-only strategies earn little after costs, a prior against taking-heavy bots. |
+| Cartea, Jaimungal & Ricci, *Buy low, sell high*; Cartea & Jaimungal on HMM regimes and on risk metrics | SIAM J. Fin. Math. 2014; Applied Math. Finance 2013; SSRN 2012 | Skipped: their book (`literature_md/algorithmic-and-hft/`) covers the same models. |
+| *Optimal market making* (Guéant), the queue-reactive model, *Dynamics of order positions* | | Already in `literature_md/`. |
+| HFT and market quality, regulation, Hawkes and SPDE scaling limits, LOB surveys, single-exchange empirical studies, a 2025 conference paper on MDPs | | Skipped: about whether HFT is good for markets, or maths without a strategy, or weak venues. |
+
 ### Books and articles
 
 The first pass had searched repos and listed books as "not tried". This is that search. **The finding is that the
