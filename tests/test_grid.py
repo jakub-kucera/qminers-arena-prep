@@ -160,3 +160,27 @@ def test_grid_runs_against_rivals(capsys, bot, data_dir):
     code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", "--vs", str(bot), "--jobs", "1")
     assert code == 0
     assert "each against bot#2 in the same market" in text
+
+
+def test_neighbourhood_mean_leaves_out_failed_neighbours():
+    outcomes = _outcomes([{"d": 10}, {"d": 20}, {"d": 900}], failed=(2,))
+    assert grid.neighborhood_mean(outcomes, (1,), (3,), TradeMatching.ALL) == pytest.approx((20 + 10) / 2)
+
+
+def test_grid_exits_1_when_every_combination_fails(capsys, data_dir, tmp_path):
+    path = tmp_path / "bot.py"
+    path.write_text(
+        textwrap.dedent(
+            """
+            from datamodel import Order
+
+            PARAMS = {"size": 1}
+
+            class Trader:
+                def run(self, state):
+                    return {"KELP": [Order("KELP", 1, 1000 * PARAMS["size"])]}, 0, ""
+            """
+        )
+    )
+    code, text = run_main(capsys, path, data_dir, "--grid", "PARAMS.size=1,2", "--jobs", "1")
+    assert code == 1 and "every combination failed" in text

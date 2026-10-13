@@ -5,6 +5,7 @@ pytest.importorskip("matplotlib")
 
 import pandas as pd  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
+from matplotlib.patches import Rectangle  # noqa: E402
 
 from arena import analysis, report  # noqa: E402
 from arena.engine import EngineConfig, run_day  # noqa: E402
@@ -163,3 +164,33 @@ def test_crossed_resting_fills_count_as_passive(tmp_path):
     table = analysis.fill_summary(analysis.load_run(tmp_path, "d0"))
     assert table.loc[("X", "passive"), "bought"] == 2
     assert table.loc[("X", "passive"), "edge"] == pytest.approx(100 - 100)  # arrival mid 100, filled at 100
+
+
+def test_window_pnl_counts_the_first_ticks_fills(results):
+    run = analysis.load_run(results, "d0")
+    pnl = run.series("X")["pnl"]
+    # Tick 1 takes the 101 ask, marked at 100: that loss is part of a window starting at tick 1.
+    assert f"pnl {pnl[4] - pnl[0]:,.0f}" in analysis.plot_product(run, "X", start=1, end=4)._suptitle.get_text()
+    assert f"pnl {pnl[4]:,.0f}" in analysis.plot_product(run, "X", start=0, end=4)._suptitle.get_text()
+
+
+def test_trade_impact_skips_trades_on_a_one_sided_book(tmp_path):
+    two_sided = Book(bids=((99, 5),), asks=((101, 5),))
+    ticks = [
+        Tick(0, {"X": two_sided}, {"X": [MarketTrade("X", 101, 1, timestamp=0)]}, {"X": 100.0}),
+        Tick(1, {"X": Book(asks=((101, 5),))}, {"X": [MarketTrade("X", 100, 1, timestamp=1)]}, {"X": 100.0}),
+        Tick(2, {"X": two_sided}, {}, {"X": 100.0}),
+    ]
+    report.write_csvs(run_day(Day("d0", ["X"], {"X": 10}, ticks), ScriptedBot()), tmp_path)
+    row = analysis.trade_impact(analysis.load_run(tmp_path, "d0"), horizons=(1,)).loc[("X", "mark")]
+    assert (row["trades"], row["inside"]) == (1, 0)  # tick 1 has no bid: skipped, not counted as inside
+
+
+def test_grid_charts_leave_out_failed_combinations():
+    grid = pd.DataFrame(
+        {"PARAMS.a": [1, 1, 2, 2], "PARAMS.b": [0, 1, 0, 1], "pnl_all": [5.0, -3.0, 9.0, 1.0], "errors": [0, 0, 0, 0], "limit_breaches": [0, 0, 4, 0]}
+    )
+    box = next(patch for patch in analysis.plot_grid(grid).axes[0].patches if isinstance(patch, Rectangle))
+    assert box.get_xy() == (-0.5, -0.5)  # a=1, b=0 with 5, not the breaching a=2, b=0 with 9
+    with pytest.raises(ValueError, match="every combination failed"):
+        analysis.plot_grid(grid.assign(errors=1))

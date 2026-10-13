@@ -8,8 +8,9 @@ mode in --modes, in parallel. The combination with the best PnL is usually overf
 combination also gets:
 
   min day   its worst single day: a good setting should do well on every day, not just one
-  nbhd      the mean PnL of it and its grid neighbours (one step along any axis). Prefer a
-            plateau, where nearby values do about as well, to a lone spike.
+  nbhd      the mean PnL of it and its grid neighbours (one step along any axis), leaving out
+            neighbours that failed. Prefer a plateau, where nearby values do about as well, to a
+            lone spike.
   <mode>    PnL under each extra --modes entry, e.g. `worse` fill matching. A gain that only
             exists with optimistic fills is probably a backtest artefact.
 
@@ -223,13 +224,19 @@ class _Progress:
 
 
 def neighborhood_mean(outcomes: dict[tuple[int, ...], Outcome], index: tuple[int, ...], shape: tuple[int, ...], mode) -> float:
-    """Mean PnL of a combination and its neighbours one step along each axis."""
+    """Mean PnL of a combination and its neighbours one step along each axis.
+
+    Neighbours that failed (errors or limit breaches) are left out: their PnL isn't what the
+    setting would make, and the summary leaves them out too.
+    """
     pnls = [outcomes[index].pnl(mode)]
     for axis, size in enumerate(shape):
         for step in (-1, 1):
             position = index[axis] + step
             if 0 <= position < size:
-                pnls.append(outcomes[index[:axis] + (position,) + index[axis + 1 :]].pnl(mode))
+                neighbour = outcomes[index[:axis] + (position,) + index[axis + 1 :]]
+                if not neighbour.failed:
+                    pnls.append(neighbour.pnl(mode))
     return statistics.fmean(pnls)
 
 
@@ -454,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.out:
         write_csv(args.out, axes, modes, outcomes)
         print(f"\nall combinations written to {args.out}")
-    return 0
+    return 1 if all(outcome.failed for outcome in outcomes.values()) else 0
 
 
 def _check(axes: list[Axis], modes: list[TradeMatching], s: Setup, sort: str) -> None:

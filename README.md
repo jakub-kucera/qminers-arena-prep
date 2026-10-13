@@ -121,7 +121,7 @@ The highest backtest PnL is usually overfit, so each combination is ranked on fo
 |---|---|
 | `pnl` | Total PnL under the first `--modes` entry |
 | `min day` | Its worst single day |
-| `nbhd` | Mean PnL of the combination and its grid neighbours (one step along any axis). A plateau beats a lone spike. |
+| `nbhd` | Mean PnL of the combination and its grid neighbours (one step along any axis), leaving out neighbours with errors or limit breaches. A plateau beats a lone spike. |
 | `pnl(<mode>)` | Total under each extra mode, e.g. `worse` fills |
 
 ```
@@ -159,7 +159,9 @@ copy. Prosperity reuses days across rounds: P4's round 4 days 1–2 are round 3'
 days 0–1 are round 2's for every product round 2 had.
 
 `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
-per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL.
+per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL. Combinations with errors
+or limit breaches are left out of the summary's picks and of the heatmaps, and the grid exits with 1
+if every combination failed.
 
 ## Charts and fill statistics
 

@@ -269,7 +269,9 @@ def trade_impact(runs: Run | list[Run], horizons=IMPACT_HORIZONS) -> pd.DataFram
     Give one day, or a list of days to pool their trades (each trade's moves stay within its day).
 
     A trade at or above the best ask of its tick's book was a buy (+1); at or below the best bid,
-    a sell (−1); trades inside the spread are counted in `inside` and left out. The trades of a tick
+    a sell (−1); trades inside the spread are counted in `inside` and left out. Trades on a tick
+    with an empty side are skipped, as `arena.diagnose` does: the side that's there could classify
+    some, but the reference at such a tick isn't a price to measure moves from. The trades of a tick
     print against that tick's book (checked on Prosperity 3: 96–97% are at one of its prices).
     For each reference: `taker_edge` is the mean of sign × (reference − price), so negative means
     the taker paid; the horizon columns are the mean of sign × (reference h ticks later − reference
@@ -288,6 +290,8 @@ def trade_impact(runs: Run | list[Run], horizons=IMPACT_HORIZONS) -> pd.DataFram
                 at = timeline.index.get_indexer(trades["timestamp"])
                 at, price = at[at >= 0], trades["price"].to_numpy()[at >= 0]
                 bid, ask = timeline["best_bid"].to_numpy()[at], timeline["best_ask"].to_numpy()[at]
+                two_sided = ~(np.isnan(bid) | np.isnan(ask))
+                at, price, bid, ask = at[two_sided], price[two_sided], bid[two_sided], ask[two_sided]
                 sign = np.where(price >= ask, 1, np.where(price <= bid, -1, 0))
                 keep = sign != 0
                 at, price, sign = at[keep], price[keep], sign[keep]
@@ -421,7 +425,9 @@ def plot_product(
                 )
         handles = _product_legend(quotes and not orders.empty, walls)
         ax_price.legend(handles=handles, loc="lower left", bbox_to_anchor=(0, 1.0), ncols=len(handles), borderaxespad=0.3)
-        pnl = timeline["pnl"].iloc[-1] - (timeline["pnl"].iloc[0] if start else 0)
+        # Over the window: from the PnL just before it (its first tick's fills count).
+        before = run.series(product).loc[: first - 1, "pnl"] if start is not None else []
+        pnl = timeline["pnl"].iloc[-1] - (before.iloc[-1] if len(before) else 0)
         window = "" if start is None and end is None else f" · {first:,}–{last:,}"
         _figure_title(fig, f"{product} · {run.day}{window} · pnl {pnl:,.0f} · {len(fills):,} fills")
         ax_price.ticklabel_format(axis="y", useOffset=False, style="plain")
@@ -488,10 +494,16 @@ def grid_axes(grid: pd.DataFrame) -> list[str]:
 def plot_grid(grid: pd.DataFrame, metric: str | None = None, x: str | None = None, y: str | None = None) -> Chart:
     """A heatmap of one metric over two parameters, or a line over one.
 
-    With more than two parameters, each cell shows the best value over the others.
+    With more than two parameters, each cell shows the best value over the others. Combinations
+    with errors or limit breaches are left out, as the grid summary leaves them out.
     """
     t = _t()
     axes = grid_axes(grid)
+    counts = [column for column in ("errors", "limit_breaches") if column in grid]
+    if counts:
+        grid = grid[(grid[counts] == 0).all(axis=1)]
+    if grid.empty:
+        raise ValueError("every combination failed (errors or limit breaches): nothing to chart")
     metric = metric or next(c for c in grid.columns if c.startswith("pnl_"))
     x = x or axes[0]
     y = y if y is not None else next((a for a in axes if a != x), None)
@@ -714,7 +726,10 @@ def main(argv: list[str] | None = None) -> int:
         out.mkdir(parents=True, exist_ok=True)
         for metric in [c for c in grid.columns if c.startswith(("pnl_", "nbhd_")) and c.count("_") == 1]:
             path = out / f"{args.grid.stem}_{metric}.png"
-            _save(plot_grid(grid, metric), path)
+            try:
+                _save(plot_grid(grid, metric), path)
+            except ValueError as error:
+                parser.error(str(error))
         print(f"charts written to {out}/")
         return 0
 

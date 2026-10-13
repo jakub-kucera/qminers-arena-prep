@@ -83,9 +83,13 @@ def _apply_override(module: ModuleType, target: str, value: object) -> None:
     if not keys:
         setattr(module, name, value)
         return
-    container = getattr(module, name)
-    for key in keys[:-1]:
-        if key not in container:
+    container, path = getattr(module, name), name
+    for depth, key in enumerate(keys):
+        if not isinstance(container, dict):
+            raise OverrideError(f"--set {target}: {path} is not a dict (it's a {type(container).__name__})")
+        if depth == len(keys) - 1:
+            container[key] = value
+        elif key not in container:
             raise OverrideError(f"--set {target}: {key!r} not found")
-        container = container[key]
-    container[keys[-1]] = value
+        else:
+            container, path = container[key], f"{path}.{key}"

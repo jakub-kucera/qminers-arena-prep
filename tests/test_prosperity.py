@@ -188,3 +188,21 @@ def test_check_source():
     assert prosperity.check_source(ast.parse("class Trader:\n    def run(self, state): pass")) == []
     assert prosperity.check_source(ast.parse("class Trader:\n    pass")) == ["class Trader has no run method"]
     assert prosperity.check_source(ast.parse("x = 1")) == ["no top-level class Trader"]
+
+
+def test_set_paths_must_go_through_dicts(tmp_path):
+    path = write_bot(
+        tmp_path,
+        """
+        PARAMS = {"X": {"edge": 1}, "a": {"a": 0}}
+
+        class Trader:
+            def run(self, state):
+                return {}, 0, str(PARAMS["a"])
+        """,
+    )
+    with pytest.raises(OverrideError, match="PARAMS.X.edge is not a dict"):
+        prosperity.load_bot(path, dict([parse_override("PARAMS.X.edge.y=2")]), strict=True)
+    bot = prosperity.load_bot(path, dict([parse_override("PARAMS.a.a=5")]), strict=True)  # a key repeated
+    bot.step(Tick(0, {}, {}, {}), {}, [], {}, [])
+    assert bot._trader_data == "{'a': 5}"
