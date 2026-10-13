@@ -18,6 +18,7 @@ uv sync                             # Python 3.12; dev group = pytest, pandas, m
 uv run pytest                       # all tests (~9 s)
 uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
+uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
 uv run python -m arena.backtest bots/template.py 1                # Prosperity 3 round 1, every day
 uv run python -m arena.backtest bots/template.py 1-0 --data p2    # Prosperity 2, round 1 day 0
 uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
@@ -43,6 +44,7 @@ uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis
 - It records per-tick positions, marks, PnL and best bid/ask, plus orders, fills, errors, limit breaches and timings, in a `DayResult`.
 - `arena/report.py` `write_csvs` turns it into `<day>_timeline.csv` (with the book's `wall_mid`), `_fills.csv`, `_orders.csv` and `_trades.csv` (the data's market trades). Those columns are the contract with `arena/analysis.py`, so change both together.
 - **Only `arena/analysis.py` imports pandas and matplotlib.** Everything else is standard library.
+- **`arena/diagnose.py`** reads days through the format plug-in, with no bot or engine. Per product, it prints the spread regime, noise, drift, and the market trades' impact and market-making margins. Its notes use thresholds calibrated on Prosperity data, as module constants. `references/wiki/concepts/reading-the-data-on-day-one.md` maps each note to a strategy choice, so change both together.
 - The engine catches the bot's exceptions and records them per tick, so a run never aborts.
 
 **Formats are plug-ins** (`arena/formats/`). A format module must provide:

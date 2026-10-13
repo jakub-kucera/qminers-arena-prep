@@ -113,21 +113,25 @@ This page replaced the one built on a 47-page excerpt (preface to section 2.1.4)
 
 ## Assumptions against the Arena
 - **NASDAQ stocks in 2015:** competitive high-frequency market makers, rebates of about 0.25 tick, queues hundreds of lots long. Prosperity is a few programmed bots with no fees. The book's NASDAQ conclusion, that simple market making loses, rests on that competition (`trades-quotes-prices.md:6679` (p. 349)). Its zero-intelligence model, where market making is easy, rests on random flow (`trades-quotes-prices.md:3098` (p. 166)).
-- **Measured on Prosperity 3 round 1 (2026-10-13), all three days.** The market trades of the template's backtest, classified against their own tick's book (`analysis.trade_impact`'s rules), with the book's break-even terms. Here `s` is the mean spread, `C(1)` the sign correlation of consecutive trades, and `R(1)` and `R(50)` the signed move after 1 and 50 ticks:
+- **Measured on Prosperity 3 round 1 (2026-10-13), all three days,** with `uv run python -m arena.diagnose 1 --data p3`. The data's market trades are classified against their own tick's book (`analysis.trade_impact`'s rules), with the book's break-even terms:
+  - `s` is the mean spread at the trades, and `C(1)` the sign correlation of consecutive trades;
+  - edge is the taker's mean `ε·(ref − price)`, and `R(1)` and `R(50)` are the signed moves after 1 and 50 ticks;
+  - the margins replace the book's `s/2` with the measured `−edge`. That is the same against the mid when trades are at the touch, and keeps each row in one reference. An earlier version of this table mixed `s/2` with the wall mid's `R`, and overstated the wall-mid margins (1.17, 2.51, 1.16).
 
-  | Product | `s` | `C(1)` | vs | `R(1)` | `R(50)` | slow: `s/2 − R(50)` | fast: `(s/2)(1 − C(1)) − R(1)` |
-  |---|---|---|---|---|---|---|---|
-  | Kelp | 2.32 | 0.13 | mid | 0.28 | 0.27 | 0.89 | 0.73 |
-  | Kelp | | | wall mid | 0.01 | −0.01 | 1.17 | 1.01 |
-  | Resin | 5.16 | 0.09 | mid | 1.27 | 1.23 | 1.36 | 1.08 |
-  | Resin | | | wall mid | 0.09 | 0.07 | 2.51 | 2.26 |
-  | Squid Ink | 2.29 | 0.12 | mid | 0.29 | 0.24 | 0.90 | 0.72 |
-  | Squid Ink | | | wall mid | 0.02 | −0.02 | 1.16 | 0.99 |
+  | Product | `s` | `C(1)` | vs | edge | `R(1)` | `R(50)` | slow: `−edge − R(50)` | fast: `−edge·(1 − C(1)) − R(1)` |
+  |---|---|---|---|---|---|---|---|---|
+  | Kelp | 2.32 | 0.13 | mid | −1.20 | 0.28 | 0.27 | 0.93 | 0.77 |
+  | Kelp | | | wall mid | −0.93 | 0.00 | −0.01 | 0.94 | 0.81 |
+  | Resin | 5.16 | 0.09 | mid | −2.65 | 1.26 | 1.23 | 1.42 | 1.14 |
+  | Resin | | | wall mid | −1.49 | 0.09 | 0.07 | 1.41 | 1.27 |
+  | Squid Ink | 2.28 | 0.12 | mid | −1.19 | 0.28 | 0.24 | 0.95 | 0.75 |
+  | Squid Ink | | | wall mid | −0.93 | 0.02 | −0.02 | 0.95 | 0.80 |
 
-  - **Both margins are large and positive:** 0.3–0.5 of the spread per unit. On NASDAQ the same strategy loses about 0.1 of the spread. By the book's own criterion, Prosperity is the zero-intelligence case where market making is easy.
+  - **Both margins are large and positive:** slow 0.27–0.41 and fast 0.22–0.35 of the spread per unit. On NASDAQ the same strategy loses about 0.1 of the spread. By the book's own criterion, Prosperity is the zero-intelligence case where market making is easy.
+  - **The two references agree on the slow margin,** as they must when both track the same value over 50 ticks. Against the mid, a trade looks informed (`R(50)` 0.27 for Kelp) because it arrives when an order inside the walls has pulled the mid toward the trade. Against the wall mid, the same trade has no lasting impact.
   - **Trade signs barely persist:** `C(1)` is 0.09–0.13, against 0.37–0.93 on NASDAQ (Table 11.2, `trades-quotes-prices.md:4489` (p. 240)). Consistent with that, `R(50)` is about `R(1)`, not the 2–5 times the book finds.
   - **The mid mean-reverts at one tick** (lag-1 autocorrelation −0.48 for Kelp, [Gould et al.](limit-order-books.md)), which the book's rule (eq. 21.18) says favours resting orders.
-  - The script is not in the repo; `arena.analysis` has the impact table but not `C(1)`. Times are ticks, not market-order counts.
+  - Times are ticks, not market-order counts.
 - **If the Arena is shared,** other teams compete for the same spread. The book's argument then predicts the margin shrinks toward break-even, as competition enforces it on NASDAQ (`trades-quotes-prices.md:6358` (p. 332)) *(inferred)*.
 - **Tick size:** Prosperity's spreads in P3 round 1 are 2–5 ticks, between the book's large-tick (one tick) and small-tick (many ticks) regimes. Queue priority should matter less than on NASDAQ's large-tick stocks, which fits Leo-Hawking's finding of no queue in Prosperity ([queue position](../concepts/queue-position-and-fills.md)) *(inferred)*.
 - **Our backtester adds phantom orders to recorded data,** the case the book calls "a bit dodgy" (`trades-quotes-prices.md:7944` (p. 421)). In Prosperity the bots' trades leave no lasting move, so the error is likely small there. In a reactive Arena market it might not be ([price impact](../concepts/price-impact.md)) *(inferred)*.

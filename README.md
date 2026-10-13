@@ -7,7 +7,7 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 
 | Path | What it is |
 |---|---|
-| `arena/` | Backtesting engine; the `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `arena/formats/` |
+| `arena/` | Backtesting engine; the `diagnose`, `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `arena/formats/` |
 | `bots/template.py` | Single-file market maker to copy for each round |
 | `notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, PnL split, market-trade impact, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
@@ -24,6 +24,31 @@ uv sync               # the engine needs only the standard library; dev adds pyt
 uv run pytest
 uv run --group analysis jupyter lab notebooks/analysis.ipynb   # optional: Jupyter
 ```
+
+## Diagnose the data
+
+```sh
+uv run python -m arena.diagnose 1                      # Prosperity 3 round 1, every day
+uv run python -m arena.diagnose 1 --data p4 --csv results/diag.csv
+```
+
+```
+product           spread  1 tick  empty  mid AC1  mid sig  wall sig  drift/day  trades  buys   C(1)   edge   R(1)  R(50)   slow   fast
+KELP                  3t     13%     0%    -0.48     17.9       2.8        +11   8,634   35%  +0.13  -0.93  +0.00  -0.01  +0.94  +0.81
+RAINFOREST_RESIN      8t      0%     0%    -0.50     50.0      49.6         +0   7,121   49%  +0.09  -1.49  +0.09  +0.07  +1.41  +1.27
+SQUID_INK             3t     14%     0%    -0.17      1.5       1.3        -53   8,651   35%  +0.12  -0.93  +0.02  -0.02  +0.95  +0.80
+
+KELP: small-tick (median spread 3 ticks); mid mean-reverts at one tick; wall mid filters the mid's noise; market making pays (0.41 of the spread a unit)
+...
+```
+
+The first thing to run on a new data download: it needs no bot. Per product it measures:
+- **The book:** the spread in ticks, and how often a side is empty.
+- **The noise:** how much the mid and the wall mid revert from one tick to the next.
+- **The drift:** how far the wall mid moves over a day.
+- **The market trades:** which side they hit, whether their signs persist (`C(1)`), what the taker paid, how far the wall mid moves after them, and the margin per unit a market maker would make on them (Bouchaud et al. eqs. 17.13–17.14).
+
+The notes under the table name the regime. [Reading the data on day one](references/wiki/concepts/reading-the-data-on-day-one.md) maps each one to a strategy choice. `--csv` writes every number, against both the mid and the wall mid.
 
 ## Backtest
 

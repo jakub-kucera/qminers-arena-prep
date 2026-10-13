@@ -69,7 +69,7 @@ A 34-page survey of limit order books (LOBs): a precise vocabulary for them (sec
   - **Trades print against the same tick's book:** 96–97% of the market trades at tick `t` are at a price in book `t`, against 44–68% for book `t − 1`. So book `t` is the book those trades arrived to.
   - **Mid changes are strongly mean-reverting at one tick:** lag-1 autocorrelation −0.48 (Kelp), −0.50 (Resin), −0.17 (Squid Ink) in P3 round 1, far stronger than the survey's "weakly negative".
   - **Heavy tails differ by product:** excess kurtosis 0.4 (Resin), 2.4 (Kelp), 504 (Squid Ink).
-  - These are measured on the snapshots, ticks 100 time units apart. The script is not in the repo.
+  - These are measured on the snapshots, ticks 100 time units apart. `arena.diagnose` reproduces the autocorrelations (column `mid AC1`); the share of trades on book `t` and the kurtosis were a one-off script.
 - **Price-time priority** is what our resting mode assumes (`arena/engine.py` docstring). Pro-rata would reward quoting more than we want to trade. The Arena's rule is unknown ([queue position](../concepts/queue-position-and-fills.md)).
 - **Tick size:** Prosperity ticks are 1 on prices of 2,000–10,000, a large tick relative to the spread, so queues matter and stepping in front costs a full tick *(inferred)*.
 
