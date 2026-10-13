@@ -110,6 +110,18 @@ like the rest of `literature_md/`; say so if a book should stay out of git. The 
   chapters only); Chan, *Algorithmic Trading*; Vidyamurthy, *Pairs Trading* (only if baskets matter).
   - Done when: each is obtained, or the item is ticked as "skipped".
 
+## D. Papers from the 2026-10-13 triage (`references/SEARCH_LOG.md`)
+
+The user is getting these through the library. Save each in `literature_raw/` under the name given; the agent registers it in
+`literature_md/convert.sh`, converts it and writes its source page.
+
+- [ ] *Limit order trading with a mean reverting reference price* (Risk and Decision Analysis, 2017) as `mean-reverting-reference-price.pdf`. **First:** it bears on `contradictions.md` row 1, a skew on a pegged product.
+- [ ] Guilbaud & Pham, *Optimal high-frequency trading with limit and market orders* (Quantitative Finance, 2013) as `limit-and-market-orders.pdf`.
+- [ ] Fernandez-Tapia, *High-frequency trading meets online learning* (Market Microstructure and Liquidity, 2016) as `online-learning-market-making.pdf`.
+- [ ] (Only if teams share one market) *On optimal pricing model for multiple dealers in a competitive market* (Computational Economics, 2017) as `competing-dealers.pdf`.
+- [ ] (Only if the Arena matches pro-rata) Guilbaud & Pham, *Optimal high-frequency trading in a pro rata microstructure with predictive information* (Mathematical Finance, 2013) as `pro-rata-microstructure.pdf`.
+  - Done when (each): converted, with a source page, or ticked as "not needed" once the Arena's rules are known.
+
 ## Not on this list
 
 The agent can download these free papers itself on request, so there is nothing for a person to do: Gatheral & Jacquier (SVI),
