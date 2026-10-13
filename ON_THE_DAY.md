@@ -50,6 +50,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out: probe 11.
   - We assume (in `--resting`): at the back. The visible volume at your price is ahead of you, and you only move up when it shrinks. If the exchange's bots re-quote every tick, as Prosperity's did, you would reach the front much sooner.
   - If you reach the front sooner: `--resting` underestimates passive fills. Compare it with the per-tick mode, which has no queue.
+  - If fills are split pro-rata (each resting order at the best gets a share of a trade in proportion to its size), the queue model doesn't apply: size buys priority, and `make_size` sets the share you get, not only your exposure. Then read `literature_md/pro-rata-microstructure/` (Guilbaud & Pham 2013, so far only mapped: `references/wiki/sources/pro-rata-microstructure.md`).
 - [ ] **Does the book you see include your own orders?**
   - Find out: probe 2.
   - We assume: no. That's how the backtester shows it in every mode.
@@ -70,6 +71,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out also: when several teams' orders arrive at the same tick, who goes first? Random, by time sent, or a fixed order?
   - We assume (with `--vs`): a random order, drawn again every tick.
   - If shared: tune with `--vs` (copies or variants of your bot) as well as alone, and prefer settings that hold up in both.
+  - The one paper on competing market makers we have (`references/wiki/sources/competing-dealers.md`) has no price priority in its fill model, so use it only qualitatively: more makers, tighter spreads and lower profits. `--vs` is the better guide.
   - If the order is fixed, or by time sent: the bots that go first win most contested fills, so make the bot fast and cheap per call.
 - [ ] **Where does state live between calls?**
   - Find out: probe 7. Do module and instance variables survive between calls? Is there a state string like `traderData`, and how big can it be?
