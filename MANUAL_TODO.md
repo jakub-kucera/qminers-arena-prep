@@ -70,7 +70,7 @@ Save scans or ebooks of the chapters named, as `literature_raw/<short-name>.pdf`
 like the rest of `literature_md/`; say so if a book should stay out of git. The agent then follows the workflow
 "Add a document to the literature" in `references/wiki/SCHEMA.md` (a chapter map, then only the chapters a question needs).
 
-- [ ] **Bouchaud, Bonart, Donier & Gould, *Trades, Quotes and Prices: Financial Markets Under the Microscope*
+- [x] **Bouchaud, Bonart, Donier & Gould, *Trades, Quotes and Prices: Financial Markets Under the Microscope*
   (Cambridge University Press, 2018), the full book** (about 460 pages). Save it as `trades_quotes_prices.pdf`, replacing
   the excerpt, so it keeps the slug `trades-quotes-prices`.
   - Why: of all the documents in `literature_raw/`, this is the only incomplete one (checked 2026-10-13). We have a
@@ -80,6 +80,7 @@ like the rest of `literature_md/`; say so if a book should stay out of git. The 
   - Done when: the full book replaces the excerpt and the wiki is rebuilt from it, following "Replace a document with a
     fuller copy" in `references/wiki/SCHEMA.md`: a new chapter map, chapters 11, 16 and 17 read first, every existing
     citation re-pointed to the full copy's lines and pages, and `python3 references/wiki/lint.py --pages` clean.
+  - Done 2026-10-13: saved as `trades_quotes_prices_full.pdf` (the only file matching the slug's prefix), converted, and the source page rebuilt with a chapter map; every earlier citation re-pointed and `lint.py --pages` clean.
 - [ ] **(Low priority) Final versions of four documents we have as drafts or preprints.** All four are complete in
   content (checked 2026-10-13); only the version differs. Save each under its current file name in `literature_raw/`.
   - Avellaneda & Stoikov, "High-frequency trading in a limit order book", *Quantitative Finance* 8(3), 2008. **The

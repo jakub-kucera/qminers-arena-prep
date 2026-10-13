@@ -1,7 +1,7 @@
 ---
 title: Queue position and fill models
 type: concept
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Queue position and fill models
@@ -35,6 +35,10 @@ In Prosperity, orders live one tick against a snapshot, so queue position hardly
   - Price-size favours the largest order. Prosperity, per Leo-Hawking above, had no time priority within a price.
   - A large tick makes stepping in front of a queue cost a full tick, so queues are long; a tiny tick makes it free, so queues stay thin (`literature_md/limit-order-books/limit-order-books.md:319` (p. 8)).
   - Orders arrive inside the spread more often when the queue at the best is long, read as traders buying priority with price (`literature_md/limit-order-books/limit-order-books.md:464` (p. 12)).
+- **What priority is worth** ([Bouchaud et al.](../sources/trades-quotes-prices.md)):
+  - On large-tick stocks only orders near the front pay. With NASDAQ numbers the critical position is about half a lot (eq. 21.24, `literature_md/trades-quotes-prices/trades-quotes-prices.md:7930-7934` (p. 420, checked)).
+  - A randomly placed order fills mainly on large sweeps and suffers more adverse selection than one at the front (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6643` (p. 347, unchecked)).
+  - With small ticks, queues are short and almost any order at the best fills (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6448` (p. 339)). Prosperity's 2–5 tick spreads put it nearer that case *(inferred)*.
 
 ## Where they disagree
 No disagreement on direction: the papers that model queues assume uniform cancellation for tractability, and the two that look at order-by-order data (Huang et al.'s caveat, Databento) say it overstates fills at the back. So `Υ(x) = x` is an optimistic middle and `log(1 + x)` a more realistic one. Open: which `f` fits a bot-made book, if the Arena has a queue at all.
@@ -46,4 +50,4 @@ No disagreement on direction: the papers that model queues assume uniform cancel
 Compare a market maker's PnL under `back`, `prob` (with `f(x) = x` and `log(1 + x)`) and `front`. A strategy whose edge exists only under `front` is not trustworthy. Report it as Moallemi & Yuan do: per-order value, fill probability and adverse selection (markout) for each model, not only total PnL. On Prosperity data the gap between `back` and `front` should be small, because spreads are wide and the template improves the price by a tick rather than queueing *(prediction from the papers, untested)*.
 
 ## Sources
-[Gould et al.](../sources/limit-order-books.md), [Moallemi & Yuan](../sources/queue-position-valuation.md), [Huang et al.](../sources/queue-reactive-model.md), [Guo et al.](../sources/dynamics-of-order-positions.md), [Cartea et al. 2018](../sources/order-book-signals.md), [hftbacktest](../sources/hftbacktest.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [online articles](../sources/online-articles.md).
+[Bouchaud et al.](../sources/trades-quotes-prices.md), [Gould et al.](../sources/limit-order-books.md), [Moallemi & Yuan](../sources/queue-position-valuation.md), [Huang et al.](../sources/queue-reactive-model.md), [Guo et al.](../sources/dynamics-of-order-positions.md), [Cartea et al. 2018](../sources/order-book-signals.md), [hftbacktest](../sources/hftbacktest.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [online articles](../sources/online-articles.md).

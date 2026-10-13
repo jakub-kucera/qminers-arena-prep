@@ -93,7 +93,7 @@ Documents with a source page (each says which formulas were checked against the 
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.
 - [kelly-criterion](sources/kelly-criterion.md): Thorp 1997; `f* = edge/variance`, fractional Kelly keeps `c(2 − c)` of the growth, estimated edges run high. A scanned PDF with no text layer.
 - [limit-order-books](sources/limit-order-books.md): Gould et al. 2013, survey; LOB vocabulary, priority rules, impact and stylized facts, mostly from pre-2010 data.
-- [trades-quotes-prices](sources/trades-quotes-prices.md): Bouchaud et al. 2018, a 47-page excerpt (preface, chapters 1–2.1); `s/2 − R∞`, market making as selling insurance, the volatility signature plot.
+- [trades-quotes-prices](sources/trades-quotes-prices.md): Bouchaud et al. 2018 (book, full copy since 2026-10-13), chapters 1, 7, 11, 15–17 and 21 read; chapter map. When market making pays (`s/2` against long-run impact, slow and fast), the response function, the square-root law, Kyle, Glosten–Milgrom, MRR, queue value; measured: Prosperity is the zero-intelligence case where making is easy.
 
 Not yet ingested: none; every document in `literature_md/README.md` has a source page. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The two books are partly read; their chapter maps say what is left.
 

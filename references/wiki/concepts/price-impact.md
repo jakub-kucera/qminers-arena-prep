@@ -1,7 +1,7 @@
 ---
 title: Price impact
 type: concept
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Price impact
@@ -13,8 +13,8 @@ Price impact is how far the price moves after a trade, in the trade's direction.
 **What it is:**
 - **Instantaneous and permanent** ([Gould et al.](../sources/limit-order-books.md), `literature_md/limit-order-books/limit-order-books.md:520-523` (p. 15)): the instantaneous part is the volume a trade removes; the permanent part is how others change their behaviour afterwards. The permanent part can't be measured exactly, since the market without the trade is never observed (`literature_md/limit-order-books/limit-order-books.md:549` (p. 15)).
 - **The same split in the spread** ([Harris](../sources/harris-trading-and-exchanges.md), `literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6984-6994` (p. 312–313)): a transaction-cost component that reverts (bid–ask bounce) and an adverse-selection component that does not.
-- **The market maker's break-even** ([Bouchaud et al.](../sources/trades-quotes-prices.md), `literature_md/trades-quotes-prices/trades-quotes-prices.md:501-507` (p. 36, checked)): with `R∞ = E[ε·(m∞ − m)]` the long-run impact per trade, a maker with fixed quotes nets `s/2 − R∞` per trade. Making pays only while `s/2 > R∞`.
-- **Rare informed trades hide in the average** (`literature_md/trades-quotes-prices/trades-quotes-prices.md:519-531` (p. 37, checked)): if a share `φ` of trades predicts a jump `J`, then `R∞ = φJ` and the maker's gain per trade has skewness `−φ^(−1/2)`. Small `φ` means a small average impact and a fat left tail: market making is selling insurance.
+- **The market maker's break-even** ([Bouchaud et al.](../sources/trades-quotes-prices.md), `literature_md/trades-quotes-prices/trades-quotes-prices.md:510-516` (p. 35, checked)): with `R∞ = E[ε·(m∞ − m)]` the long-run impact per trade, a maker with fixed quotes nets `s/2 − R∞` per trade. Making pays only while `s/2 > R∞`.
+- **Rare informed trades hide in the average** (`literature_md/trades-quotes-prices/trades-quotes-prices.md:528-540` (p. 36, checked)): if a share `φ` of trades predicts a jump `J`, then `R∞ = φJ` and the maker's gain per trade has skewness `−φ^(−1/2)`. Small `φ` means a small average impact and a fat left tail: market making is selling insurance.
 
 **Its shape:**
 - **Concave in the size of one market order** (`literature_md/limit-order-books/limit-order-books.md:551-553` (p. 15, checked); `literature_md/limit-order-books/limit-order-books.md:572-580` (p. 16)): power laws `|ω|^α` with α from 0.2 to 0.7 by study, or a logarithm.
@@ -24,10 +24,13 @@ Price impact is how far the price moves after a trade, in the trade's direction.
 - **Market orders move the book about four times as much as limit orders of the same size,** and limit orders at the best have a permanent impact (`literature_md/limit-order-books/limit-order-books.md:596` (p. 17)).
 
 **In the models:**
-- **Kyle:** price moves linearly with net order flow, `S = μ + λ(x + u)` ([Cartea et al., book](../sources/algorithmic-and-hft.md), `literature_md/algorithmic-and-hft/algorithmic-and-hft.md:725-755` (p. 49–50, checked)). The book prints λ inverted; the standard value is `σ/(2σ_u)`.
+- **Kyle:** price moves linearly with net order flow, `S = μ + λ(x + u)` ([Cartea et al., book](../sources/algorithmic-and-hft.md), `literature_md/algorithmic-and-hft/algorithmic-and-hft.md:725-755` (p. 49–50, checked)). The book prints λ inverted; the standard value is `σ/(2σ_u)`, which [Bouchaud et al.](../sources/trades-quotes-prices.md) derive independently as `Λ = σ_F/(2Σ_V)` (`literature_md/trades-quotes-prices/trades-quotes-prices.md:5868` (p. 312, checked)).
 - **Grossman–Miller:** the discount a liquidity trader pays to sell `i` units is `γσ²·i/(n + 1)`, shrinking with the number of competing makers `n` (`literature_md/algorithmic-and-hft/algorithmic-and-hft.md:575-579` (p. 41, checked)).
 - **Guéant et al.:** each fill shifts the reference price by `ξ` against the maker, which widens both quotes by `ξ/2` ([dealing with inventory risk](../sources/dealing-with-inventory-risk.md), `literature_md/dealing-with-inventory-risk/dealing-with-inventory-risk.md:294-298` (p. 14, checked)).
 - **Asymmetric impact invites manipulation** (Harris, `literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6369-6381` (p. 283–284)): if buys move a price more than sells, a bluffer buys first and sells later. Quoting that moves equally per unit in both directions can't be bluffed.
+- **On NASDAQ the response grows with the lag:** `R(ℓ)` rises to an `R∞` 2–5 times `R(1)` because trade signs persist (`literature_md/trades-quotes-prices/trades-quotes-prices.md:4388` (p. 234)). And "the most likely outcome has the smallest impact": a buy after a buy moves the price less than a buy after a sell (`literature_md/trades-quotes-prices/trades-quotes-prices.md:4495` (p. 240)). On Prosperity data `R(50)` is about `R(1)`, and consecutive trade signs barely correlate ([Bouchaud et al. source page](../sources/trades-quotes-prices.md)).
+- **The square-root law has a narrow domain:** from the size of the best queue up to about 10% of the volume. Below it impact is linear; executed faster than the book refills, it is convex (`literature_md/trades-quotes-prices/trades-quotes-prices.md:4789-4793` (p. 257)). Our takes are smaller than a best queue, so the square-root law doesn't apply to them.
+- **Short-term impact is reaction, not prediction:** random trades and informed ones have the same short-term impact (`literature_md/trades-quotes-prices/trades-quotes-prices.md:4553` (p. 243)).
 
 **Measured on Prosperity data (2026-10-12).** For each market trade at tick `t`, the sign `ε` is +1 if it printed at or above book `t`'s best ask and −1 at or below the best bid; the 2% that print inside the spread are left out. Book `t` is the book those trades arrived to: 96–97% of them print at one of its prices ([Gould et al.](../sources/limit-order-books.md), "Assumptions against the Arena"). The table gives the taker's edge per unit against book `t`'s wall mid (negative means the taker paid), and the mean of `ε × (price at t + h − price at t)` for the mid and the wall mid:
 
@@ -57,7 +60,8 @@ Price impact is how far the price moves after a trade, in the trade's direction.
 ## What it means for our code
 - **Measure fills against the wall mid.** `mark` is the CSV's mid in the Prosperity format (`arena/formats/prosperity.py:125`). On Kelp, Resin or Starfruit, markouts against it mix the mid's noise and the selection effect above into what is meant to be adverse selection. `arena.analysis` takes `reference="wall_mid"` (CLI `--reference wall_mid`) for the fill edge, markouts and the PnL split. The split shows the size of the effect: on P3 round 1, day −1, Resin's takes look like a 6,048 loss against the mark and earn 6,272 against the wall mid.
 - **Our own takes have no lasting impact in the backtester:** the next tick's book is the recorded one. Prosperity teams listed market impact and the bots' reaction to inserted liquidity among what their backtesters couldn't model, and used the website for those questions ([backtesting](backtesting-and-tooling.md)). If the Arena's market reacts to our trades, takes cost more than the backtest says, and a take that clears a level moves the mid by about `x/(2D)` (Cont et al.). `ON_THE_DAY.md` has an item and a probe for it.
-- **The template quotes symmetrically:** `skew` moves both quotes by the same amount per unit of position (`bots/template.py:200`), which is Harris's bluff-proof rule. A fair value driven by trade flow would need the same symmetry.
+- **Backtests that add our orders to recorded data are "a bit dodgy"**, because the impact those orders would have had is about as large as the effects being studied (`literature_md/trades-quotes-prices/trades-quotes-prices.md:7944` (p. 421)). That is our engine's default.
+- **The template quotes symmetrically:** `skew` moves both quotes by the same amount per unit of position (`bots/template.py:206`), which is Harris's bluff-proof rule. A fair value driven by trade flow would need the same symmetry.
 
 ## How to test it here
 - **Per product, each round:** taker's edge against the wall mid and the signed wall-mid move at 1–50 ticks after market trades. A product whose wall mid follows the trades has informed flow: widen or skew there, and quote tighter where it doesn't.
