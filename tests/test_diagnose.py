@@ -66,6 +66,15 @@ def test_an_empty_side_is_counted():
     assert row["two_sided"] == pytest.approx(0.5)
 
 
+def test_a_wall_mid_that_jumps_past_half_the_spread_is_flagged():
+    jumpy = diagnose.diagnose([make_day([100, 104] * 20)])["X"]  # moves of 4 against a half-spread of 1
+    assert jumpy["jump_share"] == 1
+    assert "if orders rest, take only" in jumpy["notes"]
+    calm = diagnose.diagnose([make_day([100, 101] * 20)])["X"]  # one tick: not a jump
+    assert calm["jump_share"] == 0
+    assert "jumps" not in calm["notes"]
+
+
 def test_a_bouncing_mid_mean_reverts_and_the_wall_mid_filters_it():
     # The touch flips between just above and just below a wall mid that walks slowly.
     walls = [100 + (i // 25) for i in range(400)]

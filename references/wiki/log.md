@@ -166,3 +166,8 @@ Measured what the teams' P4 round 3–4 money is made of, with two committed scr
 `bots/template.py` gains a `basket` mode: a basket's spread against its legs, traded with the level settings, with optional hedging legs. The cross-product hook becomes `Market`, which holds every book and this tick's plans.
 - **Result** (`experiments/baskets.py`, nested leave-one-day-out): 83k on P3 round 2 and 281k on P2 round 3 over three days, against 20k for plain market making. Hedging lost. Baskets only take, because their resting quotes were picked off under `--resting`. Market making on the legs (Roses, Chocolate) lost up to 1.5M under `--resting`, so the legs are left out.
 - **Filed into:** `baskets-and-fixed-sums` ("What it means for our code", "How to test it here"); the repo's `IDEAS.md` (two tested rows; the band row narrowed), `README.md`, `CLAUDE.md`, `ON_THE_DAY.md` ("Products"), `TODO.md` (multi-product item done).
+
+## [2026-10-13] query | a jump measure in arena.diagnose
+`arena.diagnose` gains a `jumps` column: the share of ticks on which the wall mid moves more than half the spread, and at least a tick. From 5% it adds a note: if orders rest, take only.
+- **Calibration:** P2/P3 products at 10–63% lost 140k–1.5M under `--resting` with the template's market making; Kelp, at 0%, did not. All 50 P4 round 5 products are flagged (51–76%), and six that were tested lost 0.7–2.4M each under `--resting`, against 2–27k each in the default mode.
+- **Filed into:** `reading-the-data-on-day-one` (a new row); the repo's `README.md`, `IDEAS.md` and `ON_THE_DAY.md` ("Do unfilled orders rest between ticks?").
