@@ -107,6 +107,8 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - So: run `arena.validate` before every upload. Never spend a submission on untested code. Before the deadline, check which submission is marked final.
 - [ ] **What does an exception do?** Probe 6. Is the tick skipped, the bot stopped, or the round lost? The template catches errors per product unless `STRICT` is set.
 - [ ] **What are the price units?** Integer ticks? Tick size? Cents? The template rounds prices to `int`.
+  - We assume: a tick of 1. The template hard-codes it: `make` steps to `best_bid + 1` / `best_ask - 1` and rounds with `floor`/`ceil`, and `Trader.run` sends `int(price)`. The Prosperity loader also reads prices with `int(float(...))` (every P2–P4 price is a whole number, checked 2026-10-13).
+  - If the tick isn't 1: add a `tick` parameter and use it in `make` and the rounding, and keep prices as the exchange's type in the loader and the ADAPTER. With a tick of 0.01, `int(price)` would send prices off by up to a whole unit.
 - [ ] **How is PnL scored?**
   - At which price are open positions valued: mid, last trade, or a settlement price?
   - Are positions liquidated at the end, and at what price? If badly, flatten before the close.

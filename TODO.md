@@ -125,3 +125,34 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Done when: the round is done, and whatever was slow or confusing is fixed in the tooling or the checklist.
 - [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), a passing `uv run pytest`, and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
   - Done when: everyone has run the template backtest on their own machine.
+
+## From the code review (2026-10-13)
+
+A read-through of `arena/`, `bots/template.py`, the tests and the docs. The tests pass (148), and so does the wiki lint. Ordered by how much each one could cost.
+
+- [ ] **The template's error handler can itself raise.** `read_resting` and the `except` branch of `Trader.run` read `state.open_orders` directly. That field is our extension. On an exchange whose state doesn't have it, every product raises, and then the handler raises too, out of `run()`. That loses every product's orders on every tick, which is the failure the per-product isolation is meant to prevent. `arena.validate` only replays with `STRICT` on, so it never runs this path.
+  - Done when: the ADAPTER reads the extensions through `getattr` with defaults, the handler can't raise, and `arena.validate` also replays once with `STRICT` off and fails if an exception escapes `run()`.
+- [ ] **`level_exit: 0` only fires when the gap is exactly 0.** `level_target` checks `abs(gap) <= level_exit`. The wall mid moves in steps of 0.5, so with an integer level (Hydrogel's 9994) a crossing that skips the level never exits. With a level taken from a mean (a float), it never fires at all. That is how `ON_THE_DAY.md` says to set the level, and it is what the held-out folds of `experiments/p4_level_template.py` and `experiments/baskets.py` use. So their `level_exit` axis compared `None` with what is in effect `None`.
+  - Done when: the exit also fires when the gap changes sign, a test covers a crossing that skips the level, and both experiments are re-run with their `IDEAS.md` rows updated.
+- [ ] **A basket reads its legs' books after the legs have traded.** `Market.books` holds the same `Book` objects that `take` and `clear` decrement. So a leg traded before its basket (alphabetically, e.g. `CROISSANTS` before `PICNIC_BASKET2`) shows the basket its post-trade volumes, and `_wall` can pick a different level. Checked: a take that empties a 30-lot wall moves the leg's `wall_mid` from 102 to 101.5. This is latent today because no leg is traded on its own, but it bites as soon as one is (the leg market-making row in `IDEAS.md` did this through `--set`). The `Market` docstring says "before anyone trades".
+  - Done when: each product trades a copy of its book (or `Market` keeps an untouched copy), and a test trades a leg before its basket.
+- [ ] **`--resting` can use the same liquidity twice.** A resting order crossed by the new snapshot (`_cross`) can also fill from that tick's market trades (`_fill_resting`). On Prosperity data, a tick's trades print against that tick's book. So a trade through the order's price may be the same seller (or buyer) whose snapshot volume the cross already used. On P3 round 1 with the template, about 170 orders a day get both kinds of fill in one tick: 385–436 units of trade fills a day, about 5% of passive fill volume (3% of all fill volume).
+  - Done when: it is decided whether a tick's trades should be reduced by the volume crossed at their price (or crossed orders skip that tick's trade fills), with a test, and the `--resting` column of the README's fill table is re-run.
+- [ ] **`make` can quote a bid and an ask at the same price.** It only stops each quote from crossing the book, not from meeting the other quote. Kelp with `make_edge=0` on P3 round 1 day −2 had bid == ask on 190 ticks, and on 29 ticks its own buy and sell filled at one price. A spread of 2 plus a skew does the same at any `make_edge`. The engine never matches own orders, but a real exchange may self-trade or reject them.
+  - Done when: `make` keeps `ask > bid` (dropping or moving the side that adds to inventory), with a test.
+- [ ] **Pin the reference clones.** `references/clone.sh` shallow-clones each repo's HEAD, and `--update` pulls. The wiki's 1,306 `path:line` citations, the Prosperity data, the parity numbers and the `IDEAS.md` results all depend on what was cloned. A teammate cloning later, or the planned refresh before the event, can silently shift them: the lint only checks that a cited line exists. The experiments and `--vs` also execute the teams' code from those clones.
+  - Done when: each repo is pinned to a commit SHA, `--update` prints the old and new SHA of each one it moves, and the lint is run after any bump.
+- [ ] **Small correctness gaps in the grid and the charts:**
+  - `analysis.plot_grid` includes failed combinations (errors, limit breaches), so its outlined best cell can be one that the grid summary left out.
+  - `neighborhood_mean` averages failed neighbours in.
+  - `arena.grid` exits 0 even when every combination failed.
+  - `plot_product`'s window PnL subtracts the first tick's PnL, which already includes that tick's fills, and it treats `start=0` as no window.
+  - `_apply_override` raises a bare `TypeError` (a traceback, not a usage error) when a `--set` path goes through a non-dict, e.g. `PARAMS.KELP.limit.x=1`.
+  - `analysis.trade_impact` counts trades on a tick with an empty side as `inside`, while `arena.diagnose` skips them.
+  - Done when: each one is fixed or marked as intended in its docstring.
+- [ ] **Fix the docs that have drifted from the code:**
+  - `references/wiki/contradictions.md` rows 12 and 16 cite `bots/template.py:460-492` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
+  - `references/wiki/concepts/book-imbalance-and-micro-price.md` lists three `fair` methods; there are five.
+  - The README's `--out` row names three CSVs; there are four (`_trades.csv`).
+  - The README says `tests/test_parity.py` pins 15 comparisons; it pins 6 (2 days × 3 modes).
+  - Done when: these are fixed, and the lint either checks that a cited `bots/template.py` range starts at a `def` or `class`, or the wiki cites template code by function name.
