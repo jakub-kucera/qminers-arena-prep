@@ -31,6 +31,7 @@ Read this first, then the pages it points to. Conventions, workflows and the lin
 - [probing-the-environment](concepts/probing-the-environment.md): experiments on the simulator before strategies: the PnL mark, bot tolerances, no-queue, sample data that is really live data.
 - [reading-the-data-on-day-one](concepts/reading-the-data-on-day-one.md): `arena.diagnose`'s notes (tick regime, noise, slow reversion, drift, one-sided or informed flow, the market-making margin) mapped to strategy choices, with Prosperity examples.
 - [price-impact](concepts/price-impact.md): instantaneous and permanent impact, the maker's `s/2 − R∞`, the shapes in the literature; on Prosperity data the bots' trades don't move the wall mid.
+- [harder-rounds](concepts/harder-rounds.md): how the organisers could make rounds harder than Prosperity (reactive simulator, regime shifts, punishing bots, an agent-written field, fees and caps, speed), with tells and ranked prep.
 
 ## Sources (one page per clone; each ends with a "Read depth" section)
 Team write-ups and code:

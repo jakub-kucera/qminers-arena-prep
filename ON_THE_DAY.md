@@ -133,6 +133,9 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
 - [ ] **Evaluation data:** is the round scored on the data you were given, or on fresh data? The site hints at a private evaluation next to the public backtest. If fresh, trust the grid's `nbhd` and `min day` measures over its best `pnl`, and read its held-out days. With only a few days and measures that disagree, the rehearsal took the best worst day. Check whether the download reuses earlier rounds' days, as Prosperity did: the grid flags it.
 - [ ] **Extra information:** news, external prices, or conversions to another market.
 - [ ] **Rule changes:** anything different from the previous round, such as limits, fees or matching.
+- [ ] **Which of the harder-round mechanisms does this round have?** Go down the list in `references/wiki/concepts/harder-rounds.md` (a reactive market, a regime shift, organiser bots that punish the playbook, an agent-written field, fees, caps, latency, settlement, scoring) and check each entry's "tell" against the docs, the data and the probes.
+  - We assume: the later rounds add at least one of them, above all the finale (40%).
+  - Then: apply each entry's "prep". Where the private run can't be seen, as with a regime shift, assume it: prefer the grid's worst day over its best PnL, and keep the loss stops on.
 
 ## Probes
 

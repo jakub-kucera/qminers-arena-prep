@@ -9,6 +9,24 @@ items as they come up.
 
 Choices only the user can make, each with the options, the evidence and a recommendation.
 
+- [ ] **Which harder-round preps to build before the event?** `references/wiki/concepts/harder-rounds.md` lists 25 ways the organisers could make rounds harder than Prosperity, and ranks the prep for them.
+  - Evidence:
+    - The site promises a "sophisticated finale" and allows AI tools.
+    - Qminers' 2024 LLM baseline came 2nd of all teams.
+    - Their 2024 final switched regime on scrambled data.
+    - A "realistic exchange" simulator such as ABIDES reacts to every order.
+    - Speed as a race conflicts with reproducible reruns. The template takes 0.15 ms a tick, so a time budget is far off.
+  - Options, by value for the time:
+    - (a) an LLM zoo: bots written by fresh agents from a Prosperity-style spec, used as the baseline and as `--vs` rivals (an afternoon);
+    - (b) a stress harness that perturbs days (volatility, trend, level shift, jumps, a missing wall), plus a regime guard and a loss stop per product in the template (about a day);
+    - (c) an agent-based day generator in `arena/`, so impact and tuning over many seeds can be tested; it is also the mock round's data (1–2 days);
+    - (d) engine options for fees, latency, order caps and limits per side (half a day each);
+    - (e) execution that slices toward a target;
+    - (f) a spoofer rival and a wall-persistence check;
+    - (g) speed work.
+  - Recommendation: (a), (b) and (c) before the mock round in the week of 26 Oct, then (d) and (f) as time allows. Leave (e) for the day unless (c) shows impact matters, and skip (g) beyond a `traderData` growth check.
+  - Done when: the user has chosen, and each chosen item is its own `TODO.md` entry with a "done when".
+
 - [ ] **Should new products default to `sized_mid`?** `DEFAULTS["fair"]` is `"mid"`, so a product not tuned yet quotes around the noisiest price (Kelp's mid varies 28 times more per tick at lag 1 than at lag 200). The Prosperity products set `wall_mid` in their PARAMS, which is best when trading alone and is what the recorded benchmarks used.
   - Evidence (`IDEAS.md`, "Wall-mid definitions"): trading alone, `sized_mid` is within 2.3% of the best definition on every product tested. With the teams' P4 bots resting orders in the same market, `wall_mid` lost 377k / 445k on Osmium in rounds 1 / 2, and `sized_mid` made +39k / +21k.
   - Options: (a) keep `"mid"`; (b) `DEFAULTS["fair"] = "sized_mid"` and leave the Prosperity PARAMS on `wall_mid`; (c) also move the Prosperity PARAMS to `sized_mid`, giving up as much as 2.3% alone and re-recording the benchmarks.

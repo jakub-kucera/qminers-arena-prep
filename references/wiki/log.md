@@ -214,3 +214,10 @@ Seventeen arXiv API queries, one per open question, 164 unique results, triaged 
 ## [2026-10-13] ingest | three ICAIF 2025 papers
 `marl-competition-no-collusion` (read), `etf-trade-flow-decomposition` (partly read), `cross-asset-order-flow` (read), saved by the user from the ACM Digital Library. Source pages for all three; updated [shared-market-and-adversaries](concepts/shared-market-and-adversaries.md), [baskets-and-fixed-sums](concepts/baskets-and-fixed-sums.md), [book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md). **Measured:** on P3 round 2 the legs do not lead the picnic baskets, nor the baskets the legs (correlations +0.01 to +0.04 at 1–20 ticks, both ways; `IDEAS.md`). OCR trap: two numbers in Lee et al.'s Table 2.
 
+
+## [2026-10-14] query | how could the organisers make the rounds harder?
+Asked by the user, who expects the rounds to be designed against teams that hand the task to an agent. New concept page [harder-rounds](concepts/harder-rounds.md): 25 mechanisms in five groups, each with a likelihood, what it breaks, the tell on the day and the prep, plus a ranked list of prep proposals. **Found:**
+- Qminers' 2024 qualification leaderboard has `_LLM_BENCHMARK_` 2nd, ahead of every team but the winner (checked on the screenshot).
+- The template takes 0.15 ms a tick on P3 round 3's 15 traded products, so a Prosperity-style time limit is far off; speed as priority conflicts with reproducible reruns.
+
+Web sources (fetch summaries) added to [online-articles](sources/online-articles.md): Optiver's LLM-trading article, the Ready Trader Go rules, ABIDES's RMSC04 config.
