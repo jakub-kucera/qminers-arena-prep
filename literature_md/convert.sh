@@ -39,6 +39,10 @@ PAPERS=(
   "online-learning-market-making  online-learning-market-making"
   "competing-dealers              competing-dealers"
   "pro-rata-microstructure        pro-rata-microstructure"
+  "market-makers-dilemma          market-makers-dilemma"
+  "negative-drift-of-a-fill       negative-drift-of-a-fill"
+  "stochastic-liquidity-demand    stochastic-liquidity-demand"
+  "algorithmic-cooperation-mm     algorithmic-cooperation-mm"
 )
 
 for entry in "${PAPERS[@]}"; do

@@ -99,6 +99,10 @@ Documents with a source page (each says which formulas were checked against the 
 - [online-learning-market-making](sources/online-learning-market-making.md): Fernandez-Tapia 2016; learn the half-spread by stochastic gradient; the Brownian optimum `ψ*`; its numerical example contradicts its theorem.
 - [competing-dealers](sources/competing-dealers.md): Yang et al. 2017; N dealers, no price priority; only qualitative for a shared market.
 - [pro-rata-microstructure](sources/pro-rata-microstructure.md): Guilbaud & Pham 2013 (mapped); one-tick pro-rata book; only if the Arena matches pro-rata.
+- [market-makers-dilemma](sources/market-makers-dilemma.md): Albers et al. 2025; a live experiment on the bitcoin perpetual: fill probability against post-fill return; naive and imbalance quoting lose at a one-tick spread.
+- [negative-drift-of-a-fill](sources/negative-drift-of-a-fill.md): DeLise 2024; fills come with adverse moves; which fill rule matches a live simulator (ours has it in `--resting`).
+- [stochastic-liquidity-demand](sources/stochastic-liquidity-demand.md): Capponi et al. 2021; discrete-time quoting with a closing cost and forecasts; simultaneous buy and sell fills are rare per tick here.
+- [algorithmic-cooperation-mm](sources/algorithmic-cooperation-mm.md): Han 2022; Q-learning makers keep spreads wide without communicating; only if the market is shared.
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
 - [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.

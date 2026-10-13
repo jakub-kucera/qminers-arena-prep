@@ -1,7 +1,7 @@
 ---
 title: Backtesting and tooling
 type: concept
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Backtesting and tooling
@@ -18,6 +18,7 @@ The community backtesters (jmerle's, then the Prosperity 4 fork) implement the m
 - **Per-product PnL attribution on day 1:** DTU's own advice (`prosperity4-dtu-quant-lab/README.md:343`); Alpha Search's carry-versus-capture decomposition (`prosperity4-alpha-search/README.md:44`).
 - **What a backtester cannot do** (Frankfurt, Baguette Fromage): bot interactions after inserting liquidity, market impact, conversions (`prosperity3-frankfurt-hedgehogs/README.md:899-900`, `prosperity4-baguette-fromage/README.md:236-243`).
 - **Reading the website's PnL** works as a probe of the true price (buy one lot and hold) *(see [fair-value-and-wall-mid](fair-value-and-wall-mid.md))*.
+- **Which fill rule is realistic** ([DeLise](../sources/negative-drift-of-a-fill.md)): on Treasury futures, filling every resting order against each market order overstated fills (85% against a live simulator's 60%) and PnL; adding fills on every adverse move to a calibrated random fill rate matched best (`literature_md/negative-drift-of-a-fill/negative-drift-of-a-fill.md:291-306` (p. 22–23)). Our `--resting` has the adverse-move fill (a crossing snapshot fills the order); probe 18 in `ON_THE_DAY.md` measures the real rule.
 
 ## Where they disagree
 Nothing material.
@@ -29,4 +30,4 @@ Nothing material.
 `TODO.md`: run the cloned teams' traders through our engine once `--data p4` exists; record PnL next to the claim in the source pages. Frankfurt's file has already been run (see its source page).
 
 ## Sources
-[jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md), [P2 backtester](../sources/prosperity2-backtester-jmerle.md), [prosperity4btest](../sources/prosperity4-backtester.md), [visualizer](../sources/prosperity3-visualizer-jmerle.md), [hftbacktest](../sources/hftbacktest.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md).
+[jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md), [P2 backtester](../sources/prosperity2-backtester-jmerle.md), [prosperity4btest](../sources/prosperity4-backtester.md), [visualizer](../sources/prosperity3-visualizer-jmerle.md), [hftbacktest](../sources/hftbacktest.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [DeLise](../sources/negative-drift-of-a-fill.md).

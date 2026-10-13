@@ -122,6 +122,27 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | *Optimal market making* (Guéant), the queue-reactive model, *Dynamics of order positions* | | Already in `literature_md/`. |
 | HFT and market quality, regulation, Hawkes and SPDE scaling limits, LOB surveys, single-exchange empirical studies, a 2025 conference paper on MDPs | | Skipped: about whether HFT is good for markets, or maths without a strategy, or weak venues. |
 
+**arXiv q-fin.TR sweep (2026-10-13).** Seventeen queries through the arXiv API, one per open question (competing makers, agent-based markets, tick size, fill probability, RL, adverse selection, inventory limits, mean reversion, baskets, signals, end-of-day liquidation, options, games, zero-intelligence books, calibration, trading competitions); 40 results each by relevance, 164 unique. The script was a scratch file; the queries are `cat:q-fin.TR AND abs:"market making" AND (...)` with the topic's terms. Most results are off-topic for us: automated market makers and DeFi, Kyle-model insider trading, bond and OTC dealers, deep RL on crypto data.
+
+| arXiv | Paper | Verdict |
+|---|---|---|
+| 2502.18625 | Albers et al., *The market maker's dilemma* (live Binance experiment) | **Added**: `literature_md/market-makers-dilemma/` |
+| 2407.16527 | DeLise, *The negative drift of a limit order fill* | **Added**: `literature_md/negative-drift-of-a-fill/` |
+| 2101.03086 | Capponi, Figueroa-López & Yu, *Market making with stochastic liquidity demand* | **Added**: `literature_md/stochastic-liquidity-demand/` |
+| 2211.00496 | Han, *Can maker-taker fees prevent algorithmic cooperation in market making?* | **Added**: `literature_md/algorithmic-cooperation-mm/` |
+| 2206.05410 | Han, *Cooperation between independent market makers* | Seen: the same finding as 2211.00496, as a repeated game |
+| 2307.15599 | Pulido, Rosenbaum & Sfendourakis, *Understanding the worst-kept secret of HFT* | Maybe: a maker who knows the efficient price quotes a predictive imbalance; for `book-imbalance-and-micro-price` |
+| 1501.03756 | Passerini & Vazquez, *Optimal trading with alpha predictors* | Maybe: no-trade, make and take zones from a signal and linear costs |
+| 2409.02025 | Cao et al., *Logarithmic regret in the ergodic Avellaneda–Stoikov model* | Maybe: learning κ online by maximum likelihood; next to Fernandez-Tapia |
+| 2003.01820 | Spooner & Savani, *Robust market making via adversarial RL* | Maybe: an adversary as a proxy for rival bots |
+| 1810.04383 | Bergault et al., *Closed-form approximations in multi-asset market making* | Skipped: Guéant 2017 (`optimal-market-making`) covers it |
+| 2403.02572 | Lokin & Yu, *Fill probabilities with state-dependent order flows* | Skipped: overlaps the queue-reactive model |
+| 2508.20225 | Barzykin et al., *Optimal quoting under adverse selection and price reading* | Skipped: dealer RFQ markets |
+| 2607.17991 | Feil & Nendel, *Optimal market making in prediction markets* | Conditional: only if the Arena has binary-payoff products (UChicago 2026 had one) |
+| 1907.11053, 2509.10094 | Baldacci et al.; Aïd et al. (several market makers, exchange as principal) | Skipped: about fee and contract design, not quoting |
+| 2510.27334 | Jafree et al., *When AI trading agents compete* | Skipped: RL makers against medium-frequency meta-orders |
+| 1112.0076 | Della Penna & Reid, *Bandit market makers* | Skipped: prediction-market cost functions |
+
 ### Books and articles
 
 The first pass had searched repos and listed books as "not tried". This is that search. **The finding is that the
