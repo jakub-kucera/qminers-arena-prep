@@ -155,6 +155,26 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | Han, *Algorithmic pricing with independent learners and relative experience replay* | arXiv 2102.09139 | Skipped: the same collusion question as `algorithmic-cooperation-mm` |
 | *Learning to scalp*, *Market selection with midpoint matching* (Wellman), *The accidental pump and dump* (Byrd), *Right place, right time* (execution), JaxMARL-HFT, DiffVolume | not checked further | Skipped: simulator or market-design studies without a quoting rule for us |
 
+**ICAIF 2020–2024 proceedings (2026-10-13).** The user saved all five (`literature_raw/ICAIF_<year>_proceedings.pdf`). 2020 and 2021 are only the programme (titles and authors, 10 and 9 pages); 2022 (527 pp.), 2023 (705 pp.) and 2024 (885 pp.) are the full proceedings, so those papers' texts are already local (printed page numbers below). Triaged by title, then by abstract for 2022–2024. Most papers are LLMs, NLP, fraud, credit, portfolios or deep-learning forecasters.
+
+| Year | Paper | Authors | Verdict |
+|---|---|---|---|
+| 2021 | *Interactions of market making algorithms: a study on perceived collusion* | Wei Xiong, Rama Cont | **Worth adding**: the theory side of `shared-market-and-adversaries`, next to Han and Wang et al. Not in the local PDFs |
+| 2020 | *Get real: realism metrics for robust limit order book market simulations* | Svitlana Vyetrenko, David Byrd, Danial Dervovic, Tucker Balch, Mahmoud Mahfouz, Nicholas Petosa | **Worth adding**: stylised-fact checks for a simulated book; a checklist for how far our engine and `--vs` are from a real market. Not in the local PDFs |
+| 2022 | *Market making under order stacking framework: a deep reinforcement learning approach* (p. 223) | Guhyuk Chung, Munki Chung, Yongjae Lee, Woo Chang Kim | **Worth adding** if orders rest: quoting at several levels beyond the best to hold queue position against adverse selection and non-execution |
+| 2023 | *Order flow decomposition for price impact analysis in equity limit order books* (p. 637) | Bogdan Sitaru, Anisoara Calinescu, Mihai Cucuringu | **Worth adding**: order-flow imbalance split by event type (adds, cancels, trades); for `book-imbalance-and-micro-price` and `price-impact` |
+| 2024 | *The effect of liquidity on the spoofability of financial markets* (p. 239) | Anri Gu, Yongzhao Wang, Chris Mascioli, Mithun Chakraborty, Rahul Savani, Theodore L. Turocy, Michael P. Wellman | **Worth adding** for a shared market: spoofing pays in thin markets, not in liquid ones |
+| 2020 | *Learning-based trading strategies in the face of market manipulation* | Xintong Wang, Chris Hoang, Michael P. Wellman | Maybe: learning traders made robust to a spoofer. Not in the local PDFs |
+| 2022 | *Market making with scaled beta policies* (p. 214) | Joseph Jerome, Gregory Palmer, Rahul Savani | Maybe: volume spread over a ladder of prices and skewed by inventory; next to `size_skew` |
+| 2021 | *High frequency automated market making algorithms with adverse selection risk control via reinforcement learning* | Muchen Zhao, Vadim Linetsky | Maybe: adverse-selection control. Not in the local PDFs |
+| 2021 | *Learning to classify and imitate trading agents in continuous double auction markets* | Mahmoud Mahfouz, Tucker Balch, Manuela Veloso, Danilo P. Mandic | Maybe: telling bot types apart from their orders; for `hidden-takers-and-empty-sides`. Not in the local PDFs |
+| 2024 | *Detecting collective liquidity taking distributions* (p. 504) | Andrei-Bogdan Balcau, Leandro Sánchez-Betancourt, Stefan Sarkadi, Carmine Ventre | Maybe: inferring the mix of informed, noise and trend takers; they find the mid's trend and volatility carry too little information |
+| 2021 | *Stability effects of arbitrage in exchange traded funds: an agent-based model* | Megan Shearer, David Byrd, Tucker Balch, Michael P. Wellman | Conditional on ETF products. Not in the local PDFs |
+| 2023 | *Robust market making: to quote, or not to quote* (p. 664) | Ziyi Wang, Carmine Ventre, Maria Polukarov | Skipped: the same group's `marl-competition-no-collusion` covers it |
+| 2021 | *Agent-based markets: equilibrium strategies and robustness* | Buhong Liu, Maria Polukarov, Carmine Ventre, Lingbo Li, Leslie Kanthan | Skipped unless the market is shared |
+| 2022–2024 | the other market-making and simulation papers (incentive design, equitable marketplaces, world-agent simulators, calibration, Mbt-gym, JAX-LOB, PyMarketSim, learned beta policies, ARL with Hawkes, hedging with impact, inverse RL) | | Skipped: deep RL or simulator tooling with no rule a stdlib bot can carry |
+| 2023 | lead-lag by dynamic time warping, multireference alignment; correlation-matrix clustering for statistical arbitrage | Cucuringu and co-authors | Skipped: daily equity cross-sections; lead-lag within a product family already measured |
+
 ### Books and articles
 
 The first pass had searched repos and listed books as "not tried". This is that search. **The finding is that the
