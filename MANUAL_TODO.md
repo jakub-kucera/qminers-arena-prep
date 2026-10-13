@@ -123,8 +123,9 @@ The user is getting these through the library. Save each in `literature_raw/` un
   - Done when (each): converted, with a source page, or ticked as "not needed" once the Arena's rules are known.
   - Done 2026-10-13: all five saved (published versions), converted and given source pages; the first three read, the conditional two mapped. The mean-reverting paper's prediction was tested on P4 Osmium (`IDEAS.md`, "Skew on a pegged product").
 
-- [ ] (Only if the Arena has ETF or basket products) Two ICAIF 2025 papers on order flow between an ETF or index and its constituents, only on the ACM Digital Library: *Data-driven trade flow decomposition for exchange-traded funds and their constituents* as `etf-trade-flow-decomposition.pdf`, and *From constituents to index: interpretable price movement prediction via cross-asset order flow* as `cross-asset-order-flow.pdf` (`references/SEARCH_LOG.md`, the ICAIF table).
+- [x] (Only if the Arena has ETF or basket products) Two ICAIF 2025 papers on order flow between an ETF or index and its constituents, only on the ACM Digital Library: *Data-driven trade flow decomposition for exchange-traded funds and their constituents* as `etf-trade-flow-decomposition.pdf`, and *From constituents to index: interpretable price movement prediction via cross-asset order flow* as `cross-asset-order-flow.pdf` (`references/SEARCH_LOG.md`, the ICAIF table).
   - Done when: converted with a source page, or ticked as "no baskets in the Arena".
+  - Done 2026-10-13: the user saved both (open access) and Wang et al.'s MARL paper; all three converted with source pages. Legs leading the basket was tested on P3: they don't.
 
 ## Not on this list
 

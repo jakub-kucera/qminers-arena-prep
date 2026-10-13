@@ -43,6 +43,9 @@ PAPERS=(
   "negative-drift-of-a-fill       negative-drift-of-a-fill"
   "stochastic-liquidity-demand    stochastic-liquidity-demand"
   "algorithmic-cooperation-mm     algorithmic-cooperation-mm"
+  "marl-competition-no-collusion  Multi-Agent Reinforcement Learning for Market Making"
+  "etf-trade-flow-decomposition   Data-driven trade flow decomposition"
+  "cross-asset-order-flow         From Constituents to Index"
 )
 
 for entry in "${PAPERS[@]}"; do

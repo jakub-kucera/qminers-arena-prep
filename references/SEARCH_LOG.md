@@ -147,9 +147,9 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 
 | Paper (ICAIF 2025) | Free copy | Verdict |
 |---|---|---|
-| Wang, Ventre & Polukarov, *Multi-agent RL for market making: competition without collusion* | arXiv 2510.25929 | Conditional on a shared market: a maker trained to minimise its rival's PnL captures the flow and tightens spreads, the opposite of Han's tacit collusion; a "spiteful" bot matters when ranking is relative |
-| *Data-driven trade flow decomposition for ETFs and their constituents* | none found (ACM only); the method's precursor is arXiv 2209.10334 | Conditional on ETF or basket products (AlgoTrade had ETFs) |
-| *From constituents to index: interpretable price movement prediction via cross-asset order flow* | none found (ACM only) | Conditional, as above |
+| Wang, Ventre & Polukarov, *Multi-agent RL for market making: competition without collusion* | arXiv 2510.25929 | **Added** (`literature_md/marl-competition-no-collusion/`). Conditional on a shared market: a maker trained to minimise its rival's PnL captures the flow and tightens spreads, the opposite of Han's tacit collusion; a "spiteful" bot matters when ranking is relative |
+| *Data-driven trade flow decomposition for ETFs and their constituents* | none found (ACM, open access); the method's precursor is arXiv 2209.10334 | **Added** (`literature_md/etf-trade-flow-decomposition/`). Conditional on ETF or basket products (AlgoTrade had ETFs) |
+| *From constituents to index: interpretable price movement prediction via cross-asset order flow* | none found (ACM, open access) | **Added** (`literature_md/cross-asset-order-flow/`); its premise tested on P3 baskets and dropped |
 | Zhou et al., *DeltaLag: learning dynamic lead-lag patterns* | arXiv 2511.00390 | Skipped: deep learning on stock portfolios; lead-lag within a product family is already measured (`baskets-and-fixed-sums`) |
 | *Attention-based multi-asset order flow networks for mid-price prediction* | none found | Skipped: a neural predictor, not a rule we can carry in a stdlib bot |
 | Han, *Algorithmic pricing with independent learners and relative experience replay* | arXiv 2102.09139 | Skipped: the same collusion question as `algorithmic-cooperation-mm` |

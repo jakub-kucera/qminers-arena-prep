@@ -20,7 +20,7 @@ A **discrete-time** market maker: each period it posts a bid and an ask around a
 - In their data `π(1,1) ≈ 0.05` per one-second period, larger at five seconds or more (`stochastic-liquidity-demand.md:369` (p. 20)).
 
 ## Assumptions against the Arena
-- **Simultaneous arrivals are rare per tick on Prosperity data** *(checked 2026-10-13: share of ticks with a market trade at or above the ask and one at or below the bid, against that tick's book)*: P4 round 1, Osmium 0.0002 and Pepper Root 0.0001; P3 round 1, Kelp 0.011, Resin 0.006, Squid Ink 0.011; each below the product of the one-sided rates. So the paper's main novelty does not bite at one-tick periods, and the standard result stands for the end of the day: inventory gets more expensive toward the close.
+- **Simultaneous arrivals are rare per tick on Prosperity data** *(checked 2026-10-13: share of ticks with a market trade at or above the ask and one at or below the bid, against that tick's book; `uv run python -m experiments.cross_product_timing`)*: P4 round 1, Osmium 0.0002 and Pepper Root 0.0001; P3 round 1, Kelp 0.011, Resin 0.006, Squid Ink 0.011; each below the product of the one-sided rates. So the paper's main novelty does not bite at one-tick periods, and the standard result stands for the end of the day: inventory gets more expensive toward the close.
 - **An end-of-day liquidation cost** is what the Arena's scoring may impose (`ON_THE_DAY.md`, "How is PnL scored?"); if it does, this is a closed-form model of how quotes should change near the close.
 - Fills linear in distance, not exponential as in Avellaneda–Stoikov.
 
