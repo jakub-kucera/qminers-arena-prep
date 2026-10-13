@@ -112,3 +112,14 @@ New concept page [reading-the-data-on-day-one](concepts/reading-the-data-on-day-
   - `ON_THE_DAY.md` gains the first-hour item "What kind of market is each product?";
   - `probing-the-environment` links to the page;
   - index gaps 2, 4 and 5 were stale (P4 cross-check done, Bouchaud et al. now the full copy) and are updated.
+
+## [2026-10-13] query | the template against the teams' P4 bots in one market
+Ran the template in one market with DU's `round2.py`, Baguette Fromage's `Phase1.py` and DTU's round 2 trader, one at a time and all together, on P4 rounds 1–2. In `--resting` the teams' bots were wrapped to cancel their orders every tick, since they freeze otherwise.
+- **With orders that live one tick:** Osmium's spread is a fixed pie the bots split, and the template keeps the smallest share.
+- **With resting orders:** the template loses up to 445k on Osmium in a round. Rivals' large orders far from fair become the "largest level" and drag its `wall_mid`. Checked on the book the template saw: its fair was 5+ off on 36% of ticks against Baguette Fromage.
+- **Filed into:**
+  - `shared-market-and-adversaries` (sources, code, how to test);
+  - `IDEAS.md` (a new row with the numbers);
+  - `ON_THE_DAY.md` ("Is `wall_mid` still the market maker's price?").
+
+  It also raises the stakes for the wall-mid comparison in `TODO.md`.

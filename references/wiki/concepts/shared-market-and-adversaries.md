@@ -1,7 +1,7 @@
 ---
 title: Shared markets and adversaries
 type: concept
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Shared markets and adversaries
@@ -18,6 +18,11 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 
 - **A winner's account of a shared market** (Negative Eevee, AlgoTrade 2026): "all teams traded in the same shared market" (`algotrade2026-negative-eevee/README.md:7`). Their cross-exchange IOC arbitrage took "almost all of these inefficiencies out of the market as soon as they appeared", and "several teams mentioned that their own cross-exchange arbitrage became much worse around round 2, which was also when our first prototypes went live"; mean reversion "still allowed other teams to enter later; cross-exchange arbitrage did not" (`algotrade2026-negative-eevee/README.md:23`). The edge that survives in a shared market is the one others cannot join late.
 
+- **Measured: the template against the teams' own P4 bots** (2026-10-13; DU, Baguette Fromage and DTU in one market with it, P4 rounds 1–2, `IDEAS.md` has the numbers):
+  - **With orders that live one tick,** Osmium's spread is a fixed pie the bots split: the template keeps 45–51% of it against one rival and 20% against three. The drift on Pepper Root pays everyone. This is the Grossman–Miller dilution below, in a simulation.
+  - **With resting orders,** the template loses up to 445k on Osmium in a round. A rival's large order far from fair becomes the "largest level", so the template's `wall_mid` follows it (`bots/template.py:156`). At tick 2,400 of round 1 day 0, a 40-lot bid at 9,906 outweighed the market maker's 23-lot wall at 9,991, and the template sold into the real bids. Its fair was 5+ off on 36% of ticks *(checked)*.
+  - That is Harris's trap below, played without intent: the rivals' far quotes are not bait, yet they move a fair value built on size.
+
 **What the literature says** ([Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md)):
 - **Our template is a quote matcher.** Quoting one tick in front of the bot's large quote ("penny jumping") gives an option-like payoff: full gain if the price moves our way, a one-tick loss if not, because we can sell back to the large order (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5889` (p. 261)). That backstop exists only while the large order stays. A rival can **trap** a quote matcher: bait with size, sell into the matcher, cancel the bait (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5919` (p. 263)).
 - **Resting orders give away a timing option.** A faster trader picks off a stale quote after news. Spreads must cover order-management cost plus twice the option's value, more so when cancelling is slow or the product volatile (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:7140-7146` (p. 320)).
@@ -25,13 +30,13 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 - **Competition erodes the edge:** with n competing market makers, the liquidity discount a trader pays falls like 1/(n+1) (Grossman–Miller, `literature_md/algorithmic-and-hft/algorithmic-and-hft.md:575-579` (p. 41)). Competition among arbitrageurs narrows arbitrage spreads to the costs of the most efficient one (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:8801` (p. 391)). This is the theory behind "crowded edges decay".
 
 ## Where they disagree
-The Prosperity record has no shared-market evidence. Theory against practice on quoting inside the wall, which Harris's trapper exploits: [contradictions](../contradictions.md), row 16.
+The Prosperity record has no shared-market evidence; our simulation with the teams' bots is the closest (above), and it shows only what bots written for a solo market do to each other. Theory against practice on quoting inside the wall, which Harris's trapper exploits: [contradictions](../contradictions.md), row 16.
 
 ## What it means for our code
-`arena.run_market` and `--vs BOT` simulate other bots' resting orders in the same market (`CLAUDE.md`, "Shared market"). Rivals are only bots we bring.
+`arena.run_market` and `--vs BOT` simulate other bots' resting orders in the same market (`CLAUDE.md`, "Shared market"). Rivals are only bots we bring. The template's `wall_mid` takes the largest level on each side, so in a shared market with resting orders it needs a definition that ignores large orders far from the touch ([fair value](fair-value-and-wall-mid.md); `TODO.md`, "Compare the wall mid definitions").
 
 ## How to test it here
-Two `--vs` rivals to build: a **quote-matching trapper** (posts a large bid, sells into anyone who bids one tick above it, cancels), and a **sniper** that takes our resting quotes after the mid moves (the timing option, under `--resting`).
+The teams' P4 bots are real rivals for `--vs` (above). In `--resting` they must be wrapped to cancel their orders every tick, or they freeze: their orders pile up and every new one fails the limit check. DU's bot alone on round 1 day 0 made 28 fills, with orders cancelled for a breach on 19,998 product-ticks *(checked)*. Two more `--vs` rivals to build: a **quote-matching trapper** (posts a large bid, sells into anyone who bids one tick above it, cancels), and a **sniper** that takes our resting quotes after the mid moves (the timing option, under `--resting`).
 
 `ON_THE_DAY.md`, "Is the market shared?" lists the Arena site's hints (they point both ways). If shared: test the bot against a `--vs` rival that snipes one side; add a "no resting orders in thin books" mode; decide beforehand what to do when a book empties.
 
