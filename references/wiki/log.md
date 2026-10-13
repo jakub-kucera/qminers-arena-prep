@@ -150,3 +150,9 @@ Measured what the teams' P4 round 3–4 money is made of, with two committed scr
 `bots/template.py` gains `level_target` and `estimate_level`: for a product that returns to a level, the target is the full limit against a move of `level_band`, held until the other band. The level is a number from earlier days, the day's running mean (`"day"`), or a blend (`level_weight`).
 - **Result** (`experiments/p4_level_template.py`, nested leave-one-day-out on P4 rounds 3–4): 215k over four days on Hydrogel and Velvetfruit, against 286k in-sample and 147k with the day's own mean. Blending did not help.
 - **Filed into:** `drift-and-regime-change` ("What it means for our code"), `reading-the-data-on-day-one` (the reverts-to-a-level row); the repo's `IDEAS.md`, `README.md`, `CLAUDE.md`, `ON_THE_DAY.md`, `TODO.md`.
+
+## [2026-10-13] query | options follow their underlying in the template
+`bots/template.py` gains a cross-product hook and a mode for options. `Trader.run` trades followed products first and passes their plans. A product with `follow` and `strike` holds the underlying's target as a share of its own limit (`follow_target`). Black–Scholes is in total variance, so delta comes from the option's own price without an expiry date.
+- **Result** (`experiments/p4_vouchers_template.py`, nested leave-one-day-out on P4 rounds 3–4): Velvetfruit with VEV_4000–5500 following makes 768k over four days, the vouchers 661k of it; in-sample 1,001k. The cost-per-delta gate never helped.
+- **Filed into:** `options-and-vouchers` ("What it means for our code"); the repo's `IDEAS.md` (the voucher row and a note under the benchmark), `README.md`, `CLAUDE.md`, `ON_THE_DAY.md` ("Products"), `TODO.md`.
+- **Citations moved:** template line citations re-mapped with a diff of the old and new file.

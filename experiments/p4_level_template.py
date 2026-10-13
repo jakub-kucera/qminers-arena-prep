@@ -9,9 +9,9 @@ switched off), default engine mode:
    three days, and level_band, clear_edge and level_exit are the grid's best by total PnL on
    those three days. The held-out day is scored with that choice. Nothing about the held-out day
    is used, so the total is an honest estimate (with four days, a noisy one).
-2. With the template's PARAMS as committed, the level estimated in other ways: the mean of the
-   other days (fixed, or blended with the day's own mean through level_weight) and the mean of the
-   day so far ("day", no history).
+2. With the settings chosen on all four days (CHOSEN, as committed on 2026-10-13), the level
+   estimated in other ways: the mean of the other days (fixed, or blended with the day's own mean
+   through level_weight) and the mean of the day so far ("day", no history).
 """
 
 import argparse
@@ -32,6 +32,11 @@ GRIDS = {
     "HYDROGEL_PACK": {"level_band": [10, 15, 20, 30, 40, 50], "clear_edge": [4, 6, 8, 10], "level_exit": [None, 0]},
     "VELVETFRUIT_EXTRACT": {"level_band": [10, 15, 20, 25, 30, 40], "clear_edge": [2, 3, 5], "level_exit": [None, 0, 5]},
 }
+# The grid's best on all four days, pinned here so the results don't move with the template's PARAMS.
+CHOSEN = {
+    "HYDROGEL_PACK": {"level": 9994, "level_band": 30, "level_exit": 0, "clear_edge": 8},
+    "VELVETFRUIT_EXTRACT": {"level": 5247, "level_band": 20, "level_exit": None, "clear_edge": 2},
+}
 WEIGHTS = [None, 1_000, 5_000, 20_000]  # level_weight with the other days' mean as the level
 _DAYS = {}
 
@@ -43,7 +48,8 @@ def _init():
 def _run(job):
     product, overrides, day_name = job
     other = next(p for p in GRIDS if p != product)
-    full = {f"PARAMS.{other}.fair": "fixed", **{f"PARAMS.{product}.{k}": v for k, v in overrides}}
+    chosen = {f"PARAMS.{product}.{k}": v for k, v in CHOSEN[product].items()}
+    full = {f"PARAMS.{other}.fair": "fixed", **chosen, **{f"PARAMS.{product}.{k}": v for k, v in overrides}}
     result = run_day(_DAYS[day_name], FMT.load_bot(TEMPLATE, full, True), EngineConfig())
     return job, result.pnl[product][-1] if result.pnl.get(product) else 0.0
 
@@ -72,7 +78,7 @@ def main(argv):
             for weight in WEIGHTS:
                 jobs.append((product, (("level", loo[product][test]), ("level_weight", weight)), test))
             jobs.append((product, (("level", "day"),), test))
-        jobs += [(product, (), day) for day in names]  # PARAMS as committed
+        jobs += [(product, (), day) for day in names]  # CHOSEN as is
     with ProcessPoolExecutor(args.jobs, initializer=_init) as pool:
         pnl = dict(pool.map(_run, jobs, chunksize=4))
 
@@ -96,10 +102,10 @@ def main(argv):
             print(f"     {test}: level {level:.1f}, {chosen}: held-out PnL {held / 1000:.1f}k (training days {score(best) / 1000:.1f}k)")
         print(f"     total over the held-out days {total / 1000:.1f}k")
         committed = [pnl[(product, (), d)] for d in names]
-        print(f"     PARAMS as committed (tuned and levelled on all four days): {sum(committed) / 1000:.1f}k  "
+        print(f"     CHOSEN (tuned and levelled on all four days): {sum(committed) / 1000:.1f}k  "
               f"({' / '.join(f'{v / 1000:.1f}' for v in committed)})")
 
-        print("  2. PARAMS as committed, the level estimated differently (per day, then total)")
+        print("  2. CHOSEN, with the level estimated differently (per day, then total)")
         for label, overrides_for in [
             *[(f"other days' mean, level_weight {w}", lambda d, w=w: (("level", loo[product][d]), ("level_weight", w))) for w in WEIGHTS],
             ("the day so far (\"day\")", lambda d: (("level", "day"),)),

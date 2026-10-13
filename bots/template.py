@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import math
 import traceback
+from statistics import NormalDist
 
 from datamodel import Cancel, Order, OrderDepth, TradingState
 
@@ -48,6 +49,11 @@ DEFAULTS = {
     "level_weight": None,  # with a number level: ticks it counts for against the day's mean; None: fixed
     "level_band": 20,  # hold the full limit against a move this far from the level
     "level_exit": None,  # flatten once back within this of the level; None: hold until the other band
+    # A call option on another product (see follow_target): it takes that product's target as a
+    # share of its own limit. None trades the product on its own.
+    "follow": None,
+    "strike": None,  # the call's strike
+    "max_cost_per_delta": 20.0,  # stay flat when half the spread per unit of delta is above this
 }
 
 PARAMS = {
@@ -63,8 +69,13 @@ PARAMS = {
     "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "target": 80, "skew": 20},
     # IMC Prosperity 4, rounds 3-4. Both return to a level that held across days (IDEAS.md).
     "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 30, "level_exit": 0, "clear_edge": 8},
-    "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 20, "clear_edge": 2},
+    "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 30, "clear_edge": 2},
 }
+# Its vouchers are calls on it: extra room for the same bet. They only trade toward the target (no
+# takes or quotes of their own), crossing up to clear_edge, about half each one's spread.
+for _strike, _clear_edge in ((4000, 11), (4500, 8), (5000, 3), (5100, 2), (5200, 2), (5300, 1), (5400, 1), (5500, 1)):
+    PARAMS[f"VEV_{_strike}"] = {"limit": 300, "fair": "wall_mid", "follow": "VELVETFRUIT_EXTRACT", "strike": _strike,
+                                "clear_edge": _clear_edge, "take_edge": 10**6, "make_size": 0}
 
 
 # ------------------------------------------------------------------------------ STRATEGY
@@ -96,6 +107,9 @@ class Plan:
         self.sold = 0
         self.takes: list[tuple[int, int]] = []  # (price, signed quantity) trading with the book now
         self.quotes: list[tuple[int, int]] = []  # (price, signed quantity) waiting to be hit
+        # What the strategy decided, for products that follow this one (see Trader.run).
+        self.fair: float | None = None
+        self.target = 0
 
     @property
     def net(self) -> int:
@@ -125,13 +139,17 @@ class Plan:
         return max(quantity, 0)
 
 
-def trade_product(book: Book, position: int, p: dict, memory: dict) -> Plan:
+def trade_product(book: Book, position: int, p: dict, memory: dict, market: dict | None = None) -> Plan:
+    """market holds this tick's plans of the products traded so far, for a product that follows one."""
     plan = Plan(position, p["limit"])
     fair = fair_value(book, p, memory)
     if fair is None:  # no price seen yet
         return plan
     if p["level"] is not None:
         p = {**p, "target": level_target(fair, p, memory)}
+    elif p["follow"] is not None:
+        p = {**p, "target": follow_target(book, fair, p, memory, (market or {}).get(p["follow"]))}
+    plan.fair, plan.target = fair, p["target"]
     take(book, fair, p, plan)
     clear(book, fair, p, plan)
     make(book, fair, p, plan)
@@ -218,6 +236,66 @@ def estimate_level(fair: float, p: dict, memory: dict) -> float:
     if p["level_weight"] is None:
         return p["level"]
     return (p["level"] * p["level_weight"] + memory["level_sum"]) / (p["level_weight"] + memory["level_n"])
+
+
+def follow_target(book: Book, fair: float, p: dict, memory: dict, underlying: Plan | None) -> int:
+    """A call option's target: the underlying's target as a share of the option's own limit.
+
+    Each unit then adds its delta to the underlying's view, so the options are extra room for the
+    same bet: on P4 the vouchers' implied volatility was flat within a day, and the teams' voucher
+    PnL was almost exactly delta times the underlying's move (IDEAS.md). A strike stays flat when
+    crossing its spread costs more than max_cost_per_delta per unit of delta, in the underlying's
+    price units: deep in-the-money calls have a delta of 1 but a much wider spread. Delta comes
+    from the option's own price, so no expiry date is needed. If the underlying wasn't traded
+    this tick, the last target is kept.
+    """
+    if underlying is None or underlying.fair is None or not book.bids or not book.asks:
+        return memory.get("held", 0)
+    s, k = underlying.fair, p["strike"]
+    delta = call_delta(s, k, implied_variance(fair, s, k))
+    half_spread = (book.asks[0][0] - book.bids[0][0]) / 2
+    cost = half_spread / delta if delta > 1e-6 else 1e9
+    # Averaged over about 20 ticks, so a spread that widens for a tick doesn't flip the strike.
+    cost = memory["cost"] = cost if "cost" not in memory else 0.95 * memory["cost"] + 0.05 * cost
+    if cost > p["max_cost_per_delta"]:
+        held = 0
+    else:
+        held = round(underlying.target / underlying.limit * p["limit"])
+    memory["held"] = held
+    return held
+
+
+# Black-Scholes for a call with no interest, in terms of the total variance w = sigma^2 * T to
+# expiry. Price and delta depend on sigma and T only through w, so w can be implied from the
+# option's own price without knowing the expiry.
+_NORMAL = NormalDist()
+
+
+def call_price(s: float, k: float, w: float) -> float:
+    if w <= 0:
+        return max(s - k, 0.0)
+    d1 = (math.log(s / k) + w / 2) / math.sqrt(w)
+    return s * _NORMAL.cdf(d1) - k * _NORMAL.cdf(d1 - math.sqrt(w))
+
+
+def call_delta(s: float, k: float, w: float) -> float:
+    if w <= 0:
+        return 1.0 if s > k else 0.0
+    return _NORMAL.cdf((math.log(s / k) + w / 2) / math.sqrt(w))
+
+
+def implied_variance(price: float, s: float, k: float) -> float:
+    """The w at which call_price matches price: 0 at or below intrinsic value (bisection)."""
+    if price <= max(s - k, 0.0):
+        return 0.0
+    lo, hi = 0.0, 4.0  # w = 4 is a volatility of 200% for a year
+    for _ in range(50):
+        mid_w = (lo + hi) / 2
+        if call_price(s, k, mid_w) < price:
+            lo = mid_w
+        else:
+            hi = mid_w
+    return (lo + hi) / 2
 
 
 def take(book: Book, fair: float, p: dict, plan: Plan) -> None:
@@ -348,13 +426,18 @@ class Trader:
     def run(self, state: TradingState):
         memory = load_memory(state.traderData)
         orders: dict[str, list[Order | Cancel]] = {}
-        for product, depth in state.order_depths.items():
+        market: dict[str, Plan] = {}  # this tick's plans, for the products that follow one
+        # Products that follow another go last, so they see its plan.
+        products = sorted(state.order_depths, key=lambda product: PARAMS.get(product, {}).get("follow") is not None)
+        for product in products:
             # Each product is isolated, so a bug in one doesn't stop the others trading.
             try:
                 p = params_for(product)
                 if p is None:
                     continue
-                plan = trade_product(read_book(depth), state.position.get(product, 0), p, memory.setdefault(product, {}))
+                book = read_book(state.order_depths[product])
+                plan = trade_product(book, state.position.get(product, 0), p, memory.setdefault(product, {}), market)
+                market[product] = plan
                 cancels, new = execute(plan, read_resting(state, product))
             except Exception:
                 if STRICT:

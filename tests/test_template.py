@@ -115,6 +115,39 @@ def test_a_price_far_above_the_level_sells_toward_a_short_target(bot):
     assert plan.takes == [(109, -4), (108, -6)]  # wall mid 109.5: sells down to -10 within 2 of it
 
 
+def test_black_scholes_in_total_variance(bot):
+    # S = K = 100, sigma 0.2 for a year: w = 0.04, the textbook at-the-money call of 7.97.
+    assert bot.call_price(100, 100, 0.04) == pytest.approx(7.9656, abs=1e-4)
+    assert bot.call_delta(100, 100, 0.04) == pytest.approx(0.5398, abs=1e-4)
+    assert bot.implied_variance(bot.call_price(105, 100, 0.01), 105, 100) == pytest.approx(0.01, rel=1e-6)
+    assert bot.implied_variance(5, 105, 100) == 0  # no time value: delta 1
+    assert bot.call_delta(105, 100, 0) == 1 and bot.call_delta(95, 100, 0) == 0
+
+
+def test_a_call_follows_the_underlyings_target_as_a_share_of_its_limit(bot):
+    underlying = bot.Plan(position=0, limit=200)
+    underlying.fair, underlying.target = 100.0, -200
+    book = bot.Book([[7, 50]], [[8, 50]])  # a call struck at 100 worth 7.5: delta about 0.5
+    p = params(bot, limit=300, follow="U", strike=100, max_cost_per_delta=5)
+    memory = {}
+    assert bot.follow_target(book, 7.5, p, memory, underlying) == -300
+    assert bot.follow_target(book, 7.5, p, memory, None) == -300  # underlying missing: keeps its target
+    wide = bot.Book([[3, 50]], [[12, 50]])  # half the spread is 4.5: 9 a unit of delta
+    assert bot.follow_target(wide, 7.5, p, {}, underlying) == 0
+
+
+def test_followers_trade_after_the_product_they_follow(bot, monkeypatch):
+    monkeypatch.setattr(bot, "PARAMS", {
+        "C": {"limit": 10, "fair": "mid", "follow": "U", "strike": 100, "clear_edge": 5, "make_size": 0},
+        "U": {"limit": 10, "fair": "mid", "level": 90, "level_band": 5, "clear_edge": 1},
+    })
+    depths = {"C": depth([(10, 20)], [(12, 20)]), "U": depth([(109, 20)], [(111, 20)])}
+    orders, _, _ = bot.Trader().run(state(depths))
+    # U is 20 above its level: both go short, and C sells into its bid within clear_edge.
+    assert [(o.price, o.quantity) for o in orders["C"]] == [(10, -10)]
+    assert [(o.price, o.quantity) for o in orders["U"] if o.quantity < 0][0] == (109, -10)
+
+
 def test_make_steps_inside_a_wide_book(bot):
     plan = bot.Plan(0, 10)
     bot.make(bot.Book([[95, 5]], [[105, 5]]), 100, params(bot, make_edge=2), plan)
