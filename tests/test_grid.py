@@ -84,9 +84,9 @@ def test_each_day_is_scored_with_the_best_combination_on_the_other_days():
     outcomes = _outcomes([{"d1": 10, "d2": 10, "d3": -15}, {"d1": 0, "d2": 0, "d3": 4}])
     picks = grid.leave_one_day_out(outcomes, TradeMatching.ALL)
     assert {day: pick.values for day, pick in picks.items()} == {"d1": (1,), "d2": (1,), "d3": (0,)}
-    text = grid.format_held_out([grid.Axis("PARAMS.x", [0, 1])], [TradeMatching.ALL], outcomes, [["d1", "d2"]])
+    text = grid.format_held_out([grid.Axis("PARAMS.x", [0, 1])], [TradeMatching.ALL], outcomes, [(["d1", "d2"], ["X"])])
     assert "held out -15 against 5 for the best combination (-400%); 2 different settings chosen over 3 days" in text
-    assert "! d1, d2 hold the same data" in text
+    assert "! d1, d2 hold the same data for X" in text
 
 
 def test_held_out_days_skip_failed_combinations_and_single_days():
@@ -95,15 +95,18 @@ def test_held_out_days_skip_failed_combinations_and_single_days():
     assert grid.leave_one_day_out(_outcomes([{"d1": 1}]), TradeMatching.ALL) == {}
 
 
-def test_repeated_days_ignore_counterparty_names():
+def test_repeated_days_are_found_per_product_without_counterparty_names():
     from arena.model import Book, Day, MarketTrade, Tick
 
-    def day(name, buyer, price=100):
-        tick = Tick(0, {"X": Book(((price - 1, 5),), ((price + 1, 5),))}, {"X": [MarketTrade("X", price, 2, buyer)]}, {})
-        return Day(name, ["X"], {"X": 10}, [tick])
+    def day(name, buyer, price=100, extra=False):
+        books = {"X": Book(((price - 1, 5),), ((price + 1, 5),))}
+        if extra:  # a later round adds a product, but X's data is reused
+            books["Y"] = Book(((50, 1),), ((52, 1),))
+        tick = Tick(0, books, {"X": [MarketTrade("X", price, 2, buyer)]}, {})
+        return Day(name, sorted(books), {p: 10 for p in books}, [tick])
 
-    days = [day("a", ""), day("b", "Mark 22"), day("c", "", price=101)]
-    assert grid.repeated_days(days) == [["a", "b"]]
+    days = [day("a", ""), day("b", "Mark 22", extra=True), day("c", "", price=101)]
+    assert grid.repeated_days(days) == [(["a", "b"], ["X"])]
 
 
 @pytest.mark.parametrize("jobs", ["1", "2"])

@@ -178,6 +178,8 @@ def test_overrides_and_strict_flag(tmp_path):
         prosperity.load_bot(path, dict([parse_override("PARAM.X.edge=2")]), strict=True)
     with pytest.raises(ValueError, match="PATH=VALUE"):
         parse_override("PARAMS.X.edge")
+    with pytest.raises(ValueError, match="not a Python literal"):
+        parse_override("PARAMS.X={'take_edge': 10**6}")  # an expression would otherwise arrive as a string
 
 
 def test_check_source():

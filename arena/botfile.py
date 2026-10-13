@@ -52,17 +52,28 @@ class BotFile:
 def parse_override(text: str) -> tuple[str, object]:
     """Parses `PATH=VALUE`, e.g. `PARAMS.KELP.make_edge=2`.
 
-    PATH is a bot global followed by dict keys. VALUE is a Python literal; anything that isn't
-    one (a bare word) is taken as a string.
+    PATH is a bot global followed by dict keys. VALUE is a Python literal or a bare word (see
+    parse_value).
     """
     target, sep, raw = text.partition("=")
     if not sep or not target.strip():
         raise ValueError(f"expected PATH=VALUE, got {text!r}")
+    return target.strip(), parse_value(raw)
+
+
+def parse_value(raw: str) -> object:
+    """A Python literal, or a bare word such as `wall_mid`, taken as a string.
+
+    Anything else is an error, so a dict with an expression in it (`10**6`) fails here instead of
+    reaching the bot as a string.
+    """
     try:
-        value = ast.literal_eval(raw)
+        return ast.literal_eval(raw)
     except (ValueError, SyntaxError):
-        value = raw
-    return target.strip(), value
+        word = raw.strip()
+        if word and all(c.isalnum() or c in "_-." for c in word):
+            return word
+        raise ValueError(f"{raw!r} is not a Python literal or a bare word (write 1000000, not 10**6)") from None
 
 
 def _apply_override(module: ModuleType, target: str, value: object) -> None:

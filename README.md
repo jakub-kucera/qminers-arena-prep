@@ -154,8 +154,9 @@ held out 859,139 against 1,001,084 for the best combination (-14%); 2 different 
 
 This only covers the gridded values. A setting the bot takes from the data itself, such as a
 level from the days' mean, needs its own held-out test (`experiments/p4_level_template.py` does
-both). Days whose data repeats, like P4's round 4 days 1–2, which are round 3's, are flagged,
-since holding one out still trains on its copy.
+both). Days whose data repeats are flagged, product by product, since holding one out still trains on its
+copy. Prosperity reuses days across rounds: P4's round 4 days 1–2 are round 3's, and P3's round 3
+days 0–1 are round 2's for every product round 2 had.
 
 `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
 per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL.

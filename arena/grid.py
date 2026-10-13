@@ -25,7 +25,6 @@ holding one out still trains on its copy.
 from __future__ import annotations
 
 import argparse
-import ast
 import csv
 import itertools
 import math
@@ -39,7 +38,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from arena import report
-from arena.botfile import OverrideError
+from arena.botfile import OverrideError, parse_value
 from arena.cli import Setup, add_common_arguments, add_rival_argument, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
 from arena.formats import FORMATS
@@ -113,10 +112,7 @@ def parse_axis(text: str) -> Axis:
 
 
 def _literal(text: str):
-    try:
-        return ast.literal_eval(text)
-    except (ValueError, SyntaxError):
-        return text
+    return parse_value(text)
 
 
 def _range(text: str) -> list:
@@ -323,22 +319,30 @@ def leave_one_day_out(outcomes: dict[tuple[int, ...], Outcome], mode: TradeMatch
     }
 
 
-def repeated_days(days: list[Day]) -> list[list[str]]:
-    """Groups of days with the same books and trades: the same data loaded twice.
+def repeated_days(days: list[Day]) -> list[tuple[list[str], list[str]]]:
+    """Days whose data repeats, as (day names, the products whose books and trades are the same).
 
-    Trades are compared without counterparty names: P4's round 4 repeats two days of round 3 with
-    names added.
+    Compared product by product, since Prosperity reuses a day for the products a later round keeps
+    (P3 round 3's days 0 and 1 are round 2's for every round 2 product), and trades without
+    counterparty names (P4's round 4 repeats two days of round 3 with names added).
     """
-    groups: dict[tuple, list[str]] = {}
+    by_product: dict[tuple, list[str]] = {}
     for day in days:
         ticks = day.ticks[:SMOKE_TEST_TICKS]
-        trades = [sorted((p, tr.price, tr.quantity) for p, trs in t.trades.items() for tr in trs) for t in ticks]
-        key = (len(day.ticks), repr([(t.timestamp, t.books) for t in ticks]), repr(trades))
-        groups.setdefault(key, []).append(day.name)
-    return [names for names in groups.values() if len(names) > 1]
+        for product in day.products:
+            books = [(t.timestamp, t.books.get(product)) for t in ticks]
+            trades = [sorted((tr.price, tr.quantity) for tr in t.trades.get(product, [])) for t in ticks]
+            by_product.setdefault((product, len(day.ticks), repr(books), repr(trades)), []).append(day.name)
+    groups: dict[tuple[str, ...], list[str]] = {}
+    for (product, *_), names in by_product.items():
+        if len(names) > 1:
+            groups.setdefault(tuple(names), []).append(product)
+    return [(list(names), sorted(products)) for names, products in groups.items()]
 
 
-def format_held_out(axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tuple[int, ...], Outcome], repeats: list[list[str]]) -> str:
+def format_held_out(
+    axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tuple[int, ...], Outcome], repeats: list[tuple[list[str], list[str]]]
+) -> str:
     mode = modes[0]
     picks = leave_one_day_out(outcomes, mode)
     if not picks:
@@ -352,8 +356,9 @@ def format_held_out(axes: list[Axis], modes: list[TradeMatching], outcomes: dict
     gap = f" ({(held - full) / abs(full):+.0%})" if full else ""
     choices = len({pick.values for pick in picks.values()})
     lines.append(f"held out {_num(held)} against {_num(full)} for the best combination{gap}; {choices} different settings chosen over {len(picks)} days")
-    for names in repeats:
-        lines.append(f"! {', '.join(names)} hold the same data: holding one out still trains on the other")
+    for names, products in repeats:
+        which = ", ".join(products) if len(products) <= 4 else f"{len(products)} products"
+        lines.append(f"! {', '.join(names)} hold the same data for {which}: holding one out still trains on the other")
     return "\n".join(lines)
 
 
