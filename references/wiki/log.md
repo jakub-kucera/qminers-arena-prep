@@ -161,3 +161,8 @@ Measured what the teams' P4 round 3–4 money is made of, with two committed scr
 `arena.grid` now holds out each day in turn: the best combination by PnL on the other days is scored on the day left out, from the runs it already did. It also flags days whose data repeats; P4's round 4 trades add counterparty names to two days of round 3.
 - **Result:** no selection bias for Kelp on P3 round 1; −14% for Velvetfruit with its vouchers on P4 rounds 3–4.
 - **Filed into:** `validation-and-overfitting` ("What it means for our code"); the repo's `README.md`, `CLAUDE.md` and `TODO.md` (the grid item, CSCV still to build).
+
+## [2026-10-13] query | baskets in the template
+`bots/template.py` gains a `basket` mode: a basket's spread against its legs, traded with the level settings, with optional hedging legs. The cross-product hook becomes `Market`, which holds every book and this tick's plans.
+- **Result** (`experiments/baskets.py`, nested leave-one-day-out): 83k on P3 round 2 and 281k on P2 round 3 over three days, against 20k for plain market making. Hedging lost. Baskets only take, because their resting quotes were picked off under `--resting`. Market making on the legs (Roses, Chocolate) lost up to 1.5M under `--resting`, so the legs are left out.
+- **Filed into:** `baskets-and-fixed-sums` ("What it means for our code", "How to test it here"); the repo's `IDEAS.md` (two tested rows; the band row narrowed), `README.md`, `CLAUDE.md`, `ON_THE_DAY.md` ("Products"), `TODO.md` (multi-product item done).

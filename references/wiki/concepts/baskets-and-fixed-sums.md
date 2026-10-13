@@ -1,7 +1,7 @@
 ---
 title: Baskets, ETFs and fixed-sum identities
 type: concept
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Baskets, ETFs and fixed-sum identities
@@ -29,10 +29,14 @@ Every edition had a product that is a known combination of others (gift baskets,
 Whether residual baskets beyond Pebbles pay live (Alpha Search traded several; Baguette Fromage lost on Microchips and Sleep Pods).
 
 ## What it means for our code
-Nothing yet: `bots/template.py` is per product. A basket module would add a product-level trader that owns its legs, in the pattern of [many-products-architecture](many-products-architecture.md).
+Since 2026-10-13 `bots/template.py` has a `basket` mode (`basket_target`, `hedge_target`: `bots/template.py:339-360`): the basket trades its spread, its wall mid less the legs' weighted wall mids, with the level settings, and legs with `hedge` hold `-weight × hedge_ratio` per basket held. A fixed-sum family is a basket with legs of weight −1. Measured with `experiments/baskets.py` (`IDEAS.md`, "Trading a basket's spread"):
+- **The spread reverts within a day around a level that moves between days:** PICNIC_BASKET2's daily means were 58, −4 and 37 with sds of 52–55. So the level comes from the other days, and the band is set in sds.
+- **Held out:** 83k on P3 round 2 and 281k on P2 round 3 over three days, against 20k for plain market making. In-sample 137k and 335k.
+- **Hedging lost** 11–30% in-sample, as UChicago found for its ETF: the basket is the mispriced leg. Frankfurt's 0.5 hedge is not supported here.
+- **Baskets only take:** their price jumps several ticks at once, and under `--resting` full-room quotes on them were picked off (−1,125k on the gift basket).
 
 ## How to test it here
-For a known basket: fit κ, θ, σ of the premium on the training days, compute the optimal bands from Cartea et al.'s (11.2)–(11.4), and compare them with ad hoc ±1σ/±2σ bands under `worse` fills, ranked by worst day.
+Ad hoc bands are done (`uv run python -m experiments.baskets`: k × sd, held-out days). Still open: fit κ, θ, σ of the premium on the training days, compute the optimal bands from Cartea et al.'s (11.2)–(11.4), and compare them with the k × sd grid on held-out days.
 
 Needs `--data p4`. First reproduce the Pebbles sum and its σ from the round 5 files; then test the integer-weight search with out-of-sample days per [validation-and-overfitting](validation-and-overfitting.md). On the day: check the Arena's public data for exact sums before searching anything.
 

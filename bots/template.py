@@ -54,15 +54,31 @@ DEFAULTS = {
     "follow": None,
     "strike": None,  # the call's strike
     "max_cost_per_delta": 20.0,  # stay flat when half the spread per unit of delta is above this
+    # A basket of other products, {leg: weight} (see basket_target). Its spread, the basket's price
+    # less the legs' weighted prices, is traded with the level settings, level being its usual value.
+    "basket": None,
+    "hedge_ratio": 0.0,  # the legs that hedge hold -weight * hedge_ratio per basket held
+    "hedge": False,  # a basket leg: hold what the baskets it belongs to want against them
 }
 
 PARAMS = {
     # IMC Prosperity 3, round 1
     "RAINFOREST_RESIN": {"limit": 50, "fair": "fixed", "fixed_fair": 10_000},
     "KELP": {"limit": 50, "fair": "wall_mid", "make_edge": 1},
+    # IMC Prosperity 3, round 2. The baskets trade their spread against the legs (level: its mean
+    # over the three days, level_band about one sd; IDEAS.md). They only take: their price jumps
+    # several ticks at once, and resting quotes got picked off. The legs aren't traded: market
+    # making on them only paid with --match-trades all and lost heavily under --resting.
+    "PICNIC_BASKET1": {"limit": 60, "fair": "wall_mid", "make_size": 0, "basket": {"CROISSANTS": 6, "JAMS": 3, "DJEMBES": 1},
+                       "level": 49, "level_band": 84, "clear_edge": 5},
+    "PICNIC_BASKET2": {"limit": 100, "fair": "wall_mid", "make_size": 0, "basket": {"CROISSANTS": 4, "JAMS": 2},
+                       "level": 30, "level_band": 54, "clear_edge": 3},
     # IMC Prosperity 2, round 1
     "AMETHYSTS": {"limit": 20, "fair": "fixed", "fixed_fair": 10_000},
     "STARFRUIT": {"limit": 20, "fair": "wall_mid", "make_edge": 1},
+    # IMC Prosperity 2, round 3: as Prosperity 3's baskets (level_band about 0.75 sd).
+    "GIFT_BASKET": {"limit": 60, "fair": "wall_mid", "make_size": 0, "basket": {"CHOCOLATE": 4, "STRAWBERRIES": 6, "ROSES": 1},
+                    "level": 380, "level_band": 57, "clear_edge": 6},
     # IMC Prosperity 4, rounds 1-2. Pepper Root rises about 1,000 a day, so it holds a long target
     # (grid over target and skew on rounds 1-2, IDEAS.md); Osmium is untuned.
     "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "make_edge": 1},
@@ -107,9 +123,10 @@ class Plan:
         self.sold = 0
         self.takes: list[tuple[int, int]] = []  # (price, signed quantity) trading with the book now
         self.quotes: list[tuple[int, int]] = []  # (price, signed quantity) waiting to be hit
-        # What the strategy decided, for products that follow this one (see Trader.run).
+        # What the strategy decided, for the products traded after this one (see Market).
         self.fair: float | None = None
         self.target = 0
+        self.legs: dict[str, float] = {}  # a basket's wish for each leg that hedges it
 
     @property
     def net(self) -> int:
@@ -139,16 +156,30 @@ class Plan:
         return max(quantity, 0)
 
 
-def trade_product(book: Book, position: int, p: dict, memory: dict, market: dict | None = None) -> Plan:
-    """market holds this tick's plans of the products traded so far, for a product that follows one."""
+class Market:
+    """What one product's strategy sees of the others this tick: every book, before anyone trades,
+    and the plans of the products traded so far. Trader.run trades a product that follows or hedges
+    another after it, so one level of dependency works."""
+
+    def __init__(self, books: dict[str, Book]):
+        self.books = books
+        self.plans: dict[str, Plan] = {}
+
+
+def trade_product(product: str, book: Book, position: int, p: dict, memory: dict, market: Market | None = None) -> Plan:
     plan = Plan(position, p["limit"])
+    market = market or Market({product: book})
     fair = fair_value(book, p, memory)
     if fair is None:  # no price seen yet
         return plan
-    if p["level"] is not None:
+    if p["basket"] is not None:
+        p = {**p, "target": basket_target(fair, p, memory, market, plan)}
+    elif p["level"] is not None:
         p = {**p, "target": level_target(fair, p, memory)}
     elif p["follow"] is not None:
-        p = {**p, "target": follow_target(book, fair, p, memory, (market or {}).get(p["follow"]))}
+        p = {**p, "target": follow_target(book, fair, p, memory, market.plans.get(p["follow"]))}
+    elif p["hedge"]:
+        p = {**p, "target": hedge_target(product, p, market)}
     plan.fair, plan.target = fair, p["target"]
     take(book, fair, p, plan)
     clear(book, fair, p, plan)
@@ -157,6 +188,20 @@ def trade_product(book: Book, position: int, p: dict, memory: dict, market: dict
 
 
 def fair_value(book: Book, p: dict, memory: dict) -> float | None:
+    if p["fair"] == "fixed":
+        return p["fixed_fair"]
+    fair = price(book, p)
+    previous = memory.get("fair")
+    if fair is None:  # one side of the book is empty: keep the last value
+        return previous
+    if previous is not None and p["smoothing"]:
+        fair = p["smoothing"] * previous + (1 - p["smoothing"]) * fair
+    memory["fair"] = fair
+    return fair
+
+
+def price(book: Book, p: dict) -> float | None:
+    """The book's price by p's fair-value method, before smoothing. None if a side is empty."""
     method = p["fair"]
     if method == "fixed":
         return p["fixed_fair"]
@@ -176,13 +221,6 @@ def fair_value(book: Book, p: dict, memory: dict) -> float | None:
         fair = mid(_sized(book.bids, p["wall_size"]), _sized(book.asks, p["wall_size"]))
     else:
         raise ValueError(f"unknown fair value method {method!r}")
-
-    previous = memory.get("fair")
-    if fair is None:  # one side of the book is empty: keep the last value
-        return previous
-    if previous is not None and p["smoothing"]:
-        fair = p["smoothing"] * previous + (1 - p["smoothing"]) * fair
-    memory["fair"] = fair
     return fair
 
 
@@ -296,6 +334,30 @@ def implied_variance(price: float, s: float, k: float) -> float:
         else:
             hi = mid_w
     return (lo + hi) / 2
+
+
+def basket_target(fair: float, p: dict, memory: dict, market: Market, plan: Plan) -> int:
+    """A basket's target: level_target on its spread, the basket's price less its legs' weighted prices.
+
+    level is the spread's usual value, the premium. A family whose prices sum to a constant is a
+    basket too: one member, the others as legs of weight -1, level the constant. Each leg that
+    hedges is asked for -weight * hedge_ratio times the target (plan.legs). Legs are priced by the
+    basket's fair method; if one has no price this tick, the last target is kept.
+    """
+    legs = [price(market.books[leg], p) if leg in market.books else None for leg in p["basket"]]
+    if None in legs:
+        target = memory.get("held", 0)
+    else:
+        spread = fair - sum(weight * leg for weight, leg in zip(p["basket"].values(), legs))
+        target = level_target(spread, p, memory)
+    plan.legs = {leg: -weight * p["hedge_ratio"] * target for leg, weight in p["basket"].items()}
+    return target
+
+
+def hedge_target(product: str, p: dict, market: Market) -> int:
+    """A basket leg's target: what the baskets it belongs to want held against them, within the limit."""
+    wanted = sum(plan.legs.get(product, 0.0) for plan in market.plans.values())
+    return max(-p["limit"], min(p["limit"], round(wanted)))
 
 
 def take(book: Book, fair: float, p: dict, plan: Plan) -> None:
@@ -422,22 +484,26 @@ def read_resting(state: TradingState, product: str) -> list[tuple[int, int, int]
     return [(order.id, order.price, order.quantity) for order in state.open_orders.get(product, [])]
 
 
+def _depends(p: dict) -> bool:
+    return p.get("follow") is not None or bool(p.get("hedge"))
+
+
 class Trader:
     def run(self, state: TradingState):
         memory = load_memory(state.traderData)
         orders: dict[str, list[Order | Cancel]] = {}
-        market: dict[str, Plan] = {}  # this tick's plans, for the products that follow one
-        # Products that follow another go last, so they see its plan.
-        products = sorted(state.order_depths, key=lambda product: PARAMS.get(product, {}).get("follow") is not None)
+        market = Market({product: read_book(depth) for product, depth in state.order_depths.items()})
+        # Products that follow or hedge another go last, so they see its plan.
+        products = sorted(market.books, key=lambda product: _depends(PARAMS.get(product, {})))
         for product in products:
             # Each product is isolated, so a bug in one doesn't stop the others trading.
             try:
                 p = params_for(product)
                 if p is None:
                     continue
-                book = read_book(state.order_depths[product])
-                plan = trade_product(book, state.position.get(product, 0), p, memory.setdefault(product, {}), market)
-                market[product] = plan
+                position = state.position.get(product, 0)
+                plan = trade_product(product, market.books[product], position, p, memory.setdefault(product, {}), market)
+                market.plans[product] = plan
                 cancels, new = execute(plan, read_resting(state, product))
             except Exception:
                 if STRICT:

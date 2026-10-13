@@ -111,7 +111,7 @@ def test_the_level_from_the_day_or_blended_with_it(bot):
 def test_a_price_far_above_the_level_sells_toward_a_short_target(bot):
     book = bot.Book([[109, 4], [108, 9]], [[111, 4]])
     p = params(bot, fair="wall_mid", level=100, level_band=5, clear_edge=2)
-    plan = bot.trade_product(book, 0, p, {})
+    plan = bot.trade_product("X", book, 0, p, {})
     assert plan.takes == [(109, -4), (108, -6)]  # wall mid 109.5: sells down to -10 within 2 of it
 
 
@@ -146,6 +146,37 @@ def test_followers_trade_after_the_product_they_follow(bot, monkeypatch):
     # U is 20 above its level: both go short, and C sells into its bid within clear_edge.
     assert [(o.price, o.quantity) for o in orders["C"]] == [(10, -10)]
     assert [(o.price, o.quantity) for o in orders["U"] if o.quantity < 0][0] == (109, -10)
+
+
+def test_a_basket_trades_its_spread_as_a_level_and_asks_its_legs_to_hedge(bot):
+    market = bot.Market({"A": bot.Book([[49, 5]], [[51, 5]]), "B": bot.Book([[1, 5]], [[3, 5]])})
+    p = params(bot, fair="mid", basket={"A": 2, "B": 1}, level=10, level_band=5, hedge_ratio=0.5)
+    plan, memory = bot.Plan(0, 10), {}
+    # spread = 120 - (2 * 50 + 2) = 18, 8 above its level: the basket goes short.
+    assert bot.basket_target(120, p, memory, market, plan) == -10
+    assert plan.legs == {"A": 10, "B": 5}  # -weight * 0.5 * -10
+    del market.books["B"]  # a leg without a price: the last target stands
+    assert bot.basket_target(100, p, memory, market, bot.Plan(0, 10)) == -10
+
+
+def test_a_leg_sums_what_its_baskets_want_within_its_limit(bot):
+    market = bot.Market({})
+    market.plans = {"X": bot.Plan(0, 10), "Y": bot.Plan(0, 10)}
+    market.plans["X"].legs, market.plans["Y"].legs = {"A": 10.0}, {"A": 7.0, "B": -3.0}
+    assert bot.hedge_target("A", params(bot, limit=15), market) == 15
+    assert bot.hedge_target("B", params(bot, limit=15), market) == -3
+
+
+def test_hedging_legs_trade_after_their_basket(bot, monkeypatch):
+    monkeypatch.setattr(bot, "PARAMS", {
+        "A": {"limit": 20, "fair": "mid", "hedge": True, "clear_edge": 1, "make_size": 0},
+        "K": {"limit": 10, "fair": "mid", "basket": {"A": 2}, "level": 0, "level_band": 5, "hedge_ratio": 1, "clear_edge": 1},
+    })
+    depths = {"A": depth([(49, 30)], [(51, 30)]), "K": depth([(109, 20)], [(111, 20)])}
+    orders, _, _ = bot.Trader().run(state(depths))
+    # K's spread is 110 - 100 = 10 above its level: K sells 10, A buys 20 (2 per basket, at its limit).
+    assert [(o.price, o.quantity) for o in orders["K"] if o.quantity < 0][0] == (109, -10)
+    assert [(o.price, o.quantity) for o in orders["A"]] == [(51, 20)]
 
 
 def test_make_steps_inside_a_wide_book(bot):
