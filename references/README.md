@@ -217,11 +217,20 @@ Looked at and judged worth a visit, but too big for what they add, or only worth
 ## Cloning / updating
 
 ```sh
-references/clone.sh            # clone any repo that's missing (skips existing ones)
-references/clone.sh --update   # also pull the ones already cloned
+references/clone.sh            # clone any missing repo, and put every clone on its pinned commit
+references/clone.sh --check    # only report clones that aren't on their pin (exit 1 if any)
+references/clone.sh --update   # move every repo to its newest commit and rewrite the pins
 ```
 
-The repo list lives in `clone.sh`. To add a repo, add a line there and a row to the table above.
+Each repo is pinned to a commit in `clone.sh`. The wiki's `path:line` citations, the Prosperity
+data, the parity test and the results in `IDEAS.md` were made on those commits, so every machine
+must be on them; `tests/test_references.py` fails for a clone that isn't. `--update` is a
+deliberate step: it prints each repo it moves, old and new commit. Then run
+`python3 references/wiki/lint.py` and `uv run pytest`, re-check the citations into any repo that
+moved (the lint only checks that a cited line exists), and commit `clone.sh`.
+
+The repo list lives in `clone.sh`. To add a repo, add a line there with its current commit
+(`git ls-remote https://github.com/<owner>/<repo>.git HEAD`) and a row to the table above.
 Only `README.md`, `clone.sh`, `SEARCH_LOG.md`, `check_arena_site.py` with its snapshot, `fetch_notion.py` and `wiki/` are committed; the root `.gitignore` ignores everything else in `references/`.
 
 `check_arena_site.py` re-reads the Arena site and diffs it against `arena-site-snapshot.txt`. Run it every few days before the event, and `--save` after reading a change.

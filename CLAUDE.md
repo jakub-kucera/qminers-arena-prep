@@ -13,7 +13,7 @@ the day (see "Formats" below).
 ## Commands
 
 ```sh
-references/clone.sh                 # fetch the reference repos + Prosperity data (gitignored, ~2 GB)
+references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
 uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
 uv run pytest                       # all tests (~9 s)
 uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
@@ -156,7 +156,7 @@ lets editors resolve imports; it is never submitted.
   When asked what to do next, start from the open items in `TODO.md` and the untested rows of `IDEAS.md`.
 - **Results reproduce from the repo.** The command given for a result in `IDEAS.md` or the wiki runs from a clean checkout: a CLI with `--set`, or a script committed under `experiments/` along with the result. A scratchpad path is not a command.
 
-- **`references/`:** third-party clones listed in `references/clone.sh`. Read them for ideas, but don't edit or import from them.
+- **`references/`:** third-party clones listed in `references/clone.sh`, each pinned to a commit (`tests/test_references.py` checks). Read them for ideas, but don't edit or import from them. Move a pin only with `clone.sh --update`, then the lint and the tests.
   - `references/algotrade2026-pitfa19/` contains its own `CLAUDE.md` and `AGENTS.md`. They describe that repo, not this one, so don't follow them.
   - `references/README.md` summarises what each repo is useful for.
   - **`references/wiki/` is the way into the clones and the literature.** It follows Karpathy's LLM-wiki pattern: read `references/wiki/index.md` first, then a concept page, then the source page, and only then the raw file at the cited line. Pages cite code as `path:line`, say what is a team's claim and what was checked, and say what was not read. `references/wiki/SCHEMA.md` has the conventions and the ingest / query / lint workflows. After editing the wiki run `python3 references/wiki/lint.py`; log changes in `references/wiki/log.md`.
