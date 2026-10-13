@@ -23,11 +23,19 @@ Buy-and-hold (many teams) versus market making around the drift (Baguette Fromag
 
 **Measured in our engine (2026-10-13, P4 rounds 1–2):** every published approach that holds a long position wins. Pepper Root alone earns 83–84k a day with Baguette Fromage's thresholds, 82–84k with DU's +76 bias and 79–80k with DTU at the limit ([DU](../sources/prosperity4-du-trading.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md)). Market making around the drift with no target made −25k to +58k a day. These are the teams' traders on their own development days, and the drift never broke in them.
 
+**Measured in our engine (2026-10-13, P4 rounds 3–4): the level held, and knowing it was worth about half the PnL.** On the four distinct days, each day's mean wall mid is 9,989–10,003 for Hydrogel and 5,239–5,255 for Velvetfruit, against intraday sds of 25–38 and 14–19, and each day opens where the last closed. `experiments/p4_levels.py` reran Baguette Fromage's and DU's round 3–4 files with their hard-coded levels replaced before every tick (`IDEAS.md`, "Trading toward a known level"):
+- **The mean of the other three days** in place of the constant: 1,030k against 1,148k for Baguette Fromage, 663k against 737k for DU.
+- **The level moved by ±10:** 935k and 857k for Baguette Fromage.
+- **The mean of the day so far,** with no history: 631k and 419k. The worst day is round 4 day 3, which opened at 5,296, 2.5 sds above the level, so the running mean starts there and the first, best short is missed.
+- **It is a directional bet, not market making:** Baguette Fromage's Hydrogel PnL is 291k of carry, less 103k paid crossing the spread; DTU's adaptive anchors (a rolling median, a clamped EMA) made 133k.
+
+So the fixed anchor did not break on these days, and the risk the sources describe (DTU's live Hydrogel day) is not in the data we have. heyman7913's opening-price problem is real here: it is the day the running mean fails.
+
 ## What it means for our code
 `bots/template.py` has `fixed_fair` and smoothed `mid`/`wall_mid`, and since 2026-10-13 a `target` position that `clear` and `skew` work toward (`bots/template.py:188-200`, `bots/template.py:225`). With `target` 80 and `skew` 20, Pepper Root makes 76–78k a day on rounds 1–2, about 6k short of the best published trader (`IDEAS.md`). There is still no drift line, no regime detector and no fail-safe for a pinned inventory; those would be additions to the fair-value section, not the execution section (`CLAUDE.md`).
 
 ## How to test it here
-With `--data p4`: Pepper Root (rounds 1–2) for drift, done for the long bias; Hydrogel (rounds 3–4) for the broken anchor, not yet. A fixed anchor versus a rolling median versus DTU's detector, ranked by the worst day (`validation-and-overfitting.md`).
+With `--data p4`: Pepper Root (rounds 1–2) for drift, done for the long bias; Hydrogel and Velvetfruit (rounds 3–4) for a level, done for the teams' files (`uv run python -m experiments.p4_levels`). Still open: the same comparison in our template (a level from other days against one from the day so far), and a day on which the level shifts, which the P4 data doesn't contain. Rank by the worst day (`validation-and-overfitting.md`).
 
 ## Sources
 [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md). Related: [fair-value-and-wall-mid](fair-value-and-wall-mid.md), [validation-and-overfitting](validation-and-overfitting.md). [heyman7913](../sources/prosperity4-heyman7913.md).

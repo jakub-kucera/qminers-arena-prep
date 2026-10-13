@@ -139,3 +139,9 @@ Settled contradictions row 2 for Prosperity data and closed the `TODO.md` item.
   - the wiki: `fair-value-and-wall-mid` (a per-day table), `shared-market-and-adversaries`, `reading-the-data-on-day-one`, contradictions row 2;
   - the repo: `IDEAS.md`, `ON_THE_DAY.md`, `README.md`, `CLAUDE.md`.
 - **Citations moved:** template line citations re-mapped again (`make` is now `bots/template.py:203-235`).
+
+## [2026-10-13] query | P4 levels and vouchers measured
+Measured what the teams' P4 round 3–4 money is made of, with two committed scripts (`experiments/p4_levels.py`, `experiments/p4_vouchers.py`) on the four distinct days.
+- **Levels:** Hydrogel's and Velvetfruit's daily means agree within 13 and 16 across days. Replacing Baguette Fromage's and DU's hard-coded levels with the other days' mean keeps 90% of their PnL; the day's running mean keeps 55–57%.
+- **Vouchers:** implied vol is flat within each day, each voucher sits within about half a spread of Black–Scholes at one vol, and the teams' voucher PnL is delta × Velvetfruit's move. Contradictions row 6 settled for P4; the options page's link to it said row 5 and is fixed.
+- **Filed into:** `drift-and-regime-change`, `options-and-vouchers`, `reading-the-data-on-day-one`, contradictions row 6; the repo's `IDEAS.md` (two tested rows; the untested spot-level row removed, the options row narrowed to smile trading on P3).

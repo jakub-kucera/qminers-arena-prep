@@ -28,6 +28,7 @@ uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3
 uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
 uv run python -m arena.analysis --grid results/grid.csv           # grid heatmaps
 uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis group adds Jupyter
+uv run python -m experiments.p4_levels                            # a one-off study; its numbers are in IDEAS.md
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.

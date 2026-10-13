@@ -1,13 +1,13 @@
 ---
 title: Options and vouchers
 type: concept
-updated: 2026-10-10
+updated: 2026-10-13
 ---
 
 # Options and vouchers
 
 ## Summary
-Each edition had a call option on a product (coconut coupon, volcanic vouchers, `VEV_*`). The textbook plan, "fit the smile and trade mispricings", rarely paid. What did: using the vouchers as leveraged exposure to a view on the underlying, quoting a deep-OTM strike at 0/1, and one intrinsic-value arbitrage.
+Each edition had a call option on a product (coconut coupon, volcanic vouchers, `VEV_*`). The textbook plan, "fit the smile and trade mispricings", rarely paid. What did: using the vouchers as leveraged exposure to a view on the underlying, quoting a deep-OTM strike at 0/1, and one intrinsic-value arbitrage. Measured on P4 (2026-10-13): each voucher's implied vol is flat within a day, so a voucher is the underlying with a fixed delta, and the teams' voucher PnL is almost exactly delta times the underlying's move. What the vouchers add is room under the limits.
 
 ## What the sources say
 - **Prosperity 2 coconut coupon:** implied volatility oscillated around 16%; mean-reversion on it plus a partial delta hedge; the unhedged variance hurt when they were already 2nd (`prosperity2-linear-utility/README.md:162-170`).
@@ -25,14 +25,21 @@ Each edition had a call option on a product (coconut coupon, volcanic vouchers, 
 - **A fitted smile can stop fitting** (CMU Physics, Prosperity 3): their quadratic implied-volatility fit was a poor model on the submission day, so they held long or short vol all day and made almost nothing; using the mean of a short rolling window of mid implied volatility as fair IV took their backtest from about 80k to 200k per day (`online-snapshots/chrispyroberts_imc-prosperity-3.README.md:236`, their claim).
 - **A free primer if options appear:** Optiver's explainers on options pricing, Greeks and volatility ([online articles](../sources/online-articles.md)); a shorter route than a textbook.
 
+**Measured in our engine (2026-10-13, the four distinct days of P4 rounds 3–4, `uv run python -m experiments.p4_vouchers`; time to expiry 7 days at the start of round 3 day 0, as DTU's code reads it, `prosperity4-dtu-quant-lab/round_3/algorithmic/trader.py:263-267`):**
+- **Flat volatility:** on the strikes with time value (5000–5500), the median implied vol is 0.245–0.278, its intraday IQR 0.003–0.009. It creeps up across days (VEV_5000: 0.259, 0.262, 0.270, 0.275). VEV_5400 sits 0.013–0.021 below its neighbours every day: the only smile.
+- **No mispricing to trade:** each voucher's wall mid minus Black–Scholes at the day's median vol has an sd of 0.3–0.4 on 5000 and 0.4–1.1 on 5100–5200, under half their spreads (6, 4, 3), and about half the spread on 5300–5500.
+- **The rest:** 4000 and 4500 trade at exactly intrinsic (delta 1); 6000 and 6500 at bid 0 / ask 1.
+- **The teams' voucher PnL is leveraged underlying** (`experiments/p4_levels.py`, published files, against the wall mid): Baguette Fromage's carry on 5000–5500 is 697k, of which 690k is delta × Velvetfruit's move; on 4000–4500, all 416k. DU: 666k of which 657k, and all 440k. Crossing the spread cost Baguette Fromage 136k and 184k of it.
+- **Cost per unit of delta** (half the spread over delta): 2.3–2.9 on 5100–5400, close to Velvetfruit's 2.5; 3.1–3.3 on 5000; 5.4–13.4 on 5500; 8.0 on 4500 and 10.5 on 4000.
+
 ## Where they disagree
-Smile trading: DTU fitted and traded a parabola; Baguette Fromage, Alpha Search and DU concluded it was not worth it. See [contradictions](../contradictions.md), row 5.
+Smile trading: DTU fitted and traded a parabola; Baguette Fromage, Alpha Search and DU concluded it was not worth it. See [contradictions](../contradictions.md), row 6: settled for P4 by the measurement above.
 
 ## What it means for our code
-`bots/template.py` is per product with no pricing model, no delta hedge, no multi-product state. An options module would need the parent product's book in the same `step` (the Prosperity format provides all order depths each tick).
+`bots/template.py` is per product with no pricing model, no delta hedge, no multi-product state. An options module would need the parent product's book in the same `step` (the Prosperity format provides all order depths each tick). On data like P4's, the module needs no smile: price each voucher by Black–Scholes at a vol read from its own book, give it the underlying's view scaled by its delta, and fill the room cheapest per unit of delta first (`IDEAS.md`, "What the P4 vouchers are").
 
 ## How to test it here
-Needs `--data p4` (rounds 3–4). Reproduce "implied vol nearly constant per strike" first (a plot), then test the underlying-view approach against a smile approach by the worst day. `literature_md` has no options material; the conditional SVI paper is in `TODO.md`.
+Needs `--data p4` (rounds 3–4). "Implied vol nearly constant per strike" is reproduced (above). Still open: the same check on P3 round 3's volcanic vouchers, where Frankfurt and CMU Physics traded IV deviations, and the underlying-view approach in our template by the worst day. `literature_md` has no options material; the conditional SVI paper is in `TODO.md`.
 
 ## Sources
 [Linear Utility](../sources/prosperity2-linear-utility.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [UChicago](../sources/uchicago-trading-2026.md). [CMU Physics](../sources/prosperity3-cmu-physics.md), [online articles](../sources/online-articles.md).
