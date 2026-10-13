@@ -10,8 +10,9 @@ probably won't have.
 
 Replay checks on the given days: no exceptions, well-formed orders, no orders cancelled for
 breaching a position limit, and no tick slower than --time-limit-ms. The first day is then
-replayed twice more: once to check the results repeat exactly, and once reloading the bot every
-tick, which shows whether it relies on state the real engine might not keep between calls.
+replayed three more times: once to check the results repeat exactly, once reloading the bot every
+tick, which shows whether it relies on state the real engine might not keep between calls, and
+once with STRICT off, as submitted, to check that no exception escapes its own error handling.
 
 Exits with 1 if any check fails.
 """
@@ -134,6 +135,20 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float) -> list[Check]:
                 "variables, which the real engine may not preserve between calls",
             )
         )
+
+    # The replays above set STRICT, so a bot's own error handling never ran. Run it as submitted.
+    lenient = run_day(first, s.format.load_bot(path, s.overrides, strict=False), s.config)
+    if lenient.errors:
+        timestamp, error = lenient.errors[0]
+        checks.append(
+            Check(
+                FAIL,
+                f"{len(lenient.errors)} exceptions escaped the bot with STRICT off (as submitted); first at {timestamp}:\n"
+                f"{_indent(error)}",
+            )
+        )
+    else:
+        checks.append(Check(PASS, f"no exception escapes the bot with STRICT off on {first.name}"))
 
     pnl = " · ".join(f"{r.day} {(report.total_pnl(r) or [0])[-1]:,.0f}" for r in results)
     state = max((getattr(bot, "max_state_chars", 0) for bot in bots), default=0)

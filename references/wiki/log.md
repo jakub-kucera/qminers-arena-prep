@@ -177,3 +177,8 @@ P3 round 3 treated as a first download, following `ON_THE_DAY.md`: diagnose, the
 - **Tooling, fixed:** strict `--set` values, flags for the options check, repeated days compared per product.
 - **Gaps, recorded:** trading the smile (P3's vouchers stray from Black–Scholes by more than the spread), levels that drift across days, and how to choose when the grid's measures disagree.
 - **Filed into:** `reading-the-data-on-day-one` (a P3 round 3 reading), `options-and-vouchers`, contradictions row 6; the repo's `TODO.md` (a rehearsal item), `IDEAS.md`, `ON_THE_DAY.md`.
+
+## [2026-10-13] lint | fixes from the code review
+Five fixes from the code review (`TODO.md`, "From the code review"): the template's error handler, `level_exit` past the level, baskets pricing legs from untouched books, `make` keeping the bid below the ask, and `--resting` no longer filling from the same orders twice.
+- **Numbers moved:** `baskets-and-fixed-sums` (held out 71k / 294k, was 83k / 281k) and `drift-and-regime-change` (210k held out, 152k with the day's mean, was 215k / 147k), both from re-running the experiments after the `level_exit` fix.
+- **Citations moved:** the template's line citations in 20 pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:405-443`). Contradictions rows 12 and 16 cited `bots/template.py:460-492` (`execute` and the ADAPTER) for the quoting rule; they now cite `make`.

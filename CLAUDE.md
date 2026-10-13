@@ -79,7 +79,7 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 **Resting mode** (`--resting`, `EngineConfig.resting`) replaces rule 5. The module docstring of `engine.py` has the full rules.
 - **Resting:** unfilled orders rest until filled or cancelled, unless `Order.ioc`. Each one queues behind the visible volume at its price.
 - **Trade fills:** trades at its price first use up the queue ahead of it; trades through its price fill it.
-- **Book fills:** a next snapshot that crosses it fills it at its own price (`Fill.source == "cross"`), and the bot sees that snapshot minus the volume.
+- **Book fills:** a next snapshot that crosses it fills it at its own price (`Fill.source == "cross"`), and the bot sees that snapshot minus the volume. That tick's market trades at the crossed prices lose the same volume (`_spend_crossed`), so the order can't fill from the same orders twice.
 - **Bot interface:** `Bot.step` gets `open_orders` (always empty in the default mode) and may return `Cancel(order_id)` among its orders. The Prosperity format exposes these as datamodel extensions: `state.open_orders`, `Cancel`, `Order(..., ioc=True)`.
 - **The default path doesn't change:** resting-mode code lives in its own branch of `run_day` and in the helpers below the "resting mode" marker. Parity only covers the default mode.
 

@@ -41,6 +41,23 @@ def test_exceptions_fail(check):
     assert "FAIL  4 errors" in out and "ZeroDivisionError: oops" in out
 
 
+def test_exceptions_from_the_lenient_path_fail(check):
+    # Fine with STRICT set, but its own error handling breaks once STRICT is off.
+    code, out = check(
+        """
+        STRICT = False
+
+        class Trader:
+            def run(self, state):
+                if not STRICT:
+                    raise KeyError("handler bug")
+                return {}, 0, ""
+        """
+    )
+    assert code == 1
+    assert "exceptions escaped the bot with STRICT off" in out and "handler bug" in out
+
+
 def test_limit_breaches_fail(check):
     code, out = check(
         """

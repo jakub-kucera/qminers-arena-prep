@@ -192,6 +192,17 @@ def test_resting_order_fills_when_the_next_book_crosses_it():
     assert bot.seen[1][1] == result.fills  # told about the fill straight away
 
 
+def test_trades_at_a_crossed_level_dont_fill_the_order_again():
+    d = day(
+        tick(0, bids=[(98, 5)], asks=[(102, 5)]),
+        # The 99 ask crosses the resting 100 bid. The trade at 99 was with those same sellers,
+        # so it has nothing left for the bid; the trade at 97 was with other sellers.
+        tick(1, bids=[(96, 5)], asks=[(99, 2), (101, 5)], trades=[MarketTrade("X", 99, 3), MarketTrade("X", 97, 4)]),
+    )
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 10)]}), RESTING)
+    assert fills(result) == [(100, 2, "cross"), (100, 1, "trade"), (100, 4, "trade")]
+
+
 @pytest.mark.parametrize("ioc, expected", [(False, [(101, 2, "book"), (101, 3, "cross")]), (True, [(101, 2, "book")])])
 def test_new_orders_take_the_book_then_rest_unless_ioc(ioc, expected):
     d = day(tick(0, asks=[(101, 2)]), tick(1, asks=[(100, 5)]))

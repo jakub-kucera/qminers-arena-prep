@@ -19,7 +19,8 @@ aren't in the recorded data:
     the order's price. TradeMatching worse / none turn off fills from trades at / at any price.
   - When a new snapshot shows the other side at or through a resting order's price, those
     orders would have hit it: it fills at its own price against that volume, and the bot sees
-    the snapshot without it.
+    the snapshot without it. That tick's market trades at the crossed prices lose the same
+    volume, since they traded with those same orders.
   - If the visible volume at the order's price drops below the volume counted ahead of it,
     orders ahead of it were cancelled, so it moves up. An emptied level puts it at the front.
   - The limit check (rule 2) counts resting orders, and only rejects that tick's new orders.
@@ -181,6 +182,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         books, trades = _liquidity(tick, config.fill_ratio, rng)
         if resting:
             crossed, taken = _cross(resting, books, tick.timestamp)
+            _spend_crossed(trades, taken)
             _requeue(resting, tick.books)
             tick = _without(tick, taken)
             resting = [order for order in resting if order.quantity]
@@ -518,6 +520,24 @@ def _cross(resting: list[_Live], books, timestamp: int):
                     if order.quantity == 0:
                         break
     return fills, taken
+
+
+def _spend_crossed(trades, taken) -> None:
+    """Takes the volume resting orders just crossed off this tick's market trades at the same prices.
+
+    A tick's trades print against its book, so a trade at a crossed level used the same orders:
+    the sellers at an ask our bid crossed are the sellers in that tick's trades at that price.
+    Without this, an order would fill from them twice, once by the cross and once by the trade.
+    """
+    for (product, buying, price), volume in taken.items():
+        side = 2 if buying else 3  # our buys take a trade's seller, our sells its buyer
+        for entry in trades.get(product, []):
+            if volume == 0:
+                break
+            if entry[0].price == price:
+                used = min(volume, entry[side])
+                entry[side] -= used
+                volume -= used
 
 
 def _without(tick: Tick, taken) -> Tick:

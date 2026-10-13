@@ -99,6 +99,16 @@ def test_level_exit_flattens_near_the_level(bot):
     assert targets == [-10, -10, 0, 0, 10]  # flat from the level until a band is reached again
 
 
+def test_level_exit_flattens_when_the_price_jumps_past_the_level(bot):
+    # Wall mids move in steps of 0.5 and levels are often means: the gap may never be exactly 0.
+    p = params(bot, level=100.2, level_band=5, level_exit=0)
+    memory = {}
+    targets = [bot.level_target(fair, p, memory) for fair in (106, 100.5, 99.5, 98, 106)]
+    assert targets == [-10, -10, 0, 0, -10]
+    targets = [bot.level_target(fair, p, {}) for fair in (94, 100.5)]
+    assert targets == [10, 0]  # long below the level: flat once back above it
+
+
 def test_the_level_from_the_day_or_blended_with_it(bot):
     memory = {}
     assert [bot.estimate_level(f, params(bot, level="day"), memory) for f in (100, 104)] == [100, 102]
@@ -113,6 +123,19 @@ def test_a_price_far_above_the_level_sells_toward_a_short_target(bot):
     p = params(bot, fair="wall_mid", level=100, level_band=5, clear_edge=2)
     plan = bot.trade_product("X", book, 0, p, {})
     assert plan.takes == [(109, -4), (108, -6)]  # wall mid 109.5: sells down to -10 within 2 of it
+
+
+def test_a_basket_prices_its_legs_from_the_books_as_sent(bot):
+    # The leg trades first and takes its 30-lot wall; the basket must still see the wall at 101.
+    leg_p = params(bot, limit=250, fair="fixed", fixed_fair=100)
+    basket_p = params(bot, limit=100, fair="wall_mid", basket={"LEG": 4}, level=0, level_band=1000, make_size=0)
+    market = bot.Market({"LEG": bot.Book([[101, 30], [100, 5]], [[103, 10]]), "BASKET": bot.Book([[399, 20]], [[401, 20]])})
+    market.plans["LEG"] = bot.trade_product("LEG", market.books["LEG"], 0, leg_p, {}, market)
+    assert market.plans["LEG"].takes == [(101, -30)]
+    assert market.books["LEG"].bids == [[101, 30], [100, 5]]  # untouched
+    memory = {}
+    bot.trade_product("BASKET", market.books["BASKET"], 0, basket_p, memory, market)
+    assert memory["level_sum"] == 400 - 4 * 102  # the spread against the leg's wall mid of 102
 
 
 def test_black_scholes_in_total_variance(bot):
@@ -213,6 +236,15 @@ def test_size_skew_shrinks_the_quote_that_adds_to_the_gap(bot):
     assert plan.quotes == [(109, -10)]
 
 
+@pytest.mark.parametrize("position, expected", [(0, [(99, 10), (100, -10)]), (-5, [(100, 15), (101, -5)])])
+def test_bid_stays_below_the_ask(bot, position, expected):
+    # A two-tick book and make_edge 0 put both quotes at 100. At or above target the bid steps
+    # back; below it the ask does.
+    plan = bot.Plan(position=position, limit=10)
+    bot.make(bot.Book([[99, 5]], [[101, 5]]), 100, params(bot, make_edge=0), plan)
+    assert plan.quotes == expected
+
+
 def test_skew_never_crosses_the_book(bot):
     plan = bot.Plan(-10, 10)  # short at the limit: quotes move up
     bot.make(bot.Book([[99, 5]], [[101, 5]]), 100, params(bot, make_edge=1, skew=5), plan)
@@ -289,6 +321,17 @@ def test_lenient_errors_cancel_the_products_resting_orders(capsys):
     resting = {"KELP": [dm.OpenOrder(3, "KELP", 2029, 5, 0)]}
     orders, _, _ = lenient.Trader().run(state({"KELP": depth([(2029, 25)], [(2031, 25)])}, open_orders=resting))
     assert [o.order_id for o in orders["KELP"]] == [3]
+
+
+def test_a_state_without_the_resting_extensions_still_trades(capsys):
+    # A state from an exchange without open_orders: the broken product's handler must not raise.
+    lenient = BotFile(TEMPLATE, {"datamodel": dm}, strict=False).load()
+    lenient.PARAMS["KELP"]["fair"] = "bogus"
+    plain = state({"KELP": depth([(2029, 25)], [(2031, 25)]), "RAINFOREST_RESIN": depth([(9996, 2)], [(10004, 2)])})
+    del plain.open_orders
+    orders, _, _ = lenient.Trader().run(plain)
+    assert set(orders) == {"RAINFOREST_RESIN"}
+    assert "bogus" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("resting", [False, True])

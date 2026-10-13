@@ -115,6 +115,9 @@ class Book:
         self.bids = bids
         self.asks = asks
 
+    def copy(self) -> Book:
+        return Book([level[:] for level in self.bids], [level[:] for level in self.asks])
+
 
 class Plan:
     """One product's orders for this tick, keeping all of them inside the position limit.
@@ -175,6 +178,7 @@ class Market:
 
 
 def trade_product(product: str, book: Book, position: int, p: dict, memory: dict, market: Market | None = None) -> Plan:
+    """Fair value -> take -> clear -> make, on a copy of the book: market.books stays untouched."""
     plan = Plan(position, p["limit"])
     market = market or Market({product: book})
     fair = fair_value(book, p, memory)
@@ -189,6 +193,7 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
     elif p["hedge"]:
         p = {**p, "target": hedge_target(product, p, market)}
     plan.fair, plan.target = fair, p["target"]
+    book = book.copy()  # take and clear use up its levels
     take(book, fair, p, plan)
     clear(book, fair, p, plan)
     make(book, fair, p, plan)
@@ -254,16 +259,18 @@ def level_target(fair: float, p: dict, memory: dict) -> int:
     Beyond level_band from the level, the target is the full limit against the move. Inside the
     band it keeps its last value, so the position isn't traded back and forth on every tick (each
     trade toward the target can cost half the spread), until the price reaches the other band or,
-    with level_exit, comes back within level_exit of the level. On P4 Hydrogel and Velvetfruit a
+    with level_exit, comes back within level_exit of the level or goes past it. (Past it counts
+    because prices jump: a gap of exactly 0 may never be seen.) On P4 Hydrogel and Velvetfruit a
     level taken from the other days made 1.7 times as much as the day's own mean (IDEAS.md).
     """
     gap = fair - estimate_level(fair, p, memory)
     held = memory.get("held", 0)
+    exit_within = p["level_exit"]
     if gap >= p["level_band"]:
         held = -p["limit"]
     elif gap <= -p["level_band"]:
         held = p["limit"]
-    elif p["level_exit"] is not None and abs(gap) <= p["level_exit"]:
+    elif exit_within is not None and ((held < 0 and gap <= exit_within) or (held > 0 and gap >= -exit_within)):
         held = 0
     memory["held"] = held
     return held
@@ -401,7 +408,8 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
     Each quote sits make_edge from fair, or one tick inside the best remaining book quote if
     that's further out (no point quoting better than needed). skew then moves both quotes down
     when above target and up when below, by up to skew ticks a full limit away, to work the
-    position back toward target. Quotes never cross the book.
+    position back toward target. Quotes never cross the book, and the bid stays below the ask:
+    if they meet, the side that would add to inventory steps back (the bid, at or above target).
 
     size_skew works through size instead (Bouchaud et al. 2018, eq. 17.4): with gap the distance
     above target as a share of the limit, the bid is scaled by max(1 - size_skew * gap, 0) and the
@@ -423,6 +431,11 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
         bid = min(bid, best_ask - 1)
     if best_bid is not None:
         ask = max(ask, best_bid + 1)
+    if bid >= ask:  # a narrow book and a skew can bring them together: move the side that adds to inventory
+        if plan.net >= p["target"]:
+            bid = ask - 1
+        else:
+            ask = bid + 1
 
     size = p["make_size"]
     gap = p["size_skew"] * (plan.net - p["target"]) / plan.limit
@@ -488,8 +501,13 @@ def params_for(product: str) -> dict | None:
     return {**DEFAULTS, **PARAMS[product]}
 
 
+def open_orders(state: TradingState) -> dict:
+    """The resting orders by product: the backtester's extension, so {} where the state has none."""
+    return getattr(state, "open_orders", None) or {}
+
+
 def read_resting(state: TradingState, product: str) -> list[tuple[int, int, int]]:
-    return [(order.id, order.price, order.quantity) for order in state.open_orders.get(product, [])]
+    return [(order.id, order.price, order.quantity) for order in open_orders(state).get(product, [])]
 
 
 def _depends(p: dict) -> bool:
@@ -517,8 +535,12 @@ class Trader:
                 if STRICT:
                     raise
                 print(f"{state.timestamp} {product}: {traceback.format_exc()}")
-                # Don't leave stale quotes resting while this product is broken.
-                stale = [Cancel(order.id) for order in state.open_orders.get(product, [])]
+                # Don't leave stale quotes resting while this product is broken. This must not
+                # raise itself, or every other product loses its orders too.
+                try:
+                    stale = [Cancel(order.id) for order in open_orders(state).get(product, [])]
+                except Exception:
+                    stale = []
                 if stale:
                     orders[product] = stale
                 continue

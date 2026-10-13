@@ -89,10 +89,10 @@ Same template, Prosperity 3 round 1, all three days:
 
 | Fills from | per tick (default) | `--resting` |
 |---|---|---|
-| book + market trades at your price or worse (`all`, default) | 81,292 | 68,043 |
+| book + market trades at your price or worse (`all`, default) | 81,292 | 67,446 |
 | book + market trades strictly worse than your price (`worse`) | 57,774 | 57,958 |
 | visible book only (`none`) | 28,216 | 28,412 |
-| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 44,900 | 35,088 |
+| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 44,900 | 34,968 |
 
 Most of the default PnL comes from assuming bots would have traded with your resting quotes
 instead of with each other. When comparing variants, check that the better one also wins under
@@ -126,13 +126,13 @@ The highest backtest PnL is usually overfit, so each combination is ranked on fo
 
 ```
 rank  KELP.make_edge  KELP.take_edge  pnl(all)  min day    nbhd  pnl(worse)   fills
-   1               1               1    81,292   25,912  75,662      57,774  19,310
-   2               1               2    80,256   25,418  74,028      54,776  18,467
+   1               1               1    81,292   25,912  75,695      57,774  19,310
+   2               1               2    80,256   25,418  74,064      54,776  18,467
    ...
 best by pnl      KELP.make_edge=1, KELP.take_edge=1  (81,292)
-best by nbhd     KELP.make_edge=1, KELP.take_edge=1  (75,662)
+best by nbhd     KELP.make_edge=1, KELP.take_edge=1  (75,695)
 best by min-day  KELP.make_edge=1, KELP.take_edge=1  (25,912)
-best by worse    KELP.make_edge=0, KELP.take_edge=1  (63,068)
+best by worse    KELP.make_edge=0, KELP.take_edge=1  (63,054)
 measures disagree: prefer a setting near the top on every measure over the single best pnl
 ```
 
@@ -227,7 +227,7 @@ the case at the Arena. `--resting` replaces rule 5 with that:
 - **New orders:** each one takes what it can from the visible book (rule 3), then the rest rests on the book. An `ioc` order is cancelled instead.
 - **Queue:** a resting order joins the back of the queue. The visible volume at its price is ahead of it, and a price better than the best level puts it at the front.
 - **Fills from trades:** market trades at its price first use up the volume ahead of it, then fill it. Trades at a worse price fill it straight away. `--match-trades worse` drops fills at its own price and `none` drops trade fills altogether.
-- **Fills from the next book:** if the next snapshot shows the other side at or through its price, those orders would have traded with it. It fills at its own price (source `cross`), and the bot sees the snapshot without that volume.
+- **Fills from the next book:** if the next snapshot shows the other side at or through its price, those orders would have traded with it. It fills at its own price (source `cross`), and the bot sees the snapshot without that volume. That tick's market trades at the crossed prices lose the same volume, since they traded with the same orders.
 - **Moving up:** if the visible volume at its price drops below the volume counted ahead of it, orders ahead were cancelled, so it moves up. An emptied level puts it at the front.
 - **Limits:** the limit check counts resting orders, and only rejects that tick's new orders.
 - **Self-trades:** your own orders never trade with each other.
@@ -253,16 +253,16 @@ Template against copies of itself, Prosperity 3 round 1, all three days:
 
 | Market | per tick (default) | `--resting` |
 |---|---|---|
-| alone | 81,292 | 68,043 |
-| with one copy | 46,875 + 47,674 | 32,876 + 33,551 |
-| with two copies | | about 20,600 each |
+| alone | 81,292 | 67,446 |
+| with one copy | 46,875 + 47,674 | 29,695 + 28,222 |
+| with two copies | | 16,266 + 19,522 + 16,279 |
 
 The two copies together make more than one alone in the default mode, because each has its
 own position limit. They also get extra fills: when one beats the other to an ask, the other's
 take order is left at that price for the rest of the tick, where market trades can fill it.
 
 Rivals change which settings win. With `--resting`, Kelp `make_edge=0` is the best setting
-under `worse` fills when trading alone. Against one copy of the baseline it loses 12,474 (15,498
+under `worse` fills when trading alone. Against one copy of the baseline it loses 4,920 (10,980
 under `worse`). Its quotes at fair get crossed by the next snapshot, and the rival picks them
 off: the rival's `wall_mid` treats your large quote as the market maker's level. Against the teams' own P4 bots the same trap cost the template 374k on Osmium in one round, and `fair: sized_mid` turned that into +17k (`IDEAS.md`).
 
@@ -276,9 +276,9 @@ off: the rival's `wall_mid` treats your large quote as the market maker's level.
   - **Take:** trade against book orders at least `take_edge` better than fair.
   - **Clear:** cut inventory at fair to free room under the limit.
   - **Make:** quote `make_edge` from fair, or one tick inside the book, moved by `skew` against inventory, with sizes scaled by `size_skew` (both work toward `target`).
-  - **Level** (optional): for a product that returns to a price `level`, the target becomes the full limit against any move of `level_band` from it, held until the other band (or until `level_exit` of the level). `clear` then crosses the spread toward it, up to `clear_edge` worse than fair. Set `level` from the earlier days' mean, or `"day"` when there is no history. On P4 rounds 3–4 it makes about 54k a day on Hydrogel and Velvetfruit when scored on days it wasn't tuned on, against 15k for plain market making (`IDEAS.md`).
+  - **Level** (optional): for a product that returns to a price `level`, the target becomes the full limit against any move of `level_band` from it, held until the other band (or until the price comes back within `level_exit` of the level, or past it). `clear` then crosses the spread toward it, up to `clear_edge` worse than fair. Set `level` from the earlier days' mean, or `"day"` when there is no history. On P4 rounds 3–4 it makes about 52k a day on Hydrogel and Velvetfruit when scored on days it wasn't tuned on, against 15k for plain market making (`IDEAS.md`).
   - **Follow** (optional): a call option on another product (`follow`, `strike`) holds that product's target as a share of its own limit, so it adds its delta to the same bet. A strike whose half-spread per unit of delta is above `max_cost_per_delta` stays flat. Delta comes from the option's own price through Black–Scholes in total variance, so no expiry date is needed. `Trader.run` trades the followed product first and hands its plan over. On P4 the vouchers following Velvetfruit add about 165k a day out of sample (`IDEAS.md`).
-  - **Basket** (optional): a product that is a known combination of others (`basket`: `{leg: weight}`) trades its spread, its price less the legs' weighted prices, with the level settings: `level` is the usual spread. A family that sums to a constant is a basket with legs of weight −1. Legs with `hedge` hold `-weight × hedge_ratio` per basket held, though hedging never helped on Prosperity data. On P3 round 2 and P2 round 3 it makes 83k and 281k over three days out of sample, against 20k for plain market making. Baskets only take (`make_size` 0): under `--resting`, quotes on a product that jumps several ticks at once get picked off.
+  - **Basket** (optional): a product that is a known combination of others (`basket`: `{leg: weight}`) trades its spread, its price less the legs' weighted prices, with the level settings: `level` is the usual spread. A family that sums to a constant is a basket with legs of weight −1. Legs with `hedge` hold `-weight × hedge_ratio` per basket held, though hedging never helped on Prosperity data. On P3 round 2 and P2 round 3 it makes 71k and 294k over three days out of sample, against 20k for plain market making. Baskets only take (`make_size` 0): under `--resting`, quotes on a product that jumps several ticks at once get picked off.
 - **EXECUTION:** format-agnostic order management. Takes go out immediate-or-cancel. A resting quote is kept, with its place in the queue, while the plan still wants at least its size at its price. Everything else is cancelled and re-sent. When nothing rests between ticks, every planned order is simply sent, so the same file works under both engine modes.
 - **ADAPTER:** the only part that knows the Prosperity types.
 - **Trader:** the entry point. It isolates each product, so one product's bug doesn't stop the others. It keeps all state in `traderData`, and it swallows exceptions unless `STRICT` is set. The backtester sets `STRICT` so errors show up.
