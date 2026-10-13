@@ -19,7 +19,7 @@ Marker's `meta.json` (table of contents with page numbers).
 | `dealing-with-inventory-risk/` | Guéant, Lehalle & Fernandez-Tapia, *Dealing with the inventory risk* (36 pp.) | Market making with a hard inventory bound (HJB / ODE solution) |
 | `price-impact-of-book-events/` | Cont, Kukanov & Stoikov, *The price impact of order book events* (26 pp.) | Order-flow imbalance as a linear driver of short-term price changes |
 | `limit-order-books/` | Gould et al., *Limit order books*, Quant. Finance 2013 (34 pp.) | Survey: LOB mechanics, empirical facts, models |
-| `trades-quotes-prices/` | Bouchaud et al., *Trades, Quotes and Prices* (47 pp. excerpt) | Empirical order-flow and price-impact facts |
+| `trades-quotes-prices/` | Bouchaud, Bonart, Donier & Gould, *Trades, Quotes and Prices* (Cambridge UP 2018, full book, 463 pp.; replaced a 47-page excerpt on 2026-10-13) | Order flow, queues, price impact, when market making pays, execution |
 | `kelly-criterion/` | Thorp, *The Kelly criterion in blackjack, sports betting, and the stock market* (1997, 40 pp.) | Position sizing: bet fraction from edge and variance, fractional Kelly, growth rate vs. risk |
 | `algorithmic-and-hft/` | Cartea, Jaimungal & Penalva, *Algorithmic and High-Frequency Trading* (360 pp.) | Optimal execution, market making, stochastic-control derivations |
 | `harris-trading-and-exchanges/` | Harris, *Trading and Exchanges* (656 pp., 2003 draft) | Market structure, order types, who trades and why |
