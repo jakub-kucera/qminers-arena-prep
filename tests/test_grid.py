@@ -69,6 +69,43 @@ def test_neighborhood_mean_uses_one_step_along_each_axis():
     assert grid.neighborhood_mean(outcomes, (0, 0), (3, 3), mode) == pytest.approx(11 / 3)
 
 
+def _outcomes(day_pnls, failed=()):
+    mode = TradeMatching.ALL
+    outcomes = {}
+    for i, pnls in enumerate(day_pnls):
+        outcome = grid.Outcome((i,), (i,), limit_breaches=1 if i in failed else 0)
+        outcome.day_pnl[mode] = dict(pnls)
+        outcomes[(i,)] = outcome
+    return outcomes
+
+
+def test_each_day_is_scored_with_the_best_combination_on_the_other_days():
+    # Combination 0 wins overall (5 against 4) only because of days d1 and d2.
+    outcomes = _outcomes([{"d1": 10, "d2": 10, "d3": -15}, {"d1": 0, "d2": 0, "d3": 4}])
+    picks = grid.leave_one_day_out(outcomes, TradeMatching.ALL)
+    assert {day: pick.values for day, pick in picks.items()} == {"d1": (1,), "d2": (1,), "d3": (0,)}
+    text = grid.format_held_out([grid.Axis("PARAMS.x", [0, 1])], [TradeMatching.ALL], outcomes, [["d1", "d2"]])
+    assert "held out -15 against 5 for the best combination (-400%); 2 different settings chosen over 3 days" in text
+    assert "! d1, d2 hold the same data" in text
+
+
+def test_held_out_days_skip_failed_combinations_and_single_days():
+    outcomes = _outcomes([{"d1": 9, "d2": 9}, {"d1": 1, "d2": 1}], failed={0})
+    assert {pick.values for pick in grid.leave_one_day_out(outcomes, TradeMatching.ALL).values()} == {(1,)}
+    assert grid.leave_one_day_out(_outcomes([{"d1": 1}]), TradeMatching.ALL) == {}
+
+
+def test_repeated_days_ignore_counterparty_names():
+    from arena.model import Book, Day, MarketTrade, Tick
+
+    def day(name, buyer, price=100):
+        tick = Tick(0, {"X": Book(((price - 1, 5),), ((price + 1, 5),))}, {"X": [MarketTrade("X", price, 2, buyer)]}, {})
+        return Day(name, ["X"], {"X": 10}, [tick])
+
+    days = [day("a", ""), day("b", "Mark 22"), day("c", "", price=101)]
+    assert grid.repeated_days(days) == [["a", "b"]]
+
+
 @pytest.mark.parametrize("jobs", ["1", "2"])
 def test_grid_ranks_combinations_and_writes_csv(capsys, bot, data_dir, tmp_path, jobs):
     out = tmp_path / "grid.csv"
@@ -77,6 +114,7 @@ def test_grid_ranks_combinations_and_writes_csv(capsys, bot, data_dir, tmp_path,
     assert "baseline (bot as is): pnl(all) -4" in text
     assert "best by pnl      size=1  (-4)" in text
     assert "all measures agree" in text
+    assert "held out -4 against -4 for the best combination (+0%); 1 different settings chosen over 2 days" in text
 
     rows = list(csv.DictReader(out.open()))
     assert [row["PARAMS.size"] for row in rows] == ["1", "2", "3"]

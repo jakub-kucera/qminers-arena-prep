@@ -13,7 +13,13 @@ combination also gets:
   <mode>    PnL under each extra --modes entry, e.g. `worse` fill matching. A gain that only
             exists with optimistic fills is probably a backtest artefact.
 
-The summary names the best combination by each measure and says whether they agree.
+The summary names the best combination by each measure and says whether they agree. With two or
+more days it also holds out each day in turn: the combination with the best PnL on the other days
+is scored on the held-out day. The total of those scores is what choosing by PnL earns on days it
+didn't see, and its gap to the best combination's PnL is the selection bias of a grid this size.
+It only covers the gridded values: a setting the bot fits to the data itself (say a level taken
+from the days' mean) needs its own held-out test. Days whose data repeats are flagged, since
+holding one out still trains on its copy.
 """
 
 from __future__ import annotations
@@ -306,6 +312,51 @@ def format_summary(axes, modes, baseline: Outcome, rows: list[Row], sort: str, t
     return "\n".join(lines)
 
 
+def leave_one_day_out(outcomes: dict[tuple[int, ...], Outcome], mode: TradeMatching) -> dict[str, Outcome]:
+    """For each day, the combination with the best PnL on the other days (failed ones left out)."""
+    usable = [outcome for _, outcome in sorted(outcomes.items()) if not outcome.failed]
+    if not usable or len(usable[0].day_pnl[mode]) < 2:
+        return {}
+    return {
+        day: max(usable, key=lambda outcome, day=day: outcome.pnl(mode) - outcome.day_pnl[mode][day])
+        for day in usable[0].day_pnl[mode]
+    }
+
+
+def repeated_days(days: list[Day]) -> list[list[str]]:
+    """Groups of days with the same books and trades: the same data loaded twice.
+
+    Trades are compared without counterparty names: P4's round 4 repeats two days of round 3 with
+    names added.
+    """
+    groups: dict[tuple, list[str]] = {}
+    for day in days:
+        ticks = day.ticks[:SMOKE_TEST_TICKS]
+        trades = [sorted((p, tr.price, tr.quantity) for p, trs in t.trades.items() for tr in trs) for t in ticks]
+        key = (len(day.ticks), repr([(t.timestamp, t.books) for t in ticks]), repr(trades))
+        groups.setdefault(key, []).append(day.name)
+    return [names for names in groups.values() if len(names) > 1]
+
+
+def format_held_out(axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tuple[int, ...], Outcome], repeats: list[list[str]]) -> str:
+    mode = modes[0]
+    picks = leave_one_day_out(outcomes, mode)
+    if not picks:
+        return ""
+    best = max((o for o in outcomes.values() if not o.failed), key=lambda outcome: outcome.pnl(mode))
+    lines = [f"held-out days: the best pnl({mode}) on the other days, scored on the day left out"]
+    for day, pick in picks.items():
+        setting = ", ".join(f"{axis.label}={str(v)}" for axis, v in zip(axes, pick.values))
+        lines.append(f"  {day}: {setting}  {_num(pick.day_pnl[mode][day])}  (best combination: {_num(best.day_pnl[mode][day])})")
+    held, full = sum(pick.day_pnl[mode][day] for day, pick in picks.items()), best.pnl(mode)
+    gap = f" ({(held - full) / abs(full):+.0%})" if full else ""
+    choices = len({pick.values for pick in picks.values()})
+    lines.append(f"held out {_num(held)} against {_num(full)} for the best combination{gap}; {choices} different settings chosen over {len(picks)} days")
+    for names in repeats:
+        lines.append(f"! {', '.join(names)} hold the same data: holding one out still trains on the other")
+    return "\n".join(lines)
+
+
 def write_csv(path: Path, axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tuple[int, ...], Outcome]) -> None:
     """One row per combination: axis values, then per mode its pnl, min day, nbhd, per-day and per-product pnl."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -389,6 +440,9 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = build_rows(axes, modes, outcomes)
     print(format_summary(axes, modes, baseline, rows, args.sort, args.top))
+    held_out = format_held_out(axes, modes, outcomes, repeated_days(s.days))
+    if held_out:
+        print("\n" + held_out)
     failed = [o for o in outcomes.values() if o.first_error]
     if failed:
         print(f"first error: {failed[0].first_error}")

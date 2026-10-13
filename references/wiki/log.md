@@ -156,3 +156,8 @@ Measured what the teams' P4 round 3–4 money is made of, with two committed scr
 - **Result** (`experiments/p4_vouchers_template.py`, nested leave-one-day-out on P4 rounds 3–4): Velvetfruit with VEV_4000–5500 following makes 768k over four days, the vouchers 661k of it; in-sample 1,001k. The cost-per-delta gate never helped.
 - **Filed into:** `options-and-vouchers` ("What it means for our code"); the repo's `IDEAS.md` (the voucher row and a note under the benchmark), `README.md`, `CLAUDE.md`, `ON_THE_DAY.md` ("Products"), `TODO.md`.
 - **Citations moved:** template line citations re-mapped with a diff of the old and new file.
+
+## [2026-10-13] query | held-out days in the grid
+`arena.grid` now holds out each day in turn: the best combination by PnL on the other days is scored on the day left out, from the runs it already did. It also flags days whose data repeats; P4's round 4 trades add counterparty names to two days of round 3.
+- **Result:** no selection bias for Kelp on P3 round 1; −14% for Velvetfruit with its vouchers on P4 rounds 3–4.
+- **Filed into:** `validation-and-overfitting` ("What it means for our code"); the repo's `README.md`, `CLAUDE.md` and `TODO.md` (the grid item, CSCV still to build).

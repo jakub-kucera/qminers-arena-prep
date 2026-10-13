@@ -136,6 +136,27 @@ best by worse    KELP.make_edge=0, KELP.take_edge=1  (63,068)
 measures disagree: prefer a setting near the top on every measure over the single best pnl
 ```
 
+With two or more days, the summary also holds out each day in turn. The best combination by
+PnL on the other days is scored on the day left out, from the runs already done. The total is
+what choosing by PnL earns on days the grid didn't see, and its gap to the best combination is
+the grid's selection bias. On Kelp above there is none: every day picks the same setting. On P4
+rounds 3–4, for Velvetfruit's level bet with its vouchers (`level_band` × `clear_edge`), it is
+−14%:
+
+```
+held-out days: the best pnl(all) on the other days, scored on the day left out
+  r3d0: VELVETFRUIT_EXTRACT.level_band=30, VELVETFRUIT_EXTRACT.clear_edge=2  279,418  (best combination: 279,418)
+  r3d1: VELVETFRUIT_EXTRACT.level_band=30, VELVETFRUIT_EXTRACT.clear_edge=2  174,596  (best combination: 174,596)
+  r3d2: VELVETFRUIT_EXTRACT.level_band=20, VELVETFRUIT_EXTRACT.clear_edge=3  142,519  (best combination: 284,464)
+  r4d3: VELVETFRUIT_EXTRACT.level_band=30, VELVETFRUIT_EXTRACT.clear_edge=2  262,606  (best combination: 262,606)
+held out 859,139 against 1,001,084 for the best combination (-14%); 2 different settings chosen over 4 days
+```
+
+This only covers the gridded values. A setting the bot takes from the data itself, such as a
+level from the days' mean, needs its own held-out test (`experiments/p4_level_template.py` does
+both). Days whose data repeats, like P4's round 4 days 1–2, which are round 3's, are flagged,
+since holding one out still trains on its copy.
+
 `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
 per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL.
 

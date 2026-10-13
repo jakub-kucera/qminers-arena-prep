@@ -44,7 +44,7 @@ Theory against practice: whether a held-out day still protects when it is reused
 None on the principle. On the cost of caution: Baguette Fromage notes they shipped parts they suspected were over-fit "because at some point you have to stop researching" (`prosperity4-baguette-fromage/README.md:1099`).
 
 ## What it means for our code
-`arena/grid.py` ranks by PnL, minimum day, neighbourhood mean and extra modes, and flags disagreement. It does not know how many combinations it tried (`TODO.md`: "Make `arena.grid` say how many combinations it tried"). The Arena's submission cap and private re-evaluation (`ON_THE_DAY.md`) mean every look at the public backtest is one more trial.
+`arena/grid.py` ranks by PnL, minimum day, neighbourhood mean and extra modes, and flags disagreement. Since 2026-10-13 it also holds out each day in turn: the best combination on the other days is scored on the day left out, which measures the selection bias directly (−14% for Velvetfruit with its vouchers on P4 rounds 3–4, none for Kelp on P3 round 1), and it flags days whose data repeats. This is CSCV's simplest relative: one split per day rather than every halving of the blocks, and no probability of overfitting (`TODO.md`: "Make `arena.grid` say how many combinations it tried"). The Arena's submission cap and private re-evaluation (`ON_THE_DAY.md`) mean every look at the public backtest is one more trial.
 
 **Is a CSCV-style PBO worth building? Yes** (decided 2026-10-12 from the papers; not yet built):
 - **The grid already produces CSCV's input.** It needs only every cell's PnL per block, the difference of `pnl` at block boundaries in each run's timeline. CSCV is then a few dozen lines of standard library.
