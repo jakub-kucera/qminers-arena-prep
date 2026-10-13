@@ -117,7 +117,7 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - jumps that snap back: done for P4 (2026-10-13): the template's `jump` mode, switched on for every round 5 product, adds 501k over the three days to plain market making (958.8k, against Baguette Fromage's 1,091k and DU's 727k), worst day +3.8k, in-sample (`IDEAS.md`). The Robots' 309–509k turned out to be one product-day, ROBOT_DISHES on day 4.
   - options: done for P4 (2026-10-13): implied vol is flat there, so the vouchers `follow` Velvetfruit's level bet (`IDEAS.md`). P3 round 3's volcanic vouchers, checked in the rehearsal, stray from Black–Scholes by more than their spread, and their vol moves with the spot, which is a smile. There they follow the rock for now; smile trading is still to build (`IDEAS.md`, untested). Prosperity 2 round 4's coconut coupons are unchecked.
   - mean reversion: Squid Ink. A product that returns to a fixed level is done for P4 (2026-10-13): the template's `level` mode, 54k a day out of sample on Hydrogel and Velvetfruit (`IDEAS.md`). Squid Ink is the case it doesn't cover: P3's diagnose finds no slow reversion there.
-  - counterparty names: Prosperity round 5, to follow the traders who know something
+  - counterparty names: done (2026-10-13): the template's `copy` mode follows named traders. Copying Olivia on P3 round 5 adds 54k over the three days out of sample (Croissants and Squid Ink); no P4 Mark is worth following, and choosing names by their mean move lost 400k out of sample (`IDEAS.md`, "Following informed counterparties").
   - Done when: each has a sketch that backtests, even if rough, so none starts from nothing on the day.
 
 ## Rehearsal and setup

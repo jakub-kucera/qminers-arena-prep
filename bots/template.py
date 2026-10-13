@@ -66,6 +66,11 @@ DEFAULTS = {
     "jump_edge": 10,  # clear_edge while the target is against a jump: worth paying, a jump is worth jump_min
     "jump_seen": 5,  # jumps seen today before trading on them
     "jump_share": 0.6,  # the least share of them that reversed the jump before
+    # Following named traders (see copy_target): {name: weight}, positive to trade with that
+    # name, negative to trade against it. None turns it off. While on, it sets target instead.
+    "copy": None,
+    "copy_hold": None,  # ticks to hold after a signal; None: until the next one
+    "copy_edge": 5,  # clear_edge while the target follows a signal
 }
 
 PARAMS = {
@@ -176,11 +181,13 @@ class Plan:
 
 class Market:
     """What one product's strategy sees of the others this tick: every book, before anyone trades,
-    and the plans of the products traded so far. Trader.run trades a product that follows or hedges
-    another after it, so one level of dependency works."""
+    the other traders' trades since the last tick as (buyer, seller, quantity), and the plans of
+    the products traded so far. Trader.run trades a product that follows or hedges another after
+    it, so one level of dependency works."""
 
-    def __init__(self, books: dict[str, Book]):
+    def __init__(self, books: dict[str, Book], trades: dict[str, list[tuple[str, str, int]]] | None = None):
         self.books = books
+        self.trades = trades or {}
         self.plans: dict[str, Plan] = {}
 
 
@@ -195,6 +202,9 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
         p = {**p, "target": basket_target(fair, p, memory, market, plan)}
     elif p["level"] is not None:
         p = {**p, "target": level_target(fair, p, memory)}
+    elif p["copy"] is not None:
+        target = copy_target(market.trades.get(product, []), p, memory)
+        p = {**p, "target": target, "clear_edge": p["copy_edge"] if target else p["clear_edge"]}
     elif p["jump_min"] is not None:
         target = jump_target(fair, p, memory)
         p = {**p, "target": target, "clear_edge": p["jump_edge"] if target else p["clear_edge"]}
@@ -327,6 +337,24 @@ def jump_target(fair: float, p: dict, memory: dict) -> int:
     elif p["jump_hold"] is not None and age >= p["jump_hold"]:
         held = 0
     memory["held"], memory["jump_age"] = held, age
+    return held
+
+
+def copy_target(trades: list[tuple[str, str, int]], p: dict, memory: dict) -> int:
+    """The position to hold when some traders know where the price is going: up to the full limit their way.
+
+    Each trade since the last tick adds the buyer's weight in copy and takes away the seller's.
+    A non-zero sum, capped at 1 either way, sets the target to that share of the limit, held for
+    copy_hold ticks or until the next signal: a weight of 0.5 leaves half the room to market making. On P3 round 5, Olivia bought at or near the day's low and sold at
+    or near its high on all 19 of her trades (Kelp, Squid Ink, Croissants) (IDEAS.md).
+    """
+    signal = sum(p["copy"].get(buyer, 0) - p["copy"].get(seller, 0) for buyer, seller, _ in trades)
+    held, age = memory.get("held", 0), memory.get("copy_age", 0) + 1
+    if signal:
+        held, age = round(max(-1.0, min(1.0, signal)) * p["limit"]), 0
+    elif p["copy_hold"] is not None and age >= p["copy_hold"]:
+        held = 0
+    memory["held"], memory["copy_age"] = held, age
     return held
 
 
@@ -545,6 +573,16 @@ def open_orders(state: TradingState) -> dict:
     return getattr(state, "open_orders", None) or {}
 
 
+def read_trades(state: TradingState) -> dict[str, list[tuple[str, str, int]]]:
+    """Trades since the last tick, by product, as (buyer, seller, quantity): other traders' trades
+    and our own fills, which name the counterparty. A trade we took part in is only in the second."""
+    out: dict[str, list[tuple[str, str, int]]] = {}
+    for trades in (getattr(state, "market_trades", None) or {}, getattr(state, "own_trades", None) or {}):
+        for product, ts in trades.items():
+            out.setdefault(product, []).extend((t.buyer or "", t.seller or "", t.quantity) for t in ts)
+    return out
+
+
 def read_resting(state: TradingState, product: str) -> list[tuple[int, int, int]]:
     return [(order.id, order.price, order.quantity) for order in open_orders(state).get(product, [])]
 
@@ -557,7 +595,7 @@ class Trader:
     def run(self, state: TradingState):
         memory = load_memory(state.traderData)
         orders: dict[str, list[Order | Cancel]] = {}
-        market = Market({product: read_book(depth) for product, depth in state.order_depths.items()})
+        market = Market({product: read_book(depth) for product, depth in state.order_depths.items()}, read_trades(state))
         # Products that follow or hedge another go last, so they see its plan.
         products = sorted(market.books, key=lambda product: _depends(PARAMS.get(product, {})))
         for product in products:

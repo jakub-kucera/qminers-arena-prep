@@ -1,7 +1,7 @@
 ---
 title: Informed counterparties (named traders)
 type: concept
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Informed counterparties
@@ -34,12 +34,16 @@ Whether market trades in general carry information (theory: yes; Prosperity's wa
 Which Mark, if any, is worth acting on: see [contradictions](../contradictions.md), row 3. By team: Mark 67 (DU, heyman7913; Alpha Search found it real but too small), Mark 14 (DTU, Leo-Hawking), Mark 55 (Leo-Hawking, heyman7913), none that survived (Ryan Challman, Baguette Fromage).
 
 ## What it means for our code
-`arena/model.py` `MarketTrade` already has `buyer` and `seller` (`arena/model.py:39-48`), and the Prosperity format passes them through. No strategy uses them.
+`arena/model.py` `MarketTrade` has `buyer` and `seller` (`arena/model.py:39-48`), and the Prosperity format passes them through. The template's `copy` mode follows named traders: `{name: weight}`, the summed weights of the buyers less the sellers set the target, held until the next signal. *(checked: `experiments/counterparties.py`, 2026-10-13)*:
+- **Olivia is right on every trade** in P3 round 5: all 19, on Kelp, Squid Ink and Croissants, at or near the day's low or high. Copying her adds 54k over the three days when she is chosen on the other days (Croissants and Squid Ink); on Kelp it loses, because her moves there are small next to the market making they crowd out.
+- **No Mark in P4 round 4 is**, at 10–1,000 ticks: Mark 67 buying Velvetfruit is +1.3 / −0.3 / −2.6 at 100 ticks on the three days. This sides with Ryan Challman and Baguette Fromage in [contradictions](../contradictions.md), row 3.
+- **Choose by hit rate, not by mean move.** Picking names whose mean move beat half the spread on two days lost 400k on the held-out days of P3 and 31k on P4: with dozens of names and products, some means are luck. Picking names right on 80% of their trades on every training day found only Olivia.
+- **Our own fills hide the signal:** a market trade that our order fills shows up only in `own_trades`, with the counterparty named, as in Prosperity; the ADAPTER reads both.
 
 ## How to test it here
 Without names: per product, the correlation between our position and the next 10–100 ticks of `mark` change in `_timeline.csv`. A clearly negative value means someone is picking us off (Harris's test). Then split our fill markouts by the trade's size and by time of day to find who.
 
-If the Arena names counterparties: forward-return table per name at 100/200/500 ticks, **leave-one-day-out**, a hard switch-off if any name flips sign across days. Do not ship a name-based signal that fails a held-out day (rule from [validation-and-overfitting](validation-and-overfitting.md)).
+If the Arena names counterparties: `uv run python -m experiments.counterparties` gives the forward-move table per name, product and side at 10–1,000 ticks, and scores two selection rules by leaving one day out. Do not ship a name-based signal that fails a held-out day (rule from [validation-and-overfitting](validation-and-overfitting.md)).
 
 ## Sources
 [Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [heyman7913](../sources/prosperity4-heyman7913.md).

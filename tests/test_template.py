@@ -154,6 +154,33 @@ def test_a_jump_target_crosses_up_to_jump_edge(bot):
     assert bot.trade_product("X", bot.Book([[196, 10]], [[204, 10]]), 10, flat, {}).takes == []
 
 
+def test_copy_target_trades_the_named_traders_way(bot):
+    p = params(bot, copy={"Olivia": 1, "Pablo": -0.5})
+    memory = {}
+    assert bot.copy_target([("Caesar", "Paris", 5)], p, memory) == 0  # no name in copy: no signal
+    assert bot.copy_target([("Olivia", "Paris", 15)], p, memory) == 10  # she buys: the full limit long
+    assert bot.copy_target([], p, memory) == 10  # held until the next signal
+    assert bot.copy_target([("Pablo", "Caesar", 3)], p, memory) == -5  # against Pablo, at his weight
+    assert bot.copy_target([("Pablo", "Olivia", 3)], p, memory) == -10  # both say sell: capped at the limit
+
+
+def test_copy_hold_flattens_after_that_many_ticks(bot):
+    p = params(bot, copy={"Olivia": 1}, copy_hold=2)
+    memory = {}
+    targets = [bot.copy_target(trades, p, memory) for trades in ([("Paris", "Olivia", 1)], [], [], [])]
+    assert targets == [-10, -10, 0, 0]
+
+
+def test_copy_reads_the_counterparty_of_our_own_fills(bot, monkeypatch):
+    # When our order fills against her trade, it leaves the market trades and is only in own_trades.
+    monkeypatch.setattr(bot, "PARAMS", {"X": {"limit": 10, "fair": "fixed", "fixed_fair": 100, "copy": {"Olivia": 1}, "make_size": 0}})
+    depths = {"X": depth([(99, 20)], [(101, 20)])}
+    own = {"X": [dm.Trade("X", 101, 2, "Olivia", "SUBMISSION")]}
+    s = dm.TradingState("", 0, {}, depths, own, {}, {"X": -2}, dm.Observation({}, {}))
+    orders, _, _ = bot.Trader().run(s)
+    assert [(o.price, o.quantity) for o in orders["X"]] == [(101, 12)]  # she bought from us: go long
+
+
 def test_a_price_far_above_the_level_sells_toward_a_short_target(bot):
     book = bot.Book([[109, 4], [108, 9]], [[111, 4]])
     p = params(bot, fair="wall_mid", level=100, level_band=5, clear_edge=2)
