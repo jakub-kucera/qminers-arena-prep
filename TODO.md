@@ -99,7 +99,7 @@ Choices only the user can make, each with the options, the evidence and a recomm
 - [ ] **Prepare the other later-round mechanics:**
   - **Priority from the P4 benchmark (2026-10-13, `IDEAS.md`):** options first (the teams make about 370–610k on the vouchers per options round, plain market making 11k), then fading round-number jumps (Robots: 309–509k against 11k), then spot products that revert to a level (Hydrogel, Velvetfruit: up to 160k against 5–30k). Read the teams' files for each before writing ours; they all run in our engine.
   - options: implied volatility and delta hedging, on Prosperity 3 round 3's volcanic vouchers and Prosperity 2 round 4's coconut coupons
-  - mean reversion: Squid Ink
+  - mean reversion: Squid Ink. A product that returns to a fixed level is done for P4 (2026-10-13): the template's `level` mode, 54k a day out of sample on Hydrogel and Velvetfruit (`IDEAS.md`). Squid Ink is the case it doesn't cover: P3's diagnose finds no slow reversion there.
   - counterparty names: Prosperity round 5, to follow the traders who know something
   - Done when: each has a sketch that backtests, even if rough, so none starts from nothing on the day.
 

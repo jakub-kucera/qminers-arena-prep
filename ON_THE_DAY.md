@@ -90,6 +90,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
     - market trades that don't move the wall mid;
     - market-making margins of 0.2–0.4 of the spread.
   - If different: the table says which template parameter or strategy each note changes. A thin margin, or trades that move the wall mid, means competitive or informed flow: quote wider and look for signals before tuning.
+  - For a product noted `reverts to a level`: compare its daily mean wall mid across the download's days. If they agree within a fraction of the intraday sd, set the template's `level` to their mean and grid `level_band` and `clear_edge` (about half the spread); otherwise start from `level: "day"`, which made 0.6 times as much on P4 (`IDEAS.md`, "Trading toward a known level").
 - [ ] **Which backtest settings match the playground?**
   - Find out: run one bot (the template is fine) in the playground, then backtest it over the same period. Try each `--match-trades` mode, with and without `--resting`. Compare the number of passive fills, which fill rule decides most, and the PnL.
   - We assume: the per-tick mode with `--match-trades all`, which was the most optimistic on Prosperity data (81k, against 58k under `worse` and 28k under `none`).

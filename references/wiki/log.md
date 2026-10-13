@@ -145,3 +145,8 @@ Measured what the teams' P4 round 3–4 money is made of, with two committed scr
 - **Levels:** Hydrogel's and Velvetfruit's daily means agree within 13 and 16 across days. Replacing Baguette Fromage's and DU's hard-coded levels with the other days' mean keeps 90% of their PnL; the day's running mean keeps 55–57%.
 - **Vouchers:** implied vol is flat within each day, each voucher sits within about half a spread of Black–Scholes at one vol, and the teams' voucher PnL is delta × Velvetfruit's move. Contradictions row 6 settled for P4; the options page's link to it said row 5 and is fixed.
 - **Filed into:** `drift-and-regime-change`, `options-and-vouchers`, `reading-the-data-on-day-one`, contradictions row 6; the repo's `IDEAS.md` (two tested rows; the untested spot-level row removed, the options row narrowed to smile trading on P3).
+
+## [2026-10-13] query | a level mode in the template
+`bots/template.py` gains `level_target` and `estimate_level`: for a product that returns to a level, the target is the full limit against a move of `level_band`, held until the other band. The level is a number from earlier days, the day's running mean (`"day"`), or a blend (`level_weight`).
+- **Result** (`experiments/p4_level_template.py`, nested leave-one-day-out on P4 rounds 3–4): 215k over four days on Hydrogel and Velvetfruit, against 286k in-sample and 147k with the day's own mean. Blending did not help.
+- **Filed into:** `drift-and-regime-change` ("What it means for our code"), `reading-the-data-on-day-one` (the reverts-to-a-level row); the repo's `IDEAS.md`, `README.md`, `CLAUDE.md`, `ON_THE_DAY.md`, `TODO.md`.

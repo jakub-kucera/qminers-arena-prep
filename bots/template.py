@@ -42,6 +42,12 @@ DEFAULTS = {
     "size_skew": 0.0,  # scale each quote by max(1 +/- size_skew * gap / limit, 0): the side that adds to the gap shrinks
     "target": 0,  # position to hold: clear and skew work inventory toward it (e.g. long with a steady drift)
     "make_size": None,  # largest quote; None quotes all remaining room under the limit
+    # A price the product returns to (see level_target): a number from earlier days, or "day" for
+    # the mean of the day so far. None turns it off. While on, it sets target instead.
+    "level": None,
+    "level_weight": None,  # with a number level: ticks it counts for against the day's mean; None: fixed
+    "level_band": 20,  # hold the full limit against a move this far from the level
+    "level_exit": None,  # flatten once back within this of the level; None: hold until the other band
 }
 
 PARAMS = {
@@ -55,6 +61,9 @@ PARAMS = {
     # (grid over target and skew on rounds 1-2, IDEAS.md); Osmium is untuned.
     "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "make_edge": 1},
     "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "target": 80, "skew": 20},
+    # IMC Prosperity 4, rounds 3-4. Both return to a level that held across days (IDEAS.md).
+    "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 30, "level_exit": 0, "clear_edge": 8},
+    "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 20, "clear_edge": 2},
 }
 
 
@@ -121,6 +130,8 @@ def trade_product(book: Book, position: int, p: dict, memory: dict) -> Plan:
     fair = fair_value(book, p, memory)
     if fair is None:  # no price seen yet
         return plan
+    if p["level"] is not None:
+        p = {**p, "target": level_target(fair, p, memory)}
     take(book, fair, p, plan)
     clear(book, fair, p, plan)
     make(book, fair, p, plan)
@@ -171,6 +182,42 @@ def _wall(levels: list[list[int]]) -> list[list[int]]:
 def _sized(levels: list[list[int]], size: int) -> list[list[int]]:
     """The first level from the top with at least `size`, else the best level, as a one-level list."""
     return next(([level] for level in levels if level[1] >= size), levels[:1])
+
+
+def level_target(fair: float, p: dict, memory: dict) -> int:
+    """The position to hold when the product returns to a level: short above it, long below.
+
+    Beyond level_band from the level, the target is the full limit against the move. Inside the
+    band it keeps its last value, so the position isn't traded back and forth on every tick (each
+    trade toward the target can cost half the spread), until the price reaches the other band or,
+    with level_exit, comes back within level_exit of the level. On P4 Hydrogel and Velvetfruit a
+    level taken from the other days made 1.7 times as much as the day's own mean (IDEAS.md).
+    """
+    gap = fair - estimate_level(fair, p, memory)
+    held = memory.get("held", 0)
+    if gap >= p["level_band"]:
+        held = -p["limit"]
+    elif gap <= -p["level_band"]:
+        held = p["limit"]
+    elif p["level_exit"] is not None and abs(gap) <= p["level_exit"]:
+        held = 0
+    memory["held"] = held
+    return held
+
+
+def estimate_level(fair: float, p: dict, memory: dict) -> float:
+    """The level: the configured one, the mean of the day so far, or a blend of the two.
+
+    With level_weight, a number level counts as that many ticks of the day's mean, so a day that
+    settles elsewhere slowly moves it.
+    """
+    memory["level_sum"] = memory.get("level_sum", 0.0) + fair
+    memory["level_n"] = memory.get("level_n", 0) + 1
+    if p["level"] == "day":
+        return memory["level_sum"] / memory["level_n"]
+    if p["level_weight"] is None:
+        return p["level"]
+    return (p["level"] * p["level_weight"] + memory["level_sum"]) / (p["level_weight"] + memory["level_n"])
 
 
 def take(book: Book, fair: float, p: dict, plan: Plan) -> None:

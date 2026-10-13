@@ -85,6 +85,36 @@ def test_clear_and_skew_work_toward_the_target(bot):
     assert plan.quotes == [(95, 14), (113, -6)]
 
 
+def test_level_target_holds_the_full_limit_until_the_other_band(bot):
+    p = params(bot, level=100, level_band=5)
+    memory = {}
+    targets = [bot.level_target(fair, p, memory) for fair in (102, 106, 101, 96, 94, 100, 104)]
+    assert targets == [0, -10, -10, -10, 10, 10, 10]
+
+
+def test_level_exit_flattens_near_the_level(bot):
+    p = params(bot, level=100, level_band=5, level_exit=1)
+    memory = {}
+    targets = [bot.level_target(fair, p, memory) for fair in (106, 103, 100.5, 103, 94)]
+    assert targets == [-10, -10, 0, 0, 10]  # flat from the level until a band is reached again
+
+
+def test_the_level_from_the_day_or_blended_with_it(bot):
+    memory = {}
+    assert [bot.estimate_level(f, params(bot, level="day"), memory) for f in (100, 104)] == [100, 102]
+    memory = {}
+    blend = params(bot, level=100, level_weight=2)  # the 100 counts as two ticks of the day's mean
+    assert [bot.estimate_level(f, blend, memory) for f in (106, 106)] == [102, 103]
+    assert bot.estimate_level(106, params(bot, level=100), {}) == 100  # no weight: it never moves
+
+
+def test_a_price_far_above_the_level_sells_toward_a_short_target(bot):
+    book = bot.Book([[109, 4], [108, 9]], [[111, 4]])
+    p = params(bot, fair="wall_mid", level=100, level_band=5, clear_edge=2)
+    plan = bot.trade_product(book, 0, p, {})
+    assert plan.takes == [(109, -4), (108, -6)]  # wall mid 109.5: sells down to -10 within 2 of it
+
+
 def test_make_steps_inside_a_wide_book(bot):
     plan = bot.Plan(0, 10)
     bot.make(bot.Book([[95, 5]], [[105, 5]]), 100, params(bot, make_edge=2), plan)

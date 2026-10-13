@@ -120,7 +120,7 @@ between calls.
 
 `bots/template.py` has five sections:
 - **PARAMS:** `DEFAULTS` plus a per-product dict. Products not listed aren't traded. Unknown keys raise, which catches typos.
-- **STRATEGY:** format-agnostic. Fair value (fixed, mid, `wall_mid`, `outer_mid` or `sized_mid`; `sized_mid` survives rivals' resting orders) → take → clear → make. `clear`, `skew` and `size_skew` work inventory toward `target` (default 0; a long target holds with a steady drift). `Plan` keeps all orders inside the full room under the limit, counting buys and sells separately. It holds `takes` (take, clear) and `quotes` (make) apart.
+- **STRATEGY:** format-agnostic. Fair value (fixed, mid, `wall_mid`, `outer_mid` or `sized_mid`; `sized_mid` survives rivals' resting orders) → take → clear → make. `clear`, `skew` and `size_skew` work inventory toward `target` (default 0; a long target holds with a steady drift). With `level` set, `level_target` replaces `target`: the full limit against a move of `level_band` from a price the product returns to. `Plan` keeps all orders inside the full room under the limit, counting buys and sells separately. It holds `takes` (take, clear) and `quotes` (make) apart.
 - **EXECUTION:** format-agnostic. `execute(plan, resting)` returns cancels and new orders:
   - takes are sent as IOC
   - a resting quote is kept while a quote on its side and price still wants at least its size
