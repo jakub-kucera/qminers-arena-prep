@@ -31,7 +31,7 @@ The Kelly criterion ([Thorp](../sources/kelly-criterion.md)) sizes each bet to m
 Only part of this carries over *(inferred)*:
 - **The objective differs.** Kelly maximises log growth over many reinvested bets. The Arena scores four rounds, weighted 10/20/30/40%, against other teams, with a position limit instead of a bankroll and no ruin. Maximising expected log growth is not maximising rank, so `f*` itself has no meaning here.
 - **What carries:** the edge-over-variance scaling, so a product with a thin edge and a volatile price gets less of its limit; the asymmetry, so when unsure, size down; and the warning that backtest edges overstate live ones ([validation](validation-and-overfitting.md)).
-- **The position limit is the bankroll cap.** Using the full limit is the right size only when the edge per unit of risk is large. The template's `make_size` and `skew` are the knobs (`bots/template.py:40-42`).
+- **The position limit is the bankroll cap.** Using the full limit is the right size only when the edge per unit of risk is large. The template's `make_size` and `skew` are the knobs (`bots/template.py:40-43`).
 - **Rank changes the appetite.** Behind, more variance can raise the chance of a top place; ahead, it only adds the risk of losing it. That is the rest of this page, and no part of Kelly.
 
 ## Where they disagree

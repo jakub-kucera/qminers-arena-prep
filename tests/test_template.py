@@ -93,6 +93,22 @@ def test_skew_moves_quotes_against_inventory(bot):
     assert plan.quotes == [(105, -20)]  # one inside the 110 ask, moved down 4
 
 
+def test_size_skew_shrinks_the_quote_that_adds_to_the_gap(bot):
+    book = bot.Book([[90, 5]], [[110, 5]])
+    plan = bot.Plan(position=5, limit=10)  # long half the limit
+    bot.make(book, 100, params(bot, make_edge=2, make_size=4, size_skew=1), plan)
+    assert plan.quotes == [(91, 2), (109, -6)]  # bid 4 x 0.5, ask 4 x 1.5
+    plan = bot.Plan(position=-5, limit=10)  # short: the bid grows but stays within the room
+    bot.make(book, 100, params(bot, make_edge=2, size_skew=1), plan)
+    assert plan.quotes == [(91, 15), (109, -2)]  # ask: room 5 x 0.5
+    plan = bot.Plan(position=6, limit=10)  # at target: sizes unchanged
+    bot.make(book, 100, params(bot, make_edge=2, make_size=4, size_skew=3, target=6), plan)
+    assert plan.quotes == [(91, 4), (109, -4)]
+    plan = bot.Plan(position=5, limit=10)  # a factor below zero quotes nothing on that side
+    bot.make(book, 100, params(bot, make_edge=2, make_size=4, size_skew=3), plan)
+    assert plan.quotes == [(109, -10)]
+
+
 def test_skew_never_crosses_the_book(bot):
     plan = bot.Plan(-10, 10)  # short at the limit: quotes move up
     bot.make(bot.Book([[99, 5]], [[101, 5]]), 100, params(bot, make_edge=1, skew=5), plan)

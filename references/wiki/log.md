@@ -123,3 +123,8 @@ Ran the template in one market with DU's `round2.py`, Baguette Fromage's `Phase1
   - `ON_THE_DAY.md` ("Is `wall_mid` still the market maker's price?").
 
   It also raises the stakes for the wall-mid comparison in `TODO.md`.
+
+## [2026-10-13] query | size skew (Bouchaud et al. eq. 17.4) tested
+The template gains `size_skew`: inventory control through quote size, as in eq. 17.4.
+- **Result:** gridded against `skew` on P3 round 1 (Kelp, Resin, also under `--resting`) and P4 rounds 1–2 (Osmium, Pepper Root), it never beat 0. Price `skew` cost more. Both fit the diagnosis that Prosperity's flow is uninformed. Recorded in `IDEAS.md` and `market-making-and-inventory-skew`.
+- **Citations moved:** the new `DEFAULTS` line and `make` docstring shifted `bots/template.py`. Its citations in 19 wiki pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:189-221`).

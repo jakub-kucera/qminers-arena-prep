@@ -38,6 +38,7 @@ DEFAULTS = {
     "clear_edge": 0,  # cut inventory at prices up to this much worse than fair
     "make_edge": 2,  # quote at least this far from fair
     "skew": 0.0,  # move quotes this far against inventory when at the full position limit
+    "size_skew": 0.0,  # scale each quote by max(1 +/- size_skew * gap / limit, 0): the side that adds to the gap shrinks
     "target": 0,  # position to hold: clear and skew work inventory toward it (e.g. long with a steady drift)
     "make_size": None,  # largest quote; None quotes all remaining room under the limit
 }
@@ -192,6 +193,10 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
     that's further out (no point quoting better than needed). skew then moves both quotes down
     when above target and up when below, by up to skew ticks a full limit away, to work the
     position back toward target. Quotes never cross the book.
+
+    size_skew works through size instead (Bouchaud et al. 2018, eq. 17.4): with gap the distance
+    above target as a share of the limit, the bid is scaled by max(1 - size_skew * gap, 0) and the
+    ask by max(1 + size_skew * gap, 0), within the room left.
     """
     best_bid = next((price for price, volume in book.bids if volume > 0), None)
     best_ask = next((price for price, volume in book.asks if volume > 0), None)
@@ -211,8 +216,13 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
         ask = max(ask, best_bid + 1)
 
     size = p["make_size"]
-    plan.buy(bid, plan.buy_room if size is None else size, quote=True)
-    plan.sell(ask, plan.sell_room if size is None else size, quote=True)
+    gap = p["size_skew"] * (plan.net - p["target"]) / plan.limit
+    plan.buy(bid, _scaled(plan.buy_room if size is None else size, 1 - gap), quote=True)
+    plan.sell(ask, _scaled(plan.sell_room if size is None else size, 1 + gap), quote=True)
+
+
+def _scaled(size: int, factor: float) -> int:
+    return int(size * max(factor, 0.0))
 
 
 # ------------------------------------------------------------------------------ EXECUTION

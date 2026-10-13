@@ -22,7 +22,7 @@ Every strategy in the clones starts from an estimate of the simulator's true pri
 | DTU Quant Lab, plain market maker | `(min bid + max ask) / 2` if each side has ≥ 2 levels, else the plain mid | `prosperity4-dtu-quant-lab/round_5/algorithmic/trader.py:613` |
 | Linear Utility (P2 Starfruit) | mid of the best ask and bid among levels of **size ≥ 15**, plus a mean-reversion correction `-0.229 × last return` | `prosperity2-linear-utility/round1/round_1_v6.py:160` |
 | Alpha Search | wall mid "with volumes as a filter", forward-filled when a side is missing | `prosperity4-alpha-search/README.md:48` |
-| **Our `bots/template.py`** | **highest-volume level** (`_wall`) | `bots/template.py:156` |
+| **Our `bots/template.py`** | **highest-volume level** (`_wall`) | `bots/template.py:157` |
 
 - **Per product:** Resin and Osmium are fixed at 10,000 (but see below); Kelp is a random walk, so the best forecast is the current wall mid (`prosperity3-frankfurt-hedgehogs/README.md:210`); Pepper Root is `start + 0.001 × timestamp`, with the start taken from the first wall mid rounded to the nearest 100 (`prosperity4-baguette-fromage/Strategies/Phase1.py:447-452`).
 - **A fair value that lags can be the edge.** Ryan Challman's Black–Scholes-anchored voucher fair lost ~64,000 per strike because a cumulative mean that lagged the rising tape was producing the profit (`prosperity4-ryan-challman/README.md:266`); it reversed when the drift flipped (`prosperity4-ryan-challman/README.md:79-87`).
@@ -34,7 +34,7 @@ Every strategy in the clones starts from an estimate of the simulator's true pri
 The definitions above (see [contradictions](../contradictions.md), row 2). They coincide on Prosperity books where the big bot sits at the outermost level and diverge when a book has two or three levels.
 
 ## What it means for our code
-`fair` in `bots/template.py` offers `fixed`, `mid` and `wall_mid` (`bots/template.py:128-147`), with exponential smoothing. The `wall_mid` option is the highest-volume definition only. The Arena may not expose the PnL mark, so the one-lot trick needs a check (`ON_THE_DAY.md`).
+`fair` in `bots/template.py` offers `fixed`, `mid` and `wall_mid` (`bots/template.py:129-148`), with exponential smoothing. The `wall_mid` option is the highest-volume definition only. The Arena may not expose the PnL mark, so the one-lot trick needs a check (`ON_THE_DAY.md`).
 
 ## How to test it here
 `TODO.md`: "Compare the wall-mid definitions on real data": run one simple market maker with each definition on Prosperity 3 and 4 round 1–2 data and compare PnL per day. Add any definition that wins on its worst day as a `fair` option.

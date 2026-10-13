@@ -46,10 +46,10 @@ The Avellaneda–Stoikov model with a **hard inventory bound Q**, solved exactly
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `S_t` (smoothed mid) | `fair` (`bots/template.py:128`) |
+| `S_t` (smoothed mid) | `fair` (`bots/template.py:129`) |
 | `Q` | `limit` per product in `PARAMS` |
 | `(1/γ)·ln(1 + γ/k) + ½·c₂`, with `c₂ = √(σ²γ/(2kA)·(1 + γ/k)^{1+k/γ})` | `make_edge` (the half-spread at zero inventory; `bots/template.py:39`) |
-| `c₂` per unit of inventory | `skew / limit`: the template shifts both quotes by `round(skew × q / limit)` (`bots/template.py:206`), so the closed form is our linear skew with `skew = c₂ × limit` *(inferred from the two formulas)* |
+| `c₂` per unit of inventory | `skew / limit`: the template shifts both quotes by `round(skew × q / limit)` (`bots/template.py:211`), so the closed form is our linear skew with `skew = c₂ × limit` *(inferred from the two formulas)* |
 | `μ/(γσ²) × c₂` | a drift shift of both quotes; not in the template |
 | `ξ/2` | an extra edge on both sides for adverse selection; compare with the fill markouts in `arena/analysis.py` |
 | `σ` | per-tick volatility of `fair`; Prosperity's tick is 100 timestamps |
