@@ -15,6 +15,17 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Recommendation: (b). It costs nothing on the products we have tuned. On the day every product starts untuned, before we know whether other teams' orders rest in the same book, and there `sized_mid` is both far less noisy than the mid (signature ratio 3.7 against 29.6 on Kelp, fair-value page) and the only definition that held up against resting rivals. `wall_size` (15) then needs checking against the market maker's usual size on the day (`ON_THE_DAY.md`, "Is `wall_mid` still the market maker's price?").
   - Done when: the user has chosen, and `DEFAULTS`, `README.md` and `ON_THE_DAY.md` agree with the choice.
 
+- [ ] **Should Hydrogel move to the setting that's best under the fixed `level_exit`?** The committed `level_band` 30, `clear_edge` 8, `level_exit` 0 was tuned while `level_exit` only fired at a gap of exactly 0. After the fix (`9f13090`), Hydrogel's in-sample PnL fell from 165k to 156k.
+  - Evidence (`IDEAS.md`, "Trading toward a known level"): re-gridded in-sample on P4 rounds 3–4, `level_band` 40, `clear_edge` 10, `level_exit` 0 is best on every measure (pnl, nbhd, worst day, `worse` fills). It is only 7.8k ahead (1,165k against 1,157k for the whole bot, 0.7%), and the committed setting ranks third. 40 and 10 are at the edge of the grid's band and `clear_edge` axes. The held-out days chose 40 / 10 / 0 in three folds of four.
+  - Options: (a) keep 30 / 8 / 0; (b) switch to 40 / 10 / 0; (c) widen the grid (band up to 60, `clear_edge` up to 14) first and pick from an interior optimum.
+  - Recommendation: (c), then (b) only if 40 / 10 isn't on the new edge too. The gain is too small to act on while the best cell sits on the grid's boundary. Hydrogel is a Prosperity product, so this only matters as a benchmark, not for the Arena.
+  - Done when: the user has chosen, and `PARAMS` and the `IDEAS.md` row agree with the choice.
+- [ ] **When the bid and ask meet at target, which one steps back?** Since `9f13090`, `make` keeps the bid below the ask. If they meet, it moves the side that would add to inventory: the bid when the position is at or above target, the ask when below. Exactly at target neither adds, and the tie goes to stepping the bid back, which leans slightly toward selling.
+  - Evidence: it only happens with a narrow book and `make_edge` 0, or with a skew. No benchmark moved when the rule went in (P3 round 1: 81,292 unchanged; the Kelp `make_edge=0` grid row went from 63,068 to 63,054 under `worse`).
+  - Options: (a) keep the tie on the bid; (b) at target, step back the side whose last fill was more recent, so neither side is favoured over a day; (c) at target, quote neither side that tick.
+  - Recommendation: (a) for now: nothing measurable rides on it. Revisit if a product on the day is quoted at `make_edge` 0. (When they meet, both quotes sit at fair, so "the side further from fair" can't break the tie.)
+  - Done when: the user has chosen, and `make`'s docstring and its test agree with the choice.
+
 ## Research
 
 - [x] **Find more sources for `references/`.** Done 2026-10-10: ten repos added to `clone.sh` and `references/README.md`, and a "Read online, not cloned" list for the rest.
