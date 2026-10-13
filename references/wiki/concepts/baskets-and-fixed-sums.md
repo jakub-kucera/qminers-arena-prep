@@ -29,7 +29,7 @@ Every edition had a product that is a known combination of others (gift baskets,
 Whether residual baskets beyond Pebbles pay live (Alpha Search traded several; Baguette Fromage lost on Microchips and Sleep Pods).
 
 ## What it means for our code
-Since 2026-10-13 `bots/template.py` has a `basket` mode (`basket_target`, `hedge_target`: `bots/template.py:339-360`): the basket trades its spread, its wall mid less the legs' weighted wall mids, with the level settings, and legs with `hedge` hold `-weight × hedge_ratio` per basket held. A fixed-sum family is a basket with legs of weight −1. Measured with `experiments/baskets.py` (`IDEAS.md`, "Trading a basket's spread"):
+Since 2026-10-13 `bots/template.py` has a `basket` mode (`basket_target`, `hedge_target`: `bots/template.py:347-368`): the basket trades its spread, its wall mid less the legs' weighted wall mids, with the level settings, and legs with `hedge` hold `-weight × hedge_ratio` per basket held. A fixed-sum family is a basket with legs of weight −1. Measured with `experiments/baskets.py` (`IDEAS.md`, "Trading a basket's spread"):
 - **The spread reverts within a day around a level that moves between days:** PICNIC_BASKET2's daily means were 58, −4 and 37 with sds of 52–55. So the level comes from the other days, and the band is set in sds.
 - **Held out:** 83k on P3 round 2 and 281k on P2 round 3 over three days, against 20k for plain market making. In-sample 137k and 335k.
 - **Hedging lost** 11–30% in-sample, as UChicago found for its ETF: the basket is the mispriced leg. Frankfurt's 0.5 hedge is not supported here.

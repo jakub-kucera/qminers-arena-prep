@@ -100,12 +100,25 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Done when: the module trades a basket spread profitably on both datasets, under `worse` fills as well as `all`.
 - [ ] **Prepare the other later-round mechanics:**
   - **Priority from the P4 benchmark (2026-10-13, `IDEAS.md`):** options first (the teams make about 370–610k on the vouchers per options round, plain market making 11k), then fading round-number jumps (Robots: 309–509k against 11k), then spot products that revert to a level (Hydrogel, Velvetfruit: up to 160k against 5–30k). Read the teams' files for each before writing ours; they all run in our engine.
-  - options: done for P4 (2026-10-13): implied vol is flat there, so the vouchers `follow` Velvetfruit's level bet (`IDEAS.md`). Still to do: check Prosperity 3 round 3's volcanic vouchers and Prosperity 2 round 4's coconut coupons with `experiments/p4_vouchers.py`'s test (vol flat? residuals under half the spread?). If not, they need smile trading, which the template doesn't have.
+  - options: done for P4 (2026-10-13): implied vol is flat there, so the vouchers `follow` Velvetfruit's level bet (`IDEAS.md`). P3 round 3's volcanic vouchers, checked in the rehearsal, stray from Black–Scholes by more than their spread, and their vol moves with the spot, which is a smile. There they follow the rock for now; smile trading is still to build (`IDEAS.md`, untested). Prosperity 2 round 4's coconut coupons are unchecked.
   - mean reversion: Squid Ink. A product that returns to a fixed level is done for P4 (2026-10-13): the template's `level` mode, 54k a day out of sample on Hydrogel and Velvetfruit (`IDEAS.md`). Squid Ink is the case it doesn't cover: P3's diagnose finds no slow reversion there.
   - counterparty names: Prosperity round 5, to follow the traders who know something
   - Done when: each has a sketch that backtests, even if rough, so none starts from nothing on the day.
 
 ## Rehearsal and setup
+
+- [x] **An agent's dress rehearsal on P3 round 3.** Done 2026-10-13: P3 round 3 treated as the Arena's first download, starting from the template as committed and following `ON_THE_DAY.md`.
+  - **Time:** about 5 minutes of compute from the first command to the validated bot (diagnose 15 s, the options check 1 min, each grid under a minute). Reading the output and deciding took longer.
+  - **Result:** the template as it stood made 243k over the three days. After the rehearsal it makes 594k: 576k with `worse` fills, 586k with `--resting`, and it passes `arena.validate`. The gain comes from Squid Ink (39k) and Volcanic Rock (115k), each traded with the day's own running mean as the level, and from the vouchers following the rock (198k) (`IDEAS.md`).
+  - **Tripped on, and fixed** (`d0f2f82`):
+    - the options check was hard-wired to P4;
+    - `--set` silently turned a dict containing `10**6` into a string;
+    - the grid's repeated-day check missed products whose days are reused.
+  - **Found:** Prosperity reuses days across rounds for the products a later round keeps. Round 3's days 0–1 are round 2's, and Kelp's and Squid Ink's are round 1's too. So most of the old products' round 3 PnL is in-sample. On the one fresh day the baskets made 17k (PICNIC_BASKET1 29k, PICNIC_BASKET2 −12k).
+  - **Gaps left:**
+    1. P3's vouchers stray from Black–Scholes by more than their spread, and the template can't trade a smile.
+    2. Where the level drifts across days, the only option is the day's running mean, and it's noisy: with the vouchers, every rock band lost on one of the three days (−60k to −265k).
+    3. There's no rule for when the grid's measures disagree over three days. I took the best worst day (`ON_THE_DAY.md`, "Evaluation data").
 
 - [ ] **Run a mock round in the week of 26 Oct.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.
   - Done when: the round is done, and whatever was slow or confusing is fixed in the tooling or the checklist.

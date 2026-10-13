@@ -171,3 +171,9 @@ Measured what the teams' P4 round 3–4 money is made of, with two committed scr
 `arena.diagnose` gains a `jumps` column: the share of ticks on which the wall mid moves more than half the spread, and at least a tick. From 5% it adds a note: if orders rest, take only.
 - **Calibration:** P2/P3 products at 10–63% lost 140k–1.5M under `--resting` with the template's market making; Kelp, at 0%, did not. All 50 P4 round 5 products are flagged (51–76%), and six that were tested lost 0.7–2.4M each under `--resting`, against 2–27k each in the default mode.
 - **Filed into:** `reading-the-data-on-day-one` (a new row); the repo's `README.md`, `IDEAS.md` and `ON_THE_DAY.md` ("Do unfilled orders rest between ticks?").
+
+## [2026-10-13] query | dress rehearsal on P3 round 3
+P3 round 3 treated as a first download, following `ON_THE_DAY.md`: diagnose, the decision table, the options check, grids with held-out days, then validate. The template went from 243k to 594k over the three days, but most old products' days are reused from round 2. Two kinds of fix came out of it.
+- **Tooling, fixed:** strict `--set` values, flags for the options check, repeated days compared per product.
+- **Gaps, recorded:** trading the smile (P3's vouchers stray from Black–Scholes by more than the spread), levels that drift across days, and how to choose when the grid's measures disagree.
+- **Filed into:** `reading-the-data-on-day-one` (a P3 round 3 reading), `options-and-vouchers`, contradictions row 6; the repo's `TODO.md` (a rehearsal item), `IDEAS.md`, `ON_THE_DAY.md`.

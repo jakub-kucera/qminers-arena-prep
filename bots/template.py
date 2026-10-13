@@ -73,6 +73,11 @@ PARAMS = {
                        "level": 49, "level_band": 84, "clear_edge": 5},
     "PICNIC_BASKET2": {"limit": 100, "fair": "wall_mid", "make_size": 0, "basket": {"CROISSANTS": 4, "JAMS": 2},
                        "level": 30, "level_band": 54, "clear_edge": 3},
+    # IMC Prosperity 3, round 3 (set in the dress rehearsal, TODO.md). Neither keeps a level across
+    # days, so the level is the day's own running mean; the vouchers follow the rock. Noisy: every
+    # rock band lost on one of the three days (IDEAS.md).
+    "SQUID_INK": {"limit": 50, "fair": "wall_mid", "make_size": 0, "level": "day", "level_band": 10, "clear_edge": 2},
+    "VOLCANIC_ROCK": {"limit": 400, "fair": "wall_mid", "make_size": 0, "level": "day", "level_band": 25, "clear_edge": 1},
     # IMC Prosperity 2, round 1
     "AMETHYSTS": {"limit": 20, "fair": "fixed", "fixed_fair": 10_000},
     "STARFRUIT": {"limit": 20, "fair": "wall_mid", "make_edge": 1},
@@ -87,6 +92,9 @@ PARAMS = {
     "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 30, "level_exit": 0, "clear_edge": 8},
     "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 30, "clear_edge": 2},
 }
+for _strike in (9500, 9750, 10000, 10250, 10500):
+    PARAMS[f"VOLCANIC_ROCK_VOUCHER_{_strike}"] = {"limit": 200, "fair": "wall_mid", "follow": "VOLCANIC_ROCK", "strike": _strike,
+                                                 "clear_edge": 1, "take_edge": 10**6, "make_size": 0}
 # Its vouchers are calls on it: extra room for the same bet. They only trade toward the target (no
 # takes or quotes of their own), crossing up to clear_edge, about half each one's spread.
 for _strike, _clear_edge in ((4000, 11), (4500, 8), (5000, 3), (5100, 2), (5200, 2), (5300, 1), (5400, 1), (5500, 1)):
