@@ -57,7 +57,8 @@ Other competitions and organisers' files:
 Documents and articles:
 - [timo-diehm-medium-article](sources/timo-diehm-medium-article.md): Frankfurt Hedgehogs' essay on questioning assumptions and understanding the environment; no tactics.
 - [prosperity-wikis](sources/prosperity-wikis.md): IMC's own documentation (Notion) for Prosperity 2, 3 and 4: the bot interface, libraries, limits and time limit.
-- [online-articles](sources/online-articles.md): Rigtorp, Databento, Hummingbot's Avellaneda–Stoikov guides, Optiver's explainers (read as summaries; no local copy).
+- [online-articles](sources/online-articles.md): Optiver's explainers (read as a summary; no local copy).
+- [hummingbot-avellaneda-stoikov](sources/hummingbot-avellaneda-stoikov.md): Hummingbot's A–S guide and deep dive (snapshots); γ and κ backed out of a user's spread band.
 Tools:
 - [prosperity3-backtester-jmerle](sources/prosperity3-backtester-jmerle.md): the rules our engine matches; log-to-data converter.
 - [prosperity2-backtester-jmerle](sources/prosperity2-backtester-jmerle.md): P2 data and limits.
@@ -82,7 +83,7 @@ Documents with a source page (each says which formulas were checked against the 
 - [queue-imbalance-predictor](sources/queue-imbalance-predictor.md): Gould & Bonart 2015; logistic test of `ρ` on the next mid move; strong at 1-tick spreads, 2–6% better than a coin flip otherwise.
 - [order-book-signals](sources/order-book-signals.md): Cartea, Donnelly & Jaimungal 2018; quoting at the touch loses; post a side only if the half-spread beats the expected adverse move. OCR dropped the minus signs in its tables.
 - [price-impact-of-book-events](sources/price-impact-of-book-events.md): Cont, Kukanov & Stoikov 2011; order-flow imbalance explains the same interval's move (R² 65%), not the next.
-- [hft-in-a-limit-order-book](sources/hft-in-a-limit-order-book.md): Avellaneda & Stoikov (2006 preprint); reservation price and spread; our copy lacks the `γσ²(T−t)` spread term that Hummingbot uses.
+- [hft-in-a-limit-order-book](sources/hft-in-a-limit-order-book.md): Avellaneda & Stoikov 2008 (published version since 2026-10-13); reservation price and the spread `γσ²(T−t) + (2/γ)ln(1+γ/k)`; how it differs from the preprint.
 - [dealing-with-inventory-risk](sources/dealing-with-inventory-risk.md): Guéant, Lehalle & Fernandez-Tapia 2013; hard inventory bound, stationary closed-form quotes (GLFT). OCR misplaces the square root in every closed form.
 - [optimal-market-making](sources/optimal-market-making.md): Guéant 2017; any intensity, PnL-with-penalty objective, multi-asset skew through `Γ`.
 - [pseudo-math](sources/pseudo-math.md): Bailey et al. 2014; the best of N null trials, MinBTL, and why memory makes the in-sample winner lose.
@@ -90,6 +91,9 @@ Documents with a source page (each says which formulas were checked against the 
 - [deflated-sharpe-ratio](sources/deflated-sharpe-ratio.md): Bailey & López de Prado 2014; DSR, independent trials from correlated ones, the 37% stopping rule. OCR lost the inline math; read the PDF.
 - [queue-position-valuation](sources/queue-position-valuation.md): Moallemi & Yuan 2017; order value = fill probability × (premium − adverse selection); front against back of the queue on ITCH data.
 - [queue-reactive-model](sources/queue-reactive-model.md): Huang, Lehalle & Rosenbaum 2015; queue-size-dependent order flow as a simulator; uniform cancellation overstates fills.
+- [rigtorp-queue-position](sources/rigtorp-queue-position.md): Rigtorp 2013; the queue estimate behind `ProbQueueModel`; `log(1 + x)` is not a back bias at every position.
+- [quant-se-order-position](sources/quant-se-order-position.md): Quant.SE 2012 (Lehalle's answer); the risk-averse rule (ours) and the neutral one (`ProbQueueModel`).
+- [databento-queue-position](sources/databento-queue-position.md): Databento 2025; one ES order against MBO data: cancels come from the back, `P(ahead) = x^{1/(1+k)}` (the page's formula is inverted).
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
 - [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.
@@ -104,7 +108,7 @@ Things the wiki does not cover yet, in rough order of value:
 1. **Manual-round puzzles.** No page. Unread: Baguette Fromage `README.md:1105-1485`, Alpha Search `README.md:181-638`, Ryan Challman `README.md:147-255`, Frankfurt `README.md:786-876`. The Arena may have none.
 2. **Cross-check against our engine.** Done for the P4 teams on 2026-10-13 ([log](log.md)): identical to `prosperity4btest` on 24 trader-days, and DTU's live results within 4% and 12–16%. Left: the P3 teams other than Frankfurt.
 3. **Unread source parts** (listed per source page): Frankfurt `README.md:325-876`; most of DU `round5.py`; DTU round 1–3 bodies; AlgoTrade's API reference; the Prosperity wikis' FAQ, round pages and glossary; most of the Leo-Hawking, heyman7913 and CMU Physics READMEs; Negative Eevee's `runner.rs`, `state.rs`, `config.rs`.
-4. **Sources not obtainable by the agent:** the Quant.SE queue-position thread (the fetch tool is blocked on that domain), exact copies of the queue and Avellaneda–Stoikov articles, books (an options text), and any organiser material. All tracked in [`MANUAL_TODO.md`](../../MANUAL_TODO.md); see also `references/SEARCH_LOG.md`.
+4. **Sources not obtainable by the agent:** books (an options text) and any organiser material. (The Quant.SE thread, the queue articles and the published A–S arrived on 2026-10-13.) All tracked in [`MANUAL_TODO.md`](../../MANUAL_TODO.md); see also `references/SEARCH_LOG.md`.
 5. **The three books are only partly read** (Harris, Cartea et al., and Bouchaud et al., now the full copy). The chapter maps on their source pages say where to look next.
 6. **Ready Trader Go winning bots** and the Jane Street trading-challenge bots: none public that we found.
 7. **Do the day-one notes predict what works?** [reading-the-data-on-day-one](concepts/reading-the-data-on-day-one.md) maps measurements to strategies from the sources. Not yet tested: whether an imbalance-adjusted fair helps on the `large-tick` products, and whether fading the level pays on the products that revert to one.

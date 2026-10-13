@@ -3,7 +3,7 @@ title: Guéant, Lehalle & Fernandez-Tapia, "Dealing with the inventory risk" (20
 type: source
 repo: literature_md/dealing-with-inventory-risk
 status: read
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Guéant, Lehalle & Fernandez-Tapia, "Dealing with the inventory risk: a solution to the market making problem" (Mathematics and Financial Economics, 2013)
@@ -59,7 +59,7 @@ The Avellaneda–Stoikov model with a **hard inventory bound Q**, solved exactly
 - **OCR:** `η = A(1 + γ/k)^{−(1+k/γ)}` loses its `γ` in Proposition 1, and Proposition 2's `α = (k/2)γσ²` loses `k/` (`dealing-with-inventory-risk.md:125-133` (p. 6–7, checked)).
 - **OCR:** in the impact model, the first ODE has `e^{−½ξ}` where the PDF has `e^{−(k/2)ξ}` (`dealing-with-inventory-risk.md:304` (p. 14)). In the drift model's limit spread, the denominator `f_q^0 f_{q+1}^0` should be `(f_q^0)²` (`dealing-with-inventory-risk.md:273` (p. 13)).
 - **OCR:** footnote 8's formulas read `δ_t^{*t}` and `(1 + 2g)/2` for `δ^{b*}_t` and `(1 + 2q)/2` (`dealing-with-inventory-risk.md:171-173` (p. 8)).
-- **Which Avellaneda–Stoikov?** Footnote 8 attributes the `((1 ± 2q)/2)·γσ²(T − t)` approximation to A–S, which gives a spread of `(2/γ)·ln(1 + γ/k) + γσ²(T − t)`, Hummingbot's formula. Our copy of A–S (the April 2006 preprint) has `±qγσ²(T − t)` and no `γσ²(T − t)` in the spread. So the published 2008 version probably differs from our copy *(inferred, not checked: we don't have the published version)*. See [Avellaneda–Stoikov](hft-in-a-limit-order-book.md), "Traps".
+- **Which Avellaneda–Stoikov?** Footnote 8 attributes the `((1 ± 2q)/2)·γσ²(T − t)` approximation to A–S, which gives a spread of `(2/γ)·ln(1 + γ/k) + γσ²(T − t)`, Hummingbot's formula. The published 2008 A–S, our copy since 2026-10-13, has exactly that spread (eq. 30); the 2006 preprint we had before did not. See [Avellaneda–Stoikov](hft-in-a-limit-order-book.md), "Traps".
 
 ## Read depth
 - **Read:** sections 1–7 and the conclusion.

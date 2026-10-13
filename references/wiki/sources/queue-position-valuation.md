@@ -3,7 +3,7 @@ title: Moallemi & Yuan, "A model for queue position valuation in a limit order b
 type: source
 repo: literature_md/queue-position-valuation
 status: read
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Moallemi & Yuan, "A Model for Queue Position Valuation in a Limit Order Book" (working paper, Columbia, 2017)
@@ -47,7 +47,7 @@ A 33-page model of what a resting order is worth as a function of its place in a
 | `AS` | the markout of passive fills, sign-flipped (`arena/analysis.py:189`) |
 | `α(q)` | fill rate of resting orders by queue position; measurable only in `--resting` mode |
 | regular order / touch order | `--queue back` (our resting model today) / `--queue front` (`TODO.md`) |
-| `ℓ`, uniform cancels | `ProbQueueModel` with `f(x) = x` (`TODO.md` proposes `log(1 + x)`) |
+| `ℓ`, uniform cancels | `ProbQueueModel` with `f(x) = x` (`TODO.md` proposes `P(ahead) = xⁿ`) |
 
 ## Traps
 - **Typo in the paper itself:** case 2(b) says "J_k > 0. Under a negative price jump" (`queue-position-valuation.md:194` (p. 12)); the PDF has the same *(checked with `pdftotext`)*. It means `J_k < 0`.

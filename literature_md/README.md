@@ -15,7 +15,7 @@ Marker's `meta.json` (table of contents with page numbers).
 | Folder | Source | Useful for |
 |---|---|---|
 | `micro-price/` | Stoikov, *The micro-price* (9 pp.) | Fair price from top-of-book imbalance and spread; better than mid or weighted mid |
-| `hft-in-a-limit-order-book/` | Avellaneda & Stoikov, *High-frequency trading in a limit order book* (13 pp.) | Reservation price and optimal bid/ask quotes under inventory risk |
+| `hft-in-a-limit-order-book/` | Avellaneda & Stoikov, *High-frequency trading in a limit order book*, Quantitative Finance 8(3), 2008 (8 pp. plus a cover sheet; replaced the 13-page 2006 preprint on 2026-10-13) | Reservation price and optimal bid/ask quotes under inventory risk |
 | `dealing-with-inventory-risk/` | Guéant, Lehalle & Fernandez-Tapia, *Dealing with the inventory risk* (36 pp.) | Market making with a hard inventory bound (HJB / ODE solution) |
 | `price-impact-of-book-events/` | Cont, Kukanov & Stoikov, *The price impact of order book events* (26 pp.) | Order-flow imbalance as a linear driver of short-term price changes |
 | `limit-order-books/` | Gould et al., *Limit order books*, Quant. Finance 2013 (34 pp.) | Survey: LOB mechanics, empirical facts, models |
@@ -27,6 +27,9 @@ Marker's `meta.json` (table of contents with page numbers).
 | `queue-reactive-model/` | Huang, Lehalle & Rosenbaum, *Simulating and analyzing order book data: The queue-reactive model* (29 pp.) | The book as a Markov queue system whose arrival and cancel rates depend on its state; fitting the rates from data and simulating a book. DTU Quant Lab shipped it for queue-aware quoting |
 | `dynamics-of-order-positions/` | Guo, Ruan & Zhu, *Dynamics of Order Positions and Related Queues in a Limit Order Book* (42 pp.) | Fluid and diffusion limits for an order's queue position, with closed forms for fill-related quantities. Heavy maths; a reference |
 | `queue-imbalance-predictor/` | Gould & Bonart, *Queue Imbalance as a One-Tick-Ahead Price Predictor in a Limit Order Book* (30 pp.) | Logistic regression of the next mid-price move on bid/ask queue imbalance, on 10 Nasdaq stocks. A simple signal to test on the Prosperity data |
+| `rigtorp-queue-position/` | Rigtorp, *Estimating order queue position* (blog post, 2013, 2 pp., printed 2026-10-13) | The queue estimate behind hftbacktest's `ProbQueueModel` |
+| `databento-queue-position/` | Databento, *Getting queue position from L2 and order book data* (blog post, 2025, 5 pp., printed 2026-10-13) | L2 queue estimates against the exact MBO position: cancels come from the back. Its tutorial is in `references/online-snapshots/` |
+| `quant-se-order-position/` | Quant.SE question 3782, *How do we estimate position of our order in order book queue?* (2012, 3 pp., printed 2026-10-13) | The risk-averse and neutral queue rules |
 | `optimal-market-making/` | Guéant, *Optimal market making* (43 pp.) | Market making over many assets with inventory limits and skewed quotes. The closest paper to a many-product Arena. hftbacktest's `Making Multiple Markets.ipynb` implements it |
 | `probability-of-backtest-overfitting/` | Bailey, Borwein, López de Prado & Zhu, *The Probability of Backtest Overfitting* (34 pp.) | Why the best of many backtests is usually luck, and CSCV, a way to estimate the probability that it is. For `arena.grid` and a capped number of portal submissions |
 | `deflated-sharpe-ratio/` | Bailey & López de Prado, *The Deflated Sharpe Ratio* (22 pp.) | A Sharpe ratio corrected for how many strategies were tried, for non-normal returns and for short samples |
@@ -45,7 +48,7 @@ Marker's `meta.json` (table of contents with page numbers).
 4. **Sizing:** Thorp on the Kelly criterion (bet fraction from edge; use fractional Kelly because
    edge estimates are noisy; position limits are the bankroll cap).
 
-5. **Queue position** (to check and extend `--resting`): Moallemi & Yuan for the idea, then the two articles in `references/README.md` (Rigtorp, Databento) for the estimate, then Huang et al. and Guo et al. if you need the model behind it.
+5. **Queue position** (to check and extend `--resting`): Moallemi & Yuan for the idea, then `rigtorp-queue-position`, `quant-se-order-position` and `databento-queue-position` for the estimate and the evidence on it, then Huang et al. and Guo et al. if you need the model behind it.
 6. **Validation** (before trusting a grid result or spending a portal submission): `pseudo-math`, then `probability-of-backtest-overfitting`, then `deflated-sharpe-ratio`. They are about long daily-return samples; how far the numbers transfer to a few days of tick data is an open question in `TODO.md`.
 7. **Signals and many products:** Gould & Bonart (queue imbalance) and Cartea et al. 2018 (volume imbalance, adverse selection at the touch) next to Cont et al., and Guéant's multi-asset quoting next to Guéant et al.
 

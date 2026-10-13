@@ -1,7 +1,7 @@
 ---
 title: Optimal quoting models (Avellaneda–Stoikov, GLFT, Guéant)
 type: concept
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Optimal quoting models (Avellaneda–Stoikov, GLFT, Guéant)
@@ -13,7 +13,7 @@ The standard theory of where to quote is "fair ± half-spread − skew × invent
 **The models, in order:**
 - **[Avellaneda–Stoikov](../sources/hft-in-a-limit-order-book.md):**
   - The reservation price `r = s − qγσ²(T − t)`.
-  - Quotes at `r ∓ (1/γ)·ln(1 + γ/k)`, spread `(2/γ)·ln(1 + γ/k)` (`literature_md/hft-in-a-limit-order-book/hft-in-a-limit-order-book.md:217-229` (p. 9, checked)).
+  - The spread `γσ²(T − t) + (2/γ)·ln(1 + γ/k)`, centred on `r` (`literature_md/hft-in-a-limit-order-book/hft-in-a-limit-order-book.md:291-295` (p. 6, checked)), from an expansion in `q` with a linearised arrival term.
   - No inventory bound in the finite-horizon version.
 - **[GLFT](../sources/dealing-with-inventory-risk.md):**
   - Adds a hard bound `±Q` (no bid at `Q`) and solves the problem exactly.
@@ -35,7 +35,7 @@ The standard theory of where to quote is "fair ± half-spread − skew × invent
 
 **Calibration in practice:**
 - GLFT chose `γ` so that inventory stayed within ±10 average trade sizes. They note that `A` and `k` "have to depend at least on the actual market bid-ask spread" (`literature_md/dealing-with-inventory-risk/dealing-with-inventory-risk.md:416-418` (p. 20)).
-- Hummingbot derives `γ` and `κ` from a user-chosen minimum and maximum spread ([online articles](../sources/online-articles.md)).
+- Hummingbot derives `γ` and `κ` from a user-chosen minimum and maximum spread ([Hummingbot](../sources/hummingbot-avellaneda-stoikov.md)): `γ = IRA·(max − min)/(2|q|σ²)`, and `κ` from eq. 30 at the widest spread (`online-snapshots/hummingbot-as-deep-dive.md:110-136`).
 - Nobody estimates `γ`; it is a choice.
 
 **Where the models break:**
@@ -49,7 +49,7 @@ The standard theory of where to quote is "fair ± half-spread − skew × invent
 - hftbacktest's GLFT notebooks implement the closed form ([hftbacktest](../sources/hftbacktest.md)).
 
 ## Where they disagree
-- **Which spread formula?** The A–S preprint in `literature_raw/` has spread `(2/γ)·ln(1 + γ/k)` (checked). GLFT's footnote quotes A–S's approximation with an extra `((1 ± 2q)/2)·γσ²(T − t)`, giving `(2/γ)·ln(1 + γ/k) + γσ²(T − t)`, and Hummingbot uses that form. The published 2008 A–S probably differs from our preprint (*inferred*). GLFT shows the `(T − t)` term is an artefact near `T`, so for a day-long session use the stationary GLFT form, not either A–S version.
+- **Which spread formula? Settled 2026-10-13.** The published A–S has `γσ²(T − t) + (2/γ)·ln(1 + γ/k)` (eq. 30), the form GLFT's footnote and Hummingbot quote; only the 2006 preprint, which the wiki used until then, had `(2/γ)·ln(1 + γ/k)` alone ([Avellaneda–Stoikov](../sources/hft-in-a-limit-order-book.md), Traps). GLFT shows the `(T − t)` term is an artefact near `T`, so for a day-long session use the stationary GLFT form.
 - **Skew on a pegged product** ([contradictions](../contradictions.md), row 1). The theory says the skew coefficient is proportional to `σ`, the volatility of the *fair value*. On a product pegged at 10,000, that volatility is near zero, so **the models say: little or no skew**, and the limit binds only through "no bid at `Q`". DTU's A–S skew was presumably driven by the mid's noise, not by fair-value risk *(inferred; DTU's code was not checked for which σ it used)*. That is consistent with the losers and winners: Frankfurt (none) and Baguette Fromage (a small fixed shift, about 4 ticks at position 50) against DTU's A–S.
 
 ## What it means for our code
@@ -76,4 +76,4 @@ The standard theory of where to quote is "fair ± half-spread − skew × invent
 4. **Pegged products separately:** check whether any skew beats none on Resin and Osmium.
 
 ## Sources
-[Cartea et al., book](../sources/algorithmic-and-hft.md), [Avellaneda–Stoikov](../sources/hft-in-a-limit-order-book.md), [GLFT](../sources/dealing-with-inventory-risk.md), [Guéant 2017](../sources/optimal-market-making.md), [Cartea et al. 2018](../sources/order-book-signals.md), [hftbacktest](../sources/hftbacktest.md), [online articles](../sources/online-articles.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md).
+[Cartea et al., book](../sources/algorithmic-and-hft.md), [Avellaneda–Stoikov](../sources/hft-in-a-limit-order-book.md), [Hummingbot](../sources/hummingbot-avellaneda-stoikov.md), [GLFT](../sources/dealing-with-inventory-risk.md), [Guéant 2017](../sources/optimal-market-making.md), [Cartea et al. 2018](../sources/order-book-signals.md), [hftbacktest](../sources/hftbacktest.md), [online articles](../sources/online-articles.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md).

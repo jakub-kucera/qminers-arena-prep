@@ -31,6 +31,9 @@ PAPERS=(
   "pseudo-math                    pseudo-math"
   "order-book-signals             Enhancing_Trading_Strategies_CARTEA"
   "how-to-almost-win              How to (almost) win in Competitive"
+  "rigtorp-queue-position         rigtorp-queue-position"
+  "databento-queue-position       databento-queue-position"
+  "quant-se-order-position        quant-se-order-position"
 )
 
 for entry in "${PAPERS[@]}"; do

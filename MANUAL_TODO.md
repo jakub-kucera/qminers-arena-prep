@@ -43,22 +43,24 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
 Open each page in a browser and print it to PDF into `literature_raw/`, with the suggested name. The agent then
 registers it in `literature_md/convert.sh` and converts it. All links returned HTTP 200 on 2026-10-11 except Quant.SE.
 
-- [ ] **Quant.SE: "How do we estimate position of our order in order book"**:
+- [x] **Quant.SE: "How do we estimate position of our order in order book"**:
   <https://quant.stackexchange.com/questions/3782/how-do-we-estimate-position-of-our-order-in-order-book>
   as `quant-se-order-position.pdf`. Blocked for the agent's tool (403).
   - Done when: the PDF is converted and cited in `references/wiki/concepts/queue-position-and-fills.md`.
-- [ ] **Rigtorp, "Estimating order queue position"**: <https://rigtorp.se/2013/06/08/estimating-order-queue-position.html>
+- [x] **Rigtorp, "Estimating order queue position"**: <https://rigtorp.se/2013/06/08/estimating-order-queue-position.html>
   as `rigtorp-queue-position.pdf`.
-- [ ] **Databento, "Getting queue position from L2 and order book data"**:
+- [x] **Databento, "Getting queue position from L2 and order book data"**:
   <https://databento.com/blog/getting-queue-position-from-l2-and-order-book-data> as `databento-queue-position.pdf`.
   - Why for both: the agent has only a summary, and the queue-model TODO (`--queue back|prob|front`) needs the exact formula.
   - Done when: both are converted and `references/wiki/sources/online-articles.md` cites them by line.
-- [ ] **Hummingbot Avellaneda–Stoikov guide and technical deep dive**:
+  - Done 2026-10-13, with the Quant.SE thread: all three printed by the user, converted (`literature_md/rigtorp-queue-position/`, `databento-queue-position/`, `quant-se-order-position/`) and given their own source pages, which the queue concept page cites by line. Databento's tutorial was rendered with headless Chrome into `references/online-snapshots/databento-queue-position-tutorial.md`.
+- [x] **Hummingbot Avellaneda–Stoikov guide and technical deep dive**:
   <https://hummingbot.org/blog/guide-to-the-avellaneda--stoikov-strategy/> and
   <https://hummingbot.org/blog/technical-deep-dive-into-the-avellaneda--stoikov-strategy/> as `hummingbot-as-guide.pdf`
   and `hummingbot-as-deep-dive.pdf`.
   - Why: the guide's formulas are images, so the agent's summary of them is unreliable.
   - Done when: the PDFs are converted and the formulas checked against `literature_md/hft-in-a-limit-order-book/`.
+  - Done 2026-10-13 by the agent: the pages are static HTML, saved as text snapshots (`references/online-snapshots/hummingbot-as-guide.md`, `hummingbot-as-deep-dive.md`; Marker could not read their dark-mode printouts). The guide's image formulas were read on headless-Chrome printouts. Both formulas match the published A–S; see `references/wiki/sources/hummingbot-avellaneda-stoikov.md`.
 - [ ] **(Only if you expect options) Optiver primers**: <https://www.optiver.com/insights/explainers/options-pricing/>,
   <https://www.optiver.com/insights/explainers/option-greeks/>, <https://www.optiver.com/insights/explainers/options-volatility/>,
   and <https://www.optiver.com/insights/explainers/orders-and-the-order-book/> as `optiver-<topic>.pdf`.
@@ -84,7 +86,9 @@ like the rest of `literature_md/`; say so if a book should stay out of git. The 
   - Done 2026-10-13: saved as `trades_quotes_prices_full.pdf` (the only file matching the slug's prefix), converted, and the source page rebuilt with a chapter map; every earlier citation re-pointed and `lint.py --pages` clean.
 - [ ] **(Low priority) Final versions of four documents we have as drafts or preprints.** All four are complete in
   content (checked 2026-10-13); only the version differs. Save each under its current file name in `literature_raw/`.
-  - Avellaneda & Stoikov, "High-frequency trading in a limit order book", *Quantitative Finance* 8(3), 2008. **The
+  - [x] Avellaneda & Stoikov, "High-frequency trading in a limit order book", *Quantitative Finance* 8(3), 2008. Done
+    2026-10-13: the user saved the published version; it replaced the preprint and the wiki was rebuilt from it. It has
+    the `γσ²(T−t)` term. **It was the
     one worth getting:** our copy is the 24 April 2006 preprint, whose spread formula has no `γσ²(T−t)` term, while
     Hummingbot's version has one (`references/wiki/sources/hft-in-a-limit-order-book.md`, Traps). The published
     version would settle which formula the paper ends with.
