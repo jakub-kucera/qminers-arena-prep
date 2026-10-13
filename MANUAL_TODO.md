@@ -132,8 +132,9 @@ The user is getting these through the library. Save each in `literature_raw/` un
 Save in `literature_raw/` under the name given (ACM Digital Library; several also on arXiv or SSRN). The 2022–2024 picks are already inside `ICAIF_<year>_proceedings.pdf`; the agent can split them out itself. See `references/SEARCH_LOG.md`, the ICAIF 2020–2024 table.
 
 - [ ] Xiong & Cont, *Interactions of market making algorithms: a study on perceived collusion* (ICAIF 2021) as `market-making-perceived-collusion.pdf`.
-- [ ] Vyetrenko et al., *Get real: realism metrics for robust limit order book market simulations* (ICAIF 2020) as `realism-metrics-lob-simulation.pdf`.
-- [ ] (Maybe) Wang, Hoang & Wellman, *Learning-based trading strategies in the face of market manipulation* (ICAIF 2020) as `trading-under-manipulation.pdf`.
+- [x] Vyetrenko et al., *Get real: realism metrics for robust limit order book market simulations* (ICAIF 2020) as `realism-metrics-lob-simulation.pdf`.
+  - Done 2026-10-14 by the agent: the arXiv version (1912.04941) is `literature_md/lob-simulation-realism/`, with a source page.
+- [ ] **(Wanted since 2026-10-14)** Wang, Hoang & Wellman, *Learning-based trading strategies in the face of market manipulation* (ICAIF 2020) as `trading-under-manipulation.pdf`. Backs D3 in `references/wiki/concepts/harder-rounds.md`: how book-reading traders can be made robust to a spoofer, next to `spoofing-abm`.
 - [ ] (Maybe) Zhao & Linetsky, *High frequency automated market making algorithms with adverse selection risk control via reinforcement learning* (ICAIF 2021) as `mm-adverse-selection-rl.pdf`.
 - [ ] (Maybe) Mahfouz, Balch, Veloso & Mandic, *Learning to classify and imitate trading agents in continuous double auction markets* (ICAIF 2021) as `classify-trading-agents.pdf`.
 - [ ] (Only with ETF products) Shearer, Byrd, Balch & Wellman, *Stability effects of arbitrage in exchange traded funds: an agent-based model* (ICAIF 2021) as `etf-arbitrage-abm.pdf`.

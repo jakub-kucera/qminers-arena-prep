@@ -103,7 +103,7 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | Lipton, Pesavento & Sotiropoulos, *Trade arrival dynamics and quote imbalance in a limit order book* | arXiv 1312.0514 | Skipped: overlaps Gould & Bonart. |
 | Cartea, Donnelly & Jaimungal, *Enhancing trading strategies with order book signals* | Applied Mathematical Finance 2018; free accepted manuscript at King's College London (the repository reserves text-and-data-mining rights; the user downloaded it) | **Added 2026-10-11** to `literature_raw/` and `literature_md/order-book-signals/`. Only the definition of the imbalance `ρ` is checked against the PDF. |
 | Leung & Li, *Optimal mean reversion trading with transaction costs and stop-loss exit* | arXiv 1411.5062 | Skipped: DTU's closed-form exits didn't beat a fixed z-score. |
-| ABIDES, ABIDES-MARL | arXiv 1904.12066, 2511.02016 | Skipped: heavier than the question needs. |
+| ABIDES, ABIDES-MARL | arXiv 1904.12066, 2511.02016 | Skipped: heavier than the question needs. **Reversed 2026-10-14 for ABIDES** (the paper, not the code): the harder-rounds research made "how would we build a day generator" the question; ingested as `literature_md/abides-simulator/`. ABIDES-MARL still skipped. |
 
 **Triaged from a list of about 90 search results the user passed on (2026-10-13).** The first three and the two conditional ones were saved by the user the same day and are in `literature_md/` with source pages; the rest are not fetched. Titles and venues are as the list gave them; authors only where known, not checked. Get free versions (arXiv, SSRN, the authors' pages) or library copies only.
 

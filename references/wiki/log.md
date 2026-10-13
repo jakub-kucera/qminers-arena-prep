@@ -221,3 +221,12 @@ Asked by the user, who expects the rounds to be designed against teams that hand
 - The template takes 0.15 ms a tick on P3 round 3's 15 traded products, so a Prosperity-style time limit is far off; speed as priority conflicts with reproducible reruns.
 
 Web sources (fetch summaries) added to [online-articles](sources/online-articles.md): Optiver's LLM-trading article, the Ready Trader Go rules, ABIDES's RMSC04 config.
+
+## [2026-10-14] ingest | five papers behind the harder-round prep
+Downloaded by the agent (each checked with `pdfinfo` and its first page), converted, given source pages: [abides-simulator](sources/abides-simulator.md), [lob-simulation-realism](sources/lob-simulation-realism.md), [spoofing-abm](sources/spoofing-abm.md), [learning-market-maker](sources/learning-market-maker.md), [online-changepoint-detection](sources/online-changepoint-detection.md). Each backs a prep entry in [harder-rounds](concepts/harder-rounds.md) (A1, B1, B3/B4, D3, E2); also linked from [shared-market-and-adversaries](concepts/shared-market-and-adversaries.md), [informed-counterparties](concepts/informed-counterparties.md), [drift-and-regime-change](concepts/drift-and-regime-change.md). `SEARCH_LOG.md`'s "skip ABIDES" verdict reversed for the paper. **Found:**
+- OCR: Marker drops the `δ` in Wang & Wellman's variance step (`(1−κ)^{2δ}`), and Das's no-order formula gains an `α`.
+- In the papers themselves: Das's no-order probabilities exceed 1 in the middle case (the correct term is `Φ((P_a−V)/σ_W) − Φ((P_b−V)/σ_W)`); Adams & MacKay's Algorithm 1 indexes the hazard differently from their eq. 4; Get Real's impact fit averages an unsigned participation against a signed move.
+- Das's market maker loses when jumps are not announced; Wang & Wellman's spoof raises prices but adds 1.2–11.5 to an exploiter's profit of about 200.
+- ABIDES's computation delay is configured per agent, not measured, which supports E2's "speed is not a race".
+
+Still pending: Gu et al. 2024 (split from the local ICAIF 2024 proceedings) and Wang, Hoang & Wellman 2020 (`MANUAL_TODO.md` E).

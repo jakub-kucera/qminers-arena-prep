@@ -28,6 +28,8 @@ When the data names buyers and sellers (Prosperity 3 round 5, Prosperity 4 round
 - **How informed traders trade:** aggressively when their edge will soon be public or shared, slowly ("stealth") otherwise (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5373-5387` (p. 238–239)). A bot that knows the price and trades in small pieces looks like noise until its trades are aggregated, which is what Frankfurt's running-extrema detector of Olivia did.
 - **Copying them can be a trap:** a dealer who speculates on what it infers from a trade can be baited by a small order in the other direction ("Bagging a frontrunning dealer", `literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6831-6835` (p. 305)).
 
+- **A market maker that learns the value from anonymous flow** ([Das](../sources/learning-market-maker.md)): a Bayesian distribution over the value, updated on each buy, sell or no-order, quoting `E[V | sell]` and `E[V | buy]`; spreads close within about 30 trades after a jump, but only when the jump is announced (`literature_md/learning-market-maker/learning-market-maker.md:203` (p. 10), `literature_md/learning-market-maker/learning-market-maker.md:261` (p. 14)). The candidate if the Arena's informed flow is anonymous ([harder-rounds](harder-rounds.md), B4).
+
 ## Where they disagree
 Whether market trades in general carry information (theory: yes; Prosperity's wall mid: barely): [contradictions](../contradictions.md), row 13.
 

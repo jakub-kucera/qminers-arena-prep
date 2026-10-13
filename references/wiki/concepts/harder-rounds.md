@@ -86,7 +86,7 @@ Each entry gives:
 - **A1. A reactive simulator scored on seeds we never see** (likelihood: high). Agents respond to every order: a take moves the price and the level refills slowly, and the market maker skews against the flow it receives. The download is one realisation, and the private run is another.
   - Breaks: our engine replays a recording, so it overstates what takes earn and hides impact. A grid tuned to one path overfits it.
   - Tell: probe 17 (own impact); downloaded days whose statistics differ more than a recording's would; docs that mention agents or seeds.
-  - Prep: an agent-based day generator in `arena/`, run inside `run_market` so that agents and bots share one book. It needs an OU fundamental with jumps, value agents with noisy views, noise takers, momentum agents and a market maker that skews on its inventory. With it we can measure impact, tune over many seeds instead of one path, and give the mock round (`TODO.md`) data nobody has seen.
+  - Prep: an agent-based day generator in `arena/`, run inside `run_market` so that agents and bots share one book. The agents: [Wang & Wellman](../sources/spoofing-abm.md)'s mean-reverting fundamental with noisy observers (the recipe [ABIDES](../sources/abides-simulator.md) credits), and its seeding rule (one master seed, one generator per agent, `literature_md/abides-simulator/abides-simulator.md:71` (p. 4)). The acceptance test: [Get Real](../sources/lob-simulation-realism.md)'s statistics, compared through `arena.diagnose` against the real download. It needs an OU fundamental with jumps, value agents with noisy views, noise takers, momentum agents and a market maker that skews on its inventory. With it we can measure impact, tune over many seeds instead of one path, and give the mock round (`TODO.md`) data nobody has seen.
 - **A2. A book that is thin next to the position limit** (likelihood: medium–high; it is the user's idea 1, and A1 makes it worse). When the visible depth is a fraction of the limit, our own trades are the price.
   - Breaks: the template's full-limit targets (`level`, `jump`, `copy`) cross up to their edge in a single tick.
   - Tell: the limit against the median depth at the best level per product; probe 17.
@@ -102,7 +102,7 @@ Each entry gives:
   - Tell: the private run can't be seen, so assume it; within a day, the rolling volatility and drift.
   - Prep:
     - a stress harness that perturbs Prosperity days and reruns a bot on each: volatility ×2, an added trend, the level shifted mid-day, an inserted jump, the wall removed for a stretch;
-    - in the template, a regime guard (fall back to plain market making when the level bet or the volatility leaves its range) and a per-product loss stop.
+    - in the template, a regime guard (fall back to plain market making when the level bet or the volatility leaves its range) and a per-product loss stop. The detector: [Adams & MacKay](../sources/online-changepoint-detection.md)'s run-length posterior on wall-mid changes (Algorithm 1, `literature_md/online-changepoint-detection/online-changepoint-detection.md:103` (p. 3)).
 - **B2. Jumps and scheduled events or news** (likelihood: medium; AlgoTrade's market events, ABIDES's megashocks, Prosperity's snap-backs).
   - Breaks: resting quotes get picked off, and mean reversion keeps fading a level that has really moved.
   - Tell: an event field in the state; jumps clustered at fixed times.
@@ -110,11 +110,11 @@ Each entry gives:
 - **B3. A hidden fundamental seen through noisy signals, settled at the end** (likelihood: medium; the machine-learning skill, and Optiver's belief-updating failure).
   - Breaks: a fair value from the mid, and a fair value that doesn't learn as signals arrive.
   - Tell: an extra numeric feed in the state, or a settlement rule that names a value other than the last mid.
-  - Prep: a Kalman-filter `fair` option (mid and signals in, variance out), and an end-of-round rule aware of the settlement.
+  - Prep: a Kalman-filter `fair` option (mid and signals in, variance out), and an end-of-round rule aware of the settlement. The filter for a mean-reverting value seen with noise is [Wang & Wellman](../sources/spoofing-abm.md)'s (p. 3, checked; mind the OCR slip in the variance step). For a value that jumps and is revealed only by order flow, [Das](../sources/learning-market-maker.md)'s Bayesian market maker; it loses when jumps aren't announced, which the changepoint detector of B1 addresses.
 - **B4. Anonymous informed flow** (likelihood: medium–high).
   - Breaks: symmetric quotes at the touch ([informed counterparties](informed-counterparties.md), [price impact](price-impact.md)).
   - Tell: `arena.diagnose`'s `R(50)` above zero, or negative markouts.
-  - Prep: the untested `IDEAS.md` row "Posting a side only when the edge beats the expected adverse move", with the spread adapted from a running markout.
+  - Prep: the untested `IDEAS.md` row "Posting a side only when the edge beats the expected adverse move", with the spread adapted from a running markout. [Das](../sources/learning-market-maker.md) shows the trade-off: with many noisily informed traders a small widening pays most, with few, profit keeps rising with the spread (`literature_md/learning-market-maker/learning-market-maker.md:215` (p. 11)).
 - **B5. Many products with hidden structure** (likelihood: medium): a factor model, an ETF with weights it doesn't publish, lead-lag between products.
   - Breaks: one strategy per product; LLM bots that look for structure by product name.
   - Tell: correlations of returns across products and lags.
@@ -158,6 +158,8 @@ Each entry gives:
   Prep:
   - the trapper and sniper rivals already in `TODO.md`, plus a spoofer that posts a large wall of the market maker's usual size and pulls it before it trades (`sized_mid` doesn't filter that);
   - in the template, trust a wall only after it has persisted for N ticks.
+
+  Evidence: [Wang & Wellman](../sources/spoofing-abm.md) model the spoofer as a 200-lot bid one tick behind the best, re-posted whenever the best bid moves. It reliably raised prices against book-reading traders, but added little to an exploiter's profit (206.1 against 201.8, `literature_md/spoofing-abm/spoofing-abm.md:237` (p. 7)): a fake wall is a cheap distortion, not a big earner. Two more papers are pending (`TODO.md`, the harder-round literature item).
 - **D4. Side games** (likelihood: medium): a sealed bid for market access (P4), beauty contests, allocations whose payoff depends on every team's choice.
   - Breaks: agents give the same textbook answer, so the field herds.
   - Prep: little before the day. On the day, ask two or three agents what they would answer, so you know where the herd will be, and decide one level of reasoning beyond it.
@@ -175,7 +177,7 @@ Each entry gives:
     - heavy model inference;
     - a `traderData` that grows with history (the classic Prosperity timeout).
   - Prep (cheap): `arena.validate` warns when `traderData` keeps growing, and a profile of the template at 200 products.
-- **E2. Speed as priority** (likelihood: low). A race needs measured time, and a measured-time race is not reproducible on a rerun. "Without many real-world operational complexities" and Python-only point the same way, and ABIDES charges a configured delay, not a measured one.
+- **E2. Speed as priority** (likelihood: low). A race needs measured time, and a measured-time race is not reproducible on a rerun. "Without many real-world operational complexities" and Python-only point the same way. [ABIDES](../sources/abides-simulator.md) does model "heavier thinkers" acting later and less often (`literature_md/abides-simulator/abides-simulator.md:52` (p. 3)), but through a delay configured per agent, not measured (`literature_md/abides-simulator/abides-simulator.md:69` (p. 4)). If the Arena charges such a delay, the docs will say so.
   - Tell: docs that tie order arrival to response time; probe 8 (sleep 50/200/500 ms) showing fills lost to a slow tick rather than a timeout.
   - If it happens:
     - the template is already lean;
@@ -201,6 +203,7 @@ Not recommended now: speed work beyond the `traderData` check (E).
 - The stress harness is the test for B1: on every perturbed day, no product should lose more than its loss stop.
 
 ## Sources
+- Literature: [ABIDES](../sources/abides-simulator.md), [Get Real](../sources/lob-simulation-realism.md), [Wang & Wellman](../sources/spoofing-abm.md), [Das](../sources/learning-market-maker.md), [Adams & MacKay](../sources/online-changepoint-detection.md).
 - Local: [Qminers 2024](../sources/qminers-hackathon-2024.md) (with `first_stage_scores.png`), `arena-site-snapshot.txt`, [AlgoTrade (pitfa19)](../sources/algotrade2026-pitfa19.md), [Negative Eevee](../sources/algotrade2026-negative-eevee.md), [UChicago 2026](../sources/uchicago-trading-2026.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md).
 - Web, through fetch summaries only ([online articles](../sources/online-articles.md)):
   - [Optiver, "Where AI trading models work"](https://www.optiver.com/insights/technology-blog/where-ai-trading-models-work-and-where-they-still-fall-short/)

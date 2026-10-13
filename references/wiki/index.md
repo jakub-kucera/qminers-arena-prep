@@ -112,6 +112,11 @@ Documents with a source page (each says which formulas were checked against the 
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.
 - [kelly-criterion](sources/kelly-criterion.md): Thorp 1997; `f* = edge/variance`, fractional Kelly keeps `c(2 − c)` of the growth, estimated edges run high. A scanned PDF with no text layer.
 - [limit-order-books](sources/limit-order-books.md): Gould et al. 2013, survey; LOB vocabulary, priority rules, impact and stylized facts, mostly from pre-2010 data.
+- [abides-simulator](sources/abides-simulator.md): Byrd et al. 2019; the open agent-based exchange simulator; per-agent seeded randomness, a configured (not measured) computation delay, persistent impact.
+- [lob-simulation-realism](sources/lob-simulation-realism.md): Vyetrenko et al. 2019; the stylised facts a simulated book should show; the acceptance test for a day generator.
+- [spoofing-abm](sources/spoofing-abm.md): Wang & Wellman 2017; mean-reverting fundamental, noisy observers with a Kalman update, ZI and book-reading HBL traders; a spoofer moves prices but adds little profit. OCR drops a δ in the variance step.
+- [learning-market-maker](sources/learning-market-maker.md): Das 2005; Bayesian market maker over a hidden jumping value; loses when jumps aren't announced; the paper's no-order probabilities are wrong.
+- [online-changepoint-detection](sources/online-changepoint-detection.md): Adams & MacKay 2007; exact online run-length posterior; the detector for a regime guard.
 - [trades-quotes-prices](sources/trades-quotes-prices.md): Bouchaud et al. 2018 (book, full copy since 2026-10-13), chapters 1, 7, 11, 15–17 and 21 read; chapter map. When market making pays (`s/2` against long-run impact, slow and fast), the response function, the square-root law, Kyle, Glosten–Milgrom, MRR, queue value; measured: Prosperity is the zero-intelligence case where making is easy.
 
 Not yet ingested: none; every document in `literature_md/README.md` has a source page. (`how-to-almost-win` is ingested as [timo-diehm-medium-article](sources/timo-diehm-medium-article.md).) The two books are partly read; their chapter maps say what is left.

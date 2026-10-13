@@ -46,6 +46,11 @@ PAPERS=(
   "marl-competition-no-collusion  Multi-Agent Reinforcement Learning for Market Making"
   "etf-trade-flow-decomposition   Data-driven trade flow decomposition"
   "cross-asset-order-flow         From Constituents to Index"
+  "abides-simulator               abides-simulator"
+  "lob-simulation-realism         lob-simulation-realism"
+  "spoofing-abm                   spoofing-abm"
+  "learning-market-maker          learning-market-maker"
+  "online-changepoint-detection   online-changepoint-detection"
 )
 
 for entry in "${PAPERS[@]}"; do
