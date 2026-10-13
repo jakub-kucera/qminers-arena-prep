@@ -73,10 +73,10 @@ PARAMS = {
                        "level": 49, "level_band": 84, "clear_edge": 5},
     "PICNIC_BASKET2": {"limit": 100, "fair": "wall_mid", "make_size": 0, "basket": {"CROISSANTS": 4, "JAMS": 2},
                        "level": 30, "level_band": 54, "clear_edge": 3},
-    # IMC Prosperity 3, round 3 (set in the dress rehearsal, TODO.md). Neither keeps a level across
-    # days, so the level is the day's own running mean; the vouchers follow the rock. Noisy: every
-    # rock band lost on one of the three days (IDEAS.md).
-    "SQUID_INK": {"limit": 50, "fair": "wall_mid", "make_size": 0, "level": "day", "level_band": 10, "clear_edge": 2},
+    # IMC Prosperity 3, round 3 (set in the dress rehearsal, TODO.md). The rock keeps no level
+    # across days, so its level is the day's own running mean, and the vouchers follow it. Noisy:
+    # every band lost on one of the three days (IDEAS.md). Squid Ink's like setting is left out so
+    # the round 1 benchmarks stay Kelp and Resin's.
     "VOLCANIC_ROCK": {"limit": 400, "fair": "wall_mid", "make_size": 0, "level": "day", "level_band": 25, "clear_edge": 1},
     # IMC Prosperity 2, round 1
     "AMETHYSTS": {"limit": 20, "fair": "fixed", "fixed_fair": 10_000},

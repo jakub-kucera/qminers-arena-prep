@@ -109,7 +109,8 @@ Choices only the user can make, each with the options, the evidence and a recomm
 
 - [x] **An agent's dress rehearsal on P3 round 3.** Done 2026-10-13: P3 round 3 treated as the Arena's first download, starting from the template as committed and following `ON_THE_DAY.md`.
   - **Time:** about 5 minutes of compute from the first command to the validated bot (diagnose 15 s, the options check 1 min, each grid under a minute). Reading the output and deciding took longer.
-  - **Result:** the template as it stood made 243k over the three days. After the rehearsal it makes 594k: 576k with `worse` fills, 586k with `--resting`, and it passes `arena.validate`. The gain comes from Squid Ink (39k) and Volcanic Rock (115k), each traded with the day's own running mean as the level, and from the vouchers following the rock (198k) (`IDEAS.md`).
+  - **Result:** the template as it stood made 243k over the three days. The rehearsal's bot made 594k: 576k with `worse` fills, 586k with `--resting`, and it passes `arena.validate`. The gain comes from Squid Ink (39k) and Volcanic Rock (115k), each traded with the day's own running mean as the level, and from the vouchers following the rock (198k) (`IDEAS.md`).
+  - **Kept in the template:** the rock and its vouchers. The template now makes 555k on round 3: 536k with `worse` fills, 547k with `--resting`. Squid Ink's setting is left out, because Squid Ink is in rounds 1–2 too and would change the recorded P3 round 1 benchmarks (81,292 for Kelp and Resin).
   - **Tripped on, and fixed** (`d0f2f82`):
     - the options check was hard-wired to P4;
     - `--set` silently turned a dict containing `10**6` into a string;
