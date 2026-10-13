@@ -5,6 +5,16 @@ Work left before the Arena (7–8 Nov 2026). Things to find out at the event its
 are in [`MANUAL_TODO.md`](MANUAL_TODO.md). Tick an item off when its "done when" holds, and add new
 items as they come up.
 
+## Decisions
+
+Choices only the user can make, each with the options, the evidence and a recommendation.
+
+- [ ] **Should new products default to `sized_mid`?** `DEFAULTS["fair"]` is `"mid"`, so a product not tuned yet quotes around the noisiest price (Kelp's mid varies 28 times more per tick at lag 1 than at lag 200). The Prosperity products set `wall_mid` in their PARAMS, which is best when trading alone and is what the recorded benchmarks used.
+  - Evidence (`IDEAS.md`, "Wall-mid definitions"): trading alone, `sized_mid` is within 2.3% of the best definition on every product tested. With the teams' P4 bots resting orders in the same market, `wall_mid` lost 377k / 445k on Osmium in rounds 1 / 2, and `sized_mid` made +39k / +21k.
+  - Options: (a) keep `"mid"`; (b) `DEFAULTS["fair"] = "sized_mid"` and leave the Prosperity PARAMS on `wall_mid`; (c) also move the Prosperity PARAMS to `sized_mid`, giving up as much as 2.3% alone and re-recording the benchmarks.
+  - Recommendation: (b). It costs nothing on the products we have tuned. On the day every product starts untuned, before we know whether other teams' orders rest in the same book, and there `sized_mid` is both far less noisy than the mid (signature ratio 3.7 against 29.6 on Kelp, fair-value page) and the only definition that held up against resting rivals. `wall_size` (15) then needs checking against the market maker's usual size on the day (`ON_THE_DAY.md`, "Is `wall_mid` still the market maker's price?").
+  - Done when: the user has chosen, and `DEFAULTS`, `README.md` and `ON_THE_DAY.md` agree with the choice.
+
 ## Research
 
 - [x] **Find more sources for `references/`.** Done 2026-10-10: ten repos added to `clone.sh` and `references/README.md`, and a "Read online, not cloned" list for the rest.
@@ -65,6 +75,9 @@ items as they come up.
   - Done when: a flag such as `--queue back|prob|front` exists, with tests, and the README's fill-assumption tables show all of them.
 - [ ] **Let the template flatten before the close.** If the Arena liquidates open positions at a bad price, the bot should cut inventory near the end. Add a parameter now, so on the day it only needs a value.
   - Done when: a parameter like `flatten_from` (a timestamp) makes `clear` and `make` work the position to zero after it, with a test.
+
+- [ ] **Let `--vs` run the teams' Prosperity bots in `--resting`.** They were written for orders that live one tick and never cancel, so in resting mode their orders pile up until they breach limits (unwrapped, DU's `round2.py` got 28 fills and breached on 19,998 product-ticks). The rival runs in `IDEAS.md` ("The template against the teams' P4 traders in one market", and the resting rows of "Wall-mid definitions") wrapped each bot in a scratchpad script that cancels all its open orders before every step, so they don't reproduce from the repo.
+  - Done when: a `--vs` option (e.g. `--requote`) applies that wrapper to the rivals, a test covers it, and both `IDEAS.md` rows give the CLI command that reproduces their numbers.
 
 - [ ] **Build two adversarial `--vs` rivals.** From Harris (`references/wiki/concepts/shared-market-and-adversaries.md`): a *quote-matching trapper* that posts a large bid, sells into anyone who bids one tick above it, then cancels; and a *sniper* that takes resting quotes right after the mid moves (the timing option, under `--resting`). Our template quotes one tick inside the best quote, so it is exactly what the trapper hunts.
   - Done when: both are bots in `bots/`, the template has been run against each with `--vs` (and `--resting` for the sniper), and the PnL cost is recorded on the shared-market page.
