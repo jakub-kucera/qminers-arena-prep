@@ -90,6 +90,7 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **Matching:** `_take` matches a new order against the recorded levels and other owners' working orders, best price first. At one price the recorded volume goes first. Each bot's book (`_seen_by`) adds the others' resting orders, never its own.
 - **Breaches vs races:** limits are checked twice. Orders that don't fit the position the bot saw are `limit_breaches`, the bot's bug. Orders that fitted but don't fit after another bot's fill are `races`. Both are rejected, but the grid only discards combinations with breaches.
 - **CLI:** `arena.cli.run_with_rivals` loads the bot and its `--vs` rivals and runs them, for both the backtest and the grid. `--set` only applies to the main bot.
+- **The teams' Prosperity bots as rivals:** they were written for orders that live one tick and never cancel, so in `--resting` their orders pile up until they breach limits. Wrap each to cancel its open orders every tick (not a CLI option yet, see `TODO.md`). Some import jsonpickle: `uv run --with jsonpickle ...`.
 
 **Grid search** (`arena/grid.py`):
 - **Parallel runs:** a `ProcessPoolExecutor` runs every combination as (bot file + `--set` + grid values) × days × `--modes`. Each worker loads the days once, in `_init_worker`, into the module-level `_WORKER` dict. `--jobs 1` runs in-process.
@@ -143,11 +144,21 @@ lets editors resolve imports; it is never submitted.
 - **`ON_THE_DAY.md`:** the checklist of what to find out about the real Arena. For each item it gives our current assumption and what to change if the Arena differs, and it ends with playground probes. When a session learns an answer, write it in under that item with its source. When a session adds an assumption about the real format, add an item.
 - **`IDEAS.md`:** every strategy idea tested on Prosperity data, with its result (date, data, command, numbers), and the ideas not yet tested. Results there are priors for the Arena, not verdicts: never remove an idea because it failed on Prosperity data; mark it `dropped here`, so it is re-tested on the day. Record every new test result in its row.
 - **`MANUAL_TODO.md`:** things only a person can obtain (organiser documents, web pages the agent's fetch tool is blocked from, books). Each item says where to save the file and what "done" means. When the user hands something over, ingest it as `references/wiki/SCHEMA.md` describes and tick the item.
+- **Nothing stays only in the chat.** Before ending a task, file what it turned up, in the same commit as the work:
+  - prep work or a follow-up → `TODO.md`, with a "done when"
+  - a new idea or a test result → `IDEAS.md`, with what to re-test on the day
+  - a question about the real Arena, or advice for the day → `ON_THE_DAY.md`
+  - something only a person can obtain → `MANUAL_TODO.md`
+  - a choice only the user can make → `TODO.md`, "Decisions", with the options, the evidence and a recommendation
+
+  When asked what to do next, start from the open items in `TODO.md` and the untested rows of `IDEAS.md`.
+- **Results reproduce from the repo.** The command given for a result in `IDEAS.md` or the wiki runs from a clean checkout: a CLI with `--set`, or a script committed under `experiments/` along with the result. A scratchpad path is not a command.
 
 - **`references/`:** third-party clones listed in `references/clone.sh`. Read them for ideas, but don't edit or import from them.
   - `references/algotrade2026-pitfa19/` contains its own `CLAUDE.md` and `AGENTS.md`. They describe that repo, not this one, so don't follow them.
   - `references/README.md` summarises what each repo is useful for.
   - **`references/wiki/` is the way into the clones and the literature.** It follows Karpathy's LLM-wiki pattern: read `references/wiki/index.md` first, then a concept page, then the source page, and only then the raw file at the cited line. Pages cite code as `path:line`, say what is a team's claim and what was checked, and say what was not read. `references/wiki/SCHEMA.md` has the conventions and the ingest / query / lint workflows. After editing the wiki run `python3 references/wiki/lint.py`; log changes in `references/wiki/log.md`.
+  - **Pages cite `bots/template.py` by line,** and the lint only checks that the line exists. After an edit shifts the template's lines, re-map those citations (`grep -rn 'template\.py:[0-9]' references/wiki`).
 - **`literature_md/`:** market-microstructure papers and books, converted from `literature_raw/*.pdf` to markdown by `literature_md/convert.sh` (Marker). Committed (the source PDFs in `literature_raw/` are gitignored); `literature_md/README.md` indexes the documents. For the theory behind a strategy (market making, order-book imbalance, micro-price, price impact), go through the wiki first: the Literature section of `references/wiki/index.md`, then the concept page, and only then the raw text at the cited line.
   - **Verify formulas against the PDF.** Marker's equations are LaTeX but OCR-based, so they can contain slips (e.g. `S_{τ1}, S_{τ1}` where the paper has `I_{τ1}, S_{τ1}`). Before implementing any formula from `literature_md/`, check it against the original PDF page (`python3 literature_md/pdfpage.py <slug> <line>` finds the page and prints its text), and don't trust a formula that disagrees with the surrounding text or with its own derivation.
-- **Commits:** author commits as the user (Jakub) only. Never put a `Co-Authored-By: Claude …` trailer, or any other Claude attribution, in commit messages or PR descriptions.
+- **Commits:** commit each finished step on its own, with the docs it changed, once the tests (and the wiki lint, if the wiki changed) pass. A request with several steps gets one commit per step. Author commits as the user (Jakub) only. Never put a `Co-Authored-By: Claude …` trailer, or any other Claude attribution, in commit messages or PR descriptions.
