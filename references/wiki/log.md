@@ -102,3 +102,13 @@ Measured with it (P3 round 1): the book's break-even margins for market making a
 
 ## [2026-10-13] lint | the measured market-making margins, recomputed with `arena.diagnose`
 `arena.diagnose` now computes the Bouchaud et al. break-even margins from a data download. Writing it showed that the wall-mid rows of the table on [Bouchaud et al.](sources/trades-quotes-prices.md) mixed two references: the book's `s/2` (the taker's cost against the mid) with the wall mid's `R`. Measured in one reference, the taker's cost against the wall mid is 0.93 for Kelp, not 1.16, and the slow margin is 0.94 against both references (it was 1.17 against the wall mid). The table now uses the measured cost `−edge`, which equals `s/2` against the mid when trades are at the touch. The range moves from 0.3–0.5 to 0.2–0.4 of the spread: updated in the overview (finding 15), `market-making-and-inventory-skew` and `IDEAS.md`. The conclusion stands: market making pays easily on Prosperity data. `arena.diagnose` also reproduces the lag-1 autocorrelations on [Gould et al.](sources/limit-order-books.md).
+
+## [2026-10-13] query | reading the data on day one
+New concept page [reading-the-data-on-day-one](concepts/reading-the-data-on-day-one.md), replacing gap 7 of the index.
+- **The page:** a decision table from each of `arena.diagnose`'s notes to a strategy choice. Every row cites the evidence (literature or team) and an example, from the tool's output on P2 round 1, P3 round 1 and P4 rounds 1–5.
+- **A new column:** writing the table showed that the tool missed slow reversion to a level. Velvetfruit and Hydrogel have signatures of 1.1 at lag 50, yet their variance per tick halves by lag 1,000. A `slow rev` column (the wall mid at lag 50 against 1,000) now catches them, along with Osmium.
+- **Its threshold:** 1.8 is calibrated on a simulated random walk (median 1.11, 2% above 1.8) and on P4 round 5's 50 products (0.76–1.64).
+- **Other changes:**
+  - `ON_THE_DAY.md` gains the first-hour item "What kind of market is each product?";
+  - `probing-the-environment` links to the page;
+  - index gaps 2, 4 and 5 were stale (P4 cross-check done, Bouchaud et al. now the full copy) and are updated.

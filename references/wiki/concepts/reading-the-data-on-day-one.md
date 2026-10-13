@@ -1,0 +1,89 @@
+---
+title: Reading the data on day one
+type: concept
+updated: 2026-10-13
+---
+
+# Reading the data on day one
+
+## Summary
+The Arena's first data download should decide the strategy for each product before any backtest. `uv run python -m arena.diagnose <days>` measures each product's tick regime, noise, drift and the flow of market trades. The table below maps each of its notes to a strategy choice, with the evidence behind it and an example from Prosperity data. The thresholds are calibrated on six Prosperity rounds only, so treat the notes as questions to check, not verdicts.
+
+## What the sources say
+**The measurements** (`arena/diagnose.py`, module docstring):
+- **The trade classification** is the one `arena.analysis.trade_impact` uses. Trades at tick `t` print against book `t`: 96–97% are at one of its prices on P3 round 1 ([Gould et al.](../sources/limit-order-books.md), "Assumptions against the Arena").
+- **The margins** are Bouchaud et al.'s break-even for a market maker: slow `s/2 − R∞` (eq. 17.13) and fast `(s/2)(1 − C(1)) − R(1)` (eq. 17.14) (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6599-6609` (p. 345, checked)).
+  - `s/2` is replaced by the measured cost to the taker, `−edge`, so that every term uses the same reference price.
+  - Against the mid the two agree when trades are at the touch. Against the wall mid they don't, and mixing them had overstated the margins on [Bouchaud et al.](../sources/trades-quotes-prices.md) (see the log, 2026-10-13).
+- **The signature ratio** is the variance per tick of one-tick changes over that of 50-tick changes. It is flat (1) for a random walk and above 1 for noise that reverts (eq. 2.9 and 2.13, `literature_md/trades-quotes-prices/trades-quotes-prices.md:685` (p. 44, checked)). The `slow rev` column is the same ratio for the wall mid at 50 against 1,000 ticks.
+
+**The decision table.** Examples are `arena.diagnose` output on the Prosperity data *(checked: ran it, 2026-10-13)*. The thresholds are module constants (`arena/diagnose.py:50-68`).
+
+| Note | Reading | What to do | Prosperity example | Grounds |
+|---|---|---|---|---|
+| `large-tick` (a one-tick spread on at least half the two-sided ticks) | The mid moves only when a best queue empties; queue position and book imbalance carry information | Test the imbalance or the micro-price as a fair-value adjustment ([book imbalance](book-imbalance-and-micro-price.md)). In `--resting`, the queue decides fills. Stepping in front costs a full tick | P4 round 3, `VEV_5400` (62%) and `VEV_5500` (85%) | Imbalance predicts the next move with ROC area 0.75–0.81 at a one-tick spread, against 0.58–0.64 for wider spreads (`literature_md/queue-imbalance-predictor/queue-imbalance-predictor.md:356-369` (p. 20, checked)) |
+| `small-tick` | A new order inside the spread can move the mid, and the imbalance can't see it coming | Quote one tick inside the best, as the template's `make` does. Don't expect much from imbalance | P3 round 1 (median spread 3–8 ticks), P4 rounds 1–2 (13–16 ticks) | At a 4-tick spread the micro-price "is indistinguishable from the mid-price" (`literature_md/micro-price/micro-price.md:308` (p. 8)) |
+| `a side empty X% of ticks` | The generator removes quotes. Hidden takers may lift a quote far from fair on the empty side | Run probe 14 (`ON_THE_DAY.md`). If far quotes fill, quote about 100 from fair on the empty side. The template keeps its last fair, but quotes close to it (`bots/template.py:128`, `bots/template.py:188`) | P4 rounds 1–2, Osmium and Pepper Root (7–8%); none in P3 round 1 | About 18.6k a day on Osmium, *their claim* (`prosperity4-baguette-fromage/README.md:356-365`); DU measured ±100 and ±120 (`prosperity4-du-trading/README.md:55`). [Hidden takers](hidden-takers-and-empty-sides.md) |
+| `mid mean-reverts at one tick` and `wall mid filters the mid's noise` | The top of the book is noise around the market maker's quote | `fair: wall_mid`, not `mid`. Takes against the raw mid catch noise. Resting quotes gain from the reversion | P3 Kelp: lag-1 autocorrelation −0.48, signature 17.9 for the mid against 2.8 for the wall mid. P4 Pepper Root: 5.4 against 2.6 | A resting order's cost is `φ_exec·d·ρ`, so negative `ρ` favours limit orders (eq. 21.18, `literature_md/trades-quotes-prices/trades-quotes-prices.md:7820-7822` (p. 415, checked)). [Fair value](fair-value-and-wall-mid.md) |
+| `wall mid nearly fixed at V` | A pegged product | `fair: fixed` at V; take anything through it. Keep a fail-safe for an anchor that moves | P3 Resin at 10,000 (sd 0.35) | Osmium's 10,000 anchor broke in P4 round 2 (`prosperity4-baguette-fromage/README.md:527-539`). [Drift](drift-and-regime-change.md) |
+| `mid and wall mid both noisy`, not fixed | The wall mid itself jumps between levels | Smooth the fair (`smoothing`) or try another wall definition (`TODO.md`, "Compare the wall mid definitions") | P4 Osmium (wall-mid signature 11.4), P3 Squid Ink (1.5 and 1.3) | Frankfurt and Baguette Fromage define the wall differently ([fair value](fair-value-and-wall-mid.md), table) |
+| No noise note: signatures near 1 | A random walk at 1–50 ticks. The current wall mid is the best forecast | Plain `wall_mid` market making. A slower fair only lags | 46 of the 50 P4 round 5 products (0.9–1.2) | Kelp is a random walk, so its best forecast is the current wall mid (`prosperity3-frankfurt-hedgehogs/README.md:210`) |
+| `wall mid reverts to a level over ~1,000 ticks` | The price returns to a level over hundreds of ticks (an Ornstein–Uhlenbeck shape), too slowly for the lag-1 numbers to see | Fade deviations from the level: buy below a band and sell above it. The template's `fair: fixed` with `take_edge` at the band's half-width does this *(inferred)*. Don't take the level from one day: it can shift. Options on the product inherit the reversion | P4 rounds 3–4, Velvetfruit (1.9–2.0), Hydrogel (2.2–2.3) and the vouchers on Velvetfruit; Osmium in rounds 1–2 (2.8–3.2). Not P3 Squid Ink (1.7) | Baguette Fromage fit an OU process to Velvetfruit: buy below 5,232, sell above 5,268 (`prosperity4-baguette-fromage/README.md:740-759`). DU faded moves beyond 8 from 5,250 (`prosperity4-du-trading/round4.py:240`). heyman7913 found that the level shifts with the opening price (`online-snapshots/heyman7913_imc-prosperity-4.README.md:356-371`). [Drift](drift-and-regime-change.md) |
+| `drifts up (down) every day` | Steady drift beyond a day's noise | Hold a position in the drift's direction: set the template's `target` (`bots/template.py:41`) and grid `target` and `skew` | P4 rounds 1–2, Pepper Root +1,000 a day. The template went from −25k…+58k to 76–78k a day with `target` 80 (`IDEAS.md`) | DU held +76 of 80 (`prosperity4-du-trading/README.md:71`); Baguette Fromage solved a dynamic program (`prosperity4-baguette-fromage/README.md:433-496`) |
+| `drifts on k of n days` | Moves that don't repeat | No fixed bias. If anything, a regime detector, and flatten at the close | P4 round 5, Microchip Oval, Panel 1x4, Robot Ironing, Robot Mopping (1 of 3 days) | DTU's regime detector (`prosperity4-dtu-quant-lab/round_4/algorithmic/trader.py:287-349`) |
+| `trades nearly all sells (buys)` or `trade signs persist` | One-sided flow: a maker fills on one side only, so the position just grows. The fast margin, about 0, is the honest one | Quote only that side, sized to the limit, and judge it as holding inventory. Deep-OTM options: bid 0 in full size | P4 rounds 3–4, `VEV_5300`–`VEV_6500`: 0–1% buys, `C(1)` 0.97–1.00, fast margin −0.05 to 0 | DU's bid 0 on the 6000 and 6500 strikes (`prosperity4-du-trading/README.md:112-116`). [Options](options-and-vouchers.md) |
+| `trades move the wall mid` | Informed flow: the price follows the takers | Widen or skew away after trades. Look for the informed names in `<day>_trades.csv` and consider following them | None on P3 round 1 (`R(50)` −0.02 to 0.07); P4 round 5, Panel 1x2 and Pebbles M, which is likely chance (below) | `s/2 − R∞` (eq. 1.9, `literature_md/trades-quotes-prices/trades-quotes-prices.md:506-516` (p. 35, checked)); Olivia (`prosperity3-frankfurt-hedgehogs/README.md:270-319`). [Informed counterparties](informed-counterparties.md) |
+| `wall mid reverts after trades` | Takers trade at short-lived extremes | Makers earn more than the spread. Check for jumps that snap back | P4 round 5, Translator Graphite Mist (one product of 50) | DU's three-tick rule ([jumps](jumps-and-snap-back.md), `prosperity4-du-trading/round5.py:721-770`) |
+| `market making pays (X of the spread a unit)` | The flow is mostly uninformed | Use the template's take / clear / make. Size quotes up to the limit | P3 round 1: 0.27–0.41; P4 rounds 1–2, Osmium 0.49 and Pepper Root 0.36–0.37 | Bouchaud et al.'s zero-intelligence case (`literature_md/trades-quotes-prices/trades-quotes-prices.md:3098` (p. 166)) |
+| `thin or negative market-making margin` | Competitive or informed flow: the NASDAQ case | Quote wider (`make_edge`). Quote a side only when a signal says its half-spread beats the expected adverse move | None on Prosperity data | On NASDAQ the same strategy loses about 0.1 of the spread (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6619` (p. 346)). Rule of thumb: `literature_md/order-book-signals/order-book-signals.md:306-312` (p. 20, checked) |
+| `margin not measurably non-zero` or `too few for trade statistics` | Too little data to say | Decide by backtest and the grid's worst-day measure instead | P4 round 5, 27 of 50 products (190–245 trades a day each); `VEV_4500`–`VEV_5100` (1–3 trades in three days) | [Validation](validation-and-overfitting.md) |
+
+**What a whole download looks like:**
+- **P3 round 1** is the textbook Prosperity market:
+  - small-tick;
+  - a noisy mid around a quiet wall mid;
+  - no informed flow;
+  - margins of 0.2–0.4 of the spread.
+
+  Kelp and Squid Ink look alike, except that Squid Ink's mid is less noisy (signature 1.5 against 17.9).
+- **P4 round 5** has 50 products that are almost all random walks at these horizons. The notes say little about them:
+  - 27 margins are not measurably non-zero;
+  - drift shows on single days only;
+  - the three impact notes are about what chance gives with 50 products.
+
+  That fits the teams' finding that their edges came from structure across products and from round-number jumps, not from each product's own flow ([baskets](baskets-and-fixed-sums.md), [jumps](jumps-and-snap-back.md)).
+
+## Where they disagree
+- **The literature's regimes come from NASDAQ.** "Large-tick" there means a one-tick spread almost always, with queues of hundreds of lots. By that standard, every Prosperity product except a few vouchers is small-tick, and the literature predicts imbalance adds little there. No team tested imbalance per product against the spread ([book imbalance](book-imbalance-and-micro-price.md)).
+- **Do market trades carry information?** Theory says yes on average. Prosperity's bots say no against the wall mid ([contradictions](../contradictions.md), row 13). The `R(50)` column settles it for each product of the Arena's data.
+- **Does quoting at the touch lose?** Cartea et al. say yes on NASDAQ. The margin column measures it here ([contradictions](../contradictions.md), row 12).
+
+## What it means for our code
+- **`arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `arena/diagnose.py:50-68`, so if the Arena's data needs other cut-offs, change them there and in this table together.
+- **The table maps to the template's parameters:**
+  - `fair` (fixed / `mid` / `wall_mid`, `bots/template.py:34`);
+  - `smoothing`;
+  - `target` and `skew` for a drift;
+  - `make_edge` for a thin margin.
+
+  Two rows have no template support yet: a quote far from fair on an empty side, and one-sided quoting. Both are untested in `IDEAS.md`.
+  Fading a level works only with a fixed level, through `fair: fixed`; a level that has to be estimated is not supported.
+- **On the day,** run it on each new download before the first backtest (`ON_THE_DAY.md`, "First hour"). Run it again on the first days of a shared market, because a margin that shrinks toward zero is the sign of competing teams (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6358` (p. 332)) *(inferred)*.
+
+## How to test it here
+- **Done:** `arena.diagnose` on P2 round 1, P3 round 1 and P4 rounds 1–5 gave the examples above. On P3 round 1 it reproduces the margins on [Bouchaud et al.](../sources/trades-quotes-prices.md) and the lag-1 autocorrelations on [Gould et al.](../sources/limit-order-books.md).
+- **Whether the notes predict what works:**
+  - **Tested for one row:** for Pepper Root, which `drifts up every day`, the `target` grid's optimum is the full limit (`IDEAS.md`).
+  - **Untested:** for each `large-tick` product, does an imbalance-adjusted fair beat the wall mid in the backtest?
+  - **Untested:** for each product that `reverts to a level`, does fading the level pay?
+- **Known blind spots:**
+  - **Slow reversion needs its own column.** Velvetfruit and Hydrogel show signatures of 1.1 at lag 50, yet revert to a level.
+    - Their wall mid's variance per tick halves from lag 50 to lag 1,000, and falls to a quarter or less by lag 3,000. That is a reversion time of roughly 350–800 ticks *(checked, P4 round 3, 2026-10-13)*.
+    - The `slow rev` column catches it, but with three days there are only about 30 independent 1,000-tick windows. A simulated random walk passes 1.8 about 2% of the time (`arena/diagnose.py`, `SLOW_REVERSION`).
+    - Reversion slower than about 1,000 ticks stays invisible.
+  - **The t-statistics are rough.** Horizons overlap, and several trades share a tick.
+  - **Multiple testing.** With 50 products, two or three notes at `|t| ≥ 2` are expected by chance ([validation](validation-and-overfitting.md)).
+  - **No counterparty analysis.** Named counterparties need `<day>_trades.csv` from a backtest.
+
+## Sources
+[Bouchaud et al.](../sources/trades-quotes-prices.md), [Gould et al.](../sources/limit-order-books.md), [Gould & Bonart](../sources/queue-imbalance-predictor.md), [micro-price](../sources/micro-price.md), [Cartea et al. 2018](../sources/order-book-signals.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU Quant Lab](../sources/prosperity4-dtu-quant-lab.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md). Related concepts: [probing the environment](probing-the-environment.md) (experiments that need a submission; this page needs only the data).

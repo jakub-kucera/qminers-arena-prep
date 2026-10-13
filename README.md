@@ -33,10 +33,10 @@ uv run python -m arena.diagnose 1 --data p4 --csv results/diag.csv
 ```
 
 ```
-product           spread  1 tick  empty  mid AC1  mid sig  wall sig  drift/day  trades  buys   C(1)   edge   R(1)  R(50)   slow   fast
-KELP                  3t     13%     0%    -0.48     17.9       2.8        +11   8,634   35%  +0.13  -0.93  +0.00  -0.01  +0.94  +0.81
-RAINFOREST_RESIN      8t      0%     0%    -0.50     50.0      49.6         +0   7,121   49%  +0.09  -1.49  +0.09  +0.07  +1.41  +1.27
-SQUID_INK             3t     14%     0%    -0.17      1.5       1.3        -53   8,651   35%  +0.12  -0.93  +0.02  -0.02  +0.95  +0.80
+product           spread  1 tick  empty  mid AC1  mid sig  wall sig  slow rev  drift/day  trades  buys   C(1)   edge   R(1)  R(50)   slow   fast
+KELP                  3t     13%     0%    -0.48     17.9       2.8       1.4        +11   8,634   35%  +0.13  -0.93  +0.00  -0.01  +0.94  +0.81
+RAINFOREST_RESIN      8t      0%     0%    -0.50     50.0      49.6      20.1         +0   7,121   49%  +0.09  -1.49  +0.09  +0.07  +1.41  +1.27
+SQUID_INK             3t     14%     0%    -0.17      1.5       1.3       1.7        -53   8,651   35%  +0.12  -0.93  +0.02  -0.02  +0.95  +0.80
 
 KELP: small-tick (median spread 3 ticks); mid mean-reverts at one tick; wall mid filters the mid's noise; market making pays (0.41 of the spread a unit)
 ...
@@ -44,7 +44,7 @@ KELP: small-tick (median spread 3 ticks); mid mean-reverts at one tick; wall mid
 
 The first thing to run on a new data download: it needs no bot. Per product it measures:
 - **The book:** the spread in ticks, and how often a side is empty.
-- **The noise:** how much the mid and the wall mid revert from one tick to the next.
+- **The noise:** how much the mid and the wall mid revert from one tick to the next, and whether the wall mid returns to a level over about 1,000 ticks.
 - **The drift:** how far the wall mid moves over a day.
 - **The market trades:** which side they hit, whether their signs persist (`C(1)`), what the taker paid, how far the wall mid moves after them, and the margin per unit a market maker would make on them (Bouchaud et al. eqs. 17.13–17.14).
 

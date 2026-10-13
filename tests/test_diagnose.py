@@ -1,3 +1,5 @@
+import random
+
 import pytest
 
 from arena import diagnose
@@ -80,6 +82,22 @@ def test_a_steady_rise_is_a_drift_every_day():
     row = diagnose.diagnose(days)["X"]
     assert row["drift_per_day"] == pytest.approx(99.9)
     assert "drifts up every day" in row["notes"]
+
+
+@pytest.mark.parametrize("pull, reverts", [(0.005, True), (0.0, False)])
+def test_slow_reversion_to_a_level(pull, reverts):
+    # Unit steps, pulled back toward 100 by `pull` of the gap each tick (an Ornstein-Uhlenbeck walk).
+    rng = random.Random(1)  # without the pull, this seed gives 1.16, near the median of a random walk (1.11)
+    days = []
+    for n in range(3):
+        level, walls = 100.0, []
+        for _ in range(10_000):
+            level += rng.choice((-1, 1)) - pull * (level - 100)
+            walls.append(round(level))
+        days.append(make_day(walls, name=f"d{n}"))
+    row = diagnose.diagnose(days)["X"]
+    assert (row["wall_reversion"] >= diagnose.SLOW_REVERSION) is reverts
+    assert ("reverts to a level" in row["notes"]) is reverts
 
 
 def test_informed_buys_move_the_wall_mid():

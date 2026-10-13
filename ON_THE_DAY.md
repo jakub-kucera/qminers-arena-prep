@@ -14,7 +14,7 @@ same facts.
 Three tracks can run in parallel:
 - **Checklist:** read the docs and fill in every answer they give.
 - **Probes:** adapt `bots/template.py`'s ADAPTER into a probe bot and run it in the playground.
-- **Data:** write the loader in `arena/formats/qminers.py`, so the backtester runs on their data as soon as possible.
+- **Data:** write the loader in `arena/formats/qminers.py`, so the backtester runs on their data as soon as possible. Then run `arena.diagnose` on it (see "What kind of market is each product?").
 
 ## Known so far
 
@@ -82,6 +82,14 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out: in which format are the files behind each round's "Download public backtest data" button (the site says they exist)? Does the data the private evaluation uses look the same (book depth, tick spacing)?
   - Then: write the loader in `arena/formats/qminers.py`, and run the template and validator on it before changing any strategy.
   - If no data is provided: have the probe bot print the full book and trades every tick, and build a dataset from the logs.
+- [ ] **What kind of market is each product?**
+  - Find out: once the loader reads the download, run `uv run python -m arena.diagnose <days> --format qminers --data <folder>`, and go through its notes with the table in `references/wiki/concepts/reading-the-data-on-day-one.md`.
+  - We assume the Prosperity picture (P3 round 1):
+    - small-tick books;
+    - a noisy mid around a quiet wall mid;
+    - market trades that don't move the wall mid;
+    - market-making margins of 0.2–0.4 of the spread.
+  - If different: the table says which template parameter or strategy each note changes. A thin margin, or trades that move the wall mid, means competitive or informed flow: quote wider and look for signals before tuning.
 - [ ] **Which backtest settings match the playground?**
   - Find out: run one bot (the template is fine) in the playground, then backtest it over the same period. Try each `--match-trades` mode, with and without `--resting`. Compare the number of passive fills, which fill rule decides most, and the PnL.
   - We assume: the per-tick mode with `--match-trades all`, which was the most optimistic on Prosperity data (81k, against 58k under `worse` and 28k under `none`).

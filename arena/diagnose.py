@@ -13,6 +13,9 @@ first data download as soon as its format module exists. For each product, poole
   the mid and of the wall mid (the midpoint of the largest level on each side): the variance per
   tick of one-tick changes over that of `LAG`-tick changes. Near 1 is a random walk; well above 1
   is noise that reverts, which a fair value should filter out.
+- **Slow reversion:** the wall mid's variance per tick at `LAG` ticks over that at `LONG_LAG`
+  ticks. Well above 1: the price returns to a level over hundreds of ticks, which the lag-1
+  numbers can't see.
 - **Drift:** the wall mid's change over each day, and that change over the day's noise.
 - **Market trades:** each classified against its own tick's book, as `analysis.trade_impact` does
   (+1 at or above the best ask, -1 at or below the best bid; inside the spread: left out). Then:
@@ -45,11 +48,16 @@ from arena.formats import FORMATS
 from arena.model import Day
 
 LAG = 50  # ticks: the "long run" for impact, noise and the slow margin
+LONG_LAG = 1000  # ticks: the horizon for slow reversion to a level
 REFERENCES = ("mid", "wall")
 LARGE_TICK_SHARE = 0.5  # share of two-sided ticks at a one-tick spread from which a product is large-tick
 EMPTY_SIDE_SHARE = 0.02  # share of ticks with one side empty from which it gets a note
 MEAN_REVERTING = -0.2  # lag-1 autocorrelation of the mid's changes at or below which the mid is mostly noise
 NOISY_SIGNATURE = 1.5  # signature ratio from which a price is noisy
+# Wall mid variance per tick at LAG over LONG_LAG from which it reverts to a level. Three days of 10,000 ticks hold
+# only 30 LONG_LAG windows, so a random walk spreads widely: simulated, its median is 1.11 and 2% reach 1.8;
+# P4 round 5's 50 products give 0.76-1.64 (median 1.16). A pull to the level of 0.2% a tick gives a median of 2.6.
+SLOW_REVERSION = 1.8
 FIXED_SD_TICKS = 1.0  # standard deviation of the wall mid, in ticks, up to which it counts as a fixed value
 DRIFT_RATIO = 2.0  # |change over a day| / the day's noise from which a day counts as drifting
 MIN_TRADES = 30  # market trades below which no trade statistics get a note
@@ -73,6 +81,7 @@ class _Acc:
     walls: list[float] = field(default_factory=list)
     autocorr: list[tuple[float, int]] = field(default_factory=list)  # mid, (value, weight) per day
     signature: dict[str, list[tuple[float, int]]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
+    reversion: list[tuple[float, int]] = field(default_factory=list)  # wall mid, LAG over LONG_LAG, per day
     drifts: list[float] = field(default_factory=list)  # wall mid change per day
     drift_ratios: list[float] = field(default_factory=list)  # that change over the day's noise
     trades: int = 0
@@ -129,6 +138,9 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
     refs = {name: _forward_fill(values) for name, values in series.items()}
     known = [w for w in refs["wall"] if w is not None]
     per_tick = _variance_per_tick(refs["wall"], LAG)
+    per_tick_long = _variance_per_tick(refs["wall"], LONG_LAG)
+    if per_tick and per_tick_long and len(known) >= 2 * LONG_LAG:
+        acc.reversion.append((per_tick / per_tick_long, len(known)))
     if len(known) > LAG and per_tick is not None:
         noise = (per_tick * len(known)) ** 0.5
         acc.drifts.append(known[-1] - known[0])
@@ -178,6 +190,7 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "mid_lag1_autocorr": _weighted(acc.autocorr),
         "mid_signature": _weighted(acc.signature["mid"]),
         "wall_signature": _weighted(acc.signature["wall"]),
+        "wall_reversion": _weighted(acc.reversion),
         "drift_per_day": _mean(acc.drifts),
         "drift_ratio_least": min(acc.drift_ratios, key=abs) if acc.drift_ratios else None,
         "drift_ratio_most": max(acc.drift_ratios, key=abs) if acc.drift_ratios else None,
@@ -210,7 +223,8 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
             notes.append(f"small-tick (median spread {row['spread_ticks_median']:g} ticks)")
     if (row["one_side_empty"] or 0) >= EMPTY_SIDE_SHARE:
         notes.append(f"a side empty {row['one_side_empty']:.0%} of ticks")
-    if row["wall_sd"] is not None and row["wall_sd"] <= FIXED_SD_TICKS * (row["tick"] or 1.0):
+    fixed = row["wall_sd"] is not None and row["wall_sd"] <= FIXED_SD_TICKS * (row["tick"] or 1.0)
+    if fixed:
         notes.append(f"wall mid nearly fixed at {row['wall_median']:g} (sd {row['wall_sd']:.2f})")
     if row["mid_lag1_autocorr"] is not None and row["mid_lag1_autocorr"] <= MEAN_REVERTING:
         notes.append("mid mean-reverts at one tick")
@@ -220,6 +234,8 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
             notes.append("wall mid filters the mid's noise")
         else:
             notes.append("mid and wall mid both noisy")
+    if not fixed and row["wall_reversion"] is not None and row["wall_reversion"] >= SLOW_REVERSION:
+        notes.append(f"wall mid reverts to a level over ~{LONG_LAG:,} ticks")
     ratios = acc.drift_ratios
     drifting = [r for r in ratios if abs(r) >= DRIFT_RATIO]
     if ratios and len(drifting) == len(ratios) and len({r > 0 for r in ratios}) == 1:
@@ -316,6 +332,7 @@ COLUMNS = (  # (key, header, format)
     ("mid_lag1_autocorr", "mid AC1", "{:+.2f}"),
     ("mid_signature", "mid sig", "{:.1f}"),
     ("wall_signature", "wall sig", "{:.1f}"),
+    ("wall_reversion", "slow rev", "{:.1f}"),
     ("drift_per_day", "drift/day", "{:+,.0f}"),
     ("trades", "trades", "{:,}"),
     ("buy_share", "buys", "{:.0%}"),
@@ -330,6 +347,7 @@ COLUMNS = (  # (key, header, format)
 LEGEND = (
     "spread: median, in ticks. 1 tick: share of two-sided ticks at a one-tick spread. empty: share of ticks with one side empty.\n"
     f"mid AC1: lag-1 autocorrelation of the mid's changes. sig: variance per tick at lag 1 over lag {LAG} (1 = random walk).\n"
+    f"slow rev: the wall mid's variance per tick at lag {LAG} over lag {LONG_LAG:,} (above 1: it returns to a level).\n"
     "drift/day: the wall mid's change per day. buys: share of market trades at or above the ask. C(1): sign correlation of consecutive trades.\n"
     f"Against the wall mid: edge = the taker's mean edge (negative = paid), R(h) = the signed move h ticks after a trade,\n"
     f"and a market maker's margin a unit, slow = -edge - R({LAG}), fast = -edge (1 - C(1)) - R(1) (Bouchaud et al. eqs. 17.13-17.14).\n"

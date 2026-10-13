@@ -29,6 +29,7 @@ Read this first, then the pages it points to. Conventions, workflows and the lin
 - [book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md): `ρ`, the weighted mid, Stoikov's micro-price and order-flow imbalance; strong only at 1-tick spreads, so test per product first.
 - [optimal-quoting-models](concepts/optimal-quoting-models.md): Avellaneda–Stoikov, GLFT and Guéant; the closed form is our linear `skew` with coefficients from `σ`, `A`, `k`; cross-product skew.
 - [probing-the-environment](concepts/probing-the-environment.md): experiments on the simulator before strategies: the PnL mark, bot tolerances, no-queue, sample data that is really live data.
+- [reading-the-data-on-day-one](concepts/reading-the-data-on-day-one.md): `arena.diagnose`'s notes (tick regime, noise, slow reversion, drift, one-sided or informed flow, the market-making margin) mapped to strategy choices, with Prosperity examples.
 - [price-impact](concepts/price-impact.md): instantaneous and permanent impact, the maker's `s/2 − R∞`, the shapes in the literature; on Prosperity data the bots' trades don't move the wall mid.
 
 ## Sources (one page per clone; each ends with a "Read depth" section)
@@ -100,12 +101,12 @@ Not yet ingested: none; every document in `literature_md/README.md` has a source
 ## Gaps
 Things the wiki does not cover yet, in rough order of value:
 1. **Manual-round puzzles.** No page. Unread: Baguette Fromage `README.md:1105-1485`, Alpha Search `README.md:181-638`, Ryan Challman `README.md:147-255`, Frankfurt `README.md:786-876`. The Arena may have none.
-2. **Cross-check against our engine.** No team's PnL claim is reproduced except Frankfurt's Resin and Kelp. Needs `--data p4` (`TODO.md`).
+2. **Cross-check against our engine.** Done for the P4 teams on 2026-10-13 ([log](log.md)): identical to `prosperity4btest` on 24 trader-days, and DTU's live results within 4% and 12–16%. Left: the P3 teams other than Frankfurt.
 3. **Unread source parts** (listed per source page): Frankfurt `README.md:325-876`; most of DU `round5.py`; DTU round 1–3 bodies; AlgoTrade's API reference; the Prosperity wikis' FAQ, round pages and glossary; most of the Leo-Hawking, heyman7913 and CMU Physics READMEs; Negative Eevee's `runner.rs`, `state.rs`, `config.rs`.
-4. **Sources not obtainable by the agent:** the Quant.SE queue-position thread (the fetch tool is blocked on that domain), exact copies of the queue and Avellaneda–Stoikov articles, books (Bouchaud et al. full text, an options text), and any organiser material. All tracked in [`MANUAL_TODO.md`](../../MANUAL_TODO.md); see also `references/SEARCH_LOG.md`.
-5. **The two books are only partly read** (Harris, Cartea et al.), and our Bouchaud et al. copy is an excerpt without its impact and market-making chapters. The chapter maps on their source pages say where to look next.
+4. **Sources not obtainable by the agent:** the Quant.SE queue-position thread (the fetch tool is blocked on that domain), exact copies of the queue and Avellaneda–Stoikov articles, books (an options text), and any organiser material. All tracked in [`MANUAL_TODO.md`](../../MANUAL_TODO.md); see also `references/SEARCH_LOG.md`.
+5. **The three books are only partly read** (Harris, Cartea et al., and Bouchaud et al., now the full copy). The chapter maps on their source pages say where to look next.
 6. **Ready Trader Go winning bots** and the Jane Street trading-challenge bots: none public that we found.
-7. **A concept page on "reading the public data on day one"**: a checklist of the facts above to test on the Arena's first download (partly covered by [probing-the-environment](concepts/probing-the-environment.md)).
+7. **Do the day-one notes predict what works?** [reading-the-data-on-day-one](concepts/reading-the-data-on-day-one.md) maps measurements to strategies from the sources. Not yet tested: whether an imbalance-adjusted fair helps on the `large-tick` products, and whether fading the level pays on the products that revert to one.
 
 ## Outside the wiki
 - [`../README.md`](../README.md): the human-facing table of repos, reading order and cloning.
