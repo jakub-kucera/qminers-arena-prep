@@ -38,6 +38,16 @@ def test_wall_mid_uses_the_largest_level_on_each_side(bot):
     assert bot.fair_value(book, params(bot, fair="wall_mid"), {}) == 100.5
 
 
+def test_outer_and_sized_mids(bot):
+    # A rival's large bid far below the market maker's 20-lot wall at 96.
+    book = bot.Book([[99, 2], [96, 20], [80, 40]], [[102, 2], [104, 20]])
+    fair = lambda **kw: bot.fair_value(book, params(bot, **kw), {})
+    assert fair(fair="wall_mid") == 92  # (80 + 104) / 2: the largest level is the rival's
+    assert fair(fair="outer_mid") == 92  # the outermost level is the rival's too
+    assert fair(fair="sized_mid", wall_size=15) == 100  # (96 + 104) / 2: stops at the first 15+
+    assert fair(fair="sized_mid", wall_size=50) == 100.5  # nothing that large: the best levels
+
+
 def test_fair_keeps_its_last_value_when_a_side_is_empty(bot):
     assert bot.fair_value(bot.Book([[99, 1]], []), params(bot, fair="mid"), {"fair": 100.0}) == 100.0
 

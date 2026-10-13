@@ -242,7 +242,7 @@ take order is left at that price for the rest of the tick, where market trades c
 Rivals change which settings win. With `--resting`, Kelp `make_edge=0` is the best setting
 under `worse` fills when trading alone. Against one copy of the baseline it loses 12,474 (15,498
 under `worse`). Its quotes at fair get crossed by the next snapshot, and the rival picks them
-off: the rival's `wall_mid` treats your large quote as the market maker's level.
+off: the rival's `wall_mid` treats your large quote as the market maker's level. Against the teams' own P4 bots the same trap cost the template 374k on Osmium in one round, and `fair: sized_mid` turned that into +17k (`IDEAS.md`).
 
 ## The bot template
 
@@ -250,10 +250,10 @@ off: the rival's `wall_mid` treats your large quote as the market maker's level.
 
 - **PARAMS:** per-product settings. Products not listed aren't traded. Keys missing from a product's entry come from `DEFAULTS`.
 - **STRATEGY:** format-agnostic. Each product goes through four steps:
-  - **Fair value:** fixed, mid, or `wall_mid`. `wall_mid` is the midpoint of the largest-size level on each side, which is how the top Prosperity teams found the market-maker bot's price.
+  - **Fair value:** fixed, mid, `wall_mid`, `outer_mid` or `sized_mid`. `wall_mid` is the midpoint of the largest-size level on each side, which is how the top Prosperity teams found the market-maker bot's price. `outer_mid` takes the outermost levels. `sized_mid` takes the first level from the top with at least `wall_size`. It is the only one of the three that holds up when other traders' resting orders share the book (see [Shared market](#shared-market)).
   - **Take:** trade against book orders at least `take_edge` better than fair.
   - **Clear:** cut inventory at fair to free room under the limit.
-  - **Make:** quote `make_edge` from fair, or one tick inside the book, moved by `skew` against inventory.
+  - **Make:** quote `make_edge` from fair, or one tick inside the book, moved by `skew` against inventory, with sizes scaled by `size_skew` (both work toward `target`).
 - **EXECUTION:** format-agnostic order management. Takes go out immediate-or-cancel. A resting quote is kept, with its place in the queue, while the plan still wants at least its size at its price. Everything else is cancelled and re-sent. When nothing rests between ticks, every planned order is simply sent, so the same file works under both engine modes.
 - **ADAPTER:** the only part that knows the Prosperity types.
 - **Trader:** the entry point. It isolates each product, so one product's bug doesn't stop the others. It keeps all state in `traderData`, and it swallows exceptions unless `STRICT` is set. The backtester sets `STRICT` so errors show up.

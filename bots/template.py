@@ -31,8 +31,9 @@ STRICT = False
 
 DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
-    "fair": "mid",  # "fixed", "mid" or "wall_mid" (see fair_value)
+    "fair": "mid",  # "fixed", "mid", "wall_mid", "outer_mid" or "sized_mid" (see fair_value)
     "fixed_fair": None,  # used when fair is "fixed"
+    "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly
     "take_edge": 1,  # take book orders priced at least this much better than fair
     "clear_edge": 0,  # cut inventory at prices up to this much worse than fair
@@ -136,6 +137,14 @@ def fair_value(book: Book, p: dict, memory: dict) -> float | None:
         # Market-making bots quote the largest size at stable prices. The midpoint of those
         # "walls" is much less noisy than the plain mid, which small orders keep moving.
         fair = mid(_wall(book.bids), _wall(book.asks))
+    elif method == "outer_mid":
+        # The outermost bid and ask, where the market maker usually sits (Frankfurt Hedgehogs).
+        fair = mid(book.bids[-1:], book.asks[-1:])
+    elif method == "sized_mid":
+        # The first level from the top with at least wall_size. Unlike the largest or outermost
+        # level, a large order far from the touch can't move it, so it holds up when other
+        # traders' resting orders share the book (IDEAS.md, wall-mid definitions).
+        fair = mid(_sized(book.bids, p["wall_size"]), _sized(book.asks, p["wall_size"]))
     else:
         raise ValueError(f"unknown fair value method {method!r}")
 
@@ -157,6 +166,11 @@ def mid(bids: list[list[int]], asks: list[list[int]]) -> float | None:
 def _wall(levels: list[list[int]]) -> list[list[int]]:
     """The level with the most volume, as a one-level list (empty if there are no levels)."""
     return [max(levels, key=lambda level: level[1])] if levels else []
+
+
+def _sized(levels: list[list[int]], size: int) -> list[list[int]]:
+    """The first level from the top with at least `size`, else the best level, as a one-level list."""
+    return next(([level] for level in levels if level[1] >= size), levels[:1])
 
 
 def take(book: Book, fair: float, p: dict, plan: Plan) -> None:

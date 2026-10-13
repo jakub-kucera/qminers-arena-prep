@@ -127,4 +127,15 @@ Ran the template in one market with DU's `round2.py`, Baguette Fromage's `Phase1
 ## [2026-10-13] query | size skew (Bouchaud et al. eq. 17.4) tested
 The template gains `size_skew`: inventory control through quote size, as in eq. 17.4.
 - **Result:** gridded against `skew` on P3 round 1 (Kelp, Resin, also under `--resting`) and P4 rounds 1–2 (Osmium, Pepper Root), it never beat 0. Price `skew` cost more. Both fit the diagnosis that Prosperity's flow is uninformed. Recorded in `IDEAS.md` and `market-making-and-inventory-skew`.
-- **Citations moved:** the new `DEFAULTS` line and `make` docstring shifted `bots/template.py`. Its citations in 19 wiki pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:189-221`).
+- **Citations moved:** the new `DEFAULTS` line and `make` docstring shifted `bots/template.py`. Its citations in 19 wiki pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:203-235`).
+
+## [2026-10-13] query | the wall-mid definitions compared
+Settled contradictions row 2 for Prosperity data and closed the `TODO.md` item.
+- **Method:** four definitions, each run in a copy of the template: the largest level (ours), the outermost (Frankfurt), DTU's rule, and the first level from the top with at least 15 (Baguette Fromage round 5, Linear Utility). Compared on Starfruit, Kelp, Osmium and Pepper Root, in all three engine modes, by signature-plot noise, and against the teams' P4 bots under `--resting`.
+- **On its own:** the outermost level ties or wins on every worst day, by 0–1.3%.
+- **With rivals' resting orders:** only `sized_mid` survives (+39k on Osmium where the others lose 377–654k), because a rival's far order becomes the largest and the outermost level.
+- **The template** gains `outer_mid` and `sized_mid` (with `wall_size`). The Prosperity products keep `wall_mid`.
+- **Filed into:**
+  - the wiki: `fair-value-and-wall-mid` (a per-day table), `shared-market-and-adversaries`, `reading-the-data-on-day-one`, contradictions row 2;
+  - the repo: `IDEAS.md`, `ON_THE_DAY.md`, `README.md`, `CLAUDE.md`.
+- **Citations moved:** template line citations re-mapped again (`make` is now `bots/template.py:203-235`).
