@@ -37,6 +37,7 @@ Every rank below is the team's own claim from its README. None is checked agains
 | `uchicago-trading-2026/` | [konnorlo/UChicago-Trading-Competition-2026](https://github.com/konnorlo/UChicago-Trading-Competition-2026) | Winner of the algorithmic case at the 2026 UChicago Trading Competition (1st of 41). A live exchange shared with other teams. README plus the organisers' `case-packet.pdf`. | 60 MB | 2026-05-11 |
 | `uchicago-2025-case2-humzah/` | [HumzahM/UTC2025-Case2-Writeup](https://github.com/HumzahM/UTC2025-Case2-Writeup) | A #1 entry (their claim) on the **file-upload** case of the 2025 UChicago competition: a 100-line `Allocator` class plus a notebook explaining how they found the data's 10-tick structure. No licence file. | 7 MB | 2025-11-29 |
 | `qminers-hackathon-2025/` | [vitktor/Qminers-Hackathon-2025](https://github.com/vitktor/Qminers-Hackathon-2025) | One team's solution to Qminers' own Quant Hackathon 2025 (sports betting), with the **organisers' files**: `src/environment.py` (their evaluation loop) and `problem_info_en.md`. A weak prior on how Qminers builds a competition. | 2 MB | 2026-10-08 |
+| `qminers-hackathon-2024/` | [AdamBobocky/qminers-24](https://github.com/AdamBobocky/qminers-24) | The **1st-place team's post-mortem** of Qminers' Quant Hackathon 2024 (NBA betting), with the organisers' files: `COMPETITION_README.md`, `problem_info.md`, `src/submit_model/environment.py`. Shows the format (online qualification, then a reset 3-round final) and how the winner chose risk for the final. Weak prior on the task. | 90 MB | 2026-10-13 |
 | `hftbacktest/` | [nkaz001/hftbacktest](https://github.com/nkaz001/hftbacktest) | The reference open-source backtester for market making with queue position and latency models. We read it for its queue models and its tutorial notebooks (GLFT, order-book-imbalance alpha, queue-based quoting). | 131 MB | 2025-12-23 |
 
 ## How these relate to the Arena
@@ -78,6 +79,7 @@ look at how Qminers builds a competition:
 - **All-or-nothing validation:** if a day's bets exceed the bankroll, `_validate_bets` rejects all of them. It's the same shape as Prosperity's limit rule.
 - **Online qualification, then an in-person final** where finalists get new data and tune in real time. CTU's news says the 2024 final ran 6 hours over 3 rounds in which teams could react to each other.
 - **What won (Qminers' own summaries):** simple models, strong risk management and bet sizing, and no overfitting.
+- **The 2024 edition (`qminers-hackathon-2024/`) ran on the same evaluation loop** (only the columns changed), with the same 1 CPU / 5 GB limit and RTE / MLE / TLE statuses. Its winner's post-mortem adds: a 20-submission cap in the qualification, a leaderboard showing every team's score, runtime and RAM, scrambled finals data whose period was worth working out, and a final whose risk they sized by simulating the other finalists.
 
 Editions in 2020, 2022, 2024 and 2025 were found, run with CTU's Intelligent Data Analysis group.
 
@@ -178,6 +180,9 @@ The only write-up here from a **live exchange shared with other teams**, which i
 ### `qminers-hackathon-2025/`
 See [How these relate](#how-these-relate-to-the-arena) for what it shows about how Qminers runs a competition. Read `problem_info_en.md` and `src/environment.py`. `src/model.py` there is this team's own solution (gradient boosting on the bookmaker's odds, 25% fractional Kelly), not the organisers' stub. The stub's layout is described in other teams' READMEs, e.g. [BrystofKlazek/QMinersHackathon42](https://github.com/BrystofKlazek/QMinersHackathon42). The model itself matters little for the Arena apart from its sizing discipline.
 
+### `qminers-hackathon-2024/`
+Read `README.md` (the post-mortem, 10 minutes) and `COMPETITION_README.md` (the organisers' rules, in Czech). The points for the Arena are on `wiki/sources/qminers-hackathon-2024.md`. The model code is NBA-specific and unread. The user's own team repo for 2025 (`jakub-kucera/QQH-2025`, private) has a copy of this repo on its `kuca-ai-merge-2024` branch; its other branches are the organisers' 2025 files and the team's betting models.
+
 ### `hftbacktest/`
 - **Our `--resting` queue model is hftbacktest's `RiskAdverseQueueModel`.** Compare `hftbacktest/hftbacktest/src/backtest/models/queue.rs` with the module docstring of `arena/engine.py`. Both do the same two things: a trade at the price reduces the volume ahead, and when the visible level shrinks below the volume ahead, the front is clipped to the new level size (`front = min(front, level)`). Their docs call this the most conservative model for fills.
 - Their less conservative `ProbQueueModel` is a principled version of the "front of the queue" option in `TODO.md`. When the level shrinks (after trades are subtracted), the share `p = f(back) / (f(back) + f(front))` is taken to be *behind* you and the rest, `1 - p`, ahead of you, where `f(x) = x**n`. A log variant `f(x) = log(1 + x)` also exists; it blames the back more, which is what [Rigtorp](https://rigtorp.se/2013/06/08/estimating-order-queue-position.html) and [Databento](https://databento.com/blog/getting-queue-position-from-l2-and-order-book-data) find in real data. `examples/Probability Queue Models.ipynb` compares them.
@@ -209,7 +214,7 @@ Looked at and judged worth a visit, but too big for what they add, or only worth
 3. Install `prosperity3bt`, write a small trader for Rainforest Resin and Kelp, backtest it on round 1 and view the result in the visualizer.
 4. Alpha Animals `README.md`, then skim `trader.py`.
 5. AlgoTrade `analysis/mm_analysis.md` and the participant guide.
-6. Qminers' own files: `qminers-hackathon-2025/problem_info_en.md` and `src/environment.py` (15 minutes). It's the only evidence of how they build a competition.
+6. Qminers' own files: `qminers-hackathon-2025/problem_info_en.md` and `src/environment.py` (15 minutes), then the 2024 winner's `qminers-hackathon-2024/README.md` (10 minutes). They're the only evidence of how Qminers builds a competition.
 7. Frankfurt Hedgehogs `README.md` (round 1 and the FAQ), then Baguette Fromage's "Tools & Infrastructure", "A Note on Backtester Limitations" and "Wall Mid".
 8. DTU Quant Lab `docs/literature_review.md` and `docs/journey.md`, then Ryan Challman's "Notes".
 9. The "Overall Retrospective" of Leo-Hawking's review, which is about working with an AI agent.

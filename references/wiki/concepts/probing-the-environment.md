@@ -1,7 +1,7 @@
 ---
 title: Probing the environment before building strategies
 type: concept
-updated: 2026-10-11
+updated: 2026-10-13
 ---
 
 # Probing the environment before building strategies
@@ -17,7 +17,9 @@ Every team that did well says its first move was an experiment on the environmen
 - **Zoom in on the data** (HumzahM): returns jumped on exactly every 10th tick, which made a tiny rule beat 40 teams (`uchicago-2025-case2-humzah/chicago8.py:35`; notebook cells 2–4, see [the source page](../sources/uchicago-2025-case2-humzah.md)).
 - **Is the practice data really separate from the scored data?** (CMU Physics): the website's "sample data" turned out to be the first 1,000 timestamps of live day 1 (`online-snapshots/chrispyroberts_imc-prosperity-3.README.md:70`). Teams hard-coded trades; the round was re-run and the hard-coding ruled cheating.
 - **Calibrate the local fill model against the oracle** (Kayzerjali): one product showed backtest +2,415 against live +436 on the same window, which is only visible by running the same trader on both (`online-snapshots/Kayzerjali_Prosperity2026/run_cycle.md:4-5`).
-- **If the simulator source is handed out, read it.** Qminers' 2025 hackathon shipped its evaluation loop (`qminers-hackathon-2025/src/environment.py:61-85`), and the validation was all-or-nothing and rejecting rather than clipping (`qminers-hackathon-2025/src/environment.py:122-140`).
+- **If the simulator source is handed out, read it.** Qminers' 2025 hackathon shipped its evaluation loop (`qminers-hackathon-2025/src/environment.py:61-85`), and the validation was all-or-nothing and rejecting rather than clipping (`qminers-hackathon-2025/src/environment.py:122-140`). It was the 2024 loop with new columns (`qminers-hackathon-2024/src/submit_model/environment.py:63-87`, *checked with `diff`*), so Qminers reuse their evaluator between years.
+- **Work out where the data comes from** (Qminers 2024): the finals data was scrambled, and the winner recognised round 3 as just after covid and changed their risk for it (`qminers-hackathon-2024/README.md:57`).
+- **Watch the leaderboard** (Qminers 2024): it showed each team's score, runtime and RAM use, so the winner read the others' models from it, and capped their own public score at a tenth to give nothing away (`qminers-hackathon-2024/README.md:35`, `qminers-hackathon-2024/README.md:67`).
 
 ## Where they disagree
 Nothing material. The open point is how many probe submissions are affordable: Prosperity allows many uploads, the Arena caps them per round (`ON_THE_DAY.md`, "Known so far"), so probes may have to run on the public backtest or in a playground instead.
@@ -29,4 +31,4 @@ Nothing material. The open point is how many probe submissions are affordable: P
 On Prosperity 4 round 1 data, reproduce two findings from the data alone (no submission): the share of ticks with an empty side (7.6% *(checked)*) and the repeat of taker events across days. Then use [hidden-takers-and-empty-sides](hidden-takers-and-empty-sides.md) as the template for what a probe should conclude. The data-only checks are one command now, `arena.diagnose` ([reading the data on day one](reading-the-data-on-day-one.md)): it gives the empty-side share (7–8% on P4 rounds 1–2) with the rest of a product's profile.
 
 ## Sources
-[Diehm essay](../sources/timo-diehm-medium-article.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [HumzahM](../sources/uchicago-2025-case2-humzah.md), [CMU Physics](../sources/prosperity3-cmu-physics.md), [Kayzerjali](../sources/prosperity4-kayzerjali.md), [Qminers 2025](../sources/qminers-hackathon-2025.md).
+[Diehm essay](../sources/timo-diehm-medium-article.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [HumzahM](../sources/uchicago-2025-case2-humzah.md), [CMU Physics](../sources/prosperity3-cmu-physics.md), [Kayzerjali](../sources/prosperity4-kayzerjali.md), [Qminers 2025](../sources/qminers-hackathon-2025.md), [Qminers 2024](../sources/qminers-hackathon-2024.md).

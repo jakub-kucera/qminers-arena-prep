@@ -39,7 +39,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out: the entry point (class or function), its arguments, and what it must return. Is it called once per tick with a snapshot, or fed events as they happen? AlgoTrade 2026 was a websocket with a broadcast every 100 ms.
   - We assume: `Trader().run(state)` once per tick, returning `(orders, conversions, traderData)`.
   - What the Arena site implies: a single `.py` file uploaded to a portal and run by their simulator on a backtest, not a live socket client. That favours our file-and-adapter setup over an event-driven client. Read the Technical Rules for the entry point.
-  - Weak prior only: Qminers' earlier Quant Hackathon (2022, 2025) was a different task, and this year is expected to be a big shift from those. There they gave out the server's own evaluation loop and a stub `Model` class called per step with pandas DataFrames (see `references/README.md`), so keep the ADAPTER the only place that touches their types, and check whether pandas and numpy are allowed (probe 10).
+  - Weak prior only: Qminers' earlier Quant Hackathon (2022, 2024, 2025) was a different task, and this year is expected to be a big shift from those. There they gave out the server's own evaluation loop (the same code in 2024 and 2025, `references/wiki/sources/qminers-hackathon-2024.md`) and a stub `Model` class called per step with pandas DataFrames (see `references/README.md`), so keep the ADAPTER the only place that touches their types, and check whether pandas and numpy are allowed (probe 10).
   - If it does turn out to be event-driven, `references/` has a model for it: Optiver's Ready Trader Go kit (see the "Read online" list) uses callbacks for book updates and fills.
   - If different: write `arena/formats/qminers.py`, modelled on `prosperity.py`, and rewrite the template's ADAPTER. An event-driven API also needs engine work, so flag it at once.
 - [ ] **Do unfilled orders rest between ticks?**
@@ -106,6 +106,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
 - [ ] **How do submissions work?** The exact deadline, how many submissions you get per round, the file size cap, and whether the public backtest score counts or only a private run.
   - From the site (see Known so far): single `.py` upload, a cap per round, newest upload becomes final unless you mark another, public and private evaluations.
   - So: run `arena.validate` before every upload. Never spend a submission on untested code. Before the deadline, check which submission is marked final.
+  - Also find out what the leaderboard shows of other teams. In Qminers' 2024 hackathon it showed every team's score, runtime and RAM, and the winner read rivals' models from it. They also capped their own public score at a tenth of the model's until the last hours, so others wouldn't try harder (`references/wiki/sources/qminers-hackathon-2024.md`). If a public score here doesn't count toward the ranking, the same applies: don't show the full bot early. A scored round's result does count (10/20/30/40%), so never hold back there.
 - [ ] **What does an exception do?** Probe 6. Is the tick skipped, the bot stopped, or the round lost? The template catches errors per product unless `STRICT` is set.
 - [ ] **What are the price units?** Integer ticks? Tick size? Cents? The template rounds prices to `int`.
   - We assume: a tick of 1. The template hard-codes it: `make` steps to `best_bid + 1` / `best_ask - 1` and rounds with `floor`/`ceil`, and `Trader.run` sends `int(price)`. The Prosperity loader also reads prices with `int(float(...))` (every P2–P4 price is a whole number, checked 2026-10-13).
@@ -114,6 +115,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - At which price are open positions valued: mid, last trade, or a settlement price?
   - Are positions liquidated at the end, and at what price? If badly, flatten before the close.
   - How are the rounds combined into a ranking? Is there a penalty for risk or drawdown?
+  - If the ranking is relative, size the risk for the chance of placing, not for PnL. Qminers' 2024 winner simulated the other finalists to pick their stake, then halved it in the last round while far ahead and kept first (`references/wiki/concepts/risk-and-protecting-a-lead.md`). Before round 4 (40%), compute the lead in weighted points and decide in writing how much risk to keep.
 - [ ] **Are there fees, rate limits or caps?** Fees or rebates per trade, the maximum number of orders per call or per second, and the maximum number of open orders. AlgoTrade closed your connection above 500 messages a second, and allowed 6,000 open orders.
 
 ## Every round

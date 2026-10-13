@@ -1,7 +1,7 @@
 ---
 title: Risk appetite and protecting a lead
 type: concept
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Risk appetite and protecting a lead
@@ -18,6 +18,8 @@ How much variance to take depends on how the competition scores. Teams that were
 - **Size down a one-day edge:** Ryan Challman's `ROBOT_DISHES` weight 0.06 (`prosperity4-ryan-challman/README.md:137`).
 - **Rank is partly luck:** Alpha Animals' 2nd place after round 3 came from a bug that happened to pay (`prosperity3-alpha-animals/README.md:135`).
 - **Fractional Kelly** was the staking rule in the Qminers sports-betting solution: 25% Kelly, 5% per bet, 20% per day (`qminers-hackathon-2025/README.md:25-27`). The theory is in the sizing section below.
+- **Choose risk for the chance of winning** (Qminers 2024 winner): before the in-person final, whose scores reset and whose horizon was shorter, they simulated it against 15 rivals with weaker, correlated models and varied risk appetites, and picked the Kelly multiplier with the most first places (`qminers-hackathon-2024/README.md:45-49`, `qminers-hackathon-2024/risk_model/main.py:48-101`). The script as published never returns its result (see [the source page](../sources/qminers-hackathon-2024.md), Traps), so only the method carries over.
+- **Halving risk while ahead kept first place** (same team): in the last of three rounds they halved the stake and won with 107k; at full risk it would have been about 143k, their estimate (`qminers-hackathon-2024/README.md:57`, `qminers-hackathon-2024/README.md:63`). In the same final the variance went both ways for the others *(checked on the screenshots)*: two finalists fell to under 40 from 1,000, and one climbed from about 50 to 69k in the last round to finish 2nd.
 
 - **Correlated books stack risk** (Leo-Hawking): applying the same mean-reversion logic to all highly correlated assets makes every asset build positions in the same direction at once, which hurt in round 4 (rank 95th to 132nd) though the market had been friendly in round 3 (`online-snapshots/Leo-Hawking_IMC-Prosperity-4-Review.README.md:408-446`).
 
@@ -35,7 +37,7 @@ Only part of this carries over *(inferred)*:
 - **Rank changes the appetite.** Behind, more variance can raise the chance of a top place; ahead, it only adds the risk of losing it. That is the rest of this page, and no part of Kelly.
 
 ## Where they disagree
-No team argues for more variance after taking a lead. How much of the position limit to use, Kelly against full-room market making: [contradictions](../contradictions.md), row 14.
+No team argues for more variance after taking a lead; the Qminers 2024 winner, the one case with a counterfactual, gave up upside and kept first. How much of the position limit to use, Kelly against full-room market making: [contradictions](../contradictions.md), row 14.
 
 ## What it means for our code
 Nothing yet. The decision is a policy (flatten, or stop) rather than a strategy; the template has no end-of-round flatten parameter (a deferred item in `TODO.md`).
@@ -43,9 +45,9 @@ Nothing yet. The decision is a policy (flatten, or stop) rather than a strategy;
 For sizing, nothing is built either. If a round has a directional signal (a predicted move per tick), size its target position as predicted move over the variance of the per-tick price change, then take a fraction of that, capped by the limit. For market making, compare products by PnL per unit of inventory risk before giving each the full limit. *(Inferred from [Kelly](../sources/kelly-criterion.md).)*
 
 ## How to test it here
-Once the Technical Rules give the scoring formula, compute what rank or PnL secures each outcome and decide in advance, in writing, when to stop. Log per-product PnL from the first run.
+Once the Technical Rules give the scoring formula, compute what rank or PnL secures each outcome and decide in advance, in writing, when to stop. If the rounds are scored against other teams, a simulation like the Qminers 2024 winner's (rivals with weaker, correlated strategies and varied risk) turns that into a size per round. Log per-product PnL from the first run.
 
 For sizing: grid `make_size` (or a soft limit) per product next to the edge parameters, and compare PnL against its spread across days. Kelly predicts a flat top: a size well below the full limit should lose little PnL while cutting its variance.
 
 ## Sources
-[Linear Utility](../sources/prosperity2-linear-utility.md), [UChicago](../sources/uchicago-trading-2026.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [Qminers 2025](../sources/qminers-hackathon-2025.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [Thorp on Kelly](../sources/kelly-criterion.md).
+[Linear Utility](../sources/prosperity2-linear-utility.md), [UChicago](../sources/uchicago-trading-2026.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [Qminers 2025](../sources/qminers-hackathon-2025.md), [Qminers 2024](../sources/qminers-hackathon-2024.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [Thorp on Kelly](../sources/kelly-criterion.md).

@@ -32,6 +32,7 @@ REPOS=(
   "uchicago-trading-2026            konnorlo/UChicago-Trading-Competition-2026       a79306ae0df7229db0b7d62b2c2085e6add0dbae"
   "uchicago-2025-case2-humzah       HumzahM/UTC2025-Case2-Writeup                    1c0f7a90b5ad6956c797287b53b8a6cabfb33cfe"
   "qminers-hackathon-2025           vitktor/Qminers-Hackathon-2025                   8a42f1ed0a9f9b14a5113f79c6277f3390891415"
+  "qminers-hackathon-2024           AdamBobocky/qminers-24                           3c1147bd8a7e5ca313f5c478be81c26cf34c9657"
   "hftbacktest                      nkaz001/hftbacktest                              5f3ec40b2afb764e0fea112f941ed85523ef4e88"
 )
 

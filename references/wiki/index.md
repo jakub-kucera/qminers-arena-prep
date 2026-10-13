@@ -53,6 +53,7 @@ Other competitions and organisers' files:
 - [algotrade2026-pitfa19](sources/algotrade2026-pitfa19.md): live WebSocket event; market-maker reverse engineering.
 - [uchicago-trading-2026](sources/uchicago-trading-2026.md): shared live exchange; Case 2 is a file upload with a restricted library set.
 - [qminers-hackathon-2025](sources/qminers-hackathon-2025.md): Qminers' earlier competition; stub, upload, hidden seasons.
+- [qminers-hackathon-2024](sources/qminers-hackathon-2024.md): the 2024 winner's post-mortem; same evaluator, qualification then a reset 3-round final, risk chosen for the chance of winning.
 Documents and articles:
 - [timo-diehm-medium-article](sources/timo-diehm-medium-article.md): Frankfurt Hedgehogs' essay on questioning assumptions and understanding the environment; no tactics.
 - [prosperity-wikis](sources/prosperity-wikis.md): IMC's own documentation (Notion) for Prosperity 2, 3 and 4: the bot interface, libraries, limits and time limit.

@@ -25,11 +25,12 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
     organisers offer one.
   - Done when: the files are saved and the loader work (`arena/formats/qminers.py`, `ON_THE_DAY.md`) has what it needs, or the
     item is ticked as "nothing available before the event".
-- [ ] **Material from earlier Qminers Quant Hackathons**, if a teammate or friend took part (2022 or 2024 problem
+- [x] **Material from earlier Qminers Quant Hackathons**, if a teammate or friend took part (2022 or 2024 problem
   statement, stub class, evaluation code). Save in `references/qminers-hackathon-older/`.
   - Why: `references/qminers-hackathon-2025/` is the only look at how Qminers builds a task; a second or third
     year shows what they reuse. A weak prior, since the Arena is a different task.
   - Done when: the files are saved, or the item is ticked as "nobody has any".
+  - Done 2026-10-13: the user's private 2025 repo (`jakub-kucera/QQH-2025`) had the 2024 winner's repo on a branch; its public original is pinned in `references/clone.sh` as `qminers-hackathon-2024/` (organisers' README, problem statement and evaluation loop, plus the post-mortem) and ingested as `references/wiki/sources/qminers-hackathon-2024.md`. The repo's other branches hold the organisers' 2025 files, which we already had, and the team's own models. No 2022 material.
 - [ ] **(Optional) Organiser posts from the Prosperity Discord**, if anyone on the team has access: the announcements
   and the clarifications about data generation, order matching and hints. Copy the text into
   `references/prosperity-discord/`.
