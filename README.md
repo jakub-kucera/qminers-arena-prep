@@ -79,7 +79,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--resting` | Unfilled orders rest on the book until filled or cancelled, with a queue model. See [Resting mode](#resting-mode). |
 | `--vs BOT` | Another bot in the same market, competing for fills and trading with yours. Repeatable. See [Shared market](#shared-market). |
 | `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. |
-| `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask per tick), `<day>_fills.csv` and `<day>_orders.csv` |
+| `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask and wall mid per tick), `<day>_fills.csv`, `<day>_orders.csv` and `<day>_trades.csv` (the data's market trades) |
 | `--print` | Show the bot's prints |
 | `--no-strict` | Let the bot swallow its own exceptions, as it does when submitted |
 
@@ -216,9 +216,10 @@ It warns about:
 
 Positions are valued at each tick's mid price.
 
-The fills match jmerle's `prosperity3bt` 0.12.0 exactly in 15 comparisons: 5 days, with all
+The fills matched jmerle's `prosperity3bt` 0.12.0 exactly in 15 comparisons: 5 days, with all
 three trade-matching modes on each. Those days include round 5, with all 15 products and books
-that are sometimes empty on one side. `tests/test_parity.py` pins those numbers.
+that are sometimes empty on one side. `tests/test_parity.py` pins 6 of them: round 1 day 0 and
+round 5 day 2, in each mode.
 
 ### Resting mode
 

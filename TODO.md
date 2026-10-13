@@ -161,7 +161,7 @@ A read-through of `arena/`, `bots/template.py`, the tests and the docs. The test
   - `_apply_override` raises a bare `TypeError` (a traceback, not a usage error) when a `--set` path goes through a non-dict, e.g. `PARAMS.KELP.limit.x=1`.
   - `analysis.trade_impact` counts trades on a tick with an empty side as `inside`, while `arena.diagnose` skips them.
   - Done when: each one is fixed or marked as intended in its docstring.
-- [ ] **Fix the docs that have drifted from the code:**
+- [x] **Fix the docs that have drifted from the code:** Done 2026-10-13. The contradictions rows were fixed with the template re-mapping (`9f13090`). The lint now warns when a cited range into `bots/`, `arena/` or `experiments/` doesn't start a definition (`def`, `class`, a decorator, an assignment, a field or a dict entry). Its first run caught three more stale ranges, now fixed: `arena/analysis.py` (markouts), `arena/model.py` (`MarketTrade`) and `arena/diagnose.py` (the thresholds).
   - `references/wiki/contradictions.md` rows 12 and 16 cite `bots/template.py:460-492` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
   - `references/wiki/concepts/book-imbalance-and-micro-price.md` lists three `fair` methods; there are five.
   - The README's `--out` row names three CSVs; there are four (`_trades.csv`).

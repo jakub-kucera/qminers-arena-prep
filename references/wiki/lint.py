@@ -8,6 +8,9 @@ followed by its PDF page, `(p. N)` or `(p. N, checked)`, and N must agree with t
 formula needs `checked` or `unchecked` on one of its literature citations (a heuristic; `Traps` sections, which
 quote OCR slips, are exempt), and an `unchecked` citation under "What it means for our code" is an error.
 Citations into a clone that is not present (references/clone.sh not run) are reported as skipped, not as errors.
+A cited range into our own Python code (bots/, arena/, experiments/) must start a definition: a `def`, `class`,
+decorator, assignment, annotated field or dict entry. These files change, and a range that starts mid-function,
+in a docstring or at an import has usually been left behind by an edit (a warning).
 
 Usage: python3 references/wiki/lint.py [--pages]    exit code 1 if there are errors. Standard library only.
        --pages also matches each literature citation's words against the PDF text (pdftotext, about a minute) and
@@ -40,6 +43,9 @@ MATCH_MISSES = {
 SPAN = re.compile(r"`([^`]+)`")
 RELATION = re.compile(r"[=≈∝≤≥<>]")
 LETTER = re.compile(r"[A-Za-zα-ωΑ-Ω]")
+OWN_CODE = tuple(ROOT / folder for folder in ("bots", "arena", "experiments"))
+# def, class, a decorator, an assignment, an annotated field (`bids: tuple = ()`) or a dict entry (`"skew": 0.0,`)
+DEFINITION = re.compile(r"""\s*(?:(?:async\s+)?def\b|class\b|@|[A-Za-z_][\w.]*\s*(?::[^=]+)?=[^=]|[A-Za-z_]\w*\s*:|["'][^"']+["']\s*:)""")
 LOG_ENTRY = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|restructure|search) \| .+")
 
 
@@ -196,6 +202,9 @@ def main(argv: list[str]) -> int:
                 errors.append(f"{rel}: {path}:{start}{'-' + end if end else ''} is outside the file ({len(lines)} lines)")
             elif not lines[first - 1].strip():
                 warnings.append(f"{rel}: {path}:{first} is a blank line")
+            elif end and found.suffix == ".py" and any(found.is_relative_to(folder) for folder in OWN_CODE):
+                if not DEFINITION.match(lines[first - 1]):
+                    warnings.append(f"{rel}: {path}:{start}-{end} doesn't start a definition (moved by an edit?)")
             if found.is_relative_to(LITERATURE) and found.name == f"{found.parent.name}.md":
                 check_page(text, match.end(), found, first, last, f"{rel}: {path}:{start}", errors, warnings, exact)
     for line in (WIKI / "index.md").read_text().splitlines():

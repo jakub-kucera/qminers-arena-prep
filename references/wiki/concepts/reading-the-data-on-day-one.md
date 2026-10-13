@@ -17,7 +17,7 @@ The Arena's first data download should decide the strategy for each product befo
   - Against the mid the two agree when trades are at the touch. Against the wall mid they don't, and mixing them had overstated the margins on [Bouchaud et al.](../sources/trades-quotes-prices.md) (see the log, 2026-10-13).
 - **The signature ratio** is the variance per tick of one-tick changes over that of 50-tick changes. It is flat (1) for a random walk and above 1 for noise that reverts (eq. 2.9 and 2.13, `literature_md/trades-quotes-prices/trades-quotes-prices.md:685` (p. 44, checked)). The `slow rev` column is the same ratio for the wall mid at 50 against 1,000 ticks.
 
-**The decision table.** Examples are `arena.diagnose` output on the Prosperity data *(checked: ran it, 2026-10-13)*. The thresholds are module constants (`arena/diagnose.py:50-68`).
+**The decision table.** Examples are `arena.diagnose` output on the Prosperity data *(checked: ran it, 2026-10-13)*. The thresholds are module constants (`arena/diagnose.py:52-73`).
 
 | Note | Reading | What to do | Prosperity example | Grounds |
 |---|---|---|---|---|
@@ -64,7 +64,7 @@ The Arena's first data download should decide the strategy for each product befo
 - **Does quoting at the touch lose?** Cartea et al. say yes on NASDAQ. The margin column measures it here ([contradictions](../contradictions.md), row 12).
 
 ## What it means for our code
-- **`arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `arena/diagnose.py:50-68`, so if the Arena's data needs other cut-offs, change them there and in this table together.
+- **`arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `arena/diagnose.py:52-73`, so if the Arena's data needs other cut-offs, change them there and in this table together.
 - **The table maps to the template's parameters:**
   - `fair` (fixed / `mid` / `wall_mid`, `bots/template.py:35`);
   - `smoothing`;

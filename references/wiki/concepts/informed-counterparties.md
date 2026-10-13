@@ -34,7 +34,7 @@ Whether market trades in general carry information (theory: yes; Prosperity's wa
 Which Mark, if any, is worth acting on: see [contradictions](../contradictions.md), row 3. By team: Mark 67 (DU, heyman7913; Alpha Search found it real but too small), Mark 14 (DTU, Leo-Hawking), Mark 55 (Leo-Hawking, heyman7913), none that survived (Ryan Challman, Baguette Fromage).
 
 ## What it means for our code
-`arena/model.py` `MarketTrade` already has `buyer` and `seller` (`arena/model.py:27-35`), and the Prosperity format passes them through. No strategy uses them.
+`arena/model.py` `MarketTrade` already has `buyer` and `seller` (`arena/model.py:39-48`), and the Prosperity format passes them through. No strategy uses them.
 
 ## How to test it here
 Without names: per product, the correlation between our position and the next 10–100 ticks of `mark` change in `_timeline.csv`. A clearly negative value means someone is picking us off (Harris's test). Then split our fill markouts by the trade's size and by time of day to find who.

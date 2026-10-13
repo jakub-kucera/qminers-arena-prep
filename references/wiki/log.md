@@ -182,3 +182,8 @@ P3 round 3 treated as a first download, following `ON_THE_DAY.md`: diagnose, the
 Five fixes from the code review (`TODO.md`, "From the code review"): the template's error handler, `level_exit` past the level, baskets pricing legs from untouched books, `make` keeping the bid below the ask, and `--resting` no longer filling from the same orders twice.
 - **Numbers moved:** `baskets-and-fixed-sums` (held out 71k / 294k, was 83k / 281k) and `drift-and-regime-change` (210k held out, 152k with the day's mean, was 215k / 147k), both from re-running the experiments after the `level_exit` fix.
 - **Citations moved:** the template's line citations in 20 pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:405-443`). Contradictions rows 12 and 16 cited `bots/template.py:460-492` (`execute` and the ADAPTER) for the quoting rule; they now cite `make`.
+
+## [2026-10-13] lint | citation ranges into our own code
+`lint.py` now warns when a cited range into `bots/`, `arena/` or `experiments/` doesn't start a definition (a `def`, `class`, decorator, assignment, annotated field or dict entry): such a range has usually been left behind by an edit, and the old check only asked whether the line exists.
+- **Caught on its first run, and fixed:** `book-imbalance-and-micro-price` cited `arena/analysis.py:189-215` for the markouts (now `206-233`); `informed-counterparties` cited `arena/model.py:27-35`, inside `Book.wall_mid`, for `MarketTrade` (now `39-48`); `reading-the-data-on-day-one` cited `arena/diagnose.py:50-68`, starting at an import, for the thresholds (now `52-73`, twice).
+- **Also:** `book-imbalance-and-micro-price` listed three `fair` methods; it now lists all five.
