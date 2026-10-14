@@ -69,6 +69,8 @@ PAPERS=(
   "guessing-games                     guessing-games"
   "accidental-pump-and-dump           accidental-pump-and-dump"
   "spoofing-traders-empirical         spoofing-traders-empirical"
+  "hawkes-structured-mm               hawkes-structured-mm"
+  "lob-irreversibility                lob-irreversibility"
   "abides-simulator               abides-simulator"
   "lob-simulation-realism         lob-simulation-realism"
   "spoofing-abm                   spoofing-abm"
