@@ -191,6 +191,21 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | Stenfors et al., *Cross-market spoofing* (2023) | none found | Conditional on related products: spoofing one market to trade another |
 | Kularatnam & Stathaki, spoofing detection with temporal convolutions (arXiv 2403.13429); Shearer et al., benchmark manipulation (ICAIF 2023); Wang et al.'s cloaking mechanism (IJCAI 2018); Libor, VIX and Benford studies; the A1 generator-calibration papers (Coletta et al. 2021–2023, gradient-assisted and neural calibration, ICAIF 2023) | | Skipped: deep-learning detectors, exchange-side design, benchmarks, or simulator calibration beyond what the A1 generator needs |
 
+**The rest of the harder-round mechanisms (2026-10-14).** The same sources (ICAIF 2020–2025 contents, the arXiv sweep), now against every item of `references/wiki/concepts/harder-rounds.md`, under its rule: literature only where a planned build needs a spec or an algorithm (the zoo, the day generator, the regime guard, the cross-product diagnose, the engine options), not for rule-type items.
+
+| Item | Paper | Free copy | Verdict |
+|---|---|---|---|
+| D2 (agent-written bots) | Lopez-Lira, *Can large language models trade? Testing financial theories with LLM agents in market simulations* (2025) | arXiv 2504.10789 | **Worth adding**: an open-source order-book market whose traders are LLM agents; they follow their instructed style (value, momentum, market making) and the market shows bubbles and under-reaction. The model for the LLM zoo |
+| D2 | Byrd, *The accidental pump and dump: when agentic AI meets autonomous trading* (ICAIF 2025) | none (ACM; `MANUAL_TODO.md` F) | **Worth adding**: what autonomous LLM traders do to a market |
+| A1 (day generator) | Mascioli, Gu, Wang, Chakraborty & Wellman, *A financial market simulation environment for trading agents using deep reinforcement learning* (PyMarketSim, ICAIF 2024) | in `ICAIF_2024_proceedings.pdf` p. 117 | **Worth adding**: `harder-rounds.md` already says to read it before writing the generator; private values, asymmetric information, a flexible book, open source |
+| C5 (how the close is settled) | Shearer, Rauterberg & Wellman, *Learning to manipulate a financial benchmark* (ICAIF 2023) | in `ICAIF_2023_proceedings.pdf` p. 592 | **Worth adding if the close is an average over a window** (AlgoTrade's was): a trader whose holdings are marked to a transaction-based benchmark learns to move it |
+| C3 (latency) | Gao & Wang, *Optimal market making in the presence of latency* (Operations Research; 2018 preprint) | arXiv 1806.05849 | Maybe: when making still pays with latency on a large-tick asset (uninformed flow against the rate of price jumps) |
+| B5 (hidden structure) | Zhang, Cucuringu & Shestopaloff, *Dynamic time warping for lead-lag relationship detection in lagged multi-factor models* (ICAIF 2023) | in `ICAIF_2023_proceedings.pdf` p. 454 | Maybe: lead-lag detection at low signal-to-noise, for the cross-product diagnose; daily equities |
+| B5 | Shi, Calliess & Cucuringu, *Multireference alignment for lead-lag detection*; Cartea, Cucuringu & Jin, *Correlation matrix clustering for statistical arbitrage portfolios* (ICAIF 2023) | local, pp. 507, 557 | Skipped unless the zoo or the diagnose needs a second method |
+| B1 (regime guard) | Akioyamen, Tang & Hussien, *A hybrid learning approach to detecting regime switches* (ICAIF 2020) | not local | Skipped: Adams & MacKay already gives the detector |
+| A1, A3, B2, B3, B4, E | simulator calibration and GAN generators (2021–2025), event-shock models (2021), Kalman and value-learning (covered by Das), arrival-order prediction markets (2021), execution RL (2022–2025) | | Skipped: covered, or deep learning with no rule to carry |
+| D4 (side games) | none in these venues; the classic is Nagel's guessing-game experiment (AER 1995) | | Optional: the level-k evidence behind "decide one level beyond the herd" |
+
 ### Books and articles
 
 The first pass had searched repos and listed books as "not tried". This is that search. **The finding is that the
