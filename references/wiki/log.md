@@ -254,3 +254,6 @@ Downloaded by the agent from arXiv (found by the comment-field query in `referen
 
 ## [2026-10-15] restructure | the day generator is built
 `arena/sim.py` implements A1 of [harder-rounds](concepts/harder-rounds.md) from the spec on [pymarketsim](sources/pymarketsim.md), [spoofing-abm](sources/spoofing-abm.md) and [abides-simulator](sources/abides-simulator.md) (seeding), calibrated with [lob-simulation-realism](sources/lob-simulation-realism.md)'s idea of an acceptance test through `arena.diagnose`. First result in `IDEAS.md`: replay `--match-trades all` overstates the template in a reactive market, and `worse` is close.
+
+## [2026-10-15] restructure | the LLM zoo
+`bots/zoo/` implements D2 of [harder-rounds](concepts/harder-rounds.md), with archetype prompts after [llm-agents-market-simulation](sources/llm-agents-market-simulation.md). Six Claude bots; results in `IDEAS.md`. Other providers' bots are a manual item.

@@ -322,6 +322,15 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
 - **ADAPTER:** the only part that knows the Prosperity types.
 - **Trader:** the entry point. It isolates each product, so one product's bug doesn't stop the others. It keeps all state in `traderData`, and it swallows exceptions unless `STRICT` is set. The backtester sets `STRICT` so errors show up.
 
+## The LLM zoo
+
+`bots/zoo/` holds bots that language models wrote from a Prosperity-style spec alone: the
+baseline an agent-using team starts from, and rivals for `--vs`. `uv run python -m
+experiments.zoo` scores each one alone, against the template, inside `arena.sim` and all
+together. `bots/zoo/README.md` explains how to add bots from other providers (Gemini,
+ChatGPT, ...) cleanly. On P3 round 1, the best Claude-written market makers equal the template
+alone on Kelp and Resin and beat it head to head (`IDEAS.md`, "The LLM zoo").
+
 ## On the day: adapting to the real format
 
 1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground.

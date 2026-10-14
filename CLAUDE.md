@@ -31,6 +31,7 @@ uv run python -m arena.sim run bots/template.py --days 5           # the bot ins
 uv run python -m arena.analysis --grid results/grid.csv           # grid heatmaps
 uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis group adds Jupyter
 uv run python -m experiments.p4_levels                            # a one-off study; its numbers are in IDEAS.md
+uv run python -m experiments.zoo                                  # scores every LLM-written bot in bots/zoo/ against the template
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
@@ -138,6 +139,8 @@ between calls.
   The engine applies cancels before the limit check, which is why planning with the full room is safe. With nothing resting, it sends the whole plan, so one file works in both engine modes.
 - **ADAPTER:** the only Prosperity-specific code, including the resting extensions (`state.open_orders`, `Cancel`, `ioc`).
 - **`Trader.run`:** a try/except per product, swallowed unless `STRICT`. A product that errors cancels its resting orders.
+
+`bots/zoo/` holds bots written blind by language models from `bots/zoo/SPEC.md` and `PROMPTS.md`: the agent baseline and `--vs` rivals. Never edit a zoo bot or a prompt once used; its README has the protocol for adding other providers' bots.
 
 New strategy logic goes in STRATEGY, order-management changes go in EXECUTION, and format changes go in ADAPTER. `bots/datamodel.py` only
 lets editors resolve imports; it is never submitted.

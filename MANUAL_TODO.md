@@ -38,6 +38,11 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
     `references/wiki/sources/prosperity4-du-trading.md`) and the agent cannot see Discord.
   - Done when: the text is saved, or the item is ticked as "no access".
 
+- [ ] **Zoo bots from Gemini and ChatGPT** (`TODO.md`, "(a, part 2)"). The agent can't reach other providers' models.
+  - What: Gemini 4 and an older Gemini, and ChatGPT models current and older (GPT-4o, o3, GPT-4.1, ...), each on the `baseline` prompt; the strongest of each on all four prompts.
+  - How: `bots/zoo/README.md`, "Running a model cleanly". Save each reply unchanged in `bots/zoo/gemini/` or `bots/zoo/chatgpt/`, add a row to the README's table.
+  - Done when: the files are saved; the agent then runs `uv run python -m experiments.zoo` and records the results.
+
 ## B. Free web pages the agent cannot read exactly
 
 Open each page in a browser and print it to PDF into `literature_raw/`, with the suggested name. The agent then
