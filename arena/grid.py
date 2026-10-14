@@ -134,7 +134,7 @@ def _range(text: str) -> list:
 _WORKER: dict = {}
 
 
-def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, targets, modes, config, rivals, days=None):
+def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, targets, modes, config, rivals, requote, days=None):
     fmt = FORMATS[format_name]
     _WORKER.update(
         fmt=fmt,
@@ -145,6 +145,7 @@ def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, tar
         modes=modes,
         config=config,
         rivals=rivals,
+        requote=requote,
     )
 
 
@@ -156,7 +157,7 @@ def _evaluate(index: tuple[int, ...], values: tuple) -> Outcome:
         config = replace(w["config"], trade_matching=mode)
         days, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
         for day in w["days"]:
-            result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], config)[0]
+            result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], config, requote=w["requote"])[0]
             days[day.name] = (report.total_pnl(result) or [0.0])[-1]
             for stats in report.product_stats(result):
                 products[stats.product] = products.get(stats.product, 0.0) + stats.pnl
@@ -175,7 +176,7 @@ def run_grid(
     """Returns the baseline (the bot with only --set applied) and every combination's outcome."""
     combos = list(itertools.product(*(range(len(axis.values)) for axis in axes)))
     tasks = [((), ())] + [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
-    init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals)
+    init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals, s.requote)
 
     outcomes: dict[tuple[int, ...], Outcome] = {}
     progress = _Progress(len(tasks))
@@ -200,7 +201,7 @@ def smoke_test(s: Setup, bot: Path, axes: list[Axis]) -> None:
     overrides = {**s.overrides, **{axis.target: axis.values[0] for axis in axes}}
     day = s.days[0]
     sample = Day(day.name, day.products, day.limits, day.ticks[:SMOKE_TEST_TICKS])
-    result = run_with_rivals(s.format, sample, bot, overrides, s.rivals, s.config)[0]
+    result = run_with_rivals(s.format, sample, bot, overrides, s.rivals, s.config, requote=s.requote)[0]
     if result.errors:
         raise ValueError(f"the bot fails with the first combination: {report.last_line(result.errors[0][1])}")
 

@@ -11,7 +11,7 @@ from types import ModuleType
 from arena.botfile import parse_override
 from arena.engine import DayResult, EngineConfig, TradeMatching, run_market
 from arena.formats import FORMATS
-from arena.model import Day
+from arena.model import Cancel, Day
 
 
 @dataclass
@@ -21,6 +21,7 @@ class Setup:
     config: EngineConfig
     overrides: dict[str, object]
     rivals: list[Path] = field(default_factory=list)  # bots trading in the same market (--vs)
+    requote: bool = False  # the rivals cancel all their resting orders every tick (--requote)
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -71,6 +72,12 @@ def add_rival_argument(parser: argparse.ArgumentParser) -> None:
         help="another bot trading in the same market: it competes for the same fills and can trade with yours. "
         "Repeatable; give a file twice for two copies. --set only applies to your bot.",
     )
+    parser.add_argument(
+        "--requote",
+        action="store_true",
+        help="the rivals cancel all their resting orders before every tick, as bots written for orders that live one "
+        "tick (Prosperity's) expect; use it with --resting",
+    )
 
 
 def setup(args: argparse.Namespace) -> Setup:
@@ -80,7 +87,7 @@ def setup(args: argparse.Namespace) -> Setup:
         trade_matching=args.match_trades, resting=args.resting, fill_ratio=args.fill_ratio, seed=args.seed
     )
     overrides = dict(parse_override(text) for text in args.overrides)
-    return Setup(fmt, days, config, overrides, getattr(args, "rivals", []))
+    return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False))
 
 
 def participant_names(bot: Path, rivals: list[Path]) -> list[str]:
@@ -94,8 +101,35 @@ def participant_names(bot: Path, rivals: list[Path]) -> list[str]:
 
 
 def run_with_rivals(
-    fmt, day: Day, bot: Path, overrides: dict[str, object], rivals: list[Path], config: EngineConfig, strict: bool = True
+    fmt,
+    day: Day,
+    bot: Path,
+    overrides: dict[str, object],
+    rivals: list[Path],
+    config: EngineConfig,
+    strict: bool = True,
+    requote: bool = False,
 ) -> list[DayResult]:
     """Runs the bot, plus any rivals in the same market. The bot's result comes first."""
-    bots = [fmt.load_bot(bot, overrides, strict)] + [fmt.load_bot(rival, {}, strict) for rival in rivals]
+    others = [fmt.load_bot(rival, {}, strict) for rival in rivals]
+    if requote:
+        others = [Requote(other) for other in others]
+    bots = [fmt.load_bot(bot, overrides, strict), *others]
     return run_market(day, list(zip(participant_names(bot, rivals), bots)), config)
+
+
+class Requote:
+    """Cancels all of a bot's resting orders before each tick, and hides them from it.
+
+    Bots written for orders that live one tick (Prosperity's) never cancel: under --resting their
+    orders pile up until the limit check rejects everything. Wrapped, each tick's orders replace
+    the last tick's, which is how they were meant to run, though they keep their queue place only
+    for that tick.
+    """
+
+    def __init__(self, bot):
+        self.bot = bot
+
+    def step(self, tick, positions, own_fills, market_trades, open_orders):
+        actions = self.bot.step(tick, positions, own_fills, market_trades, [])
+        return [Cancel(order.id) for order in open_orders] + [a for a in actions if not isinstance(a, Cancel)]

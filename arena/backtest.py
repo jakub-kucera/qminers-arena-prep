@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     names = participant_names(args.bot, s.rivals)
     results, rival_results = [], []
     for day in s.days:
-        result, *rivals = run_with_rivals(s.format, day, args.bot, s.overrides, s.rivals, config, strict=not args.no_strict)
+        result, *rivals = run_with_rivals(s.format, day, args.bot, s.overrides, s.rivals, config, strict=not args.no_strict, requote=s.requote)
         results.append(result)
         rival_results.append(rivals)
         print(report.format_day(result))
