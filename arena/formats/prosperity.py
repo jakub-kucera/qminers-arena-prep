@@ -5,6 +5,8 @@ Data layout (as in jmerle's backtesters):
     <data>/round<R>/trades_round_<R>_day_<D>.csv   market trades; Prosperity 2 adds _wn (with
                                                    trader names) and _nn (without) variants
 Trade files carry a `currency` column (always SEASHELLS or XIRECS); it is ignored.
+An optional <data>/limits.json ({"PRODUCT": limit}) adds to or overrides LIMITS, for products
+that aren't Prosperity's (arena.sim writes one).
 Conversions (Prosperity 2 orchids, Prosperity 3 macarons) are not supported.
 
 In resting mode, bots see their resting orders in `state.open_orders`, cancel them by returning
@@ -16,6 +18,7 @@ from __future__ import annotations
 
 import ast
 import csv
+import json
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -163,15 +166,26 @@ def load_day(data_dir: Path, round_num: int, day_num: int) -> Day:
                 )
 
     products = sorted({product for snapshot in books.values() for product in snapshot})
-    unknown = [product for product in products if product not in LIMITS]
+    limits = {**LIMITS, **_extra_limits(data_dir)}
+    unknown = [product for product in products if product not in limits]
     if unknown:
-        raise ValueError(f"no position limit known for {', '.join(unknown)}: add it to LIMITS")
+        raise ValueError(f"no position limit known for {', '.join(unknown)}: add it to LIMITS or {data_dir / 'limits.json'}")
 
     ticks = [
         Tick(timestamp, books[timestamp], dict(trades.get(timestamp, {})), marks[timestamp])
         for timestamp in sorted(books)
     ]
-    return Day(f"r{round_num}d{day_num}", products, {p: LIMITS[p] for p in products}, ticks)
+    return Day(f"r{round_num}d{day_num}", products, {p: limits[p] for p in products}, ticks)
+
+
+def _extra_limits(data_dir: Path) -> dict[str, int]:
+    path = data_dir / "limits.json"
+    if not path.exists():
+        return {}
+    limits = json.loads(path.read_text())
+    if not (isinstance(limits, dict) and all(isinstance(v, int) for v in limits.values())):
+        raise ValueError(f"{path} must map product names to integer limits")
+    return limits
 
 
 def _levels(row: list[str], start: int) -> list[tuple[int, int]]:

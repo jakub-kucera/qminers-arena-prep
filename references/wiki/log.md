@@ -251,3 +251,6 @@ Saved by the user: [spoofing-traders-empirical](sources/spoofing-traders-empiric
 
 ## [2026-10-14] ingest | two ICAIF 2026 preprints
 Downloaded by the agent from arXiv (found by the comment-field query in `references/SEARCH_LOG.md`): [hawkes-structured-mm](sources/hawkes-structured-mm.md) and [lob-irreversibility](sources/lob-irreversibility.md). Before writing the first, `experiments/trade_clustering.py` checked whether Prosperity's market trades cluster. They don't (ratios 0.90–1.04 on P3 and P4 round 1), so the idea is `dropped here` in `IDEAS.md`. Updated [optimal-quoting-models](concepts/optimal-quoting-models.md) (and removed a stale duplicate of its Sources line) and [harder-rounds](concepts/harder-rounds.md) (A1's realism check).
+
+## [2026-10-15] restructure | the day generator is built
+`arena/sim.py` implements A1 of [harder-rounds](concepts/harder-rounds.md) from the spec on [pymarketsim](sources/pymarketsim.md), [spoofing-abm](sources/spoofing-abm.md) and [abides-simulator](sources/abides-simulator.md) (seeding), calibrated with [lob-simulation-realism](sources/lob-simulation-realism.md)'s idea of an acceptance test through `arena.diagnose`. First result in `IDEAS.md`: replay `--match-trades all` overstates the template in a reactive market, and `worse` is close.

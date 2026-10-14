@@ -26,6 +26,8 @@ uv run python -m arena.backtest bots/template.py 1 --resting --vs bots/template.
 uv run python -m arena.validate bots/template.py 1                # pre-submission checks, exit 1 on FAIL
 uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
 uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
+uv run python -m arena.sim generate data/sim --days 5              # simulated days in the Prosperity layout (--data data/sim)
+uv run python -m arena.sim run bots/template.py --days 5           # the bot inside the agent market, against replaying the same days
 uv run python -m arena.analysis --grid results/grid.csv           # grid heatmaps
 uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis group adds Jupyter
 uv run python -m experiments.p4_levels                            # a one-off study; its numbers are in IDEAS.md
@@ -92,6 +94,12 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **Breaches vs races:** limits are checked twice. Orders that don't fit the position the bot saw are `limit_breaches`, the bot's bug. Orders that fitted but don't fit after another bot's fill are `races`. Both are rejected, but the grid only discards combinations with breaches.
 - **CLI:** `arena.cli.run_with_rivals` loads the bot and its `--vs` rivals and runs them, for both the backtest and the grid. `--set` only applies to the main bot.
 - **The teams' Prosperity bots as rivals:** they were written for orders that live one tick and never cancel, so in `--resting` their orders pile up until they breach limits. Wrap each to cancel its open orders every tick (not a CLI option yet, see `TODO.md`). Some import jsonpickle: `uv run --with jsonpickle ...`.
+
+**Simulated market** (`arena/sim.py`): an agent-based market with its own price-time book, separate from the engine (the engine is untouched, so parity is too).
+- **Agents per product:** a fundamental, a market maker quoting walls (optional inventory skew), limit traders, then, after the snapshot and the bots, noise, value and momentum takers. That order is what a Prosperity tick implies, so a recorded day replays with the same semantics.
+- **Seeding:** one generator per product and agent kind, ABIDES's rule; each arrival makes the same draws whatever the book shows, so a run with a bot and the recording without it share every random number.
+- **Bots:** the same `Bot` protocol and `DayResult` as the engine, both modes (default: an order lives for that tick's takers; `--resting`), `--vs`. It reuses `engine._breaches`, `_call_bot`, `_known`, `_new_result`, `_record`.
+- **Presets** are calibrated against P3 round 1 through `arena.diagnose`; `tests/test_sim.py` holds the bands. `write_day` writes the Prosperity layout plus `limits.json`, which the Prosperity loader merges into `LIMITS`.
 
 **Grid search** (`arena/grid.py`):
 - **Parallel runs:** a `ProcessPoolExecutor` runs every combination as (bot file + `--set` + grid values) × days × `--modes`. Each worker loads the days once, in `_init_worker`, into the module-level `_WORKER` dict. `--jobs 1` runs in-process.

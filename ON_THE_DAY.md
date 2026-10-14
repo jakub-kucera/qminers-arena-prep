@@ -99,10 +99,12 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out: run one bot (the template is fine) in the playground, then backtest it over the same period. Try each `--match-trades` mode, with and without `--resting`. Compare the number of passive fills, which fill rule decides most, and the PnL.
   - We assume: the per-tick mode with `--match-trades all`, which was the most optimistic on Prosperity data (81k, against 58k under `worse` and 28k under `none`).
   - Then: use the closest settings for every backtest and grid. If none is close, rank grid results by the most conservative mode.
+  - Prior from the simulated market (2026-10-15, `IDEAS.md`, "Replay against a market that reacts"): where the market reacts, `worse` was within 10% of the bot's PnL in the market on Kelp and `all` was 2.8 times too high; with resting orders and a maker that re-posts every tick, every replay mode understated it.
 - [ ] **Do our own trades move the market?**
   - Find out: probe 17. After a take that clears a level, does the next tick's book match the downloaded data (a replay), or does the price move and the level refill slowly (bots that react)?
   - We assume: a replay. Our engine shows the recorded book on the next tick, so our takes have no lasting impact, and on Prosperity data the bots' own trades left the wall mid where it was (`references/wiki/concepts/price-impact.md`).
   - If the market reacts: takes cost more than the backtest says. Take smaller pieces, expect the mid to move about the taken volume over twice the depth, and judge take-heavy variants on the portal rather than in the grid.
+    - Fit `arena.sim`'s presets to the download: change them with `--spec` until `arena.diagnose` on generated days matches the real ones. Then run the bot inside it (`uv run python -m arena.sim run BOT --spec ...`) to see which replay mode agrees with the market.
 
 ## Before the first submission
 

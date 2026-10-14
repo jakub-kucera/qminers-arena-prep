@@ -1,0 +1,152 @@
+import pytest
+
+from arena import diagnose, sim
+from arena.formats import prosperity
+from arena.model import Cancel, Order
+from arena.sim import Fundamental, LimitTraders, Maker, MarketSpec, NoiseTakers, ProductSpec
+
+
+class ScriptedBot:
+    """Sends preset orders per timestamp and records what the market showed it."""
+
+    def __init__(self, script=None, cancel_at=None):
+        self.script = script or {}
+        self.cancel_at = cancel_at  # cancels every open order at this timestamp
+        self.books, self.open_orders = [], []
+
+    def step(self, tick, positions, own_fills, market_trades, open_orders):
+        self.books.append(tick.books.get("X"))
+        self.open_orders.append(open_orders)
+        if tick.timestamp == self.cancel_at:
+            return [Cancel(order.id) for order in open_orders]
+        return self.script.get(tick.timestamp, [])
+
+
+def market(ticks=3, maker=Maker(half_spread=2, size=(10, 10)), noise=NoiseTakers(), limit=10, **product):
+    return MarketSpec((ProductSpec("X", limit, Fundamental(100), maker, noise=noise, **product),), ticks=ticks, step=100)
+
+
+def test_the_same_seed_repeats_and_another_differs():
+    spec = sim.preset_market(["KELP"], ticks=300)
+    a, b, c = sim.run(spec, 1).day, sim.run(spec, 1).day, sim.run(spec, 2).day
+    assert [(t.books, t.trades) for t in a.ticks] == [(t.books, t.trades) for t in b.ticks]
+    assert [t.books for t in a.ticks] != [t.books for t in c.ticks]
+
+
+def test_a_bot_does_not_change_the_agents_draws():
+    spec = sim.preset_market(["KELP"], ticks=300)
+    alone = sim.run(spec, 0)
+    with_bot = sim.run(spec, 0, [("me", ScriptedBot({100: [Order("KELP", 3000, 20)]}))])
+    assert alone.fundamentals == with_bot.fundamentals
+    assert with_bot.results[0].positions["KELP"][-1] == 20
+
+
+def test_the_maker_quotes_walls_around_the_fundamental():
+    bot = ScriptedBot()
+    sim.run(market(), 0, [("me", bot)])
+    assert bot.books[0].bids == ((98, 10),) and bot.books[0].asks == ((102, 10),)
+
+
+def test_a_take_moves_the_skewing_maker():
+    bot = ScriptedBot({0: [Order("X", 102, 4)]})
+    result = sim.run(market(maker=Maker(half_spread=2, size=(10, 10), skew=0.5)), 0, [("me", bot)]).results[0]
+    assert [(f.price, f.quantity, f.source) for f in result.fills] == [(102, 4, "book")]
+    # It sold 4, so its centre moves up 2 and it quotes 100 / 104.
+    assert bot.books[1].bids == ((100, 10),) and bot.books[1].asks == ((104, 10),)
+
+
+def test_takers_fill_a_quote_inside_the_walls_then_it_is_cancelled():
+    sellers = NoiseTakers(rate=3.0, size=(1, 1), buy_share=0.0)
+    bot = ScriptedBot({0: [Order("X", 101, 50)]})
+    result = sim.run(market(noise=sellers, limit=100), 0, [("me", bot)]).results[0]
+    tick0 = [f for f in result.fills if f.timestamp == 0]
+    assert tick0 and all(f.price == 101 and f.source == "trade" and f.counterparty == "" for f in tick0)
+    assert bot.open_orders[1] == []  # default mode: it lived for tick 0's takers only
+    assert all(f.timestamp == 0 for f in result.fills)
+
+
+def test_in_resting_mode_a_quote_stays_until_cancelled():
+    bot = ScriptedBot({0: [Order("X", 99, 3)]}, cancel_at=200)
+    result = sim.run(market(ticks=4), 0, [("me", bot)], resting=True).results[0]
+    assert [(o.price, o.quantity) for o in bot.open_orders[1]] == [(99, 3)]
+    assert bot.books[1].bids == ((98, 10),)  # its own order is hidden from it
+    assert bot.open_orders[3] == [] and [i for _, i in result.cancels] == [o.id for o in bot.open_orders[2]]
+
+
+def test_a_bot_never_trades_with_itself():
+    bot = ScriptedBot({0: [Order("X", 101, -2)], 100: [Order("X", 101, 2)]})
+    result = sim.run(market(), 0, [("me", bot)], resting=True).results[0]
+    assert result.fills == []
+
+
+def test_orders_that_could_breach_the_limit_are_rejected():
+    bot = ScriptedBot({0: [Order("X", 102, 6), Order("X", 101, 6)]})
+    result = sim.run(market(limit=10), 0, [("me", bot)]).results[0]
+    assert result.limit_breaches == [(0, "X")] and result.fills == []
+
+
+def test_two_bots_trade_with_each_other():
+    a = ScriptedBot({0: [Order("X", 101, -3)]})
+    b = ScriptedBot({100: [Order("X", 101, 3)]})
+    results = sim.run(market(), 0, [("a", a), ("b", b)], resting=True).results
+    assert [(f.quantity, f.counterparty) for f in results[1].fills] == [(3, "a")]
+    assert [(f.quantity, f.counterparty, f.source) for f in results[0].fills] == [(-3, "b", "trade")]
+
+
+def test_written_days_load_through_the_prosperity_format(tmp_path):
+    spec = MarketSpec((ProductSpec("ZZZ", 7, Fundamental(500, sd=0.3), Maker(), LimitTraders(rate=1.0, life=1), NoiseTakers(rate=0.5)),), ticks=50)
+    made = sim.run(spec, 4)
+    sim.write_day(made, tmp_path, 1, 0)
+    (loaded,) = prosperity.load_days(tmp_path, ["1-0"])
+    assert loaded.limits == {"ZZZ": 7}
+    assert [t.books for t in loaded.ticks] == [t.books for t in made.day.ticks]
+    assert [t.trades for t in loaded.ticks] == [t.trades for t in made.day.ticks]
+    assert [t.marks for t in loaded.ticks] == [t.marks for t in made.day.ticks]
+    assert (tmp_path / "round1" / "fundamental_round_1_day_0.csv").exists()
+
+
+def test_overrides_reach_nested_settings_and_reject_typos():
+    spec = sim.with_override(sim.preset_market(["KELP"]), "KELP.maker.size", [5, 6])
+    assert spec.products[0].maker.size == (5, 6)
+    assert sim.with_override(spec, "ticks", 20).ticks == 20
+    with pytest.raises(ValueError, match="no product"):
+        sim.with_override(spec, "NOPE.maker.skew", 1)
+    with pytest.raises(ValueError, match="no field"):
+        sim.with_override(spec, "KELP.maker.skwe", 1)
+
+
+# The acceptance test (Get Real, adapted): three generated days look like P3 round 1 to
+# arena.diagnose. The bands hold P3 round 1's own value (in the comment) with some room.
+BANDS = {
+    "KELP": {  # P3: spread 3, AC1 -0.48, mid signature 17.9, wall signature 2.8, jumps 0%
+        "spread_ticks_median": (2, 4),
+        "mid_lag1_autocorr": (-0.6, -0.35),
+        "mid_signature": (10, 30),
+        "wall_signature": (1.5, 5),
+        "jump_share": (0, 0.02),
+    },
+    "RAINFOREST_RESIN": {  # P3: spread 8, AC1 -0.50, wall sd 0.35, jumps 3%
+        "spread_ticks_median": (4, 10),
+        "mid_lag1_autocorr": (-0.6, -0.4),
+        "wall_sd": (0, 1),
+        "jump_share": (0, 0.08),
+    },
+    "SQUID_INK": {  # P3: spread 3, AC1 -0.17, mid signature 1.5, jumps 16%
+        "spread_ticks_median": (2, 4),
+        "mid_lag1_autocorr": (-0.3, 0),
+        "mid_signature": (1, 2.5),
+        "jump_share": (0.08, 0.25),
+    },
+}
+
+
+def test_generated_days_look_like_prosperity_3_round_1():
+    spec = sim.preset_market()
+    rows = diagnose.diagnose([sim.run(spec, seed).day for seed in range(3)])
+    misses = [
+        f"{product} {key} {rows[product][key]:.3f} not in {band}"
+        for product, bands in BANDS.items()
+        for key, band in bands.items()
+        if not band[0] <= rows[product][key] <= band[1]
+    ]
+    assert not misses

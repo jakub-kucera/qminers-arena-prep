@@ -269,6 +269,39 @@ under `worse` fills when trading alone. Against one copy of the baseline it lose
 under `worse`). Its quotes at fair get crossed by the next snapshot, and the rival picks them
 off: the rival's `wall_mid` treats your large quote as the market maker's level. Against the teams' own P4 bots the same trap cost the template 374k on Osmium in one round, and `fair: sized_mid` turned that into +17k (`IDEAS.md`).
 
+## Simulated market
+
+The engine replays a recording, so the market never reacts to your orders. `arena.sim` is a
+small agent-based market that does: a take moves the price, the market maker can skew against
+the flow it receives, and every seed is a new day. Per product and tick, the fundamental moves
+(a level it reverts to, steps, drift, jumps that may snap back). Then the market maker re-quotes
+its walls and small limit traders post near the fundamental. Then the book is snapshotted and
+the bots trade. Then noise, value and momentum takers arrive and trade against the book, bots'
+orders included. Its module docstring has the details. Three presets, `KELP`, `RAINFOREST_RESIN`
+and `SQUID_INK`, are calibrated so that `arena.diagnose` sees P3 round 1 in them, and named so the
+template trades them as it is.
+
+```sh
+uv run python -m arena.sim generate data/sim --days 5            # Prosperity layout, plus limits.json and the fundamental
+uv run python -m arena.backtest bots/template.py 1 --data data/sim
+uv run python -m arena.sim run bots/template.py --days 5        # the bot in the market, against replaying the same days
+uv run python -m arena.sim run bots/template.py --spec KELP.maker.skew=0.05 --resting
+```
+
+`--spec PATH=VALUE` changes any preset field, e.g. `KELP.fundamental.sd=0.3` or `KELP.limit_traders.rate=2`.
+`run` prints each product's PnL in the market next to replaying the same seed's recording, without the bot, in each `--match-trades` mode.
+The recording and the run share every random draw, so the gap is the market's reaction to the bot.
+
+The template over seeds 0–4 (`IDEAS.md`, "Replay against a market that reacts"):
+
+| Product | replay `all` | replay `worse` | replay `none` | in the market |
+|---|---|---|---|---|
+| Kelp | 37,090 | 12,138 | 0 | 13,478 |
+| Kelp, `--resting` | 25,678 | 12,138 | 5 | 36,329 |
+| Resin | 105,242 | 101,690 | 34,024 | 115,131 |
+
+What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 0.1 in P3), the flow is balanced (P3's Kelp is 35% buys), and takers pay more against the wall mid (Kelp 1.3, against 0.9).
+
 ## The bot template
 
 `bots/template.py` is one file in five sections:
@@ -297,6 +330,7 @@ off: the rival's `wall_mid` treats your large quote as the market maker's level.
 
 ## Known gaps
 
+- **The simulated market is one guess at a design** (`arena.sim`). Its agents are the literature's minimal set, calibrated to P3 round 1's statistics, not to how the Arena's bots behave.
 - **The queue model is an estimate.** It assumes you join the back of the queue and only move up when the visible volume shrinks. Prosperity's bots re-quote every tick, so a real resting order there would often reach the front sooner. Orders priced beyond the visible depth keep their last queue estimate.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
 - **Rivals are only the bots you bring.** `--vs` shows how bots like yours interact, but real teams will quote, size and react differently.
