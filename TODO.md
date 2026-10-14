@@ -9,7 +9,7 @@ items as they come up.
 
 Choices only the user can make, each with the options, the evidence and a recommendation.
 
-- [ ] **Which harder-round preps to build before the event?** `references/wiki/concepts/harder-rounds.md` lists 25 ways the organisers could make rounds harder than Prosperity, and ranks the prep for them.
+- [x] **Which harder-round preps to build before the event?** Decided 2026-10-14: (c), then (a), then (b), each its own entry under "Harder-round prep" below. (d)–(g) are not chosen yet. `references/wiki/concepts/harder-rounds.md` lists 25 ways the organisers could make rounds harder than Prosperity, and ranks the prep for them.
   - Evidence:
     - The site promises a "sophisticated finale" and allows AI tools.
     - Qminers' 2024 LLM baseline came 2nd of all teams.
@@ -31,6 +31,7 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Evidence (`IDEAS.md`, "Wall-mid definitions"): trading alone, `sized_mid` is within 2.3% of the best definition on every product tested. With the teams' P4 bots resting orders in the same market, `wall_mid` lost 377k / 445k on Osmium in rounds 1 / 2, and `sized_mid` made +39k / +21k.
   - Options: (a) keep `"mid"`; (b) `DEFAULTS["fair"] = "sized_mid"` and leave the Prosperity PARAMS on `wall_mid`; (c) also move the Prosperity PARAMS to `sized_mid`, giving up as much as 2.3% alone and re-recording the benchmarks.
   - Recommendation: (b). It costs nothing on the products we have tuned. On the day every product starts untuned, before we know whether other teams' orders rest in the same book, and there `sized_mid` is both far less noisy than the mid (signature ratio 3.7 against 29.6 on Kelp, fair-value page) and the only definition that held up against resting rivals. `wall_size` (15) then needs checking against the market maker's usual size on the day (`ON_THE_DAY.md`, "Is `wall_mid` still the market maker's price?").
+  - Decided 2026-10-14: (b).
   - Done when: the user has chosen, and `DEFAULTS`, `README.md` and `ON_THE_DAY.md` agree with the choice.
 
 - [ ] **Should Hydrogel move to the setting that's best under the fixed `level_exit`?** The committed `level_band` 30, `clear_edge` 8, `level_exit` 0 was tuned while `level_exit` only fired at a gap of exactly 0. After the fix (`9f13090`), Hydrogel's in-sample PnL fell from 165k to 156k.
@@ -43,6 +44,23 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Options: (a) keep the tie on the bid; (b) at target, step back the side whose last fill was more recent, so neither side is favoured over a day; (c) at target, quote neither side that tick.
   - Recommendation: (a) for now: nothing measurable rides on it. Revisit if a product on the day is quoted at `make_edge` 0. (When they meet, both quotes sit at fair, so "the side further from fair" can't break the tie.)
   - Done when: the user has chosen, and `make`'s docstring and its test agree with the choice.
+
+## Harder-round prep
+
+Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals"), in this order.
+
+- [ ] **(c) An agent-based day generator, `arena/sim.py`** (harder-rounds A1, A3). A seeded market of agents per product: a fundamental that reverts to a level, with jumps; a market maker that quotes walls and skews on its inventory; small limit traders; noise takers; value takers that see the fundamental with noise; momentum takers. It writes days in the Prosperity layout, so every tool runs on them, and it can run bots *inside* the market, so their orders move the price.
+  - Done when:
+    - a generated day passes `arena.diagnose` with numbers within the range of P3 round 1's real days for a Kelp-like and a Resin-like product (Get Real's acceptance test, adapted);
+    - the template's PnL replaying a generated day is compared with its PnL in the reactive market on the same seed, and the gap (the impact that replay hides) is recorded in `IDEAS.md`;
+    - the mock round item says how to make its data with it.
+- [ ] **(a) An LLM zoo, `bots/zoo/`** (harder-rounds D2). Fresh agents with no repo context each write a bot from a Prosperity-style spec. The zoo is the baseline the template must beat and a population of `--vs` rivals.
+  - Done when: at least four zoo bots from different prompts (archetypes) are in `bots/zoo/` with their spec and prompts; each runs in the backtester; the template has been run against each alone and with `--vs`, under `worse` fills, and the results and what the bots do alike are in `IDEAS.md`.
+- [ ] **(a, part 2) Zoo bots from other LLM providers.** The first zoo is all Claude, so it shares one model's habits; the field on the day will be written by many. The user has access to Gemini (4 at least), and others may be added.
+  - Needs a person: paste `bots/zoo/SPEC.md` and a prompt from `bots/zoo/PROMPTS.md` into each provider, unchanged, and save the reply as `bots/zoo/<provider>_<archetype>.py`.
+  - Done when: at least Gemini's bots are in `bots/zoo/` and in the zoo's results in `IDEAS.md`, with whether they behave unlike Claude's.
+- [ ] **(b) A stress harness, a regime guard and a loss stop** (harder-rounds B1). The harness perturbs recorded or generated days (volatility ×2, an added trend, the level shifted mid-day, an inserted jump, the wall removed for a stretch) and reruns a bot on each. The template gets a per-product loss stop and a guard that falls back to plain market making when its level bet or the volatility leaves its range.
+  - Done when: `arena.stress` runs a bot on each perturbation and prints PnL per product against the unperturbed day; the template has the stop and the guard, with tests; and on every perturbed P3 round 1 and P4 rounds 1–4 day no product loses more than its stop (the test in `harder-rounds.md`).
 
 ## Research
 
