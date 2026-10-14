@@ -48,6 +48,14 @@ def test_outer_and_sized_mids(bot):
     assert fair(fair="sized_mid", wall_size=50) == 100.5  # nothing that large: the best levels
 
 
+def test_an_untuned_product_quotes_around_the_market_makers_size(bot):
+    # The default is sized_mid: a small order inside the walls doesn't move the fair value, and a
+    # book with no level of wall_size falls back to the mid.
+    walls = bot.Book([[101, 2], [98, 20]], [[104, 20]])
+    assert bot.fair_value(walls, params(bot), {}) == 101.0
+    assert bot.fair_value(bot.Book([[101, 2]], [[104, 3]]), params(bot), {}) == 102.5
+
+
 def test_fair_keeps_its_last_value_when_a_side_is_empty(bot):
     assert bot.fair_value(bot.Book([[99, 1]], []), params(bot, fair="mid"), {"fair": 100.0}) == 100.0
 

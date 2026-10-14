@@ -32,7 +32,7 @@ STRICT = False
 
 DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
-    "fair": "mid",  # "fixed", "mid", "wall_mid", "outer_mid" or "sized_mid" (see fair_value)
+    "fair": "sized_mid",  # "fixed", "mid", "wall_mid", "outer_mid" or "sized_mid" (see fair_value)
     "fixed_fair": None,  # used when fair is "fixed"
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly

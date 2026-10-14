@@ -27,11 +27,11 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Recommendation: (a), (b) and (c) before the mock round in the week of 26 Oct, then (d) and (f) as time allows. Leave (e) for the day unless (c) shows impact matters, and skip (g) beyond a `traderData` growth check.
   - Done when: the user has chosen, and each chosen item is its own `TODO.md` entry with a "done when".
 
-- [ ] **Should new products default to `sized_mid`?** `DEFAULTS["fair"]` is `"mid"`, so a product not tuned yet quotes around the noisiest price (Kelp's mid varies 28 times more per tick at lag 1 than at lag 200). The Prosperity products set `wall_mid` in their PARAMS, which is best when trading alone and is what the recorded benchmarks used.
+- [x] **Should new products default to `sized_mid`?** `DEFAULTS["fair"]` is `"mid"`, so a product not tuned yet quotes around the noisiest price (Kelp's mid varies 28 times more per tick at lag 1 than at lag 200). The Prosperity products set `wall_mid` in their PARAMS, which is best when trading alone and is what the recorded benchmarks used.
   - Evidence (`IDEAS.md`, "Wall-mid definitions"): trading alone, `sized_mid` is within 2.3% of the best definition on every product tested. With the teams' P4 bots resting orders in the same market, `wall_mid` lost 377k / 445k on Osmium in rounds 1 / 2, and `sized_mid` made +39k / +21k.
   - Options: (a) keep `"mid"`; (b) `DEFAULTS["fair"] = "sized_mid"` and leave the Prosperity PARAMS on `wall_mid`; (c) also move the Prosperity PARAMS to `sized_mid`, giving up as much as 2.3% alone and re-recording the benchmarks.
   - Recommendation: (b). It costs nothing on the products we have tuned. On the day every product starts untuned, before we know whether other teams' orders rest in the same book, and there `sized_mid` is both far less noisy than the mid (signature ratio 3.7 against 29.6 on Kelp, fair-value page) and the only definition that held up against resting rivals. `wall_size` (15) then needs checking against the market maker's usual size on the day (`ON_THE_DAY.md`, "Is `wall_mid` still the market maker's price?").
-  - Decided 2026-10-14: (b).
+  - Decided 2026-10-14: (b). Done 2026-10-15: `DEFAULTS["fair"]` is `"sized_mid"`; every Prosperity product sets its own `fair`, so no benchmark moved.
   - Done when: the user has chosen, and `DEFAULTS`, `README.md` and `ON_THE_DAY.md` agree with the choice.
 
 - [ ] **Should Hydrogel move to the setting that's best under the fixed `level_exit`?** The committed `level_band` 30, `clear_edge` 8, `level_exit` 0 was tuned while `level_exit` only fired at a gap of exactly 0. After the fix (`9f13090`), Hydrogel's in-sample PnL fell from 165k to 156k.

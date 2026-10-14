@@ -309,7 +309,7 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
 
 - **PARAMS:** per-product settings. Products not listed aren't traded. Keys missing from a product's entry come from `DEFAULTS`.
 - **STRATEGY:** format-agnostic. Each product goes through four steps:
-  - **Fair value:** fixed, mid, `wall_mid`, `outer_mid` or `sized_mid`. `wall_mid` is the midpoint of the largest-size level on each side, which is how the top Prosperity teams found the market-maker bot's price. `outer_mid` takes the outermost levels. `sized_mid` takes the first level from the top with at least `wall_size`. It is the only one of the three that holds up when other traders' resting orders share the book (see [Shared market](#shared-market)).
+  - **Fair value:** fixed, mid, `wall_mid`, `outer_mid` or `sized_mid` (the default for a product whose PARAMS don't set `fair`). `wall_mid` is the midpoint of the largest-size level on each side, which is how the top Prosperity teams found the market-maker bot's price. `outer_mid` takes the outermost levels. `sized_mid` takes the first level from the top with at least `wall_size`. It is the only one of the three that holds up when other traders' resting orders share the book (see [Shared market](#shared-market)).
   - **Take:** trade against book orders at least `take_edge` better than fair.
   - **Clear:** cut inventory at fair to free room under the limit.
   - **Make:** quote `make_edge` from fair, or one tick inside the book, moved by `skew` against inventory, with sizes scaled by `size_skew` (both work toward `target`).
