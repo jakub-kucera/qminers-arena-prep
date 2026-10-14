@@ -206,6 +206,16 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | A1, A3, B2, B3, B4, E | simulator calibration and GAN generators (2021–2025), event-shock models (2021), Kalman and value-learning (covered by Das), arrival-order prediction markets (2021), execution RL (2022–2025) | | Skipped: covered, or deep learning with no rule to carry |
 | D4 (side games) | none in these venues; the classic is Nagel's guessing-game experiment (AER 1995) | | Optional: the level-k evidence behind "decide one level beyond the herd" **Added 2026-10-14** (`literature_md/guessing-games/`, a JSTOR scan on a PSE course page). |
 
+**ICAIF 2026 preprints (2026-10-14).** ICAIF 2026 is 14–17 Nov 2026 in Milan, a week after the Arena, so the proceedings come too late. The programme (`icaif2026.org/programme/`, preliminary, 9 Oct) lists sessions but no titles; workshop papers are notified on 16 Oct; the microstructure workshop (`icaif-ai-driven.github.io`, Lillo's group) lists no papers yet. Accepted authors post to arXiv with the venue in the comments, so the arXiv API's comment field finds them: `co:ICAIF`, `co:"ICAIF 2026"`, `co:"ICAIF'26"`, `co:"AI in Finance"`, `co:Milan AND co:2026` all return the same 11 accepted plus 2 submitted (as of 2026-10-14).
+
+| ID | Paper | Verdict |
+|---|---|---|
+| 2610.16524 | Acero, Plank & Zhang, *Reinforcement learning with Hawkes-structured networks for market making* | **Worth reading**: quoting from order flow summarised as a few exponentially weighted counts (a learnable mixture of exponentials), with bounds on the loss from that truncation. Stdlib-friendly if the decay rates are fixed; first check whether Prosperity's market trades cluster at all |
+| 2610.16151 | Yeo, Cha & Hwang, *Neural estimation of irreversibility in real and simulated limit order book paths* | Maybe, for A1 (day generator): a queue-reactive simulator matches the real book's one-step statistics but not the order of events (ordering increment 0.0006 against 0.018). A realism check to add to Get Real's, if the generator gets built |
+| 2610.03598 | Wong & Campajola, *Diagnosing and guiding PPO in an analytically solved broker–trader game* | Maybe, as a warning: with noisy uninformed flow, PPO missed a known optimum, and a certainty-equivalent rule from the analytical model did better; RL closed only 2.2% of the gap after a cost change. Supports tuning a model-based rule over learning one on the day |
+| 2610.12537 | Thumm & Chen, *Market impact estimation via causal foundation models* | Skipped: metaorder impact from a pretrained network; no quoting rule for us |
+| 2610.13126, 2607.27188, 2610.13574, 2610.07798, 2608.01494, 2608.04305, 2608.09433 | option exits and densities, feature selection, LLM factual priors, conformal sizing, CVaR Q-learning, interpretable rules | Skipped: off topic |
+
 ### Books and articles
 
 The first pass had searched repos and listed books as "not tried". This is that search. **The finding is that the
@@ -268,6 +278,7 @@ We only fetched papers that their authors host for free. `literature_raw/` alrea
 - **Single-page apps:** fetch the HTML, find the `<script src>` bundle, fetch it, and pull out the string literals. This is what found the Arena rules. Quotes must be paired from a real string boundary, and short strings must still be matched, or the pairing flips (the bug the first version of `check_arena_site.py` had).
 - `WebFetch` for blog posts and docs (hftbacktest docs, CTU news, UT Austin blog).
 - The arXiv API over HTTPS (`https://export.arxiv.org/api/query?id_list=...`) to verify paper IDs. Plain HTTP returned nothing.
+- **Papers from a conference that hasn't happened yet:** the arXiv API's comment field, `search_query=co:ICAIF&sortBy=submittedDate&sortOrder=descending`, then filter the comments for the year. Authors write "Accepted at ICAIF 2026" there long before the proceedings. `WebSearch` found none of them.
 - **A short link that serves a page instead of redirecting** (`lnkd.in/...`): `curl` the page and grep its HTML for the destination URL. That found the AlgoTrade winners' repo.
 - **Public Notion pages**: `references/fetch_notion.py` calls the JSON endpoints a browser uses and writes markdown. Page-name collisions, synced blocks and anchor links needed fixes; check the output for tiny pages.
 - **Repos too big to clone** (CMU Physics 1.2 GB, Leo-Hawking 245 MB): `gh api repos/OWNER/REPO/readme --jq .content | base64 -d` saves the README into `references/online-snapshots/`, so wiki citations stay checkable.
@@ -303,6 +314,7 @@ In rough order of value for the effort:
 9. **Books:** searched, see the table above. None is worth buying now. If a round brings options, Natenberg or Sinclair become worth a look, and DTU's `round_3` code is the quicker start.
 10. ~~**Read the eight new papers properly.**~~ Done 2026-10-12 for all papers except Kelly, Gould et al. 2013 and the Bouchaud excerpt: each has a source page in `references/wiki/sources/` saying which formulas were checked against the PDF.
 11. ~~**Check the rest of Cartea, Donnelly & Jaimungal's formulas against the PDF.**~~ Done 2026-10-12 (`references/wiki/sources/order-book-signals.md`). The Hummingbot A–S formulas were checked on 2026-10-13 against the published A–S, which replaced our preprint (`references/wiki/sources/hummingbot-avellaneda-stoikov.md`).
+12. **Re-run the ICAIF 2026 arXiv query** (Papers, "ICAIF 2026 preprints") in the week before the event: workshop acceptances go out on 16 Oct, so more preprints, including the microstructure workshop's, will appear. Triage new ones into that table.
 
 ## Do not repeat
 
