@@ -53,4 +53,4 @@ ABIDES cites it as the model for its own fundamental-value agents ([abides-simul
 - **Not read:** the online appendix (equilibrium tables), and the 2021 journal version in *Games* (with Hoang and Vorobeychik), which extends the analysis.
 
 ## Cited by
-[harder-rounds](../concepts/harder-rounds.md), [shared-market-and-adversaries](../concepts/shared-market-and-adversaries.md), [abides-simulator](abides-simulator.md).
+[harder-rounds](../concepts/harder-rounds.md), [shared-market-and-adversaries](../concepts/shared-market-and-adversaries.md), [abides-simulator](abides-simulator.md). Sequels: [trading-under-manipulation](trading-under-manipulation.md) (the defence), [spoofability-and-liquidity](spoofability-and-liquidity.md) (where it bites).

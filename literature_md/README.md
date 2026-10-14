@@ -52,6 +52,8 @@ Marker's `meta.json` (table of contents with page numbers).
 | `spoofing-abm/` | Wang & Wellman, *Spoofing the Limit Order Book: An Agent-Based Model* (AAMAS 2017, 9 pp.) | A mean-reverting fundamental with noisy observers (Kalman update), ZI and book-reading traders, and a spoofer |
 | `learning-market-maker/` | Das, *A Learning Market-Maker in the Glosten–Milgrom Model* (Quantitative Finance 2005; submitted version, 19 pp.) | A market maker that learns a hidden, jumping value from anonymous order flow |
 | `online-changepoint-detection/` | Adams & MacKay, *Bayesian Online Changepoint Detection* (arXiv:0710.3742, 7 pp.) | Online regime-change detection with a run-length posterior |
+| `trading-under-manipulation/` | Wang, Hoang & Wellman, *Learning-Based Trading Strategies in the Face of Market Manipulation* (ICAIF 2020, 8 pp.) | How a book-reading trader resists spoofing: ignore one price level, or offset the learned price |
+| `spoofability-and-liquidity/` | Gu et al., *The Effect of Liquidity on the Spoofability of Financial Markets* (ICAIF 2024, 9 pp.; split from the proceedings, PDF pp. 260–268) | Spoofing against market-maker liquidity; a public Python simulator of the whole model |
 | `pseudo-math/` | Bailey, Borwein et al., *Pseudo-Mathematics and Financial Charlatanism* (34 pp.) | The readable version of the above. Theorem 3.1 bounds the backtest length needed for N trials: `MinBTL < 2 ln N / E[max_N]^2` years, for annualized Sharpe ratios on independent trials |
 
 ## Suggested reading order

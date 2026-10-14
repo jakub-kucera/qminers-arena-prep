@@ -230,3 +230,9 @@ Downloaded by the agent (each checked with `pdfinfo` and its first page), conver
 - ABIDES's computation delay is configured per agent, not measured, which supports E2's "speed is not a race".
 
 Still pending: Gu et al. 2024 (split from the local ICAIF 2024 proceedings) and Wang, Hoang & Wellman 2020 (`MANUAL_TODO.md` E).
+
+## [2026-10-14] ingest | the two spoofing sequels
+[trading-under-manipulation](sources/trading-under-manipulation.md) (Wang, Hoang & Wellman 2020, saved by the user) and [spoofability-and-liquidity](sources/spoofability-and-liquidity.md) (Gu et al. 2024, split by the agent from PDF pages 260–268 of the ICAIF 2024 proceedings; `pdfseparate` produced a 1.7 GB file, so the split uses pypdf). Both converted, read whole, and cited from D3 in [harder-rounds](concepts/harder-rounds.md) and from [shared-market-and-adversaries](concepts/shared-market-and-adversaries.md). **Found:**
+- The spoof pays only right behind the best bid, adds 22–26 to an exploiter earning 199–468 without it, and traders that ignore that level lose almost nothing (646–652 against 651).
+- Spoofing pays in thin markets and fades in liquid ones; a market maker quoting near fair is itself the defence. Gu et al.'s simulator (PyMarketSim) is public Python: the candidate base for the A1 generator.
+- OCR: Marker scrambles the 2020 paper's Table 2 (shifted columns, 494 read as 594) and garbles Gu et al.'s Table 1; correct values on the source pages, from the PDF's text layer. In Gu et al. itself, a truncation condition lacks a `ξ`.

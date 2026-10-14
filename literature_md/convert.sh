@@ -51,6 +51,8 @@ PAPERS=(
   "spoofing-abm                   spoofing-abm"
   "learning-market-maker          learning-market-maker"
   "online-changepoint-detection   online-changepoint-detection"
+  "trading-under-manipulation     Learning-based trading strategies in the face of market manipulation"
+  "spoofability-and-liquidity     spoofability-and-liquidity"
 )
 
 for entry in "${PAPERS[@]}"; do
