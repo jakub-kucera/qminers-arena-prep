@@ -128,6 +128,8 @@ Documents with a source page (each says which formulas were checked against the 
 - [market-making-latency](sources/market-making-latency.md): Gao & Wang 2018; making pays while uninformed hits outnumber price jumps; latency lowers it.
 - [dtw-lead-lag](sources/dtw-lead-lag.md): Zhang, Cucuringu & Shestopaloff 2023 (mapped); lead-lag by dynamic time warping.
 - [guessing-games](sources/guessing-games.md): Nagel 1995; beauty-contest players reason one or two steps, not to the equilibrium.
+- [spoofing-traders-empirical](sources/spoofing-traders-empirical.md): Lee, Eom & Park 2013; real spoofers on the Korea Exchange: large, far, profitable, and mostly gone once the book showed prices instead of side totals.
+- [accidental-pump-and-dump](sources/accidental-pump-and-dump.md): Byrd 2025; an RL trader steering an LLM-written feed learns to pump the traders who follow it.
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
 - [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.

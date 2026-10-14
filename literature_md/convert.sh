@@ -67,6 +67,8 @@ PAPERS=(
   "market-making-latency              market-making-latency"
   "dtw-lead-lag                       dtw-lead-lag"
   "guessing-games                     guessing-games"
+  "accidental-pump-and-dump           accidental-pump-and-dump"
+  "spoofing-traders-empirical         spoofing-traders-empirical"
   "abides-simulator               abides-simulator"
   "lob-simulation-realism         lob-simulation-realism"
   "spoofing-abm                   spoofing-abm"

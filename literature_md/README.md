@@ -63,6 +63,8 @@ Marker's `meta.json` (table of contents with page numbers).
 | `market-making-latency/` | Gao & Wang, *Optimal market making in the presence of latency* (arXiv:1806.05849, 38 pp.) | When making pays on a large-tick asset with latency |
 | `dtw-lead-lag/` | Zhang, Cucuringu & Shestopaloff, *Dynamic time warping for lead-lag relationship detection* (ICAIF 2023) | Lead-lag detection at low signal-to-noise |
 | `guessing-games/` | Nagel, *Unraveling in guessing games: an experimental study* (AER 1995) | Depth of reasoning in beauty contests |
+| `spoofing-traders-empirical/` | Lee, Eom & Park, *Microstructure-based manipulation: strategic behavior and performance of spoofing traders* (J. Financial Markets 2013) | What real spoofers did, and how a disclosure change stopped most of it |
+| `accidental-pump-and-dump/` | Byrd, *The accidental pump and dump: when agentic AI meets autonomous trading* (ICAIF 2025) | An RL trader with an LLM learns to manipulate sentiment followers |
 | `optimal-market-making/` | Guéant, *Optimal market making* (43 pp.) | Market making over many assets with inventory limits and skewed quotes. The closest paper to a many-product Arena. hftbacktest's `Making Multiple Markets.ipynb` implements it |
 | `probability-of-backtest-overfitting/` | Bailey, Borwein, López de Prado & Zhu, *The Probability of Backtest Overfitting* (34 pp.) | Why the best of many backtests is usually luck, and CSCV, a way to estimate the probability that it is. For `arena.grid` and a capped number of portal submissions |
 | `deflated-sharpe-ratio/` | Bailey & López de Prado, *The Deflated Sharpe Ratio* (22 pp.) | A Sharpe ratio corrected for how many strategies were tried, for non-normal returns and for short samples |

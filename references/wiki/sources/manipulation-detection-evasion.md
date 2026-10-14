@@ -15,7 +15,7 @@ A generator that rewrites a spoofer's order stream to look like an ordinary trad
 - **Spoofing can be disguised:** adapted streams mimic a market maker's quoting pattern, look unlike the original spoofer, and still move the price (`manipulation-detection-evasion.md:11` (p. 1)).
 
 ## Assumptions against the Arena
-- **For the D3 tells** *(inferred)*: rule-based tells (Lee et al.'s 6 ticks and twice the size, [optimal spoofing](optimal-spoofing.md)) catch a naive spoofer; a disguised one looks like a market maker, so watch the effect (the imbalance before trades, [Tao et al.](detecting-spoofing-strategies.md)) rather than the order's shape.
+- **For the D3 tells** *(inferred)*: rule-based tells (Lee et al.'s 6 ticks and twice the size, [spoofing-traders-empirical](spoofing-traders-empirical.md)) catch a naive spoofer; a disguised one looks like a market maker, so watch the effect (the imbalance before trades, [Tao et al.](detecting-spoofing-strategies.md)) rather than the order's shape.
 
 ## In our notation
 Nothing to implement.

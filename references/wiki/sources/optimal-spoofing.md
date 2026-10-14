@@ -24,7 +24,7 @@ The optimal strategy of an investor liquidating a position who may add spoof buy
 Volume imbalance at the best quotes is `ρ`; the regimes are its terciles.
 
 ## Traps
-- The Lee et al. criterion is second-hand here (from this paper's literature review).
+- The Lee et al. criterion is quoted here from the literature review; it is now read first-hand on [spoofing-traders-empirical](spoofing-traders-empirical.md), and agrees.
 
 ## Read depth
 - **Read:** abstract, introduction and literature review.
