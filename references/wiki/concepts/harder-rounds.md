@@ -119,6 +119,7 @@ Each entry gives:
   - Breaks: one strategy per product; LLM bots that look for structure by product name.
   - Tell: correlations of returns across products and lags.
   - Prep: a cross-product diagnose (correlations at lags 0–20, regression weights of each product on the others) offline with pandas; the bot only needs the weights.
+  - Evidence: on P3's picnic baskets neither the legs nor the basket lead at 1–20 ticks (`IDEAS.md`, "Legs leading the basket"), and in an agent-based ETF a crash in one leg reaches the other leg inverted, through the arbitrageurs ([Shearer et al.](../sources/etf-arbitrage-abm.md)).
 - **B6. Scrambled or anonymised data** (likelihood: high; Qminers 2024 did it). There's no story text to hint at the trick, and the names mean nothing.
   - Breaks: an agent matching names to Prosperity ("Resin, so 10,000").
   - Tell: obvious.

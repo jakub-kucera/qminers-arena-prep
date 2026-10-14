@@ -138,7 +138,8 @@ Save in `literature_raw/` under the name given (ACM Digital Library; several als
   - Done 2026-10-14: saved by the user, converted (`literature_md/trading-under-manipulation/`), with a source page.
 - [x] (Maybe) Zhao & Linetsky, *High frequency automated market making algorithms with adverse selection risk control via reinforcement learning* (ICAIF 2021) as `mm-adverse-selection-rl.pdf`.
 - [x] (Maybe) Mahfouz, Balch, Veloso & Mandic, *Learning to classify and imitate trading agents in continuous double auction markets* (ICAIF 2021) as `classify-trading-agents.pdf`.
-- [ ] (Only with ETF products) Shearer, Byrd, Balch & Wellman, *Stability effects of arbitrage in exchange traded funds: an agent-based model* (ICAIF 2021) as `etf-arbitrage-abm.pdf`.
+- [x] (Only with ETF products) Shearer, Byrd, Balch & Wellman, *Stability effects of arbitrage in exchange traded funds: an agent-based model* (ICAIF 2021) as `etf-arbitrage-abm.pdf`.
+  - Done 2026-10-14: the user's `_v2` file is the right paper; converted (`literature_md/etf-arbitrage-abm/`) with a source page.
   - Done when (each): converted with a source page, or ticked as "not needed".
   - Done 2026-10-14 for Xiong & Cont, Zhao & Linetsky and Mahfouz et al.: saved by the user under their titles, converted and ingested together with the 2022–2024 picks (order stacking, decomposed OFI, scaled beta, collective liquidity taking). **Still missing:** the ETF-arbitrage paper; the file "Stability Effects of Arbitrage in Exchange Traded Funds- An Agent-Based Model.pdf" is a byte-identical copy of "Detecting Collective Liquidity Taking Distributions.pdf". The user's "Get Real…", "The Effect of Liquidity on the Spoofability…" copies duplicate papers another session had already ingested (`lob-simulation-realism`, `spoofability-and-liquidity`) and were not converted again.
 

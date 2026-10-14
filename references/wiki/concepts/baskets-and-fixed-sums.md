@@ -1,7 +1,7 @@
 ---
 title: Baskets, ETFs and fixed-sum identities
 type: concept
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Baskets, ETFs and fixed-sum identities
@@ -17,6 +17,8 @@ Every edition had a product that is a known combination of others (gift baskets,
 - **Lead-lag** within a family: Microchip Circle leads the others at 50/100/150/200 ticks (`prosperity4-alpha-search/README.md:160`); an earlier cross-category finding was a pandas alignment bug (`prosperity4-alpha-search/README.md:162`).
 - **Do the legs lead the basket?** On the KOSPI 200, constituents' order flow improves a 30-second index forecast, modestly (F1 0.396 to 0.424 against a chance of 0.33; [Lee et al.](../sources/cross-asset-order-flow.md), `literature_md/cross-asset-order-flow/cross-asset-order-flow.md:227-233` (p. 6, checked)). Not on Prosperity's picnic baskets: on P3 round 2 (all three days), the legs' implied move this tick and the basket's move over the next 1, 5 or 20 ticks correlate at +0.01 to +0.03, and the basket leading the legs is the same size (up to +0.036): neither side leads *(checked 2026-10-13)*. So trade the basket's spread to its legs, not a lag between them.
 - **Which trades are arbitrage flow** ([Petit et al.](../sources/etf-trade-flow-decomposition.md)): classify each trade by whether trades in the ETF and its constituents co-occur around it; imbalances within a class predict next-day returns better than the plain imbalance (`literature_md/etf-trade-flow-decomposition/etf-trade-flow-decomposition.md:49-53` (p. 2)). A daily result, but the classification itself is cheap on `Tick.trades`.
+
+- **What an arbitrageur does to a shock** ([Shearer et al.](../sources/etf-arbitrage-abm.md), an agent-based ETF on two symbols): arbitrage makes the ETF track its index, raises other traders' surplus, carries a crash in one leg to the other leg in the opposite direction, and speeds the recovery (`literature_md/etf-arbitrage-abm/etf-arbitrage-abm.md:13` (p. 1), `literature_md/etf-arbitrage-abm/etf-arbitrage-abm.md:253` (p. 6)). Our `basket` mode is that arbitrageur, so a scripted crash in one leg is a trade for it, not only a risk.
 
 **What the literature says** ([Cartea et al., book](../sources/algorithmic-and-hft.md) ch. 11, [Harris](../sources/harris-trading-and-exchanges.md) ch. 17):
 - **Pure against speculative arbitrage.** In a pure arbitrage the basis *must* revert. A known basket with a stable premium, or the Pebbles sum, is that kind. In a speculative one (pairs, statistical arbitrage) the basis can be non-stationary and never revert (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:8294` (p. 369)). Round 5's "unlimited alpha" that collapsed out of sample is the speculative kind.
@@ -43,4 +45,4 @@ Ad hoc bands are done (`uv run python -m experiments.baskets`: k × sd, held-out
 Needs `--data p4`. First reproduce the Pebbles sum and its σ from the round 5 files; then test the integer-weight search with out-of-sample days per [validation-and-overfitting](validation-and-overfitting.md). On the day: check the Arena's public data for exact sums before searching anything.
 
 ## Sources
-[Cartea et al., book](../sources/algorithmic-and-hft.md), [Harris](../sources/harris-trading-and-exchanges.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Lee et al.](../sources/cross-asset-order-flow.md), [Petit et al.](../sources/etf-trade-flow-decomposition.md).
+[Cartea et al., book](../sources/algorithmic-and-hft.md), [Harris](../sources/harris-trading-and-exchanges.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [DU Trading](../sources/prosperity4-du-trading.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [UChicago](../sources/uchicago-trading-2026.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [Lee et al.](../sources/cross-asset-order-flow.md), [Petit et al.](../sources/etf-trade-flow-decomposition.md), [Shearer et al.](../sources/etf-arbitrage-abm.md).

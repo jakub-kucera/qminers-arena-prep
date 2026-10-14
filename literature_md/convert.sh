@@ -53,6 +53,7 @@ PAPERS=(
   "mm-adverse-selection-rl            High Frequency Automated Market Making"
   "classify-trading-agents            Learning to Classify and Imitate"
   "collective-liquidity-taking        Detecting Collective Liquidity"
+  "etf-arbitrage-abm                  Stability Effects of Arbitrage in Exchange Traded Funds- An Agent-Based Model_v2"
   "abides-simulator               abides-simulator"
   "lob-simulation-realism         lob-simulation-realism"
   "spoofing-abm                   spoofing-abm"
