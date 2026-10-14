@@ -1,7 +1,7 @@
 ---
 title: Working with AI agents in a competition
 type: concept
-updated: 2026-10-10
+updated: 2026-10-14
 ---
 
 # Working with AI agents in a competition
@@ -17,6 +17,8 @@ The newest write-ups all used AI assistants heavily and say the same thing: use 
 - **Kayzerjali**: an agent loop that proposes one change per cycle against the live result, with human upload/download steps and stopping rules (`online-snapshots/Kayzerjali_Prosperity2026/run_cycle.md:13-28`); no result is recorded.
 - **A failure mode seen in the clones:** AI-written documentation that overstates (AlgoTrade's "proof" documents, [AlgoTrade](../sources/algotrade2026-pitfa19.md)) and published code that does not match its README ([DU](../sources/prosperity4-du-trading.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md)).
 
+- **Bots written or run by LLMs look alike** ([Lopez-Lira](../sources/llm-agents-market-simulation.md)): LLM traders follow their instructed style faithfully, and agents on similar foundation models may react in correlated ways (`literature_md/llm-agents-market-simulation/llm-agents-market-simulation.md:35` (p. 4)); in a shared Arena that is a crowd to anticipate (`harder-rounds`, D2).
+
 ## Where they disagree
 No disagreement; the differences are in how much of the production code each human read.
 
@@ -27,4 +29,4 @@ No disagreement; the differences are in how much of the production code each hum
 Before the event, give the agent a bounded task end to end (for example the `--data p4` alias) and check what it claims against a run. On the day, keep exploratory notebooks separate from the single submitted file.
 
 ## Sources
-[Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DU Trading](../sources/prosperity4-du-trading.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [Kayzerjali](../sources/prosperity4-kayzerjali.md).
+[Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [DU Trading](../sources/prosperity4-du-trading.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [Kayzerjali](../sources/prosperity4-kayzerjali.md), [Lopez-Lira](../sources/llm-agents-market-simulation.md).

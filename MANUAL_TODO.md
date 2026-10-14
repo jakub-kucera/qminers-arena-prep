@@ -150,6 +150,7 @@ The free ones (Tao et al. on arXiv, the two Cartea et al. papers on SSRN, Li et 
 - [ ] Byrd, *The accidental pump and dump: when agentic AI meets autonomous trading* (ICAIF 2025, ACM) as `accidental-pump-and-dump.pdf`. Raised from maybe on 2026-10-14: it is one of two papers for the LLM zoo (D2).
 - [ ] (Maybe) Lee, Eom & Park, *Microstructure-based manipulation: strategic behavior and performance of spoofing traders* (Journal of Financial Markets, 2013) as `spoofing-traders-empirical.pdf`.
   - Done when (each): converted with a source page, or ticked as "not needed".
+  - 2026-10-14: everything else on the spoofing and harder-round lists was fetched or split out by the agent and ingested (12 papers, `references/SEARCH_LOG.md`). Lee et al.'s spoof criterion is known second-hand (`references/wiki/sources/optimal-spoofing.md`), so that paper is optional now.
 
 ## Not on this list
 

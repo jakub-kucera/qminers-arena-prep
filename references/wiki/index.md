@@ -115,6 +115,19 @@ Documents with a source page (each says which formulas were checked against the 
 - [classify-trading-agents](sources/classify-trading-agents.md): Mahfouz et al. 2021; classifying bots by archetype from their orders gives mixed results.
 - [collective-liquidity-taking](sources/collective-liquidity-taking.md): Balcau et al. 2024; the takers' mix shows in volumes, not in the price path.
 - [etf-arbitrage-abm](sources/etf-arbitrage-abm.md): Shearer et al. 2021; ETF arbitrage in an agent-based market: better tracking, inverted spill-over of a crash, faster recovery.
+- [detecting-spoofing-strategies](sources/detecting-spoofing-strategies.md): Tao et al. 2022; when spoofing pays, and a detector: the imbalance before market trades against its usual distribution.
+- [spoofing-learning-algorithms](sources/spoofing-learning-algorithms.md): Cartea, Chang & García-Arenas 2023; learning makers discover spoofing, more so with inventory tolerance and wide spreads.
+- [optimal-spoofing](sources/optimal-spoofing.md): Cartea, Jaimungal & Wang 2020; spoofing tilts the imbalance into the regime where the other side trades; Lee et al.'s spoof rule.
+- [manipulation-statistical-physics](sources/manipulation-statistical-physics.md): Li, Polukarov & Ventre 2023; orders as particles; a momentum measure flags spoofing and layering.
+- [learning-not-to-spoof](sources/learning-not-to-spoof.md): Byrd 2022; a profit-maximising RL trader discovers spoofing; a recogniser in its reward stops it.
+- [adversarial-attacks-hft](sources/adversarial-attacks-hft.md): Goldblum et al. 2021; cheap universal order perturbations fool deep book models.
+- [manipulation-detection-evasion](sources/manipulation-detection-evasion.md): Wang & Wellman 2020; a spoofer can be made to look like a market maker.
+- [llm-agents-market-simulation](sources/llm-agents-market-simulation.md): Lopez-Lira 2025; LLM traders follow their brief; similar models may act alike; archetype prompts for the zoo.
+- [pymarketsim](sources/pymarketsim.md): Mascioli et al. 2024 (PyMarketSim); the spec for an agent-based day: fundamental, private values, ZI takers, ladder maker.
+- [benchmark-manipulation](sources/benchmark-manipulation.md): Shearer, Rauterberg & Wellman 2023; a few trades near the end move a VWAP benchmark, profitably for a holder.
+- [market-making-latency](sources/market-making-latency.md): Gao & Wang 2018; making pays while uninformed hits outnumber price jumps; latency lowers it.
+- [dtw-lead-lag](sources/dtw-lead-lag.md): Zhang, Cucuringu & Shestopaloff 2023 (mapped); lead-lag by dynamic time warping.
+- [guessing-games](sources/guessing-games.md): Nagel 1995; beauty-contest players reason one or two steps, not to the equilibrium.
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
 - [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.

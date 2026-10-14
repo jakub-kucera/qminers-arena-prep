@@ -50,6 +50,19 @@ Marker's `meta.json` (table of contents with page numbers).
 | `classify-trading-agents/` | Mahfouz, Balch, Veloso & Mandic, *Learning to classify and imitate trading agents in CDA markets* (ICAIF 2021) | Bot archetypes from orders |
 | `collective-liquidity-taking/` | Balcau, Sánchez-Betancourt, Sarkadi & Ventre, *Detecting collective liquidity taking distributions* (ICAIF 2024) | The mix of liquidity takers |
 | `etf-arbitrage-abm/` | Shearer, Byrd, Balch & Wellman, *Stability effects of arbitrage in exchange traded funds: an agent-based model* (ICAIF 2021) | ETF arbitrage and flash crashes in an agent-based market |
+| `detecting-spoofing-strategies/` | Tao, Day, Ling & Drapeau, *On detecting spoofing strategies in high frequency trading* (Quant. Finance 2022; arXiv:2009.14818, 30 pp.) | Spotting a spoofer from the imbalance before trades |
+| `spoofing-learning-algorithms/` | Cartea, Chang & García-Arenas, *Spoofing order books with learning algorithms* (SSRN 2023), as chapters 2–3 of García-Arenas's DPhil thesis (Oxford 2025, pp. 11–82) | When a learning maker discovers spoofing |
+| `optimal-spoofing/` | Cartea, Jaimungal & Wang, *Spoofing and price manipulation in order-driven markets* (Appl. Math. Finance 2020, author version, 38 pp.) | The optimal spoofer against imbalance readers |
+| `manipulation-statistical-physics/` | Li, Polukarov & Ventre, *Detecting financial market manipulation with statistical physics tools* (ICAIF 2023) | A book-momentum detector for spoofing and layering |
+| `learning-not-to-spoof/` | Byrd, *Learning not to spoof* (ICAIF 2022) | An RL trader that discovers spoofing, and a recogniser that stops it |
+| `adversarial-attacks-hft/` | Goldblum, Schwarzschild, Patel & Goldstein, *Adversarial attacks on ML systems for high-frequency trading* (ICAIF 2021; arXiv:2002.09565) | Small orders that fool book-based predictors |
+| `manipulation-detection-evasion/` | Wang & Wellman, *Market manipulation: an adversarial learning framework for detection and evasion* (IJCAI 2020) | Spoofing disguised as market making |
+| `llm-agents-market-simulation/` | Lopez-Lira, *Can large language models trade?* (arXiv:2504.10789, 46 pp.) | LLM agents trading in a simulated book |
+| `pymarketsim/` | Mascioli, Gu, Wang, Chakraborty & Wellman, *A financial market simulation environment for trading agents using deep RL* (PyMarketSim, ICAIF 2024) | The parts of an agent-based day generator |
+| `benchmark-manipulation/` | Shearer, Rauterberg & Wellman, *Learning to manipulate a financial benchmark* (ICAIF 2023) | Moving a VWAP mark near the close |
+| `market-making-latency/` | Gao & Wang, *Optimal market making in the presence of latency* (arXiv:1806.05849, 38 pp.) | When making pays on a large-tick asset with latency |
+| `dtw-lead-lag/` | Zhang, Cucuringu & Shestopaloff, *Dynamic time warping for lead-lag relationship detection* (ICAIF 2023) | Lead-lag detection at low signal-to-noise |
+| `guessing-games/` | Nagel, *Unraveling in guessing games: an experimental study* (AER 1995) | Depth of reasoning in beauty contests |
 | `optimal-market-making/` | Guéant, *Optimal market making* (43 pp.) | Market making over many assets with inventory limits and skewed quotes. The closest paper to a many-product Arena. hftbacktest's `Making Multiple Markets.ipynb` implements it |
 | `probability-of-backtest-overfitting/` | Bailey, Borwein, López de Prado & Zhu, *The Probability of Backtest Overfitting* (34 pp.) | Why the best of many backtests is usually luck, and CSCV, a way to estimate the probability that it is. For `arena.grid` and a capped number of portal submissions |
 | `deflated-sharpe-ratio/` | Bailey & López de Prado, *The Deflated Sharpe Ratio* (22 pp.) | A Sharpe ratio corrected for how many strategies were tried, for non-normal returns and for short samples |
