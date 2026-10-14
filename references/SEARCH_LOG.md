@@ -175,6 +175,22 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | 2022–2024 | the other market-making and simulation papers (incentive design, equitable marketplaces, world-agent simulators, calibration, Mbt-gym, JAX-LOB, PyMarketSim, learned beta policies, ARL with Hawkes, hedging with impact, inverse RL) | | Skipped: deep RL or simulator tooling with no rule a stdlib bot can carry |
 | 2023 | lead-lag by dynamic time warping, multireference alignment; correlation-matrix clustering for statistical arbitrage | Cucuringu and co-authors | Skipped: daily equity cross-sections; lead-lag within a product family already measured |
 
+**Spoofing and manipulation, followed from the spoofing papers' reference lists and the ICAIF tables (2026-10-14),** for the harder-round item D3 (organiser bots that punish the playbook) and D2 (a monoculture of agent-written bots), `references/wiki/concepts/harder-rounds.md`. Sources: the references of `spoofability-and-liquidity` and `trading-under-manipulation`, the ICAIF 2020–2025 contents, and the arXiv API (no paper on momentum ignition turned up).
+
+| Paper | Free copy | Verdict |
+|---|---|---|
+| Tao, Day, Ling & Drapeau, *On detecting spoofing strategies in high frequency trading* (Quantitative Finance 22(8), 2022) | arXiv 2009.14818 | **Worth reading first**: how to spot a spoof from the book, the on-the-day tell D3 lacks |
+| Cartea, Chang & García-Arenas, *Spoofing order books with learning algorithms* (2023) | SSRN 4639959 | **Worth reading**: learning traders that read the imbalance get spoofed, and learn to spoof; the agent-written bots of D2 |
+| Cartea, Jaimungal & Wang, *Spoofing and price manipulation in order-driven markets* (Applied Mathematical Finance 27, 2020) | SSRN (check) | **Worth reading**: the optimal spoofer against imbalance-driven traders, i.e. what an organiser's spoof bot would do |
+| Li, Polukarov & Ventre, *Detecting financial market manipulation with statistical physics tools* (ICAIF 2023) | arXiv 2308.08683; in `ICAIF_2023_proceedings.pdf` p. 565 | Maybe: a book "momentum" measure that flags spoofing and layering, beating a z-score rule on LUNA and bitcoin |
+| Byrd, *Learning not to spoof* (ICAIF 2022) | in `ICAIF_2022_proceedings.pdf` p. 139 | Maybe: recognising spoof sequences in a simulation; overlaps the two above |
+| Goldblum, Schwarzschild, Patel & Goldstein, *Adversarial attacks on machine learning systems for high-frequency trading* (ICAIF 2021) | arXiv 2002.09565 | Maybe: small book perturbations that fool order-book predictors; D3's "takers that fade the obvious signal" |
+| Byrd, *The accidental pump and dump: when agentic AI meets autonomous trading* (ICAIF 2025) | none (ACM) | Maybe, for D2: what LLM-driven trading agents do to a market. `MANUAL_TODO.md` |
+| Wang & Wellman, *Market manipulation: an adversarial learning framework for detection and evasion* (IJCAI 2020) | ijcai.org proceedings | Maybe: a detector and a spoofer trained against each other |
+| Lee, Eom & Park, *Microstructure-based manipulation: strategic behavior and performance of spoofing traders* (Journal of Financial Markets 16, 2013) | none found | Maybe: what real spoofers did (Korea), for realistic spoof bots |
+| Stenfors et al., *Cross-market spoofing* (2023) | none found | Conditional on related products: spoofing one market to trade another |
+| Kularatnam & Stathaki, spoofing detection with temporal convolutions (arXiv 2403.13429); Shearer et al., benchmark manipulation (ICAIF 2023); Wang et al.'s cloaking mechanism (IJCAI 2018); Libor, VIX and Benford studies; the A1 generator-calibration papers (Coletta et al. 2021–2023, gradient-assisted and neural calibration, ICAIF 2023) | | Skipped: deep-learning detectors, exchange-side design, benchmarks, or simulator calibration beyond what the A1 generator needs |
+
 ### Books and articles
 
 The first pass had searched repos and listed books as "not tried". This is that search. **The finding is that the

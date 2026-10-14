@@ -143,6 +143,14 @@ Save in `literature_raw/` under the name given (ACM Digital Library; several als
   - Done when (each): converted with a source page, or ticked as "not needed".
   - Done 2026-10-14 for Xiong & Cont, Zhao & Linetsky and Mahfouz et al.: saved by the user under their titles, converted and ingested together with the 2022–2024 picks (order stacking, decomposed OFI, scaled beta, collective liquidity taking). **Still missing:** the ETF-arbitrage paper; the file "Stability Effects of Arbitrage in Exchange Traded Funds- An Agent-Based Model.pdf" is a byte-identical copy of "Detecting Collective Liquidity Taking Distributions.pdf". The user's "Get Real…", "The Effect of Liquidity on the Spoofability…" copies duplicate papers another session had already ingested (`lob-simulation-realism`, `spoofability-and-liquidity`) and were not converted again.
 
+## F. Spoofing and manipulation (harder-round D2 and D3)
+
+The free ones (Tao et al. on arXiv, the two Cartea et al. papers on SSRN, Li et al. on arXiv, Goldblum et al. on arXiv, Wang & Wellman on ijcai.org) the agent fetches itself on request. Only these need a person (`references/SEARCH_LOG.md`, the spoofing table):
+
+- [ ] (Maybe) Byrd, *The accidental pump and dump: when agentic AI meets autonomous trading* (ICAIF 2025, ACM) as `accidental-pump-and-dump.pdf`.
+- [ ] (Maybe) Lee, Eom & Park, *Microstructure-based manipulation: strategic behavior and performance of spoofing traders* (Journal of Financial Markets, 2013) as `spoofing-traders-empirical.pdf`.
+  - Done when (each): converted with a source page, or ticked as "not needed".
+
 ## Not on this list
 
 The agent can download these free papers itself on request, so there is nothing for a person to do: Gatheral & Jacquier (SVI),
