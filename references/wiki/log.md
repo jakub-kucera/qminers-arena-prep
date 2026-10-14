@@ -257,3 +257,7 @@ Downloaded by the agent from arXiv (found by the comment-field query in `referen
 
 ## [2026-10-15] restructure | the LLM zoo
 `bots/zoo/` implements D2 of [harder-rounds](concepts/harder-rounds.md), with archetype prompts after [llm-agents-market-simulation](sources/llm-agents-market-simulation.md). Six Claude bots; results in `IDEAS.md`. Other providers' bots are a manual item.
+
+## [2026-10-15] restructure | the stress harness and the template's protection
+`arena/stress.py` implements B1's harness in [harder-rounds](concepts/harder-rounds.md); the template gains a loss stop and guards. The volatility guard is a stand-in for [online-changepoint-detection](sources/online-changepoint-detection.md)'s detector, not that algorithm.
+- **Citations moved:** the template's line citations in 32 pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:550-588`).

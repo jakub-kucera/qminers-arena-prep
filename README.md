@@ -270,6 +270,23 @@ under `worse` fills when trading alone. Against one copy of the baseline it lose
 under `worse`). Its quotes at fair get crossed by the next snapshot, and the rival picks them
 off: the rival's `wall_mid` treats your large quote as the market maker's level. Against the teams' own P4 bots the same trap cost the template 374k on Osmium in one round, and `fair: sized_mid` turned that into +17k (`IDEAS.md`).
 
+## Stress
+
+`arena.stress` reruns a bot on perturbed copies of each day: each product's whole book, trades and
+mark moved together, so only the price path changes. The perturbations: volatility ×2, a trend
+each way, a level shift at mid-day each way, a 100-tick spike each way, and the walls removed for
+the middle fifth. It prints each product's PnL under each one, its largest plain-day drawdown
+(what a loss stop must leave room for) and its worst single day.
+
+```sh
+uv run python -m arena.stress bots/template.py 1                 # P3 round 1, every perturbation
+uv run python -m arena.stress bots/template.py 1 2 3 4 --data p4 --only trend_up,trend_down --size 2
+```
+
+On P4 rounds 1–4 a trend up turns the template's 2.27M into −0.32M: the level bets and the vouchers
+keep betting on a price that has left. The per-product `stop_loss` bounds each day's loss without
+changing the plain days (`IDEAS.md`, "Stress: what a regime change costs" and the rows after it).
+
 ## Simulated market
 
 The engine replays a recording, so the market never reacts to your orders. `arena.sim` is a
@@ -318,6 +335,7 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
   - **Basket** (optional): a product that is a known combination of others (`basket`: `{leg: weight}`) trades its spread, its price less the legs' weighted prices, with the level settings: `level` is the usual spread. A family that sums to a constant is a basket with legs of weight −1. Legs with `hedge` hold `-weight × hedge_ratio` per basket held, though hedging never helped on Prosperity data. On P3 round 2 and P2 round 3 it makes 71k and 294k over three days out of sample, against 20k for plain market making. Baskets only take (`make_size` 0): under `--resting`, quotes on a product that jumps several ticks at once get picked off.
   - **Jump** (optional): for a price that jumps and snaps back, the target becomes the full limit against each move of at least `jump_min`, held until the next one (or for `jump_hold` ticks), crossing up to `jump_edge` toward it. It only trades once `jump_seen` of the day's jumps have followed another and `jump_share` of those reversed it, so it can be switched on for every product. On P4 round 5 that added 501k over three days to plain market making, in-sample, with no losing day (`IDEAS.md`).
   - **Copy** (optional): follows named traders. `copy` is `{name: weight}`: each trade adds the buyer's weight and takes away the seller's, and the target becomes that share of the limit (capped at the full limit), held until the next signal (or for `copy_hold` ticks), crossing up to `copy_edge` toward it. It reads the counterparties of our own fills too. On P3 round 5, copying Olivia on Croissants and Squid Ink adds 54k over three days out of sample; on Kelp it loses (`IDEAS.md`).
+  - **Protection** (optional): `stop_loss` flattens a product and stops it for the day once its PnL is that far below the day's high; `fixed_guard` lets a fixed fair give way to the wall mid once the market has left it; `level_guard` and `vol_guard` drop the target bets when the price leaves the level's range or volatility jumps (both off: they cost more than they saved under `arena.stress`).
 - **EXECUTION:** format-agnostic order management. Takes go out immediate-or-cancel. A resting quote is kept, with its place in the queue, while the plan still wants at least its size at its price. Everything else is cancelled and re-sent. When nothing rests between ticks, every planned order is simply sent, so the same file works under both engine modes.
 - **ADAPTER:** the only part that knows the Prosperity types.
 - **Trader:** the entry point. It isolates each product, so one product's bug doesn't stop the others. It keeps all state in `traderData`, and it swallows exceptions unless `STRICT` is set. The backtester sets `STRICT` so errors show up.

@@ -46,7 +46,7 @@ status: read | partly-read | mapped | unread    # source pages only
 
 ## Rules
 
-1. **Cite with a machine-checkable reference.** Write a backticked path and a line: `` `prosperity4-baguette-fromage/README.md:350` `` or a range `` `…/Phase1.py:368-439` ``. On a source page the path may be relative to its `repo`. Paths of our own files (`bots/template.py:286`) also work. `lint.py` checks that the file exists and the line is in range. Do not cite notebooks by line; name the function or cell.
+1. **Cite with a machine-checkable reference.** Write a backticked path and a line: `` `prosperity4-baguette-fromage/README.md:350` `` or a range `` `…/Phase1.py:368-439` ``. On a source page the path may be relative to its `repo`. Paths of our own files (`bots/template.py:317`) also work. `lint.py` checks that the file exists and the line is in range. Do not cite notebooks by line; name the function or cell.
 2. **Say who claims what.** Mark every number as *their claim* (from a README), *checked* (and how: ran it, grepped it, read the line), or *inferred* (and why). A team's rank or PnL is always their claim unless a source says otherwise.
 3. **Say what was not read.** A source page's `Read depth` lists what was read, mapped (only `grep`/headings) and unread. An unread part is never summarised.
 4. **Flag conflicts, don't pick silently.** When two sources disagree, add a row to `contradictions.md`, link it from both concept pages, and say what test would settle it.

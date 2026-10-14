@@ -35,7 +35,7 @@ A 33-page model of what a resting order is worth as a function of its place in a
 - **Scope** (`queue-position-valuation.md:72` (p. 6)): in small-tick assets "investors can obtain priority in the order book by competing on price and the important of queueing … is diminished".
 
 ## Assumptions against the Arena
-- **Large-tick only.** Prosperity's spreads are 2–21 ticks *(checked, [micro-price](micro-price.md))*, the small-tick regime, where the paper says queue position matters little because one tick inside the spread buys priority. That is what the template does: it quotes one tick inside the best book quote (`bots/template.py:472-510`).
+- **Large-tick only.** Prosperity's spreads are 2–21 ticks *(checked, [micro-price](micro-price.md))*, the small-tick regime, where the paper says queue position matters little because one tick inside the spread buys priority. That is what the template does: it quotes one tick inside the best book quote (`bots/template.py:550-588`).
 - **Prosperity has no queue at all,** per Leo-Hawking's round 0 probe: orders at the best price are processed regardless of arrival time ([queue position](../concepts/queue-position-and-fills.md)). The model matters only if the Arena runs a real FIFO book, an open question in `ON_THE_DAY.md`.
 - **Proportional, uniform cancellations** is the same rule as hftbacktest's `ProbQueueModel` with `f(x) = x`. A decrease of size `c` at the level moves an order with `front` ahead and `back` behind forward by `c × front/(front + back)`, which is what uniform cancellation gives in expectation *(inferred from the two definitions)*. The order-by-order evidence (Rigtorp, Databento) says real cancels come more from the back, i.e. `log(1 + x)`, so this paper's queue model sits on the optimistic side of that.
 - **The efficient price is estimated as the mid one minute after a fill;** our markouts do the same at 1–N ticks.
@@ -43,7 +43,7 @@ A 33-page model of what a resting order is worth as a function of its place in a
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `δ` | the quote's distance from fair: `make_edge` or more (`bots/template.py:41`) |
+| `δ` | the quote's distance from fair: `make_edge` or more (`bots/template.py:42`) |
 | `AS` | the markout of passive fills, sign-flipped (`arena/analysis.py:189`) |
 | `α(q)` | fill rate of resting orders by queue position; measurable only in `--resting` mode |
 | regular order / touch order | `--queue back` (our resting model today) / `--queue front` (`TODO.md`) |

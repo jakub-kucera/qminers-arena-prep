@@ -56,6 +56,48 @@ def test_an_untuned_product_quotes_around_the_market_makers_size(bot):
     assert bot.fair_value(bot.Book([[101, 2]], [[104, 3]]), params(bot), {}) == 102.5
 
 
+def test_a_fixed_fair_gives_way_once_the_market_leaves_it(bot):
+    p = params(bot, fair="fixed", fixed_fair=100, fixed_guard=5)
+    assert bot.fair_value(bot.Book([[98, 20]], [[102, 20]]), p, {}) == 100
+    assert bot.fair_value(bot.Book([[108, 20]], [[112, 20]]), p, {}) == 110.0
+
+
+def test_the_loss_stop_trips_on_a_drawdown_from_the_high_and_resets_next_day(bot):
+    p = params(bot, stop_loss=50)
+    memory = {}
+    assert not bot.loss_stop(100, 10, [(100, 10)], 0, p, memory)  # bought 10 at 100
+    assert not bot.loss_stop(110, 10, [], 100, p, memory)  # +100, the high
+    assert bot.loss_stop(104, 10, [], 200, p, memory)  # +40: 60 below the high
+    assert bot.loss_stop(120, 10, [], 300, p, memory)  # stays stopped for the day
+    assert not bot.loss_stop(120, 10, [], 0, p, memory)  # a new day: the carried position starts at 0
+
+
+def test_a_stopped_product_only_flattens(bot):
+    p = params(bot, fair="mid", stop_loss=10, make_edge=1)
+    memory = {"stopped": True, "stop_t": 0}
+    book = bot.Book([[99, 5]], [[103, 5]])
+    plan = bot.trade_product("X", book, 4, p, memory, bot.Market({"X": book}, timestamp=100))
+    assert plan.takes == [(99, -4)] and plan.quotes == []  # crosses the spread to sell what it holds
+
+
+def test_the_level_guard_waits_for_the_price_to_come_back(bot):
+    p = params(bot, level=100, level_band=10, level_guard=3)
+    memory = {}
+    assert bot.level_target(115, p, memory) == -10
+    assert bot.level_target(135, p, memory) == 0  # 3.5 bands away: the level is broken
+    assert bot.level_target(125, p, memory) == 0  # back inside the guard but not within a band
+    assert bot.level_target(105, p, memory) == 0  # within a band: the bet may start again
+    assert bot.level_target(112, p, memory) == -10
+
+
+def test_the_regime_guard_trips_when_volatility_jumps(bot):
+    p = params(bot, vol_guard=3)
+    memory = {}
+    calm = [100 + (k % 2) for k in range(400)]
+    assert not any(bot.regime_guard(f, p, memory) for f in calm)
+    assert any(bot.regime_guard(100 + 20 * (k % 2), p, memory) for k in range(20))
+
+
 def test_fair_keeps_its_last_value_when_a_side_is_empty(bot):
     assert bot.fair_value(bot.Book([[99, 1]], []), params(bot, fair="mid"), {"fair": 100.0}) == 100.0
 

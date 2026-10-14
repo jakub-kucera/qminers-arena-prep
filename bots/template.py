@@ -34,6 +34,7 @@ DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
     "fair": "sized_mid",  # "fixed", "mid", "wall_mid", "outer_mid" or "sized_mid" (see fair_value)
     "fixed_fair": None,  # used when fair is "fixed"
+    "fixed_guard": None,  # fair "fixed": use the wall mid instead while it is further than this from fixed_fair
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly
     "take_edge": 1,  # take book orders priced at least this much better than fair
@@ -49,6 +50,7 @@ DEFAULTS = {
     "level_weight": None,  # with a number level: ticks it counts for against the day's mean; None: fixed
     "level_band": 20,  # hold the full limit against a move this far from the level
     "level_exit": None,  # flatten once back within this of the level; None: hold until the other band
+    "level_guard": None,  # past this many level_bands from the level, drop the bet (target 0) until back within one band
     # A call option on another product (see follow_target): it takes that product's target as a
     # share of its own limit. None trades the product on its own.
     "follow": None,
@@ -71,12 +73,20 @@ DEFAULTS = {
     "copy": None,
     "copy_hold": None,  # ticks to hold after a signal; None: until the next one
     "copy_edge": 5,  # clear_edge while the target follows a signal
+    # Protection against a regime the parameters weren't tuned for (see loss_stop, regime_guard;
+    # arena.stress tests them).
+    "stop_loss": None,  # flatten and stop for the day once today's PnL is this far below its high; None: off
+    "stop_edge": None,  # clear_edge while flattening after the stop; None: the book's spread, to reach the other side
+    "vol_guard": None,  # fall back to plain market making while recent volatility is this many times the day's
 }
 
+# stop_loss is about 3 times the product's largest intraday drawdown on the days it was tuned on
+# (arena.stress prints it), so it never fires there: it caps a day the regime changes (IDEAS.md,
+# "Stress: what a regime change costs").
 PARAMS = {
     # IMC Prosperity 3, round 1
-    "RAINFOREST_RESIN": {"limit": 50, "fair": "fixed", "fixed_fair": 10_000},
-    "KELP": {"limit": 50, "fair": "wall_mid", "make_edge": 1},
+    "RAINFOREST_RESIN": {"limit": 50, "fair": "fixed", "fixed_fair": 10_000, "fixed_guard": 5, "stop_loss": 1000},
+    "KELP": {"limit": 50, "fair": "wall_mid", "make_edge": 1, "stop_loss": 1200},
     # IMC Prosperity 3, round 2. The baskets trade their spread against the legs (level: its mean
     # over the three days, level_band about one sd; IDEAS.md). They only take: their price jumps
     # several ticks at once, and resting quotes got picked off. The legs aren't traded: market
@@ -91,27 +101,30 @@ PARAMS = {
     # the round 1 benchmarks stay Kelp and Resin's.
     "VOLCANIC_ROCK": {"limit": 400, "fair": "wall_mid", "make_size": 0, "level": "day", "level_band": 25, "clear_edge": 1},
     # IMC Prosperity 2, round 1
-    "AMETHYSTS": {"limit": 20, "fair": "fixed", "fixed_fair": 10_000},
+    "AMETHYSTS": {"limit": 20, "fair": "fixed", "fixed_fair": 10_000, "fixed_guard": 5},
     "STARFRUIT": {"limit": 20, "fair": "wall_mid", "make_edge": 1},
     # IMC Prosperity 2, round 3: as Prosperity 3's baskets (level_band about 0.75 sd).
     "GIFT_BASKET": {"limit": 60, "fair": "wall_mid", "make_size": 0, "basket": {"CHOCOLATE": 4, "STRAWBERRIES": 6, "ROSES": 1},
                     "level": 380, "level_band": 57, "clear_edge": 6},
     # IMC Prosperity 4, rounds 1-2. Pepper Root rises about 1,000 a day, so it holds a long target
     # (grid over target and skew on rounds 1-2, IDEAS.md); Osmium is untuned.
-    "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "make_edge": 1},
-    "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "target": 80, "skew": 20},
+    "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "stop_loss": 5500},
+    "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "target": 80, "skew": 20, "stop_loss": 4500},
     # IMC Prosperity 4, rounds 3-4. Both return to a level that held across days (IDEAS.md).
-    "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 30, "level_exit": 0, "clear_edge": 8},
-    "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 30, "clear_edge": 2},
+    "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 30, "level_exit": 0, "clear_edge": 8,
+                      "stop_loss": 48_000},
+    "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 30, "clear_edge": 2,
+                            "stop_loss": 39_000},
 }
 for _strike in (9500, 9750, 10000, 10250, 10500):
     PARAMS[f"VOLCANIC_ROCK_VOUCHER_{_strike}"] = {"limit": 200, "fair": "wall_mid", "follow": "VOLCANIC_ROCK", "strike": _strike,
                                                  "clear_edge": 1, "take_edge": 10**6, "make_size": 0}
 # Its vouchers are calls on it: extra room for the same bet. They only trade toward the target (no
 # takes or quotes of their own), crossing up to clear_edge, about half each one's spread.
-for _strike, _clear_edge in ((4000, 11), (4500, 8), (5000, 3), (5100, 2), (5200, 2), (5300, 1), (5400, 1), (5500, 1)):
+for _strike, _clear_edge, _stop in ((4000, 11, 63_000), (4500, 8, 61_000), (5000, 3, 55_000), (5100, 2, 48_000), (5200, 2, 33_000),
+                                    (5300, 1, 19_000), (5400, 1, 8_500), (5500, 1, 5_600)):
     PARAMS[f"VEV_{_strike}"] = {"limit": 300, "fair": "wall_mid", "follow": "VELVETFRUIT_EXTRACT", "strike": _strike,
-                                "clear_edge": _clear_edge, "take_edge": 10**6, "make_size": 0}
+                                "clear_edge": _clear_edge, "take_edge": 10**6, "make_size": 0, "stop_loss": _stop}
 
 
 # ------------------------------------------------------------------------------ STRATEGY
@@ -185,9 +198,17 @@ class Market:
     the products traded so far. Trader.run trades a product that follows or hedges another after
     it, so one level of dependency works."""
 
-    def __init__(self, books: dict[str, Book], trades: dict[str, list[tuple[str, str, int]]] | None = None):
+    def __init__(
+        self,
+        books: dict[str, Book],
+        trades: dict[str, list[tuple[str, str, int]]] | None = None,
+        fills: dict[str, list[tuple[float, int]]] | None = None,
+        timestamp: int = 0,
+    ):
         self.books = books
         self.trades = trades or {}
+        self.fills = fills or {}  # our own fills since the last tick, as (price, signed quantity)
+        self.timestamp = timestamp
         self.plans: dict[str, Plan] = {}
 
 
@@ -198,7 +219,12 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
     fair = fair_value(book, p, memory)
     if fair is None:  # no price seen yet
         return plan
-    if p["basket"] is not None:
+    if p["stop_loss"] is not None and loss_stop(fair, position, market.fills.get(product, []), market.timestamp, p, memory):
+        edge = p["stop_edge"] if p["stop_edge"] is not None else (book.asks[0][0] - book.bids[0][0] if book.bids and book.asks else 0)
+        p = {**p, "target": 0, "take_edge": math.inf, "make_size": 0, "clear_edge": edge}
+    elif p["vol_guard"] is not None and regime_guard(fair, p, memory):
+        pass  # plain market making toward the static target
+    elif p["basket"] is not None:
         p = {**p, "target": basket_target(fair, p, memory, market, plan)}
     elif p["level"] is not None:
         p = {**p, "target": level_target(fair, p, memory)}
@@ -222,6 +248,11 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
 
 def fair_value(book: Book, p: dict, memory: dict) -> float | None:
     if p["fair"] == "fixed":
+        if p["fixed_guard"] is not None:
+            # A fixed value that the market has left (a level shift, a trend) is no longer the value.
+            market = mid(_wall(book.bids), _wall(book.asks))
+            if market is not None and abs(market - p["fixed_fair"]) > p["fixed_guard"]:
+                return market
         return p["fixed_fair"]
     fair = price(book, p)
     previous = memory.get("fair")
@@ -286,7 +317,16 @@ def level_target(fair: float, p: dict, memory: dict) -> int:
     gap = fair - estimate_level(fair, p, memory)
     held = memory.get("held", 0)
     exit_within = p["level_exit"]
-    if gap >= p["level_band"]:
+    if p["level_guard"] is not None:
+        # The level may have moved: past level_guard bands, stop betting on it until the price is
+        # back within one band (not just inside the guard, or it trades in and out at the guard).
+        if abs(gap) > p["level_guard"] * p["level_band"]:
+            memory["broken"] = True
+        elif abs(gap) < p["level_band"]:
+            memory.pop("broken", None)
+    if memory.get("broken"):
+        held = 0
+    elif gap >= p["level_band"]:
         held = -p["limit"]
     elif gap <= -p["level_band"]:
         held = p["limit"]
@@ -294,6 +334,44 @@ def level_target(fair: float, p: dict, memory: dict) -> int:
         held = 0
     memory["held"] = held
     return held
+
+
+def loss_stop(fair: float, position: int, fills: list[tuple[float, int]], timestamp: int, p: dict, memory: dict) -> bool:
+    """True once today's PnL on this product has fallen stop_loss below its high: then the product
+    only flattens (crossing up to stop_edge) until the day ends.
+
+    PnL is cash from our fills plus the position at fair. A timestamp lower than the last one is a
+    new day: the stop resets, and a position carried over starts at zero PnL.
+    """
+    if timestamp < memory.get("stop_t", -1):
+        memory.pop("stopped", None)
+        memory["cash"], memory["peak"] = -position * fair, 0.0
+    memory["stop_t"] = timestamp
+    memory["cash"] = memory.get("cash", 0.0) - sum(price * quantity for price, quantity in fills)
+    pnl = memory["cash"] + position * fair
+    memory["peak"] = max(memory.get("peak", 0.0), pnl)
+    if memory["peak"] - pnl > p["stop_loss"]:
+        memory["stopped"] = True
+    return memory.get("stopped", False)
+
+
+def regime_guard(fair: float, p: dict, memory: dict) -> bool:
+    """True while the fair value's recent volatility is vol_guard times its volatility over the day.
+
+    Exponential averages of squared one-tick changes, over about 20 and 1,000 ticks, after 200
+    ticks of warm-up. While it holds, the product drops its target bets (level, jump, copy, basket,
+    follow) and makes markets around its static target. A rough stand-in for a changepoint detector
+    (Adams & MacKay, references/wiki/sources/online-changepoint-detection.md).
+    """
+    last = memory.get("vg_last")
+    memory["vg_last"] = fair
+    if last is None:
+        return False
+    change = (fair - last) ** 2
+    memory["vg_fast"] = 0.95 * memory.get("vg_fast", change) + 0.05 * change
+    memory["vg_slow"] = 0.999 * memory.get("vg_slow", change) + 0.001 * change
+    memory["vg_n"] = memory.get("vg_n", 0) + 1
+    return memory["vg_n"] >= 200 and memory["vg_fast"] > p["vol_guard"] ** 2 * max(memory["vg_slow"], 1e-9)
 
 
 def estimate_level(fair: float, p: dict, memory: dict) -> float:
@@ -583,6 +661,17 @@ def read_trades(state: TradingState) -> dict[str, list[tuple[str, str, int]]]:
     return out
 
 
+US = "SUBMISSION"  # how Prosperity names us in own_trades
+
+
+def read_fills(state: TradingState) -> dict[str, list[tuple[float, int]]]:
+    """Our own fills since the last tick, by product, as (price, signed quantity)."""
+    out: dict[str, list[tuple[float, int]]] = {}
+    for product, trades in (getattr(state, "own_trades", None) or {}).items():
+        out[product] = [(t.price, t.quantity if t.buyer == US else -t.quantity) for t in trades]
+    return out
+
+
 def read_resting(state: TradingState, product: str) -> list[tuple[int, int, int]]:
     return [(order.id, order.price, order.quantity) for order in open_orders(state).get(product, [])]
 
@@ -595,7 +684,8 @@ class Trader:
     def run(self, state: TradingState):
         memory = load_memory(state.traderData)
         orders: dict[str, list[Order | Cancel]] = {}
-        market = Market({product: read_book(depth) for product, depth in state.order_depths.items()}, read_trades(state))
+        books = {product: read_book(depth) for product, depth in state.order_depths.items()}
+        market = Market(books, read_trades(state), read_fills(state), state.timestamp)
         # Products that follow or hedge another go last, so they see its plan.
         products = sorted(market.books, key=lambda product: _depends(PARAMS.get(product, {})))
         for product in products:

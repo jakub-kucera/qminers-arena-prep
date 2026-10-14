@@ -101,6 +101,7 @@ Each entry gives:
 
 ### B. The price process changes
 - **B1. A regime shift between the public and the private run, or within a day** (likelihood: high; Qminers' own 2024 final did it).
+  - **Built 2026-10-15:** `arena/stress.py` and the template's `stop_loss`, `fixed_guard`, `level_guard`, `vol_guard`. A trend is what hurts (P4 rounds 1–4: 2.27M plain, −0.32M with a trend up); stops at 3× the plain-day drawdown bound every perturbed day; the level and volatility guards cost more than they saved and are off (`IDEAS.md`).
   - Breaks: fixed anchors, `level` set from the download's mean, and parameters at a grid's best cell ([drift and regime](drift-and-regime-change.md), [validation](validation-and-overfitting.md)).
   - Tell: the private run can't be seen, so assume it; within a day, the rolling volatility and drift.
   - Prep:

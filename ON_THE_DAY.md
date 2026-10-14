@@ -125,6 +125,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
 
 ## Every round
 
+- [ ] **Stress the bot before submitting:** `uv run python -m arena.stress <bot> <days> --data <folder>`. Set each product's `stop_loss` to about 3× the "plain drawdown" it prints, then rerun: no product's worst day should be much beyond its stop. A fixed-fair product gets `fixed_guard` (a few ticks beyond its usual wall). The level and voucher bets are the exposure on a trend (`IDEAS.md`, "Stress: what a regime change costs").
 - [ ] **Re-test the ideas register:** go down `IDEAS.md` and re-run every row that fits this round's products, on the Arena's data. The results there come from Prosperity data and are priors only: an idea dropped there may work here, and a kept one may not. Write each Arena result into its row.
 - [ ] **Products:** the new products, their position limits, and whether any are related, such as baskets, ETFs or options. AlgoTrade defined each ETF's fair value as the mean of its constituents.
   - For a basket or ETF with known weights: measure its spread's daily means and sds (`experiments/baskets.py` does it for Prosperity's). If the means agree across days, set `basket`, `level` (their mean) and a `level_band` of 0.5–1.5 sds, with `make_size` 0, and check by held-out days. A family whose prices sum to a constant is a basket with legs of weight −1.

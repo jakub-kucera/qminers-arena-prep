@@ -1,0 +1,180 @@
+"""Reruns a bot on perturbed copies of each day, to see what a regime change costs it.
+
+    uv run python -m arena.stress bots/template.py 1                        # P3 round 1, every perturbation
+    uv run python -m arena.stress bots/template.py 1 2 --data p4 --only shift_up,shift_down
+    uv run python -m arena.stress bots/template.py 1 --size 2 --resting --set PARAMS.KELP.stop_loss=2000
+
+The Arena's private run may not look like the download: Qminers' 2024 final switched regime, and
+a fixed anchor or a level set from the download breaks when the price moves away for good
+(references/wiki/concepts/harder-rounds.md, B1). Each perturbation moves a product's whole book,
+its market trades and its mark by the same offset at a tick, so the book's shape and the trades'
+place in it are kept; only the price path changes. Sizes are in the product's median spread `s`
+over the day, times `--size`:
+
+    vol2         every tick's distance from the day's first wall mid is doubled
+    trend_up     a steady drift adding up to 10 s over the day (trend_down: down)
+    shift_up     the price moves 5 s at the middle of the day and stays (shift_down: down)
+    spike_up     the price moves 5 s at the middle of the day and comes back 100 ticks later
+    no_wall      for the middle fifth of the day the largest level on each side is gone
+
+It prints each product's PnL on the plain day and under each perturbation, summed over the days,
+its largest intraday drawdown on a plain day (what a loss stop must leave room for), and its worst
+single (day, perturbation). The template's loss stop and regime guard are judged by that last
+column (`stop_loss` in bots/template.py: no product should lose much more than its stop).
+"""
+
+from __future__ import annotations
+
+import argparse
+import statistics
+import sys
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import replace
+
+from arena import report
+from arena.botfile import OverrideError
+from arena.cli import add_common_arguments, add_rival_argument, run_with_rivals, setup
+from arena.formats import FORMATS
+from arena.model import Book, Day, Tick
+
+PERTURBATIONS = ("vol2", "trend_up", "trend_down", "shift_up", "shift_down", "spike_up", "spike_down", "no_wall")
+SPIKE_TICKS = 100
+
+
+def perturb(day: Day, name: str, size: float = 1.0) -> Day:
+    """A copy of the day with one perturbation applied to every product."""
+    if name not in PERTURBATIONS:
+        raise ValueError(f"unknown perturbation {name!r}: choose from {', '.join(PERTURBATIONS)}")
+    n = len(day.ticks)
+    if name == "no_wall":
+        start, end = int(0.4 * n), int(0.6 * n)
+        ticks = [
+            replace(t, books={p: _without_walls(b) for p, b in t.books.items()}) if start <= k < end else t
+            for k, t in enumerate(day.ticks)
+        ]
+        return replace(day, name=f"{day.name}/{name}", ticks=ticks)
+    offsets = {product: _offsets(day, product, name, size) for product in day.products}
+    ticks = [_shifted(t, {p: offsets[p][k] for p in day.products}) for k, t in enumerate(day.ticks)]
+    return replace(day, name=f"{day.name}/{name}", ticks=ticks)
+
+
+def _offsets(day: Day, product: str, name: str, size: float) -> list[int]:
+    n = len(day.ticks)
+    walls = _forward_fill([t.books[product].wall_mid if product in t.books else None for t in day.ticks])
+    spreads = [b.asks[0][0] - b.bids[0][0] for t in day.ticks if (b := t.books.get(product)) and b.bids and b.asks]
+    s = max(statistics.median(spreads), 1) if spreads else 1
+    sign = -1 if name.endswith("_down") else 1
+    half = n // 2
+    if name == "vol2":
+        first = next((w for w in walls if w is not None), None)
+        return [0 if w is None or first is None else round(size * (w - first)) for w in walls]
+    if name.startswith("trend"):
+        return [round(sign * 10 * s * size * k / max(n - 1, 1)) for k in range(n)]
+    if name.startswith("shift"):
+        return [round(sign * 5 * s * size) if k >= half else 0 for k in range(n)]
+    return [round(sign * 5 * s * size) if half <= k < half + SPIKE_TICKS else 0 for k in range(n)]  # spike
+
+
+def _forward_fill(values):
+    out, last = [], None
+    for value in values:
+        last = value if value is not None else last
+        out.append(last)
+    return out
+
+
+def _shifted(tick: Tick, offsets: dict[str, int]) -> Tick:
+    if not any(offsets.values()):
+        return tick
+    books = {
+        p: Book(tuple((price + offsets.get(p, 0), v) for price, v in b.bids), tuple((price + offsets.get(p, 0), v) for price, v in b.asks))
+        for p, b in tick.books.items()
+    }
+    trades = {p: [replace(t, price=t.price + offsets.get(p, 0)) for t in ts] for p, ts in tick.trades.items()}
+    marks = {p: m + offsets.get(p, 0) for p, m in tick.marks.items()}
+    return replace(tick, books=books, trades=trades, marks=marks)
+
+
+def _without_walls(book: Book) -> Book:
+    def drop_largest(levels):
+        if len(levels) < 2:
+            return levels
+        largest = max(range(len(levels)), key=lambda i: levels[i][1])
+        return levels[:largest] + levels[largest + 1 :]
+
+    return Book(drop_largest(book.bids), drop_largest(book.asks))
+
+
+# ---------------------------------------------------------------------------- running
+
+
+_WORKER: dict = {}
+
+
+def _init(format_name, data_arg, day_specs, bot, overrides, rivals, config, requote):
+    fmt = FORMATS[format_name]
+    days = fmt.load_days(fmt.resolve_data_dir(data_arg), day_specs)
+    _WORKER.update(fmt=fmt, days=days, bot=bot, overrides=overrides, rivals=rivals, config=config, requote=requote)
+
+
+def _run(task: tuple[int, str | None, float]) -> tuple[str, str | None, dict[str, float], int, dict[str, float]]:
+    k, name, size = task
+    w = _WORKER
+    day = w["days"][k] if name is None else perturb(w["days"][k], name, size)
+    result = run_with_rivals(w["fmt"], day, w["bot"], w["overrides"], w["rivals"], w["config"], requote=w["requote"])[0]
+    pnl = {p: series[-1] for p, series in result.pnl.items() if series}
+    return w["days"][k].name, name, pnl, len(result.errors), {p: report.max_drawdown(series) for p, series in result.pnl.items()}
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m arena.stress", description="Rerun a bot on perturbed days.")
+    add_common_arguments(parser)
+    add_rival_argument(parser)
+    parser.add_argument("--only", help=f"comma-separated perturbations (default: all of {', '.join(PERTURBATIONS)})")
+    parser.add_argument("--size", type=float, default=1.0, help="scale every perturbation (default: 1)")
+    parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    args = parser.parse_args(argv)
+    names = args.only.split(",") if args.only else list(PERTURBATIONS)
+    try:
+        s = setup(args)
+        s.format.load_bot(args.bot, s.overrides, strict=True)
+        for name in names:
+            perturb(Day("check", [], {}, []), name)
+    except (ValueError, OSError, OverrideError) as error:
+        parser.error(str(error))
+
+    tasks = [(k, name, args.size) for k in range(len(s.days)) for name in [None, *names]]
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.format, args.data, args.days, args.bot, s.overrides, s.rivals, s.config, s.requote)) as pool:
+        runs = list(pool.map(_run, tasks))
+
+    products = sorted({p for _, _, pnl, _, _ in runs for p, v in pnl.items() if v})
+    columns = ["plain", *names]
+    totals = {(p, c): 0.0 for p in products for c in columns}
+    worst: dict[str, tuple[float, str]] = {}
+    drawdown: dict[str, float] = {}
+    for day, name, pnl, _, drawdowns in runs:
+        if name is None:
+            for p, value in drawdowns.items():
+                drawdown[p] = max(drawdown.get(p, 0.0), value)
+        for p in products:
+            if p not in pnl:  # not traded that day
+                continue
+            value = pnl[p]
+            totals[(p, name or "plain")] += value
+            if value < worst.get(p, (float("inf"), ""))[0]:
+                worst[p] = (value, f"{day} {name or 'plain'}")
+    width = max([len(p) for p in products] + [7])
+    print(f"{len(s.days)} day(s), size {args.size:g}: PnL summed over the days\n")
+    print(f"{'product':<{width}}" + "".join(f"  {c:>11}" for c in columns) + "  plain drawdown  worst day")
+    for p in products:
+        value, where = worst[p]
+        print(f"{p:<{width}}" + "".join(f"  {totals[(p, c)]:>11,.0f}" for c in columns) + f"  {drawdown.get(p, 0):>14,.0f}  {value:,.0f} ({where})")
+    print(f"{'total':<{width}}" + "".join(f"  {sum(totals[(p, c)] for p in products):>11,.0f}" for c in columns))
+    errors = sum(e for _, _, _, e, _ in runs)
+    if errors:
+        print(f"\n! {errors} bot errors across the runs")
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
