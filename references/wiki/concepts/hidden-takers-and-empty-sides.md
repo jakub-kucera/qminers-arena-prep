@@ -1,7 +1,7 @@
 ---
 title: Hidden takers and empty book sides
 type: concept
-updated: 2026-10-10
+updated: 2026-10-14
 ---
 
 # Hidden takers and empty book sides
@@ -17,6 +17,8 @@ In Prosperity 4 round 1, one side of the book was empty on ~8% of ticks, and a b
 - **Recurring takers** (Baguette Fromage, round 2): takers reappeared at the same timestamp, side and size on the next day (97.7% for size ≥ 7 on Osmium), absent in round 1 and not in later rounds (`prosperity4-baguette-fromage/README.md:557-668`). The trade: clear the visible liquidity, leave one side empty, post an extreme quote, only if `p_repeat × q × edge > c_clear` (`prosperity4-baguette-fromage/README.md:651-661`). DU saw the predictable timestamps and did not exploit them (`prosperity4-du-trading/README.md:79`).
 - **Earlier editions had the same family of leak.** In Prosperity 3 the bots behaved like Prosperity 2's to over 95%, so teams hard-coded trades at known timestamps; Frankfurt reported it and IMC fixed it (`prosperity3-frankfurt-hedgehogs/README.md:967-978`).
 - Alpha Search missed the empty-side fill entirely (`prosperity4-alpha-search/README.md:81`).
+- **Telling the takers apart** ([Balcau et al.](../sources/collective-liquidity-taking.md), [Mahfouz et al.](../sources/classify-trading-agents.md)): in simulation, the mid's trend and volatility say little about the mix of informed, noise and trend-following takers; with traded volumes added, a detector reached an MCC of 0.708 (`literature_md/collective-liquidity-taking/collective-liquidity-taking.md:49` (p. 2)). Classifying single orders by archetype gave mixed results even with labels (`literature_md/classify-trading-agents/classify-trading-agents.md:244` (p. 5)). So read the takers from trades (impact, sign correlation) rather than from the price path.
+- **How fast the best level is eaten** ([Zhao & Linetsky](../sources/mm-adverse-selection-rl.md)): the book exhaustion rate per side (`literature_md/mm-adverse-selection-rl/mm-adverse-selection-rl.md:101` (p. 4)) flags the moments a taker is sweeping.
 
 ## Where they disagree
 Not about the effect; only about its persistence (present in R1/R2, gone in later phases).
@@ -28,4 +30,4 @@ Not about the effect; only about its persistence (present in R1/R2, gone in late
 Needs `--data p4` (`TODO.md`). Then: run Baguette Fromage's round 1 idea (quote ±98 from the last wall mid when a side is empty) on Prosperity 4 round 1 and see whether the engine produces fills. On the day: count empty sides and extreme-price trades in the Arena's public data before assuming any of this exists (`ON_THE_DAY.md`).
 
 ## Sources
-[Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [prosperity4btest](../sources/prosperity4-backtester.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md) (the built-in market maker's ladder).
+[Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [prosperity4btest](../sources/prosperity4-backtester.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md) (the built-in market maker's ladder), [Balcau et al.](../sources/collective-liquidity-taking.md), [Mahfouz et al.](../sources/classify-trading-agents.md), [Zhao & Linetsky](../sources/mm-adverse-selection-rl.md).

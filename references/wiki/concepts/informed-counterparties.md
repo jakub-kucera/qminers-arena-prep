@@ -1,7 +1,7 @@
 ---
 title: Informed counterparties (named traders)
 type: concept
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Informed counterparties
@@ -29,6 +29,7 @@ When the data names buyers and sellers (Prosperity 3 round 5, Prosperity 4 round
 - **Copying them can be a trap:** a dealer who speculates on what it infers from a trade can be baited by a small order in the other direction ("Bagging a frontrunning dealer", `literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:6831-6835` (p. 305)).
 
 - **A market maker that learns the value from anonymous flow** ([Das](../sources/learning-market-maker.md)): a Bayesian distribution over the value, updated on each buy, sell or no-order, quoting `E[V | sell]` and `E[V | buy]`; spreads close within about 30 trades after a jump, but only when the jump is announced (`literature_md/learning-market-maker/learning-market-maker.md:203` (p. 10), `literature_md/learning-market-maker/learning-market-maker.md:261` (p. 14)). The candidate if the Arena's informed flow is anonymous ([harder-rounds](harder-rounds.md), B4).
+- **Without names** ([Balcau et al.](../sources/collective-liquidity-taking.md)): in simulation, the mix of informed and uninformed takers is visible in volumes more than in the price path (`literature_md/collective-liquidity-taking/collective-liquidity-taking.md:13` (p. 1)).
 
 ## Where they disagree
 Whether market trades in general carry information (theory: yes; Prosperity's wall mid: barely): [contradictions](../contradictions.md), row 13.
@@ -48,4 +49,4 @@ Without names: per product, the correlation between our position and the next 10
 If the Arena names counterparties: `uv run python -m experiments.counterparties` gives the forward-move table per name, product and side at 10–1,000 ticks, and scores two selection rules by leaving one day out. Do not ship a name-based signal that fails a held-out day (rule from [validation-and-overfitting](validation-and-overfitting.md)).
 
 ## Sources
-[Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [heyman7913](../sources/prosperity4-heyman7913.md).
+[Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md). [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [heyman7913](../sources/prosperity4-heyman7913.md), [Balcau et al.](../sources/collective-liquidity-taking.md).

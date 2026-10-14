@@ -1,7 +1,7 @@
 ---
 title: Book imbalance and the micro-price
 type: concept
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Book imbalance and the micro-price
@@ -41,6 +41,7 @@ The volumes at the best bid and ask predict the direction of the next mid move, 
   - For large ticks, the book suggests an imbalance-weighted reference price instead of the mid (footnote 6, `literature_md/trades-quotes-prices/trades-quotes-prices.md:4350` (p. 232)).
 - **Imbalance as a maker's signal failed live** ([Albers et al.](../sources/market-makers-dilemma.md)): posting only when the imbalance favoured the order, and cancelling when it turned, still lost on the bitcoin perpetual (`literature_md/market-makers-dilemma/market-makers-dilemma.md:428` (p. 22)). What made a little money was the contrary: posting *against* an adverse imbalance when a model predicted it would fail, to hold an early queue place (`literature_md/market-makers-dilemma/market-makers-dilemma.md:693-697` (p. 36)).
 - **Order flow across products** ([Lee et al.](../sources/cross-asset-order-flow.md)): the constituents' order-flow imbalance predicts the index's next 5–60 seconds a little better than the index's own (`literature_md/cross-asset-order-flow/cross-asset-order-flow.md:227-233` (p. 6, checked)); on Prosperity's baskets the legs do not lead ([baskets](baskets-and-fixed-sums.md)).
+- **Order-flow imbalance by event type** ([Sitaru et al.](../sources/decomposed-ofi.md), 100 Nasdaq stocks, three years): splitting OFI into adds, cancels and trades does not explain the same interval's move better, but forecasts the next ones better, the add part most (`literature_md/decomposed-ofi/decomposed-ofi.md:33` (p. 2)). From snapshots only the trade part and the net book change are computable.
 
 ## Where they disagree
 - **Strong or useless?** On Nasdaq large-tick stocks the signal is strong, and on small-tick ones it is barely better than a coin flip. AlgoTrade and Baguette Fromage found it unstable or not robust out of sample. These are less in conflict than they look: the literature *predicts* a weak signal at wide spreads, which is Prosperity's regime. See [contradictions](../contradictions.md), row 11.
@@ -65,4 +66,4 @@ The volumes at the best bid and ask predict the direction of the next mid move, 
 3. **Only then a `fair` option or filter**, compared with `wall_mid` under `--match-trades worse`, `--resting` and `--vs`. Ship only if its worst day is positive (DTU's rule, [validation](validation-and-overfitting.md)).
 
 ## Sources
-[Bouchaud et al.](../sources/trades-quotes-prices.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Harris](../sources/harris-trading-and-exchanges.md), [Stoikov, micro-price](../sources/micro-price.md), [Gould & Bonart](../sources/queue-imbalance-predictor.md), [Cartea, Donnelly & Jaimungal](../sources/order-book-signals.md), [Cont, Kukanov & Stoikov](../sources/price-impact-of-book-events.md), [heyman7913](../sources/prosperity4-heyman7913.md), [AlgoTrade pitfa19](../sources/algotrade2026-pitfa19.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Albers et al.](../sources/market-makers-dilemma.md), [Lee et al.](../sources/cross-asset-order-flow.md).
+[Bouchaud et al.](../sources/trades-quotes-prices.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Harris](../sources/harris-trading-and-exchanges.md), [Stoikov, micro-price](../sources/micro-price.md), [Gould & Bonart](../sources/queue-imbalance-predictor.md), [Cartea, Donnelly & Jaimungal](../sources/order-book-signals.md), [Cont, Kukanov & Stoikov](../sources/price-impact-of-book-events.md), [heyman7913](../sources/prosperity4-heyman7913.md), [AlgoTrade pitfa19](../sources/algotrade2026-pitfa19.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Albers et al.](../sources/market-makers-dilemma.md), [Lee et al.](../sources/cross-asset-order-flow.md), [Sitaru et al.](../sources/decomposed-ofi.md).

@@ -1,7 +1,7 @@
 ---
 title: Price impact
 type: concept
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Price impact
@@ -51,6 +51,7 @@ Price impact is how far the price moves after a trade, in the trade's direction.
 - **Against the mid, the same trades look informed** in Kelp, Resin, Squid Ink, Starfruit and the baskets, with a 0.3–1.4 tick "impact" at one tick. It comes at once and doesn't decay, which is not impact but selection. Trades hit quotes that sit off the wall (a bot's ask stepping inside the spread pulls the mid down), and the mid returns to the wall once that quote is gone.
 - **An average near zero doesn't exclude rare informed traders.** Olivia's trades in Prosperity 3 were few ([informed counterparties](informed-counterparties.md)); Bouchaud's toy model says exactly that such flow barely moves the mean.
 - **Reproduce it** with `arena.analysis.trade_impact`: backtest any bot with `--out`, then pass every day's run to pool them (`uv run python -m arena.analysis <out>` prints it per day and pooled). It reproduces the P3 round 1 rows above exactly.
+- **Which events carry the impact** ([Sitaru et al.](../sources/decomposed-ofi.md)): the add-order imbalance is the part Lasso keeps most often for forecasting, then cancels, then trades (`literature_md/decomposed-ofi/decomposed-ofi.md:33` (p. 2)).
 
 ## Where they disagree
 - **Whether trades carry information at all:** theory says yes on average, Prosperity's bots mostly don't ([contradictions](../contradictions.md), rows 12–13).
@@ -69,4 +70,4 @@ Price impact is how far the price moves after a trade, in the trade's direction.
 - **On the portal:** probe 17 in `ON_THE_DAY.md`.
 
 ## Sources
-[Gould et al.](../sources/limit-order-books.md), [Bouchaud et al.](../sources/trades-quotes-prices.md), [Cont et al.](../sources/price-impact-of-book-events.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Guéant et al.](../sources/dealing-with-inventory-risk.md), [Huang et al.](../sources/queue-reactive-model.md), [Harris](../sources/harris-trading-and-exchanges.md).
+[Gould et al.](../sources/limit-order-books.md), [Bouchaud et al.](../sources/trades-quotes-prices.md), [Cont et al.](../sources/price-impact-of-book-events.md), [Cartea et al., book](../sources/algorithmic-and-hft.md), [Guéant et al.](../sources/dealing-with-inventory-risk.md), [Huang et al.](../sources/queue-reactive-model.md), [Harris](../sources/harris-trading-and-exchanges.md), [Sitaru et al.](../sources/decomposed-ofi.md).

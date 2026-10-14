@@ -1,7 +1,7 @@
 ---
 title: Reading the data on day one
 type: concept
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 # Reading the data on day one
@@ -57,6 +57,7 @@ The Arena's first data download should decide the strategy for each product befo
   - Volcanic Rock, its vouchers and Squid Ink are noted "reverts to a level", but their daily means drift (the rock: 10,454 / 10,375 / 10,167). The note is about the day, not the level across days, so `level` must come from the day itself. That made money in-sample but lost on one day out of three at every band (`IDEAS.md`).
   - Most products also jump (8–56%).
   - The download reuses round 2's days 0–1 for every older product. The grid now flags that.
+- **Is the Arena's market a real one or a bot simulator?** ([Vyetrenko et al.](../sources/lob-simulation-realism.md)): real books show no linear autocorrelation of returns, heavy tails that thin out under aggregation, volatility clustering and intraday volume patterns (`literature_md/lob-simulation-realism/lob-simulation-realism.md:79` (p. 4), `literature_md/lob-simulation-realism/lob-simulation-realism.md:105` (p. 5)); simulators miss some. Prosperity's mid has a lag-1 autocorrelation of about −0.45 (`arena.diagnose`), a bot market's signature. The same checks on the Arena's data say which kind it is.
 
 ## Where they disagree
 - **The literature's regimes come from NASDAQ.** "Large-tick" there means a one-tick spread almost always, with queues of hundreds of lots. By that standard, every Prosperity product except a few vouchers is small-tick, and the literature predicts imbalance adds little there. No team tested imbalance per product against the spread ([book imbalance](book-imbalance-and-micro-price.md)).
@@ -91,4 +92,4 @@ The Arena's first data download should decide the strategy for each product befo
   - **No counterparty analysis.** Named counterparties need `<day>_trades.csv` from a backtest.
 
 ## Sources
-[Bouchaud et al.](../sources/trades-quotes-prices.md), [Gould et al.](../sources/limit-order-books.md), [Gould & Bonart](../sources/queue-imbalance-predictor.md), [micro-price](../sources/micro-price.md), [Cartea et al. 2018](../sources/order-book-signals.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU Quant Lab](../sources/prosperity4-dtu-quant-lab.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md). Related concepts: [probing the environment](probing-the-environment.md) (experiments that need a submission; this page needs only the data).
+[Bouchaud et al.](../sources/trades-quotes-prices.md), [Gould et al.](../sources/limit-order-books.md), [Gould & Bonart](../sources/queue-imbalance-predictor.md), [micro-price](../sources/micro-price.md), [Cartea et al. 2018](../sources/order-book-signals.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [DTU Quant Lab](../sources/prosperity4-dtu-quant-lab.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md). Related concepts: [probing the environment](probing-the-environment.md) (experiments that need a submission; this page needs only the data), [Vyetrenko et al.](../sources/lob-simulation-realism.md).

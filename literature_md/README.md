@@ -42,6 +42,13 @@ Marker's `meta.json` (table of contents with page numbers).
 | `marl-competition-no-collusion/` | Wang, Ventre & Polukarov, *Multi-agent reinforcement learning for market making: competition without collusion* (ICAIF 2025, 9 pp.) | Self-interested and spiteful RL makers competing |
 | `etf-trade-flow-decomposition/` | Petit, Cucuringu & Cartea, *Data-driven trade flow decomposition for ETFs and their constituents* (ICAIF 2025, 9 pp., CC BY 4.0) | Trade classes by co-occurrence across an ETF and its constituents |
 | `cross-asset-order-flow/` | Lee et al., *From constituents to index: interpretable price movement prediction via cross-asset order flow* (ICAIF 2025, 9 pp., CC BY 4.0) | Constituents' order flow as an index predictor |
+| `market-making-perceived-collusion/` | Xiong & Cont, *Interactions of market making algorithms: a study on perceived collusion* (ICAIF 2021) | Learned collusion depends on how flow is shared |
+| `order-stacking-mm/` | Chung, Chung, Lee & Kim, *Market making under order stacking framework* (ICAIF 2022) | Resting orders at several levels; how to apply cancels |
+| `decomposed-ofi/` | Sitaru, Calinescu & Cucuringu, *Order flow decomposition for price impact analysis* (extended version of ICAIF 2023, 21 pp.) | OFI by event type |
+| `scaled-beta-policies/` | Jerome, Palmer & Savani, *Market making with scaled beta policies* (ICAIF 2022) | Volume profiles across levels |
+| `mm-adverse-selection-rl/` | Zhao & Linetsky, *HF automated market making with adverse selection risk control via RL* (ICAIF 2021) | The book exhaustion rate |
+| `classify-trading-agents/` | Mahfouz, Balch, Veloso & Mandic, *Learning to classify and imitate trading agents in CDA markets* (ICAIF 2021) | Bot archetypes from orders |
+| `collective-liquidity-taking/` | Balcau, Sánchez-Betancourt, Sarkadi & Ventre, *Detecting collective liquidity taking distributions* (ICAIF 2024) | The mix of liquidity takers |
 | `optimal-market-making/` | Guéant, *Optimal market making* (43 pp.) | Market making over many assets with inventory limits and skewed quotes. The closest paper to a many-product Arena. hftbacktest's `Making Multiple Markets.ipynb` implements it |
 | `probability-of-backtest-overfitting/` | Bailey, Borwein, López de Prado & Zhu, *The Probability of Backtest Overfitting* (34 pp.) | Why the best of many backtests is usually luck, and CSCV, a way to estimate the probability that it is. For `arena.grid` and a capped number of portal submissions |
 | `deflated-sharpe-ratio/` | Bailey & López de Prado, *The Deflated Sharpe Ratio* (22 pp.) | A Sharpe ratio corrected for how many strategies were tried, for non-normal returns and for short samples |

@@ -107,6 +107,13 @@ Documents with a source page (each says which formulas were checked against the 
 - [marl-competition-no-collusion](sources/marl-competition-no-collusion.md): Wang, Ventre & Polukarov 2025; a rival trained to hurt you takes the flow by quoting tighter; self-interested makers did not collude.
 - [etf-trade-flow-decomposition](sources/etf-trade-flow-decomposition.md): Petit, Cucuringu & Cartea 2025; trades classified by co-occurrence across an ETF and its constituents; a daily signal.
 - [cross-asset-order-flow](sources/cross-asset-order-flow.md): Lee et al. 2025; constituents' order flow predicts the index a little; on Prosperity's baskets the legs don't lead.
+- [market-making-perceived-collusion](sources/market-making-perceived-collusion.md): Xiong & Cont 2021; learners collude under constant or smooth market shares, not under winner-takes-all.
+- [order-stacking-mm](sources/order-stacking-mm.md): Chung et al. 2022; resting orders at several levels to hold queue places; sampled cancels, not expected shares.
+- [decomposed-ofi](sources/decomposed-ofi.md): Sitaru, Calinescu & Cucuringu 2023; OFI split into adds, cancels and trades forecasts better.
+- [scaled-beta-policies](sources/scaled-beta-policies.md): Jerome, Palmer & Savani 2022; inventory control by skewing a volume profile across levels.
+- [mm-adverse-selection-rl](sources/mm-adverse-selection-rl.md): Zhao & Linetsky 2021; the book exhaustion rate as an adverse-selection gauge.
+- [classify-trading-agents](sources/classify-trading-agents.md): Mahfouz et al. 2021; classifying bots by archetype from their orders gives mixed results.
+- [collective-liquidity-taking](sources/collective-liquidity-taking.md): Balcau et al. 2024; the takers' mix shows in volumes, not in the price path.
 - [dynamics-of-order-positions](sources/dynamics-of-order-positions.md): Guo, Ruan & Zhu 2015; fluid limit of the volume ahead of you; `Υ`, the general cancellation rule behind `ProbQueueModel`.
 - [algorithmic-and-hft](sources/algorithmic-and-hft.md): Cartea, Jaimungal & Penalva (book), chapters 2, 10, 11, 12 read; chapter map with pages. Market making with a running penalty, optimal pairs-trading bands, Kyle λ typo.
 - [harris-trading-and-exchanges](sources/harris-trading-and-exchanges.md): Harris (book, 2003 draft), chapters 10–14 and 17 read; chapter map. Dealers, spreads, quote matching, bluffing, arbitrage risks.
