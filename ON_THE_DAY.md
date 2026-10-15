@@ -149,7 +149,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Then: apply each entry's "prep". Where the private run can't be seen, as with a regime shift, assume it: prefer the grid's worst day over its best PnL, and keep the loss stops on.
   - Spoofed walls (D3): look for large levels that appear and vanish without trading, and for an imbalance that is one-sided just before market trades and back to normal after (`references/wiki/sources/detecting-spoofing-strategies.md`). If found, a `fair` that ignores new large levels until they persist.
   - The close (C5): if positions are marked to an average over a closing window, watch that window for one-sided runs of market orders (`references/wiki/sources/benchmark-manipulation.md`), and settle inventory before it.
-  - Our own bot must not look like a spoofer: no large orders we mean to cancel, and a check that tuning didn't learn them (`references/wiki/sources/learning-not-to-spoof.md`).
+  - Our own bot must not look like a spoofer: no large orders we mean to cancel, and a check that tuning didn't learn them (`references/wiki/sources/learning-not-to-spoof.md`). This is a default, not a rule we know of: read the Technical Rules for a market-abuse clause (spoofing, marking the close, deliberately hurting other teams). If they allow it, and the market is shared with resting orders or reacts to us, see `IDEAS.md`, "Manipulating other bots". Say which in this item, with the rule's wording.
 
 ## Probes
 
