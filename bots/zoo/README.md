@@ -55,6 +55,7 @@ the rest.
 |---|---|---|---|---|---|---|
 | `chatgpt/gpt-5-6-luna_baseline.py` | OpenAI, ChatGPT, run by hand | GPT-5.6 Luna | 2026-10-15 | baseline | not recorded | the best-level weighted mid smoothed by a fast/slow EMA blend, fixed 10,000 for Resin, a momentum-tilted fair for Squid Ink; quotes 6-8 lots |
 | `gemini/gemini-3-8-flash-high_baseline.py` | Google, Gemini app, run by hand | Gemini 3.8 Flash, thinking high | 2026-10-15 | baseline | not recorded | a hard-coded Resin ladder around 10,000; Kelp at 0.6 × weighted mid + 0.4 × its EMA; Squid Ink trend-following (EMA crossover, 3-tick return, whole-book imbalance) that crosses the spread on a strong signal |
+| `other/gpt-oss-120B_baseline.py` | OpenAI's open-weight model, run by hand | gpt-oss-120B | 2026-10-15 | baseline | not recorded | no fair value: joins the best bid and ask with 10 lots on every product, keeps no state |
 | `claude/haiku-5.5_baseline.py` | Anthropic, a fresh agent told not to read the repo | Claude Haiku 5.5 | 2026-10-15 | baseline | none | fixed 10,000 for Resin, a slow EMA of the mid elsewhere |
 | `claude/opus-5.5_baseline.py` | Anthropic, a fresh agent told not to read the repo | Claude Opus 5.5 | 2026-10-15 | baseline | none | wall mid, take / clear / penny, fixed 10,000 for Resin |
 | `claude/opus-5.5_market_maker.py` | Anthropic, a fresh agent told not to read the repo | Claude Opus 5.5 | 2026-10-15 | market_maker | none | wall mid, take / clear / penny or join, fixed 10,000 for Resin |
