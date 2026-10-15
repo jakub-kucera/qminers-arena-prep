@@ -182,6 +182,25 @@ def test_overrides_and_strict_flag(tmp_path):
         parse_override("PARAMS.X={'take_edge': 10**6}")  # an expression would otherwise arrive as a string
 
 
+def test_an_override_never_changes_the_value_it_was_given(tmp_path):
+    # The grid adds each combination's values to the same --set dicts, load after load.
+    path = write_bot(
+        tmp_path,
+        """
+        PARAMS = {}
+
+        class Trader:
+            def run(self, state):
+                return {}, 0, str(PARAMS)
+        """,
+    )
+    whole = parse_override("PARAMS.X={'edge': 1}")
+    prosperity.load_bot(path, dict([whole, parse_override("PARAMS.X.edge=2")]), strict=True)
+    bot = prosperity.load_bot(path, dict([whole]), strict=True)
+    bot.step(Tick(0, {}, {}, {}), {}, [], {}, [])
+    assert bot._trader_data == "{'X': {'edge': 1}}"
+
+
 def test_check_source():
     import ast
 

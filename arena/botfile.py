@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -78,6 +79,7 @@ def parse_value(raw: str) -> object:
 
 def _apply_override(module: ModuleType, target: str, value: object) -> None:
     name, *keys = target.split(".")
+    value = copy.deepcopy(value)  # a dict value is shared by every load: a deeper override mustn't change it
     if not hasattr(module, name):
         raise OverrideError(f"--set {target}: the bot has no global named {name!r}")
     if not keys:
