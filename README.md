@@ -85,14 +85,15 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 
 ### Fill assumptions matter
 
-Same template, Prosperity 3 round 1, all three days:
+Same template, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5 since 2026-10-15;
+with the earlier 1, `all` per tick was 81,292 and `worse` 57,774):
 
 | Fills from | per tick (default) | `--resting` |
 |---|---|---|
-| book + market trades at your price or worse (`all`, default) | 81,292 | 67,446 |
-| book + market trades strictly worse than your price (`worse`) | 57,774 | 57,958 |
-| visible book only (`none`) | 28,216 | 28,412 |
-| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 44,900 | 34,968 |
+| book + market trades at your price or worse (`all`, default) | 72,708 | 66,518 |
+| book + market trades strictly worse than your price (`worse`) | 63,296 | 63,362 |
+| visible book only (`none`) | 28,216 | 30,436 |
+| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 40,167 | 34,428 |
 
 Most of the default PnL comes from assuming bots would have traded with your resting quotes
 instead of with each other. When comparing variants, check that the better one also wins under
@@ -253,13 +254,13 @@ This models a market shared by all teams much better than `--fill-ratio`:
 - **Rivals written for Prosperity:** their orders were meant to live one tick, so they never cancel, and under `--resting` their orders pile up until every new one breaches the limit. `--requote` makes every rival cancel its resting orders before each tick.
 - **Races:** another bot can fill one of your orders after your bot decided. If your new orders then no longer fit the limit, they are rejected and counted as a race, not a limit breach. A cancel for an order that filled in the meantime does nothing.
 
-Template against copies of itself, Prosperity 3 round 1, all three days:
+Template against copies of itself, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5):
 
 | Market | per tick (default) | `--resting` |
 |---|---|---|
-| alone | 81,292 | 67,446 |
-| with one copy | 46,875 + 47,674 | 29,695 + 28,222 |
-| with two copies | | 16,266 + 19,522 + 16,279 |
+| alone | 72,708 | 66,518 |
+| with one copy | 42,037 + 42,294 | 28,288 + 24,746 |
+| with two copies | | 14,681 + 18,693 + 14,490 |
 
 The two copies together make more than one alone in the default mode, because each has its
 own position limit. They also get extra fills: when one beats the other to an ask, the other's

@@ -86,7 +86,12 @@ DEFAULTS = {
 PARAMS = {
     # IMC Prosperity 3, round 1
     "RAINFOREST_RESIN": {"limit": 50, "fair": "fixed", "fixed_fair": 10_000, "fixed_guard": 5, "stop_loss": 1000},
-    "KELP": {"limit": 50, "fair": "wall_mid", "make_edge": 1, "stop_loss": 1200},
+    # Kelp's make_edge 0.5 (half a tick from a half-integer wall mid) was tuned on Prosperity
+    # data, not the Arena's: chosen 2026-10-15 for --match-trades worse and a market that reacts,
+    # over all, where make_edge 1 made more (TODO.md, "Tune Kelp and Squid Ink for worse fills?").
+    # Re-grid make_edge on the day once the Arena's fill mode is known. Squid Ink isn't traded:
+    # its quotes are picked off when orders rest (same TODO item).
+    "KELP": {"limit": 50, "fair": "wall_mid", "make_edge": 0.5, "stop_loss": 1200},
     # IMC Prosperity 3, round 2. The baskets trade their spread against the legs (level: its mean
     # over the three days, level_band about one sd; IDEAS.md). They only take: their price jumps
     # several ticks at once, and resting quotes got picked off. The legs aren't traded: market

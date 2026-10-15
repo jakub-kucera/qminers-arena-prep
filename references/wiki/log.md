@@ -261,3 +261,7 @@ Downloaded by the agent from arXiv (found by the comment-field query in `referen
 ## [2026-10-15] restructure | the stress harness and the template's protection
 `arena/stress.py` implements B1's harness in [harder-rounds](concepts/harder-rounds.md); the template gains a loss stop and guards. The volatility guard is a stand-in for [online-changepoint-detection](sources/online-changepoint-detection.md)'s detector, not that algorithm.
 - **Citations moved:** the template's line citations in 32 pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:550-588`).
+
+## [2026-10-15] restructure | Kelp's make_edge 0.5 in the template
+The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `worse` fills, not on the Arena; `IDEAS.md`, "Why the zoo beat the template head to head"). Five comment lines went in above it.
+- **Citations moved:** 40 of the template's line citations re-mapped with a diff of the old and new file, range ends included (`make` is now `bots/template.py:555-593`).
