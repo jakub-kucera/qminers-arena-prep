@@ -62,6 +62,13 @@ def test_a_fixed_fair_gives_way_once_the_market_leaves_it(bot):
     assert bot.fair_value(bot.Book([[108, 20]], [[112, 20]]), p, {}) == 110.0
 
 
+def test_a_large_order_far_from_the_touch_doesnt_trip_the_guard(bot):
+    # A spoofer's 40-lot behind the walls moves the wall mid to 93.5, past the guard; the sized
+    # mid (the first level with at least wall_size) stays at 100.
+    p = params(bot, fair="fixed", fixed_fair=100, fixed_guard=5)
+    assert bot.fair_value(bot.Book([[98, 20], [85, 40]], [[102, 20]]), p, {}) == 100
+
+
 def test_the_loss_stop_trips_on_a_drawdown_from_the_high_and_resets_next_day(bot):
     p = params(bot, stop_loss=50)
     memory = {}
@@ -395,7 +402,7 @@ def test_execute_tells_a_bid_and_an_ask_at_one_price_apart(bot):
 
 
 def test_trader_cancels_with_ids_and_sends_takes_as_ioc(bot):
-    depths = {"RAINFOREST_RESIN": depth([(9990, 5)], [(9995, 2), (10010, 5)])}
+    depths = {"RAINFOREST_RESIN": depth([(9990, 20)], [(9995, 2), (10010, 20)])}
     resting = {"RAINFOREST_RESIN": [dm.OpenOrder(7, "RAINFOREST_RESIN", 9980, 3, 0)]}
     orders, _, _ = bot.Trader().run(state(depths, open_orders=resting))
     cancels = [o.order_id for o in orders["RAINFOREST_RESIN"] if isinstance(o, dm.Cancel)]

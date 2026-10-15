@@ -1,7 +1,7 @@
 ---
 title: Shared markets and adversaries
 type: concept
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Shared markets and adversaries
@@ -20,8 +20,13 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 
 - **Measured: the template against the teams' own P4 bots** (2026-10-13; DU, Baguette Fromage and DTU in one market with it, P4 rounds 1–2, `IDEAS.md` has the numbers):
   - **With orders that live one tick,** Osmium's spread is a fixed pie the bots split: the template keeps 45–51% of it against one rival and 20% against three. The drift on Pepper Root pays everyone. This is the Grossman–Miller dilution below, in a simulation.
-  - **With resting orders,** the template loses up to 445k on Osmium in a round. A rival's large order far from fair becomes the "largest level", so the template's `wall_mid` follows it (`bots/template.py:302`). At tick 2,400 of round 1 day 0, a 40-lot bid at 9,906 outweighed the market maker's 23-lot wall at 9,991, and the template sold into the real bids. Its fair was 5+ off on 36% of ticks *(checked)*.
+  - **With resting orders,** the template loses up to 445k on Osmium in a round. A rival's large order far from fair becomes the "largest level", so the template's `wall_mid` follows it (`bots/template.py:305`). At tick 2,400 of round 1 day 0, a 40-lot bid at 9,906 outweighed the market maker's 23-lot wall at 9,991, and the template sold into the real bids. Its fair was 5+ off on 36% of ticks *(checked)*.
   - That is Harris's trap below, played without intent: the rivals' far quotes are not bait, yet they move a fair value built on size.
+
+- **Measured: the template against adversaries built for it** (2026-10-15, `bots/rivals/`, `experiments/adversaries.py`, P3 round 1, `--resting`; `IDEAS.md`, "Adversarial rivals"). Alone the template makes 66.5k; a plain copy of itself costs it 38.2k, more than any adversary:
+  - **Harris's trapper** (bait one tick inside the best, sell into whoever steps in front, cancel): −16.3k, and the trapper loses 34.2k. The template's trades with it are worth +9.3k to the template 50 ticks later *(checked)*: with orders that are still re-quoted every tick, the matcher isn't left stranded. The cost is the trapper's takes competing for Resin's mispriced orders.
+  - **Wang & Wellman's spoofer one tick behind the best:** −0.4k. **The same 40-lot 10 ticks behind the best:** −29.0k, Kelp 16.8k → −2.1k through `wall_mid`, with almost no trades with the spoofer: the fair moves and the template trades with the market at the wrong price, the Osmium mechanism with intent. `sized_mid` is immune (Kelp 16.8k); `outer_mid` is not.
+  - **A sniper of stale quotes:** −10.3k, again from competing takes; it hits the template's quotes on only 577 units.
 
 **What the literature says** ([Harris](../sources/harris-trading-and-exchanges.md), [Cartea et al., book](../sources/algorithmic-and-hft.md)):
 - **Our template is a quote matcher.** Quoting one tick in front of the bot's large quote ("penny jumping") gives an option-like payoff: full gain if the price moves our way, a one-tick loss if not, because we can sell back to the large order (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5889` (p. 261)). That backstop exists only while the large order stays. A rival can **trap** a quote matcher: bait with size, sell into the matcher, cancel the bait (`literature_md/harris-trading-and-exchanges/harris-trading-and-exchanges.md:5919` (p. 263)).
@@ -43,7 +48,7 @@ The Prosperity record has no shared-market evidence; our simulation with the tea
 `arena.run_market` and `--vs BOT` simulate other bots' resting orders in the same market (`CLAUDE.md`, "Shared market"). Rivals are only bots we bring. The template's `wall_mid` takes the largest level on each side, so in a shared market with resting orders it needs a definition that ignores large orders far from the touch. `fair: sized_mid` (the first level from the top with at least `wall_size`) is that definition. Against the three teams' bots it made +39k on Osmium in round 1, where `wall_mid` lost 377k ([fair value](fair-value-and-wall-mid.md)).
 
 ## How to test it here
-The teams' P4 bots are real rivals for `--vs` (above). In `--resting` they must be wrapped to cancel their orders every tick, or they freeze: their orders pile up and every new one fails the limit check. DU's bot alone on round 1 day 0 made 28 fills, with orders cancelled for a breach on 19,998 product-ticks *(checked)*. Two more `--vs` rivals to build: a **quote-matching trapper** (posts a large bid, sells into anyone who bids one tick above it, cancels), and a **sniper** that takes our resting quotes after the mid moves (the timing option, under `--resting`).
+The teams' P4 bots are real rivals for `--vs` (above). In `--resting` they must be wrapped to cancel their orders every tick, or they freeze: their orders pile up and every new one fails the limit check. DU's bot alone on round 1 day 0 made 28 fills, with orders cancelled for a breach on 19,998 product-ticks *(checked)*. The adversaries are built (`bots/rivals/`: trapper, spoofer with `OFFSET`, sniper; results above): run `uv run python -m experiments.adversaries` after any change to a fair value or to quoting.
 
 `ON_THE_DAY.md`, "Is the market shared?" lists the Arena site's hints (they point both ways). If shared: test the bot against a `--vs` rival that snipes one side; add a "no resting orders in thin books" mode; decide beforehand what to do when a book empties.
 

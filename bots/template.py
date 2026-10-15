@@ -34,7 +34,7 @@ DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
     "fair": "sized_mid",  # "fixed", "mid", "wall_mid", "outer_mid" or "sized_mid" (see fair_value)
     "fixed_fair": None,  # used when fair is "fixed"
-    "fixed_guard": None,  # fair "fixed": use the wall mid instead while it is further than this from fixed_fair
+    "fixed_guard": None,  # fair "fixed": use the sized mid instead while it is further than this from fixed_fair
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly
     "take_edge": 1,  # take book orders priced at least this much better than fair
@@ -255,7 +255,10 @@ def fair_value(book: Book, p: dict, memory: dict) -> float | None:
     if p["fair"] == "fixed":
         if p["fixed_guard"] is not None:
             # A fixed value that the market has left (a level shift, a trend) is no longer the value.
-            market = mid(_wall(book.bids), _wall(book.asks))
+            # The sized mid, not the wall mid: a rival's large order far from the touch would move
+            # the wall mid past the guard (IDEAS.md, "Adversarial rivals"). Where a side has no
+            # level of wall_size it uses the best one, so the guard doesn't flicker off in a trend.
+            market = mid(_sized(book.bids, p["wall_size"]), _sized(book.asks, p["wall_size"]))
             if market is not None and abs(market - p["fixed_fair"]) > p["fixed_guard"]:
                 return market
         return p["fixed_fair"]

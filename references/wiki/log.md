@@ -268,3 +268,6 @@ The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `wo
 
 ## [2026-10-15] restructure | queue models in the engine
 [queue-position-and-fills](concepts/queue-position-and-fills.md): `--queue back|prob|front` now exists; "What it means for our code" records the `arena.sim` check (`front` within 5% for a quote that joins the walls, `prob` blind to re-posting at the same size).
+
+## [2026-10-15] restructure | adversarial rivals measured
+[shared-market-and-adversaries](concepts/shared-market-and-adversaries.md): the trapper, spoofer and sniper now exist (`bots/rivals/`), with their cost to the template on P3 round 1; "How to test it here" points to `experiments/adversaries.py`. The template's `fixed_guard` now reads the sized mid; 35 of its line citations re-mapped (range ends included).

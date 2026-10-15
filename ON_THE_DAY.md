@@ -71,6 +71,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out also: when several teams' orders arrive at the same tick, who goes first? Random, by time sent, or a fixed order?
   - We assume (with `--vs`): a random order, drawn again every tick.
   - If shared: tune with `--vs` (copies or variants of your bot) as well as alone, and prefer settings that hold up in both.
+  - If shared and orders rest: run the adversarial rivals too (`bots/rivals/`, `experiments/adversaries.py` with the Arena's products). On Prosperity data the one attack that worked was a large order far behind the best, against a fair value that reads the largest level; keep every fair value on `sized_mid` or fixed (`IDEAS.md`, "Adversarial rivals").
   - If ranking is relative, a rival may be built to hurt others rather than to profit: in Wang, Ventre & Polukarov (arXiv 2510.25929, not fetched) a maker trained to minimise its opponent's PnL took the flow and tightened spreads. Fetch it if the market is shared.
   - The one paper on competing market makers we have (`references/wiki/sources/competing-dealers.md`) has no price priority in its fill model, so use it only qualitatively: more makers, tighter spreads and lower profits. `--vs` is the better guide.
   - If the order is fixed, or by time sent: the bots that go first win most contested fills, so make the bot fast and cheap per call.
