@@ -346,8 +346,10 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
 baseline an agent-using team starts from, and rivals for `--vs`. `uv run python -m
 experiments.zoo` scores each one alone, against the template, inside `arena.sim` and all
 together. `bots/zoo/README.md` explains how to add bots from other providers (Gemini,
-ChatGPT, ...) cleanly. On P3 round 1, the best Claude-written market makers equal the template
-alone on Kelp and Resin and beat it head to head (`IDEAS.md`, "The LLM zoo").
+ChatGPT, ...) cleanly. On P3 round 1, the best Claude-written market makers come close to the template
+alone on Kelp and Resin and beat it head to head, all of it on Squid Ink, which the template
+doesn't trade. `uv run python -m experiments.zoo_h2h` splits each pairing by product and fill
+mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head").
 
 ## On the day: adapting to the real format
 

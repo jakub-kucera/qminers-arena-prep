@@ -33,6 +33,7 @@ uv run python -m arena.analysis --grid results/grid.csv           # grid heatmap
 uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis group adds Jupyter
 uv run python -m experiments.p4_levels                            # a one-off study; its numbers are in IDEAS.md
 uv run python -m experiments.zoo                                  # scores every LLM-written bot in bots/zoo/ against the template
+uv run python -m experiments.zoo_h2h                              # the template against each zoo bot, per product, under all and worse
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
