@@ -32,11 +32,14 @@ STRICT = False
 
 DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
-    "fair": "sized_mid",  # "fixed", "mid", "wall_mid", "outer_mid" or "sized_mid" (see fair_value)
+    "fair": "sized_mid",  # "fixed", "mid", "wall_mid", "outer_mid", "sized_mid" or "weighted_mid" (see fair_value)
     "fixed_fair": None,  # used when fair is "fixed"
     "fixed_guard": None,  # fair "fixed": use the sized mid instead while it is further than this from fixed_fair
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly
+    # Take, clear and make around fair + imbalance * rho, rho = (Vb - Va)/(Vb + Va) at the best
+    # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.imbalance.
+    "imbalance": 0.0,
     "take_edge": 1,  # take book orders priced at least this much better than fair
     "clear_edge": 0,  # cut inventory at prices up to this much worse than fair
     "make_edge": 2,  # quote at least this far from fair
@@ -244,6 +247,8 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
     elif p["hedge"]:
         p = {**p, "target": hedge_target(product, p, market)}
     plan.fair, plan.target = fair, p["target"]
+    if p["imbalance"] and book.bids and book.asks:
+        fair += p["imbalance"] * imbalance(book)
     book = book.copy()  # take and clear use up its levels
     take(book, fair, p, plan)
     clear(book, fair, p, plan)
@@ -291,9 +296,22 @@ def price(book: Book, p: dict) -> float | None:
         # level, a large order far from the touch can't move it, so it holds up when other
         # traders' resting orders share the book (IDEAS.md, wall-mid definitions).
         fair = mid(_sized(book.bids, p["wall_size"]), _sized(book.asks, p["wall_size"]))
+    elif method == "weighted_mid":
+        # The best prices weighted by the other side's volume, I*ask + (1-I)*bid with I = Vb/(Vb+Va):
+        # what most teams call the micro-price (Stoikov's is between it and the mid).
+        if not book.bids or not book.asks:
+            return None
+        share = book.bids[0][1] / (book.bids[0][1] + book.asks[0][1])
+        fair = share * book.asks[0][0] + (1 - share) * book.bids[0][0]
     else:
         raise ValueError(f"unknown fair value method {method!r}")
     return fair
+
+
+def imbalance(book: Book) -> float:
+    """(Vb - Va)/(Vb + Va) at the best bid and ask, in [-1, 1]."""
+    bid, ask = book.bids[0][1], book.asks[0][1]
+    return (bid - ask) / (bid + ask)
 
 
 def mid(bids: list[list[int]], asks: list[list[int]]) -> float | None:

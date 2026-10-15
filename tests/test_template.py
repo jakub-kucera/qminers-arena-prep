@@ -48,6 +48,24 @@ def test_outer_and_sized_mids(bot):
     assert fair(fair="sized_mid", wall_size=50) == 100.5  # nothing that large: the best levels
 
 
+def test_weighted_mid_leans_toward_the_thinner_side(bot):
+    # 30 bid against 10 offered: I = 0.75, so 0.75 * 101 + 0.25 * 99.
+    book = bot.Book([[99, 30], [97, 5]], [[101, 10]])
+    assert bot.fair_value(book, params(bot, fair="weighted_mid"), {}) == 100.5
+    assert bot.imbalance(book) == 0.5
+
+
+def test_imbalance_moves_the_quotes_but_not_the_fair_value(bot):
+    book = bot.Book([[96, 30]], [[104, 10]])  # wall mid 100, rho 0.5
+    plain = bot.trade_product("X", book, 0, params(bot, fair="wall_mid"), {})
+    tilted = bot.trade_product("X", book, 0, params(bot, fair="wall_mid", imbalance=4), {})
+    assert plain.fair == tilted.fair == 100
+    assert plain.quotes == [(97, 10), (103, -10)]  # one tick inside the walls, 3 from fair
+    # Quoted around 100 + 4 * 0.5 = 102: the bid still steps in front of the wall, the ask can't
+    # come within make_edge of 102, so it joins the wall at 104.
+    assert tilted.quotes == [(97, 10), (104, -10)]
+
+
 def test_an_untuned_product_quotes_around_the_market_makers_size(bot):
     # The default is sized_mid: a small order inside the walls doesn't move the fair value, and a
     # book with no level of wall_size falls back to the mid.

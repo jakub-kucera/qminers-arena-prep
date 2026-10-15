@@ -1,13 +1,13 @@
 ---
 title: Book imbalance and the micro-price
 type: concept
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Book imbalance and the micro-price
 
 ## Summary
-The volumes at the best bid and ask predict the direction of the next mid move, and a fair value can be built from that: the weighted mid, or Stoikov's micro-price. The literature agrees the effect is strong only when the spread is about one tick and the queues are long. Prosperity's spreads are 2–21 ticks and its best levels are bot quotes, so on paper the signal should be weak there. Test it per product before building on it, and use the cheapest form that survives.
+The volumes at the best bid and ask predict the direction of the next mid move, and a fair value can be built from that: the weighted mid, or Stoikov's micro-price. The literature agrees the effect is strong only when the spread is about one tick and the queues are long. Prosperity's spreads are 2–21 ticks and its best levels are bot quotes, so on paper the signal should be weak there. **Tested here (2026-10-15): it is strong for the plain mid and useless for the fair value.** On Prosperity data `ρ` predicts the next mid move well (ROC area up to 0.84), but that is the mid's own noise, which the wall mid already removes; as a forecast of the wall mid it adds under 1%, and no form of it made money under `worse` fills or `--resting`.
 
 ## What the sources say
 **Definitions** (all from the best levels only; formulas checked against the PDFs):
@@ -51,15 +51,21 @@ The volumes at the best bid and ask predict the direction of the next mid move, 
 - **Weighted mid or micro-price?** Stoikov argues the weighted mid is noisy, isn't a martingale and can move the wrong way: a small sell inside the spread *raises* it (`literature_md/micro-price/micro-price.md:79` (p. 3, checked)). Teams use it anyway. Our `wall_mid` ignores small orders for a similar reason ([fair value](fair-value-and-wall-mid.md)).
 
 ## What it means for our code
-- **Fair value:** `bots/template.py` offers `fair` = `fixed`, `mid`, `wall_mid`, `outer_mid` or `sized_mid` (`bots/template.py:35`, `bots/template.py:254-296`). Candidates, all from checked formulas:
-  - `weighted_mid`: `W` from the best levels, one line.
-  - `micro`: `mid + G*[bucket(ρ)][spread]`, with the table estimated offline from the CSVs and pasted into `PARAMS`, since the bot must stay standard library.
+- **Fair value:** `bots/template.py` offers `fair` = `fixed`, `mid`, `wall_mid`, `outer_mid`, `sized_mid` or `weighted_mid` (`W` from the best levels) (`bots/template.py:35`, `bots/template.py:280-308`). `imbalance` (`bots/template.py:42`) takes, clears and makes around `fair + imbalance × ρ`, the linear micro-price, without changing the fair that the stops and targets use (`bots/template.py:250`). Both are off for every product; see "Tested here".
+  - Stoikov's table (`mid + G*[bucket(ρ)][spread]`) was not built into the bot: as a forecast, the binned table did no better than the linear `b·ρ` (below).
 - **Quote filter** (Cartea's rule): skip a side when the expected markout of a passive fill on that side, in the current `ρ` bucket, is below zero. `arena/analysis.py` already computes markouts, as `sign × (mark later − fill price)` per unit, which is Cartea's `Δ/2 − ε±` at a short horizon. But it is per product and fill type, not per imbalance state (`arena/analysis.py:206-233`).
 - **OFI** is no fair-value input on this evidence. Its use is sizing our takes: taking `x` at a level of depth `D` moves the mid by about `x/(2D)` ticks.
 - `TODO.md`, "Try the literature's fair values and skew in the template", is where these land.
 
+## Tested here (2026-10-15)
+`uv run python -m experiments.imbalance` (P2 round 1, P3 rounds 1 and 5, P4 rounds 1–2); backtest numbers in `IDEAS.md`, from the row "Book imbalance `ρ` and the micro-price".
+- **Gould & Bonart's test passes for the plain mid.** Out-of-sample ROC area 0.83 on Kelp, 0.81–0.84 on Osmium and Pepper Root, 0.74 on Starfruit, 0.67 on Squid Ink, 0.54–0.86 on Resin (it depends on the round). `x₁` has the same sign on every day of every product, so row 11's sign flip doesn't happen within a product here. It is strongest at 1–2-tick spreads (Kelp 0.94), as the literature says.
+- **But it predicts the mid's noise, not the price.** A small order inside the walls skews `ρ` and moves the mid; when it leaves, the mid snaps back. As a forecast of the wall mid 1–50 ticks ahead, `wall_mid + b·ρ` beats `wall_mid` by under 1% (Osmium 1.150 → 1.141 RMSE at 1 tick). Its `b` is tiny on Kelp (−0.05 tick), +0.6 on Osmium and +0.8 on Pepper Root, each stable across days. The binned table did no better, except on Pepper Root, where its gain is the product's steady drift. The weighted mid's error is 2–3× the wall mid's on Kelp and Resin.
+- **Backtests agree.** `weighted_mid` loses everywhere (Kelp −5k to −7k of 63–73k, Starfruit −27k of 105k, Osmium −18k). The `imbalance` tilt moves P4 by under 0.2%. On Kelp it gains under `all` (+2.5k, and +1.7k on held-out round 5) but loses under `worse` (−1.2k), under `--resting` (−1.0k), and against the trapper (−3.3k), which baits exactly this signal. heyman7913's blend on Osmium gained only through its EMA (`smoothing`), not through `ρ`.
+- **Not done:** the markouts of our passive fills by `ρ` bucket (Cartea's quote filter, step 2 below).
+
 ## How to test it here
-1. **Gould & Bonart's design, per product and day, before any code in the bot.**
+1. **Gould & Bonart's design, per product and day, before any code in the bot** (done, above).
    - On P3 and P4 rounds 1–2, take the ticks where the mid changes, `y` = up or down, and `ρ` at the previous tick.
    - Fit `P(up) = 1/(1 + e^{−(x₀ + x₁ρ)})` with leave-one-day-out.
    - Report the ROC area and the squared error against 0.25.

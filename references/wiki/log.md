@@ -271,3 +271,6 @@ The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `wo
 
 ## [2026-10-15] restructure | adversarial rivals measured
 [shared-market-and-adversaries](concepts/shared-market-and-adversaries.md): the trapper, spoofer and sniper now exist (`bots/rivals/`), with their cost to the template on P3 round 1; "How to test it here" points to `experiments/adversaries.py`. The template's `fixed_guard` now reads the sized mid; 35 of its line citations re-mapped (range ends included).
+
+## [2026-10-15] query | book imbalance and the micro-price on Prosperity data
+[book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md): new section "Tested here" (`experiments/imbalance.py`, the template's `weighted_mid` and `imbalance`): `ρ` predicts the plain mid's noise, not the wall mid; dropped here. [contradictions](contradictions.md) row 11 notes the result. Template citations re-mapped after the edit.

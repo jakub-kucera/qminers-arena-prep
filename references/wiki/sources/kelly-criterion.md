@@ -55,11 +55,11 @@ Thorp's practitioner survey of the Kelly criterion: bet the fraction of capital 
 ## In our notation
 | Paper | Ours |
 |---|---|
-| fraction of capital `f` | position over limit, `plan.net / plan.limit` (`bots/template.py:581`) |
+| fraction of capital `f` | position over limit, `plan.net / plan.limit` (`bots/template.py:599`) |
 | excess drift `m − r` | expected price move per tick from a signal, or edge per fill (half spread minus adverse selection) |
 | variance `s²` | variance of per-tick changes of `mark` in `_timeline.csv` |
 | `f* = (m − r)/s²` | a target position proportional to predicted move over variance, capped by `limit` |
-| fractional Kelly `c` | a multiplier ≤ 1 on that target, or a `make_size` below the full room (`bots/template.py:46`) |
+| fractional Kelly `c` | a multiplier ≤ 1 on that target, or a `make_size` below the full room (`bots/template.py:49`) |
 | `m_e` vs `m_t` | the backtest's PnL per unit risk vs what the round delivers |
 | `C⁻¹(M − R)` | sizing correlated products together, not one by one ([many products](../concepts/many-products-architecture.md)) |
 
