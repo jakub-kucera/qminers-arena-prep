@@ -265,3 +265,6 @@ Downloaded by the agent from arXiv (found by the comment-field query in `referen
 ## [2026-10-15] restructure | Kelp's make_edge 0.5 in the template
 The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `worse` fills, not on the Arena; `IDEAS.md`, "Why the zoo beat the template head to head"). Five comment lines went in above it.
 - **Citations moved:** 40 of the template's line citations re-mapped with a diff of the old and new file, range ends included (`make` is now `bots/template.py:555-593`).
+
+## [2026-10-15] restructure | queue models in the engine
+[queue-position-and-fills](concepts/queue-position-and-fills.md): `--queue back|prob|front` now exists; "What it means for our code" records the `arena.sim` check (`front` within 5% for a quote that joins the walls, `prob` blind to re-posting at the same size).

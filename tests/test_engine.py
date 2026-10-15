@@ -1,6 +1,6 @@
 import pytest
 
-from arena.engine import EngineConfig, TradeMatching, run_day, run_market
+from arena.engine import EngineConfig, QueueModel, TradeMatching, run_day, run_market
 from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Order, Tick
 
 
@@ -227,6 +227,37 @@ def test_cancellations_ahead_move_a_resting_order_up_the_queue():
     )
     result = run_day(d, ScriptedBot({0: [Order("X", 100, 3)]}), RESTING)
     assert fills(result) == [(100, 1, "trade")]
+
+
+@pytest.mark.parametrize(
+    "queue, power, filled",
+    [
+        (QueueModel.BACK, 1, 0),  # the 4 cancelled were behind it: 10 still ahead of the 8 traded
+        (QueueModel.PROB, 1, 1),  # 10 of the 14 were ahead, so 4 * 10 / 14 of the cancels: 7 left
+        (QueueModel.PROB, 20, 0),  # (10 / 14) ** 20: almost all behind, as back
+        (QueueModel.FRONT, 1, 5),  # the 14 re-posted behind it
+    ],
+)
+def test_queue_models_place_cancellations_ahead_or_behind(queue, power, filled):
+    d = day(
+        tick(0, bids=[(100, 10)], asks=[(102, 5)]),
+        tick(1, bids=[(100, 14)], asks=[(102, 5)]),  # 4 more join behind the order
+        tick(2, bids=[(100, 10)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 8)]),  # 4 cancelled
+    )
+    config = EngineConfig(resting=True, queue=queue, queue_power=power)
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 5)]}), config)
+    assert sum(f.quantity for f in result.fills) == filled
+
+
+def test_prob_queue_doesnt_count_traded_volume_as_cancelled():
+    d = day(
+        tick(0, bids=[(100, 10)], asks=[(102, 5)]),
+        tick(1, bids=[(100, 14)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 3)]),  # 3 traded from the front
+        tick(2, bids=[(100, 11)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 9)]),  # 14 - 3: nothing cancelled
+    )
+    config = EngineConfig(resting=True, queue=QueueModel.PROB)
+    result = run_day(d, ScriptedBot({0: [Order("X", 100, 5)]}), config)
+    assert sum(f.quantity for f in result.fills) == 2  # 7 still ahead of the 9 traded
 
 
 @pytest.mark.parametrize(

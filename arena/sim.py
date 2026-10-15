@@ -58,7 +58,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 
-from arena.engine import Bot, DayResult, EngineConfig, TradeMatching, _breaches, _call_bot, _known, _new_result, _record
+from arena.engine import Bot, DayResult, EngineConfig, QueueModel, TradeMatching, _breaches, _call_bot, _known, _new_result, _record
 from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Tick
 
 DEPTH = 3  # levels a side in a snapshot, as in Prosperity's price files
@@ -719,6 +719,8 @@ def main(argv: list[str] | None = None) -> int:
     run_parser = commands.add_parser("run", help="run a bot inside the market, and compare with replaying the same days")
     run_parser.add_argument("bot", type=Path)
     run_parser.add_argument("--resting", action="store_true", help="orders rest until filled or cancelled")
+    run_parser.add_argument("--queue", type=QueueModel, choices=list(QueueModel), default=QueueModel.BACK, help="the replay's queue model with --resting (default: back)")
+    run_parser.add_argument("--queue-power", type=float, default=1.0, help="--queue prob: its power (default: 1)")
     run_parser.add_argument("--vs", dest="rivals", type=Path, action="append", default=[], metavar="BOT", help="another bot in the same market")
     run_parser.add_argument("--set", dest="overrides", action="append", default=[], metavar="PATH=VALUE", help="override a bot global (your bot only)")
     run_parser.add_argument("--out", type=Path, help="write the in-market results' CSVs to this folder")
@@ -764,7 +766,7 @@ def _run_command(args, spec: MarketSpec, parser) -> int:
         seed = args.seed + k
         inside = run(spec, seed, list(zip(names, load())), resting=args.resting)
         recording = run(spec, seed).day
-        replays = {m: run_market(recording, list(zip(names, load())), EngineConfig(trade_matching=m, resting=args.resting))[0] for m in modes}
+        replays = {m: run_market(recording, list(zip(names, load())), EngineConfig(trade_matching=m, resting=args.resting, queue=args.queue, queue_power=args.queue_power))[0] for m in modes}
         mine = inside.results[0]
         failed |= bool(mine.errors or any(r.errors for r in replays.values()))
         print(report.format_day(mine))

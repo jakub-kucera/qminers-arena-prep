@@ -77,6 +77,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--set PATH=VALUE` | Override a bot global, e.g. `PARAMS.KELP.skew=2`. Repeatable. |
 | `--match-trades` | Which market trades leftover orders can fill against: `all` (default), `worse`, `none`. See below. |
 | `--resting` | Unfilled orders rest on the book until filled or cancelled, with a queue model. See [Resting mode](#resting-mode). |
+| `--queue back\|prob\|front` | With `--resting`: where other orders' cancellations at your price fall (default `back`). `--queue-power N` sets `prob`'s power. See [Resting mode](#resting-mode). |
 | `--vs BOT` | Another bot in the same market, competing for fills and trading with yours. Repeatable. See [Shared market](#shared-market). |
 | `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. |
 | `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask and wall mid per tick), `<day>_fills.csv`, `<day>_orders.csv` and `<day>_trades.csv` (the data's market trades) |
@@ -233,6 +234,7 @@ the case at the Arena. `--resting` replaces rule 5 with that:
 - **Fills from trades:** market trades at its price first use up the volume ahead of it, then fill it. Trades at a worse price fill it straight away. `--match-trades worse` drops fills at its own price and `none` drops trade fills altogether.
 - **Fills from the next book:** if the next snapshot shows the other side at or through its price, those orders would have traded with it. It fills at its own price (source `cross`), and the bot sees the snapshot without that volume. That tick's market trades at the crossed prices lose the same volume, since they traded with the same orders.
 - **Moving up:** if the visible volume at its price drops below the volume counted ahead of it, orders ahead were cancelled, so it moves up. An emptied level puts it at the front.
+- **Queue models (`--queue`):** that rule is `back`, the pessimistic end: every cancellation is behind you. `prob` splits each drop of the level that trades don't explain: a share `xⁿ` comes from ahead of you, `x` being your share of the queue ahead and `n` `--queue-power` (hftbacktest's `ProbQueueModel` with `PowerProbQueueFunc3`; 1 is uniform, a large `n` tends to `back`). `front`, the optimistic end: everyone else at your price re-posts every tick, behind you, so nothing is ahead of you from the snapshot after you joined. Position in the queue only matters under `--match-trades all`.
 - **Limits:** the limit check counts resting orders, and only rejects that tick's new orders.
 - **Self-trades:** your own orders never trade with each other.
 
@@ -241,6 +243,21 @@ In the Prosperity format, bots see their resting orders in `state.open_orders` (
 `Order(symbol, price, quantity, ioc=True)` for an order that mustn't rest. These are our
 extensions to the datamodel. A bot written for per-tick cancellation never cancels, so it keeps
 adding orders until every new one breaches the limit.
+
+Template, Prosperity 3 round 1, all three days, `--resting`, `--match-trades all`:
+
+| `--queue` | Template | Kelp at `make_edge` 1 |
+|---|---|---|
+| `back` (default) | 66,518 | 67,446 |
+| `prob`, `--queue-power 1` | 66,522 | 68,084 |
+| `prob`, `--queue-power 5` / `20` | 66,518 | 67,470 / 67,446 |
+| `front` | 67,030 | 74,928 |
+
+The template quotes one tick inside the best price, where it is usually alone, so its queue barely
+matters; a quote that joins a level does depend on it. In `arena.sim`, where the market maker
+re-posts its walls every tick, `front` is closest to what the bot makes in the market
+(`IDEAS.md`, "Queue models against a market that re-posts"). `prob` stays near `back` there: a
+level that is re-posted at the same size shows no drop to split.
 
 ### Shared market
 
@@ -362,6 +379,6 @@ mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head"
 ## Known gaps
 
 - **The simulated market is one guess at a design** (`arena.sim`). Its agents are the literature's minimal set, calibrated to P3 round 1's statistics, not to how the Arena's bots behave.
-- **The queue model is an estimate.** It assumes you join the back of the queue and only move up when the visible volume shrinks. Prosperity's bots re-quote every tick, so a real resting order there would often reach the front sooner. Orders priced beyond the visible depth keep their last queue estimate.
+- **The queue model is an estimate.** By default you join the back of the queue and only move up when the visible volume shrinks. `--queue prob` and `--queue front` bracket it, but none of them sees individual orders, so a level re-posted at the same size looks unchanged to `prob`. Orders priced beyond the visible depth keep their last queue estimate.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
 - **Rivals are only the bots you bring.** `--vs` shows how bots like yours interact, but real teams will quote, size and react differently.

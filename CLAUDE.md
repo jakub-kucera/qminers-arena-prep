@@ -83,6 +83,7 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 
 **Resting mode** (`--resting`, `EngineConfig.resting`) replaces rule 5. The module docstring of `engine.py` has the full rules.
 - **Resting:** unfilled orders rest until filled or cancelled, unless `Order.ioc`. Each one queues behind the visible volume at its price.
+- **Queue models** (`--queue`, `EngineConfig.queue`): `back` (default) moves an order up only as far as the visible volume forces; `prob` splits unexplained drops by the share ahead to the power `--queue-power` (hftbacktest's); `front` puts it ahead of everyone after one snapshot (they re-post every tick). Each `_Live` keeps `seen` and `traded` for `prob`.
 - **Trade fills:** trades at its price first use up the queue ahead of it; trades through its price fill it.
 - **Book fills:** a next snapshot that crosses it fills it at its own price (`Fill.source == "cross"`), and the bot sees that snapshot minus the volume. That tick's market trades at the crossed prices lose the same volume (`_spend_crossed`), so the order can't fill from the same orders twice.
 - **Bot interface:** `Bot.step` gets `open_orders` (always empty in the default mode) and may return `Cancel(order_id)` among its orders. The Prosperity format exposes these as datamodel extensions: `state.open_orders`, `Cancel`, `Order(..., ioc=True)`.
@@ -149,7 +150,7 @@ lets editors resolve imports; it is never submitted.
 
 ## Known gaps (from README)
 
-- **The queue model is an estimate.** It assumes the back of the queue, and only moves an order up when visible volume shrinks.
+- **The queue model is an estimate.** `--queue back` (default) and `front` bracket it; `prob` can't see a level re-posted at the same size.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
 - **Rivals are only the bots you bring** with `--vs`. Real teams will behave differently.
 

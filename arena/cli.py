@@ -9,7 +9,7 @@ from pathlib import Path
 from types import ModuleType
 
 from arena.botfile import parse_override
-from arena.engine import DayResult, EngineConfig, TradeMatching, run_market
+from arena.engine import DayResult, EngineConfig, QueueModel, TradeMatching, run_market
 from arena.formats import FORMATS
 from arena.model import Cancel, Day
 
@@ -42,6 +42,22 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="unfilled orders rest on the book until filled or cancelled, with a queue model "
         "(default: they're cancelled at the end of each tick, as in Prosperity)",
+    )
+    parser.add_argument(
+        "--queue",
+        type=QueueModel,
+        choices=list(QueueModel),
+        default=QueueModel.BACK,
+        help="with --resting, where other orders' cancellations at your price fall: always behind you (back), "
+        "split by your place in the queue (prob, see --queue-power), or everyone re-posts behind you every tick "
+        "(front) (default: back)",
+    )
+    parser.add_argument(
+        "--queue-power",
+        type=float,
+        default=1.0,
+        help="--queue prob: a cancellation lands ahead of you with probability x**N, x your share of the queue "
+        "ahead; 1 is uniform, a large N tends to back (default: 1)",
     )
     parser.add_argument(
         "--fill-ratio",
@@ -84,7 +100,12 @@ def setup(args: argparse.Namespace) -> Setup:
     fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
     config = EngineConfig(
-        trade_matching=args.match_trades, resting=args.resting, fill_ratio=args.fill_ratio, seed=args.seed
+        trade_matching=args.match_trades,
+        resting=args.resting,
+        queue=args.queue,
+        queue_power=args.queue_power,
+        fill_ratio=args.fill_ratio,
+        seed=args.seed,
     )
     overrides = dict(parse_override(text) for text in args.overrides)
     return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False))

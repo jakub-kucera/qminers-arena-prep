@@ -23,6 +23,14 @@ aren't in the recorded data:
     volume, since they traded with those same orders.
   - If the visible volume at the order's price drops below the volume counted ahead of it,
     orders ahead of it were cancelled, so it moves up. An emptied level puts it at the front.
+    That is EngineConfig.queue "back", the pessimistic end: a cancellation is always behind it.
+    "prob" splits each decrease of the level that trades don't explain between the volume
+    ahead and behind: a share x**n lands ahead, x being the share of the level ahead of it and
+    n queue_power (hftbacktest's ProbQueueModel with PowerProbQueueFunc3; n = 1 is uniform,
+    a large n tends to "back"). "front", the optimistic end: everyone else at its price
+    re-posts every tick, so from the snapshot after it was placed nothing is ahead of it.
+    Queue position only matters under TradeMatching.ALL: trades through its price and
+    crossing snapshots fill it whatever is ahead.
   - The limit check (rule 2) counts resting orders, and only rejects that tick's new orders.
   - Your own orders never trade with each other.
 Positions are valued at each tick's mark price.
@@ -43,6 +51,14 @@ from typing import Protocol
 from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Order, Tick
 
 
+class QueueModel(StrEnum):
+    """Resting mode: where the other orders' cancellations at a resting order's price fall."""
+
+    BACK = "back"  # always behind it: it only moves up as far as the visible volume forces
+    PROB = "prob"  # split by its place in the queue (EngineConfig.queue_power)
+    FRONT = "front"  # the others re-post every tick, behind it: nothing ahead after one snapshot
+
+
 class TradeMatching(StrEnum):
     """Which market trades an order can fill against once the visible book is exhausted."""
 
@@ -55,6 +71,8 @@ class TradeMatching(StrEnum):
 class EngineConfig:
     trade_matching: TradeMatching = TradeMatching.ALL
     resting: bool = False  # orders rest until filled or cancelled (see the module docstring)
+    queue: QueueModel = QueueModel.BACK  # resting mode: how a resting order moves up its queue
+    queue_power: float = 1.0  # queue "prob": a decrease lands ahead with probability x**n
     # Share of each book level and market trade available to us. Below 1 it approximates other
     # teams competing for the same liquidity: each unit is available with this probability.
     # The draws are seeded and don't depend on the bot's orders, so variants of a bot see the
@@ -122,6 +140,8 @@ class _Live:
     timestamp: int
     owner: int = 0  # index of the participant that placed it
     ahead: int = 0  # resting mode: recorded volume queued in front of it at its price
+    seen: int = 0  # resting mode: the visible volume at its price in the last snapshot
+    traded: int = 0  # resting mode: market trades at its price since then that used up volume ahead
 
     def view(self) -> OpenOrder:
         return OpenOrder(self.id, self.product, self.price, self.quantity, self.timestamp)
@@ -183,7 +203,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         if resting:
             crossed, taken = _cross(resting, books, tick.timestamp)
             _spend_crossed(trades, taken)
-            _requeue(resting, tick.books)
+            _requeue(resting, tick.books, config.queue, config.queue_power)
             tick = _without(tick, taken)
             resting = [order for order in resting if order.quantity]
             settle(crossed)
@@ -224,7 +244,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
                 # position before its own new orders meet the limit check.
                 settle(_take(live, books, working, names, tick.timestamp, between))
                 if live.quantity and not (config.resting and order.ioc):
-                    live.ahead = _volume_at(live, tick.books)
+                    live.ahead = live.seen = _volume_at(live, tick.books)
                     working.append(live)  # in the default mode, only until the end of this tick
 
         if config.resting:
@@ -565,8 +585,8 @@ def _volume_at(order: _Live, books: dict[str, Book]) -> int:
     return next((volume for price, volume in levels if price == order.price), 0)
 
 
-def _requeue(resting: list[_Live], books: dict[str, Book]) -> None:
-    """Moves resting orders up their queue when the new snapshot shows less volume in front of them."""
+def _requeue(resting: list[_Live], books: dict[str, Book], model: QueueModel = QueueModel.BACK, power: float = 1.0) -> None:
+    """Moves resting orders up their queue from the new snapshot (see QueueModel)."""
     for order in resting:
         book = books.get(order.product)
         if not book:
@@ -575,13 +595,35 @@ def _requeue(resting: list[_Live], books: dict[str, Book]) -> None:
         levels = book.bids if buying else book.asks
         if not levels or ((order.price > levels[0][0]) if buying else (order.price < levels[0][0])):
             order.ahead = 0  # nothing visible at its price or better: it's at the front
-            continue
-        volume = next((volume for price, volume in levels if price == order.price), None)
-        if volume is not None:
-            order.ahead = min(order.ahead, volume)
+        elif (volume := next((v for price, v in levels if price == order.price), None)) is not None:
+            if model is QueueModel.FRONT:
+                order.ahead = 0
+            elif model is QueueModel.PROB:
+                order.ahead = min(_prob_ahead(order, volume, power), volume)
+            else:
+                order.ahead = min(order.ahead, volume)
+            order.seen = volume
         elif (order.price > levels[-1][0]) if buying else (order.price < levels[-1][0]):
             order.ahead = 0  # its level is inside the visible depth but empty
         # else: below the visible depth, so nothing is known: keep the estimate
+        order.traded = 0
+
+
+def _prob_ahead(order: _Live, volume: int, power: float) -> int:
+    """hftbacktest's ProbQueueModel.depth: the volume ahead after the level went from seen to volume.
+
+    Trades at its price already took their volume from the front (order.ahead is net of them).
+    What else left the level was cancelled: x**n of it ahead of the order, the rest behind, and
+    whatever is more than the volume behind also comes from ahead.
+    """
+    cancelled = order.seen - order.traded - volume
+    if cancelled <= 0:
+        return order.ahead
+    behind = max(order.seen - order.traded - order.ahead, 0)
+    queue = order.ahead + behind
+    share = (order.ahead / queue) ** power if queue else 0.0
+    ahead = order.ahead - share * cancelled + min(behind - (1 - share) * cancelled, 0)
+    return max(round(ahead), 0)
 
 
 def _fill_resting(resting: list[_Live], trades, matching: TradeMatching, timestamp: int) -> list[Fill]:
@@ -615,6 +657,7 @@ def _fill_queue(queue: list[_Live], trade: MarketTrade, left: int, buying: bool,
             # share. The volume ahead of this order goes first; our earlier orders here already
             # took theirs from `left`.
             take = max(0, min(size, left - order.ahead))
+            order.traded += min(left, order.ahead)
             order.ahead = max(0, order.ahead - left)
         else:
             break
