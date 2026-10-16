@@ -192,6 +192,24 @@ def test_resting_order_fills_when_the_next_book_crosses_it():
     assert bot.seen[1][1] == result.fills  # told about the fill straight away
 
 
+def test_order_tags_reach_the_open_orders_and_fills_and_bots_see_the_day_first():
+    d = day(
+        tick(0, bids=[(98, 5)], asks=[(102, 5)]),
+        tick(1, bids=[(97, 5)], asks=[(99, 2), (101, 5)]),
+        tick(2, bids=[(97, 5)], asks=[(101, 5)]),
+    )
+
+    class Tagged(ScriptedBot):
+        def begin_day(self, day):
+            self.day = day
+
+    bot = Tagged({0: [Order("X", 100, 3, tag="mine-1"), Order("X", 102, 1, tag="mine-2")]})
+    result = run_day(d, bot, RESTING)
+    assert bot.day is d
+    assert {(f.source, f.tag) for f in result.fills} == {("book", "mine-2"), ("cross", "mine-1")}
+    assert bot.open_orders[1] == [OpenOrder(1, "X", 100, 1, 0, "mine-1")]
+
+
 def test_trades_at_a_crossed_level_dont_fill_the_order_again():
     d = day(
         tick(0, bids=[(98, 5)], asks=[(102, 5)]),

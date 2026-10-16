@@ -248,12 +248,13 @@ class _Order:
     quantity: int  # left to fill, signed
     timestamp: int
     expires: int | None = None  # tick from which its agent cancels it
+    tag: str = ""  # a bot's Order.tag, passed through
 
     def __post_init__(self):
         self.buying = self.quantity > 0
 
     def view(self) -> OpenOrder:
-        return OpenOrder(self.id, self.product, self.price, self.quantity, self.timestamp)
+        return OpenOrder(self.id, self.product, self.price, self.quantity, self.timestamp, self.tag)
 
 
 class _Book:
@@ -501,6 +502,9 @@ def run(
     day_name = name or f"sim{seed}"
     shell = Day(day_name, list(products), limits, [])
     players = [_Player(n, bot, _new_result(shell), dict.fromkeys(products, 0), dict.fromkeys(products, 0.0)) for n, bot in bots]
+    for _, bot in bots:
+        if hasattr(bot, "begin_day"):
+            bot.begin_day(shell)
     by_name = {p.name: p for p in players}
     arrival = random.Random(f"{seed}/bots")
     counter = iter(range(1, 1 << 62))
@@ -516,7 +520,7 @@ def run(
             elif order.owner in by_name:
                 player = by_name[order.owner]
                 source = "book" if order is incoming else "trade"
-                fill = Fill(timestamp, order.product, price, sign * volume, source, _shown(other.owner, spec, by_name), order.id)
+                fill = Fill(timestamp, order.product, price, sign * volume, source, _shown(other.owner, spec, by_name), order.id, order.tag)
                 player.position[order.product] += sign * volume
                 player.cash[order.product] -= price * sign * volume
                 player.result.fills.append(fill)
@@ -613,7 +617,7 @@ def _bots_trade(players, products, books, since, marks, timestamp, spec, by_name
         for order in orders:
             if order.product in breached | raced:
                 continue
-            live = _Order(new_id(), player.name, order.product, order.price, order.quantity, timestamp)
+            live = _Order(new_id(), player.name, order.product, order.price, order.quantity, timestamp, tag=order.tag)
             placed.append(live.view())
             rests = not (resting and order.ioc)
             for there, price, volume in products[order.product].book.submit(live, rests, protect=True):

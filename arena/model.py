@@ -6,7 +6,7 @@ Prices are ints in Prosperity data, but nothing here depends on that.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -62,12 +62,17 @@ class Tick:
 
 @dataclass(frozen=True)
 class Day:
-    """One continuous session. The engine starts each day flat, with a freshly loaded bot."""
+    """One continuous session. The engine starts each day flat, with a freshly loaded bot.
+
+    info holds what a format knows about each product beyond its limit, such as a tick size
+    in the bot API's units. The engine hands the day to every bot that defines begin_day(day).
+    """
 
     name: str
     products: list[str]
     limits: dict[str, int]
     ticks: list[Tick]
+    info: dict[str, dict] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -78,6 +83,9 @@ class Order:
     # Resting mode only: cancel whatever doesn't fill straight away instead of resting it.
     # Without resting mode every order behaves like this.
     ioc: bool = False
+    # The bot API's own id for the order, if it has one. The engine copies it, unread, to the
+    # order's OpenOrder and Fills, so a format can map its ids to the engine's.
+    tag: str = ""
 
 
 @dataclass(frozen=True)
@@ -96,6 +104,7 @@ class OpenOrder:
     price: float
     quantity: int  # what's left to fill, signed
     timestamp: int  # when it was placed
+    tag: str = ""  # Order.tag
 
 
 @dataclass(frozen=True)
@@ -109,3 +118,4 @@ class Fill:
     source: str
     counterparty: str = ""
     order_id: int = 0
+    tag: str = ""  # the order's Order.tag

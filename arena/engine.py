@@ -142,9 +142,10 @@ class _Live:
     ahead: int = 0  # resting mode: recorded volume queued in front of it at its price
     seen: int = 0  # resting mode: the visible volume at its price in the last snapshot
     traded: int = 0  # resting mode: market trades at its price since then that used up volume ahead
+    tag: str = ""  # Order.tag, passed through
 
     def view(self) -> OpenOrder:
-        return OpenOrder(self.id, self.product, self.price, self.quantity, self.timestamp)
+        return OpenOrder(self.id, self.product, self.price, self.quantity, self.timestamp, self.tag)
 
 
 @dataclass
@@ -185,6 +186,9 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         _Participant(name, bot, _new_result(day), dict.fromkeys(day.products, 0), dict.fromkeys(day.products, 0.0))
         for name, bot in bots
     ]
+    for _, bot in bots:
+        if hasattr(bot, "begin_day"):
+            bot.begin_day(day)
     mark = dict.fromkeys(day.products, 0.0)
     resting: list[_Live] = []
     owner: dict[int, int] = {}  # order id -> participant index
@@ -235,7 +239,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             player.result.limit_breaches.extend((tick.timestamp, product) for product in sorted(breached))
             player.result.races.extend((tick.timestamp, product) for product in sorted(raced))
             orders = [order for order in orders if order.product not in breached | raced]
-            placed = [_Live(next_id + k, o.product, o.price, o.quantity, tick.timestamp, i) for k, o in enumerate(orders)]
+            placed = [_Live(next_id + k, o.product, o.price, o.quantity, tick.timestamp, i, tag=o.tag) for k, o in enumerate(orders)]
             next_id += len(placed)
             owner.update((order.id, i) for order in placed)
             player.result.orders.extend((tick.timestamp, order.view()) for order in kept + placed)
@@ -412,15 +416,15 @@ def _take(order: _Live, books, working: list[_Live], names: list[str], timestamp
             if take == 0:
                 continue
             there[1] -= take
-            fills.append(Fill(timestamp, order.product, price, sign * take, "book", "", order.id))
+            fills.append(Fill(timestamp, order.product, price, sign * take, "book", "", order.id, order.tag))
         else:  # another participant's order
             take = min(abs(order.quantity), abs(there.quantity))
             if take == 0:
                 continue
             there.quantity += sign * take
             me, them = names[order.owner], names[there.owner]
-            fills.append(Fill(timestamp, order.product, price, sign * take, "book", them, order.id))
-            fills.append(Fill(timestamp, order.product, price, -sign * take, "trade", me, there.id))
+            fills.append(Fill(timestamp, order.product, price, sign * take, "book", them, order.id, order.tag))
+            fills.append(Fill(timestamp, order.product, price, -sign * take, "trade", me, there.id, there.tag))
             buyer, seller = (me, them) if buying else (them, me)
             between.append(MarketTrade(order.product, price, take, buyer, seller, timestamp))
         order.quantity -= sign * take
@@ -448,7 +452,7 @@ def _take_trades(order: _Live, trades, matching: TradeMatching, timestamp: int) 
         entry[side] -= take
         order.quantity -= sign * take
         counterparty = trade.seller if buying else trade.buyer
-        fills.append(Fill(timestamp, order.product, order.price, sign * take, "trade", counterparty, order.id))
+        fills.append(Fill(timestamp, order.product, order.price, sign * take, "trade", counterparty, order.id, order.tag))
         if order.quantity == 0:
             break
     return fills
@@ -536,7 +540,7 @@ def _cross(resting: list[_Live], books, timestamp: int):
                     level[1] -= take
                     order.quantity -= sign * take
                     taken[(product, buying, price)] += take
-                    fills.append(Fill(timestamp, product, order.price, sign * take, "cross", "", order.id))
+                    fills.append(Fill(timestamp, product, order.price, sign * take, "cross", "", order.id, order.tag))
                     if order.quantity == 0:
                         break
     return fills, taken
@@ -665,5 +669,5 @@ def _fill_queue(queue: list[_Live], trade: MarketTrade, left: int, buying: bool,
             order.quantity -= sign * take
             left -= take
             counterparty = trade.seller if buying else trade.buyer
-            fills.append(Fill(timestamp, trade.product, order.price, sign * take, "trade", counterparty, order.id))
+            fills.append(Fill(timestamp, trade.product, order.price, sign * take, "trade", counterparty, order.id, order.tag))
     return left

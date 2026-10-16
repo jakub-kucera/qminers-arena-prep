@@ -47,7 +47,7 @@ uv run python -m experiments.imbalance                            # does the bes
 ## Architecture
 
 **The engine doesn't know any format.**
-- `arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Cancel`, `OpenOrder`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive.
+- `arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Cancel`, `OpenOrder`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive. `Order.tag` (a bot API's own order id) is copied, unread, to the order's `OpenOrder` and `Fill`s. `Day.info` holds a format's per-product metadata (e.g. tick sizes); `run_market` and `arena.sim` hand the day to any bot with a `begin_day(day)` method before the first tick.
 - `arena/engine.py` `run_day(day, bot, config)` replays a `Day` against any object with `step(tick, positions, own_fills, market_trades, open_orders) -> list[Order | Cancel]`.
 - It records per-tick positions, marks, PnL and best bid/ask, plus orders, fills, errors, limit breaches and timings, in a `DayResult`.
 - `arena/report.py` `write_csvs` turns it into `<day>_timeline.csv` (with the book's `wall_mid`), `_fills.csv`, `_orders.csv` and `_trades.csv` (the data's market trades). Those columns are the contract with `arena/analysis.py`, so change both together.
