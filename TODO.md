@@ -241,6 +241,15 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
     2. Where the level drifts across days, the only option is the day's running mean, and it's noisy: with the vouchers, every rock band lost on one of the three days (−60k to −265k).
     3. There's no rule for when the grid's measures disagree over three days. I took the best worst day (`ON_THE_DAY.md`, "Evaluation data").
 
+- [x] **Practise the format swap.** Done 2026-10-17: a second format deliberately unlike Prosperity's (`arena/formats/drill.py`: JSON events of book changes, decimal prices with a tick per product, a callback API, opaque order ids, orders that rest), and the template with only its imports, PARAMS and ADAPTER rewritten for it (`bots/drill/template.py`).
+  - **Result:** on the same simulated days the drill bot makes the template's PnL to the cent, in both engine modes and inside `arena.sim` (`tests/test_drill.py`). So STRATEGY and EXECUTION don't depend on the format. Every tool runs on it.
+  - **Fixed on the way** (`a027acd`, `9b8aea6`):
+    - the engine had no way to map an API's own order ids (now `Order.tag`), nor to give a bot per-product metadata such as tick sizes (now `Day.info` and `begin_day`);
+    - `execute` sorted resting orders by id, which only works for ids that grow with age;
+    - `arena.stress` moved books off a tick grid coarser than the price unit;
+    - `arena.sim run` only loaded Prosperity bots;
+    - the tools ran a format whose orders rest in the per-tick mode unless told otherwise (now `RESTING`).
+  - **For the mock round:** `ON_THE_DAY.md`, "The format swap, step by step", is the checklist, and `arena/formats/drill.py` is the file to copy. The drill used `arena.sim` seeds 1000–1002, so the mock round's data must use other seeds.
 - [ ] **Run a mock round in the week of 26 Oct.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.
   - Data: `uv run python -m arena.sim generate <folder> --days 3 --seed <a seed the others don't know>`, with `--spec` changes so the products aren't the presets. Then rename the products and rewrite the files into a layout of the preparer's own, so the others have to write a loader. Keep the fundamental files back: they are the answer key.
   - Done when: the round is done, and whatever was slow or confusing is fixed in the tooling or the checklist.
