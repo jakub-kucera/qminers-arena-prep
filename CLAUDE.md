@@ -62,12 +62,12 @@ uv run python -m experiments.imbalance                            # does the bes
 - `load_bot`
 - `check_source`
 
-It is registered in `arena/formats/__init__.py` `FORMATS`. `prosperity.py` is the only format today. It holds:
+It is registered in `arena/formats/__init__.py` `FORMATS`, and may set `RESTING = True` if its orders rest until cancelled (the CLI then runs as with `--resting`). There are two formats. `drill.py` is a practice format deliberately unlike Prosperity's (decimal prices in integer cents, `Day.info` tick sizes, a `Bot.on_tick(api)` callback, opaque order ids through `Order.tag`), and the one to copy on the day; `bots/drill/template.py` is the template with only its imports, PARAMS and ADAPTER rewritten for it, and `tests/test_drill.py` checks that the rest matches `bots/template.py` word for word and that both make the same PnL on the same days. `prosperity.py` holds:
 - **The CSV loader:** `;`-separated. Prosperity 2 trade files have `_wn`/`_nn` name variants.
 - **The `LIMITS` table:** the loader raises on any product without a limit.
 - **`ProsperityBot`:** it builds a `TradingState`, calls `Trader().run(state)`, type-checks the returned `(orders, conversions, traderData)`, and converts the orders.
 
-`prosperity_datamodel.py` is our own copy of IMC's `datamodel` module, without jsonpickle. On the day, the plan is to add `arena/formats/qminers.py`, modelled on `prosperity.py`.
+`prosperity_datamodel.py` is our own copy of IMC's `datamodel` module, without jsonpickle. On the day, the plan is to add `arena/formats/qminers.py`, modelled on `drill.py`. When `bots/template.py`'s DEFAULTS, STRATEGY or EXECUTION change, copy them into `bots/drill/template.py` too (the test fails until you do).
 
 **Bot loading** (`arena/botfile.py`). `BotFile` compiles the bot source once. Each `load()` execs it into a fresh module, then:
 - **Injects provided modules:** the format's modules go into `sys.modules`, so `from datamodel import ...` resolves to ours.

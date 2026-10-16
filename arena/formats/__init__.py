@@ -15,11 +15,18 @@ Each format module provides:
     check_source(tree: ast.Module) -> list[str]
         Problems with the bot's entry point (empty list if fine).
 
-To support a new competition, copy prosperity.py and rewrite it for the new format.
+Optional:
+
+    RESTING: bool
+        True if the competition's orders rest until cancelled; the tools then run as with
+        --resting.
+
+To support a new competition, copy drill.py (a format deliberately unlike Prosperity's, with
+the differences marked) and rewrite it for the new format.
 """
 
 from types import ModuleType
 
-from arena.formats import prosperity
+from arena.formats import drill, prosperity
 
-FORMATS: dict[str, ModuleType] = {"prosperity": prosperity}
+FORMATS: dict[str, ModuleType] = {"prosperity": prosperity, "drill": drill}

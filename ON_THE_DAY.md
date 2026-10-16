@@ -14,7 +14,27 @@ same facts.
 Three tracks can run in parallel:
 - **Checklist:** read the docs and fill in every answer they give.
 - **Probes:** adapt `bots/template.py`'s ADAPTER into a probe bot and run it in the playground.
-- **Data:** write the loader in `arena/formats/qminers.py`, so the backtester runs on their data as soon as possible. Then run `arena.diagnose` on it (see "What kind of market is each product?").
+- **Data:** write the loader in `arena/formats/qminers.py`, so the backtester runs on their data as soon as possible: follow "The format swap, step by step" below. Then run `arena.diagnose` on it (see "What kind of market is each product?").
+
+## The format swap, step by step
+
+Practised on the drill format (2026-10-17, `arena/formats/drill.py`, `bots/drill/template.py`), which differs from Prosperity's in every way we could think of. The plug-in took about 300 lines and the bot's ADAPTER about 100. Running the tools on it found four Prosperity habits, now fixed; the steps below avoid the rest.
+
+1. **Copy `arena/formats/drill.py` to `qminers.py`** and register it in `FORMATS`. Set `RESTING = True` if their orders rest until cancelled.
+2. **The loader** fills `Day`, `Tick`, `Book` and `MarketTrade`:
+   - Books best price first, with positive volumes. If they send book changes, keep the book and publish it once a step, as `drill.py` does.
+   - **Prices as integers of one unit for every product**, the smallest their prices use (cents). Prices then compare exactly, and PnL adds up across products. Per-product tick sizes go in `Day.info`, limits in `Day.limits`, and the loader must raise on a product without one.
+   - If trades say which side was the taker, keep it (drill: as the trade's buyer or seller).
+3. **Check the loader before anything else:** `arena.diagnose` on their data. Its spreads are in ticks, but its prices (edge, R, drift, the fixed level) are in the loader's unit.
+4. **The bot wrapper** builds their view each step and turns the bot's actions into `Order`s and `Cancel`s:
+   - Their order ids map to the engine's through `Order.tag`. The engine copies the tag to the order's `OpenOrder` and `Fill`s.
+   - `begin_day(day)` gives the wrapper `Day.info`.
+   - With `fresh_each_tick`, keep exactly the state their engine keeps between calls, and drop the rest (the validator compares the two runs).
+5. **The bot:** in a copy of `bots/template.py`, rewrite the imports, PARAMS and ADAPTER, and nothing else. `bots/drill/template.py` shows how:
+   - Convert their prices to whole ticks of each product at the boundary, and back. STRATEGY's "one tick inside" means +1.
+   - Pass resting orders oldest first.
+   - Take the limit from their API if it gives one.
+6. **Run every tool once on their data** (`backtest`, `validate`, `grid`, `stress`, `analysis`), then compare a few fills by hand with their example or the playground.
 
 ## Known so far
 

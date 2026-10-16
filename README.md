@@ -380,9 +380,11 @@ mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head"
 ## On the day: adapting to the real format
 
 1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground.
-2. **Write `arena/formats/qminers.py`**, using `prosperity.py` as the model. It needs a loader into `Day`/`Tick` and a bot wrapper that builds their state and converts orders back. Register it in `arena/formats/__init__.py`.
-3. **Update the bot:** rewrite its ADAPTER section and the `datamodel` import. Leave STRATEGY and EXECUTION alone.
+2. **Write `arena/formats/qminers.py`**, using `drill.py` as the model, and register it in `arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
+3. **Update the bot:** rewrite its imports, PARAMS and ADAPTER section, and leave DEFAULTS, STRATEGY and EXECUTION alone. `bots/drill/template.py` is the worked example: it is the template with only those parts rewritten for the drill API, and on the same simulated days it makes the same PnL as the template, to the cent (`tests/test_drill.py`).
 4. **Validate** with `--format qminers`, their time limit, and `--allow` for their libraries.
+
+Practise it: `uv run python -m experiments.format_drill <folder>` makes drill data from simulated days, then any tool runs with `--format drill --data <folder>/drill`.
 
 ## Known gaps
 
