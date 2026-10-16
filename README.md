@@ -323,13 +323,18 @@ its walls and small limit traders post near the fundamental. Then the book is sn
 the bots trade. Then noise, value and momentum takers arrive and trade against the book, bots'
 orders included. Its module docstring has the details. Three presets, `KELP`, `RAINFOREST_RESIN`
 and `SQUID_INK`, are calibrated so that `arena.diagnose` sees P3 round 1 in them, and named so the
-template trades them as it is.
+template trades them as it is; they are the default market. A fourth, `HYDROGEL_PACK`
+(`--products`), returns to a level as P4's Hydrogel does. `--regime shift_up` (or `shift_down`,
+`trend_up`, `trend_down`; `--regime-at`, default mid-day) changes every product's regime during the
+day, as Qminers' 2024 final did: a shift of 5 wall spreads, or a trend of 10 over the rest of the
+day. Unlike `arena.stress`'s moved recordings, the market reacts to it.
 
 ```sh
 uv run python -m arena.sim generate data/sim --days 5            # Prosperity layout, plus limits.json and the fundamental
 uv run python -m arena.backtest bots/template.py 1 --data data/sim
 uv run python -m arena.sim run bots/template.py --days 5        # the bot in the market, against replaying the same days
 uv run python -m arena.sim run bots/template.py --spec KELP.maker.skew=0.05 --resting
+uv run python -m arena.sim run bots/template.py --products KELP,RAINFOREST_RESIN,HYDROGEL_PACK --regime trend_up
 ```
 
 `--spec PATH=VALUE` changes any preset field, e.g. `KELP.fundamental.sd=0.3` or `KELP.limit_traders.rate=2`.

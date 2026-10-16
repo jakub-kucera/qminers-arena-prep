@@ -79,6 +79,12 @@ class Fundamental:
     jump_rate: float = 0.0  # chance of a jump each tick
     jump_size: float = 0.0  # each jump is this, up or down at random
     snap_back: int | None = None  # ticks after which a jump is undone; None: it stays
+    # A regime change (see with_regime): at share regime_at of the day, the value and the level
+    # both move by regime_shift and stay there; from then on, both move by regime_drift a tick, so
+    # a product that returns to a level follows the trend instead of pulling back against it.
+    regime_at: float | None = None
+    regime_shift: float = 0.0
+    regime_drift: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -184,11 +190,25 @@ PRESETS: dict[str, ProductSpec] = {
         ValueTakers(rate=0.03, size=(1, 5), noise=1.0, threshold=1.0),
         MomentumTakers(rate=0.02, size=(1, 5)),
     ),
+    # P4's Hydrogel: returns to a level over about 1,000 ticks (an Ornstein-Uhlenbeck fundamental:
+    # reversion 0.0022 gives arena.diagnose's slow-reversion ratio of 2.3, and sd 2.06 an sd over the
+    # day of 2.06 / sqrt(2 x 0.0022) = 31), behind walls 16 ticks apart. Not in the default market,
+    # which is P3 round 1's.
+    "HYDROGEL_PACK": ProductSpec(
+        "HYDROGEL_PACK",
+        200,
+        Fundamental(9_995, reversion=0.0022, sd=2.06),
+        Maker(half_spread=8, size=(20, 30)),
+        LimitTraders(rate=0.08, offset=(2.0, 7.0), size=(1, 5), life=5),
+        NoiseTakers(rate=0.03, size=(1, 5)),
+        ValueTakers(rate=0.005, size=(1, 5), noise=2.0, threshold=1.0),
+    ),
 }
+DEFAULT_PRESETS = ["KELP", "RAINFOREST_RESIN", "SQUID_INK"]  # P3 round 1's, the default market
 
 
 def preset_market(products: list[str] | None = None, **options) -> MarketSpec:
-    names = products or list(PRESETS)
+    names = products or DEFAULT_PRESETS
     unknown = [name for name in names if name not in PRESETS]
     if unknown:
         raise ValueError(f"no preset for {', '.join(unknown)}: choose from {', '.join(PRESETS)}")
@@ -356,8 +376,11 @@ def _poisson(rng: random.Random, rate: float) -> int:
 class _Product:
     """One product's fundamental, agents and book."""
 
-    def __init__(self, spec: ProductSpec, seed: int):
+    def __init__(self, spec: ProductSpec, seed: int, ticks: int = 10_000):
         self.spec = spec
+        f0 = spec.fundamental
+        self.regime_tick = None if f0.regime_at is None else round(f0.regime_at * ticks)
+        self.level_shift = 0.0
         self.book = _Book()
         self.rngs = {kind: random.Random(f"{seed}/{spec.name}/{kind}") for kind in (*AGENTS, "fundamental", "arrival")}
         f = spec.fundamental
@@ -369,7 +392,11 @@ class _Product:
 
     def step_fundamental(self, tick: int) -> None:
         f, rng = self.spec.fundamental, self.rngs["fundamental"]
-        level = f.start if f.level is None else f.level
+        if self.regime_tick is not None and tick >= self.regime_tick:
+            move = (f.regime_shift if tick == self.regime_tick else 0.0) + f.regime_drift
+            self.value += move
+            self.level_shift += move
+        level = (f.start if f.level is None else f.level) + self.level_shift
         shock, jump_draw, jump_sign = rng.gauss(0, 1), rng.random(), rng.random()
         self.value += f.reversion * (level - self.value) + f.sd * shock + f.drift
         if f.jump_rate and jump_draw < f.jump_rate:
@@ -497,7 +524,7 @@ def run(
     if len(set(names)) != len(names) or set(names) & set(AGENTS):
         raise ValueError(f"bot names must be unique and not an agent kind: {names}")
     config = EngineConfig(resting=resting, capture_output=capture_output)
-    products = {p.name: _Product(p, seed) for p in spec.products}
+    products = {p.name: _Product(p, seed, spec.ticks) for p in spec.products}
     limits = {p.name: p.limit for p in spec.products}
     day_name = name or f"sim{seed}"
     shell = Day(day_name, list(products), limits, [])
@@ -694,23 +721,54 @@ def write_day(sim: SimDay, data_dir: Path, round_num: int, day_num: int) -> None
     limits_path.write_text(json.dumps(limits, indent=2, sort_keys=True) + "\n")
 
 
+REGIMES = ("shift_up", "shift_down", "trend_up", "trend_down")
+
+
+def with_regime(spec: MarketSpec, regime: str, at: float = 0.5) -> MarketSpec:
+    """Every product's fundamental changes regime at share `at` of the day, as in the 2024 final.
+
+    Sized in each product's wall spread s (twice the maker's half-spread), as arena.stress sizes its
+    perturbations of recorded days: shift_up moves the value and the level 5 s at once, trend_up
+    moves them 10 s over the rest of the day (the _down ones the other way). Unlike arena.stress,
+    the market reacts: the maker re-centres on the new value, and value takers trade toward it.
+    """
+    if regime not in REGIMES:
+        raise ValueError(f"unknown regime {regime!r}: choose from {', '.join(REGIMES)}")
+    if not 0 < at < 1:
+        raise ValueError(f"the regime must start inside the day (0 < at < 1), got {at}")
+    sign = -1 if regime.endswith("_down") else 1
+    products = []
+    for p in spec.products:
+        s = 2 * p.maker.half_spread
+        if regime.startswith("shift"):
+            change = {"regime_shift": sign * 5 * s}
+        else:
+            change = {"regime_drift": sign * 10 * s / (spec.ticks * (1 - at))}
+        products.append(replace(p, fundamental=replace(p.fundamental, regime_at=at, **change)))
+    return replace(spec, products=tuple(products))
+
+
 def _spec_from_args(args) -> MarketSpec:
     spec = preset_market(args.products.split(",") if args.products else None, ticks=args.ticks, names=args.names)
     for text in args.spec:
         spec = with_override(spec, *parse_spec_override(text))
+    if args.regime:
+        spec = with_regime(spec, args.regime, args.regime_at)
     return spec
 
 
 def _add_market_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--days", type=int, default=3, help="days to simulate, one seed each (default: 3)")
     parser.add_argument("--seed", type=int, default=0, help="seed of the first day; day k uses seed + k (default: 0)")
-    parser.add_argument("--products", help=f"comma-separated presets (default: all of {', '.join(PRESETS)})")
+    parser.add_argument("--products", help=f"comma-separated presets, from {', '.join(PRESETS)} (default: {','.join(DEFAULT_PRESETS)})")
     parser.add_argument("--ticks", type=int, default=10_000, help="ticks a day (default: 10,000)")
     parser.add_argument("--names", action="store_true", help="show the agents' kinds as buyer and seller")
     parser.add_argument(
         "--spec", action="append", default=[], metavar="PATH=VALUE",
         help="change a preset, e.g. --spec KELP.maker.skew=0.05 or --spec KELP.fundamental.sd=0.3 (repeatable)",
     )
+    parser.add_argument("--regime", choices=REGIMES, help="every product's fundamental changes regime during the day (see with_regime)")
+    parser.add_argument("--regime-at", type=float, default=0.5, help="with --regime: the share of the day it starts at (default: 0.5)")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -140,6 +140,42 @@ BANDS = {
 }
 
 
+# P4 rounds 3-4's Hydrogel (four distinct days): spread 16, slow-reversion ratio 2.37, wall sd 32.6
+# around 9,996.5, 336 trades a day, jumps 0.1%. The preset's mid is less noisy at one tick than the
+# real one (lag-1 autocorrelation about 0 against -0.13), so that isn't banded.
+HYDROGEL_BANDS = {
+    "spread_ticks_median": (12, 20),
+    "wall_reversion": (1.8, 3.2),
+    "wall_sd": (20, 45),
+    "jump_share": (0, 0.03),
+}
+
+
+def test_the_hydrogel_preset_looks_like_prosperity_4s_hydrogel():
+    row = diagnose.diagnose([sim.run(sim.preset_market(["HYDROGEL_PACK"]), seed).day for seed in range(3)])["HYDROGEL_PACK"]
+    misses = [f"{key} {row[key]:.3f} not in {band}" for key, band in HYDROGEL_BANDS.items() if not band[0] <= row[key] <= band[1]]
+    assert not misses
+    assert "reverts to a level" in row["notes"]
+    assert 250 <= row["trades"] / 3 <= 450
+
+
+@pytest.mark.parametrize("regime, end", [("shift_up", 5), ("shift_down", -5), ("trend_up", 10), ("trend_down", -10)])
+def test_a_regime_changes_every_fundamental_from_mid_day_by_the_products_spread(regime, end):
+    base = sim.preset_market(["KELP", "HYDROGEL_PACK"], ticks=400)
+    plain, changed = sim.run(base, 3), sim.run(sim.with_regime(base, regime), 3)
+    for product, spread in (("KELP", 3.5), ("HYDROGEL_PACK", 16)):
+        a, b = plain.fundamentals[product], changed.fundamentals[product]
+        assert a[:200] == b[:200]  # the same draws, so the morning is the same day
+        assert b[-1] - a[-1] == pytest.approx(end * spread)  # a level product follows: its level moves too
+
+
+def test_regime_arguments_are_checked():
+    with pytest.raises(ValueError, match="unknown regime"):
+        sim.with_regime(sim.preset_market(), "crash")
+    with pytest.raises(ValueError, match="inside the day"):
+        sim.with_regime(sim.preset_market(), "shift_up", at=1.0)
+
+
 def test_generated_days_look_like_prosperity_3_round_1():
     spec = sim.preset_market()
     rows = diagnose.diagnose([sim.run(spec, seed).day for seed in range(3)])
