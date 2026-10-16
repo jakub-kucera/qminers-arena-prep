@@ -274,3 +274,11 @@ The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `wo
 
 ## [2026-10-15] query | book imbalance and the micro-price on Prosperity data
 [book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md): new section "Tested here" (`experiments/imbalance.py`, the template's `weighted_mid` and `imbalance`): `ρ` predicts the plain mid's noise, not the wall mid; dropped here. [contradictions](contradictions.md) row 11 notes the result. Template citations re-mapped after the edit.
+
+## [2026-10-17] query | regime changes in a market that reacts, and a changepoint detector
+`arena.sim` gains `--regime`, a mid-day shift or trend sized in each product's spread, and a Hydrogel-like preset. The template gains `changepoint_level` (Adams & MacKay, on block means of a level product), off by default.
+- **Results** (`experiments/sim_regimes.py`; `arena.stress` on P4 rounds 3–4):
+  - `fixed_guard` holds Resin in the reacting market.
+  - Hydrogel's level bet loses most on a trend, and its loss stop rarely fires.
+  - The detector finds shifts and trends, but neither re-estimating the level nor dropping the bet wins on balance: dropping costs 17% of P4's plain days.
+- **Filed into:** `harder-rounds` (B1), `online-changepoint-detection` ("In our notation"); the repo's `IDEAS.md` (two rows), `TODO.md`, `ON_THE_DAY.md`, `CLAUDE.md`.

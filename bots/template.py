@@ -54,6 +54,15 @@ DEFAULTS = {
     "level_band": 20,  # hold the full limit against a move this far from the level
     "level_exit": None,  # flatten once back within this of the level; None: hold until the other band
     "level_guard": None,  # past this many level_bands from the level, drop the bet (target 0) until back within one band
+    # Changepoint detection on a number level (see changepoint_level): the expected ticks between
+    # shifts of the level, None for off. It needs the product's reversion to the level a tick and the
+    # sd of its one-tick steps, measured on the download (experiments/sim_regimes.py shows how).
+    "cpd_hazard": None,
+    "cpd_reversion": None,
+    "cpd_sd": None,
+    "cpd_block": 50,  # ticks averaged into one observation
+    "cpd_action": "level",  # "level": bet around the re-estimated level; "drop": keep the level, drop the bet once it has likely moved
+    "cpd_threshold": 0.5,  # "drop": the chance that the level has moved since the open from which the bet is dropped for the day
     # A call option on another product (see follow_target): it takes that product's target as a
     # share of its own limit. None trades the product on its own.
     "follow": None,
@@ -350,6 +359,8 @@ def level_target(fair: float, p: dict, memory: dict) -> int:
             memory["broken"] = True
         elif abs(gap) < p["level_band"]:
             memory.pop("broken", None)
+    if p["cpd_hazard"] is not None and p["cpd_action"] == "drop" and memory.get("cp_moved", 0) > p["cpd_threshold"]:
+        memory["broken"] = True  # the level has likely moved: no bet on it for the rest of the day
     if memory.get("broken"):
         held = 0
     elif gap >= p["level_band"]:
@@ -410,9 +421,53 @@ def estimate_level(fair: float, p: dict, memory: dict) -> float:
     memory["level_n"] = memory.get("level_n", 0) + 1
     if p["level"] == "day":
         return memory["level_sum"] / memory["level_n"]
+    if p["cpd_hazard"] is not None:
+        return changepoint_level(fair, p, memory)
     if p["level_weight"] is None:
         return p["level"]
     return (p["level"] * p["level_weight"] + memory["level_sum"]) / (p["level_weight"] + memory["level_n"])
+
+
+def changepoint_level(fair: float, p: dict, memory: dict) -> float:
+    """The level, re-estimated when it shifts: online changepoint detection (Adams & MacKay 2007).
+
+    The fair value is averaged over blocks of cpd_block ticks. For a product that returns to its
+    level mu at rate theta a tick, consecutive block means follow x_k = mu + phi (x_{k-1} - mu) + e
+    with phi = exp(-theta B), so z_k = (x_k - phi x_{k-1}) / (1 - phi) is an independent, noisy
+    observation of mu. Each run length r (blocks since the last shift) keeps a Gaussian posterior
+    for mu. A shift happens with chance B / cpd_hazard per block; a new run's mu starts near the
+    latest block mean. The level used is the posterior mean of mu over all run lengths: the
+    configured level until the evidence moves it, the new one soon after a shift.
+    """
+    memory["cp_sum"] = memory.get("cp_sum", 0.0) + fair
+    memory["cp_n"] = memory.get("cp_n", 0) + 1
+    if memory["cp_n"] < p["cpd_block"]:
+        return memory.get("cp_level", p["level"]) if p["cpd_action"] == "level" else p["level"]
+    x = memory.pop("cp_sum") / memory.pop("cp_n")
+    block, theta, sd = p["cpd_block"], p["cpd_reversion"], p["cpd_sd"]
+    phi = math.exp(-theta * block)
+    stationary = sd * sd / (2 * theta)  # the variance of the price around its level
+    noise = stationary * (1 - phi * phi) / (1 - phi) ** 2  # the variance of one observation z of mu
+    runs = memory.get("cp_runs") or [[1.0, p["level"], stationary / 4, 0]]  # [chance, mean, variance, first block]
+    last = memory.get("cp_last")
+    memory["cp_last"] = x
+    memory["cp_k"] = k = memory.get("cp_k", 0) + 1
+    if last is not None:
+        z = (x - phi * last) / (1 - phi)
+        hazard = min(block / p["cpd_hazard"], 1.0)
+        grown, shifted = [], 0.0
+        for chance, mean, var, first in runs:
+            spread = var + noise
+            likelihood = math.exp(-((z - mean) ** 2) / (2 * spread)) / math.sqrt(spread)
+            grown.append([chance * likelihood * (1 - hazard), (mean / var + z / noise) / (1 / var + 1 / noise), 1 / (1 / var + 1 / noise), first])
+            shifted += chance * likelihood * hazard
+        runs = [[shifted, x, stationary, k]] + grown
+        total = sum(r[0] for r in runs) or 1.0
+        runs = sorted(([c / total, m, v, f] for c, m, v, f in runs if c / total > 1e-6), reverse=True)[:40]
+    memory["cp_runs"] = runs
+    memory["cp_moved"] = 1 - sum(c for c, _, _, first in runs if first == 0)  # chance it shifted since the open
+    memory["cp_level"] = sum(c * m for c, m, _, _ in runs) / sum(c for c, _, _, _ in runs)
+    return memory["cp_level"] if p["cpd_action"] == "level" else p["level"]
 
 
 def jump_target(fair: float, p: dict, memory: dict) -> int:

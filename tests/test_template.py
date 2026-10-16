@@ -340,6 +340,38 @@ def test_hedging_legs_trade_after_their_basket(bot, monkeypatch):
     assert [(o.price, o.quantity) for o in orders["A"]] == [(51, 20)]
 
 
+def _ou_path(seed, shift=0.0, at=3000, n=6000, level=10_000.0):
+    import random
+
+    rng, x, out = random.Random(seed), level, []
+    for k in range(n):
+        if k == at:
+            level, x = level + shift, x + shift
+        x += 0.002 * (level - x) + 2.0 * rng.gauss(0, 1)
+        out.append(x)
+    return out
+
+
+def test_changepoint_level_moves_to_a_shifted_level_and_stays_put_without_one(bot):
+    p = params(bot, level=10_000, cpd_hazard=10_000, cpd_reversion=0.002, cpd_sd=2.0)
+    for shift, low, high in ((0, 9_980, 10_020), (100, 10_070, 10_130)):
+        memory = {}
+        levels = [bot.estimate_level(x, p, memory) for x in _ou_path(4, shift)]
+        assert levels[2_999] == pytest.approx(10_000, abs=20)  # before any shift
+        assert low <= levels[-1] <= high
+    memory = {}
+    drop = params(bot, level=10_000, cpd_hazard=10_000, cpd_reversion=0.002, cpd_sd=2.0, cpd_action="drop")
+    assert {bot.estimate_level(x, drop, memory) for x in _ou_path(4, 100)} == {10_000}  # the level stays put
+
+
+def test_the_drop_action_ends_the_level_bet_once_the_level_has_likely_moved(bot):
+    p = params(bot, level=10_000, level_band=30, cpd_hazard=10_000, cpd_reversion=0.002, cpd_sd=2.0, cpd_action="drop")
+    memory = {}
+    targets = [bot.level_target(x, p, memory) for x in _ou_path(4, 100)]
+    assert memory["cp_moved"] > 0.5 and memory["broken"]
+    assert targets[-1] == 0 and min(targets[3_000:]) == -10  # it was short the shift, then dropped the bet
+
+
 def test_make_steps_inside_a_wide_book(bot):
     plan = bot.Plan(0, 10)
     bot.make(bot.Book([[95, 5]], [[105, 5]]), 100, params(bot, make_edge=2), plan)
