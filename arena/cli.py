@@ -41,7 +41,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--resting",
         action="store_true",
         help="unfilled orders rest on the book until filled or cancelled, with a queue model "
-        "(default: they're cancelled at the end of each tick, as in Prosperity)",
+        "(default: they're cancelled at the end of each tick, as in Prosperity; always on for a format whose orders rest)",
     )
     parser.add_argument(
         "--queue",
@@ -101,7 +101,7 @@ def setup(args: argparse.Namespace) -> Setup:
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
     config = EngineConfig(
         trade_matching=args.match_trades,
-        resting=args.resting,
+        resting=args.resting or getattr(fmt, "RESTING", False),  # a format whose orders rest runs that way
         queue=args.queue,
         queue_power=args.queue_power,
         fill_ratio=args.fill_ratio,

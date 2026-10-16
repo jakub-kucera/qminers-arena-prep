@@ -722,7 +722,9 @@ def main(argv: list[str] | None = None) -> int:
     _add_market_arguments(generate)
     run_parser = commands.add_parser("run", help="run a bot inside the market, and compare with replaying the same days")
     run_parser.add_argument("bot", type=Path)
-    run_parser.add_argument("--resting", action="store_true", help="orders rest until filled or cancelled")
+    run_parser.add_argument("--format", default="prosperity", help="the bots' format (default: prosperity). The market's prices are "
+                            "whole ticks; a format with decimal prices sees them as its price unit (drill: 1 = 0.01)")
+    run_parser.add_argument("--resting", action="store_true", help="orders rest until filled or cancelled (always, for a format whose orders rest)")
     run_parser.add_argument("--queue", type=QueueModel, choices=list(QueueModel), default=QueueModel.BACK, help="the replay's queue model with --resting (default: back)")
     run_parser.add_argument("--queue-power", type=float, default=1.0, help="--queue prob: its power (default: 1)")
     run_parser.add_argument("--vs", dest="rivals", type=Path, action="append", default=[], metavar="BOT", help="another bot in the same market")
@@ -750,18 +752,20 @@ def _run_command(args, spec: MarketSpec, parser) -> int:
     from arena.botfile import OverrideError, parse_override
     from arena.cli import participant_names
     from arena.engine import run_market
-    from arena.formats import prosperity
+    from arena.formats import FORMATS
 
     names = participant_names(args.bot, args.rivals)
     try:
+        fmt = FORMATS[args.format]
         overrides = dict(parse_override(text) for text in args.overrides)
+        args.resting = args.resting or getattr(fmt, "RESTING", False)
 
         def load():
-            return [prosperity.load_bot(args.bot, overrides, strict=True)] + [prosperity.load_bot(r, {}, strict=True) for r in args.rivals]
+            return [fmt.load_bot(args.bot, overrides, strict=True)] + [fmt.load_bot(r, {}, strict=True) for r in args.rivals]
 
         load()
-    except (ValueError, OSError, OverrideError) as error:
-        parser.error(str(error))
+    except (KeyError, ValueError, OSError, OverrideError) as error:
+        parser.error(f"unknown format {error}" if isinstance(error, KeyError) else str(error))
     modes = list(TradeMatching)
     totals: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     failed = False

@@ -26,6 +26,7 @@ column (`stop_loss` in bots/template.py: no product should lose much more than i
 from __future__ import annotations
 
 import argparse
+import math
 import statistics
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -63,16 +64,30 @@ def _offsets(day: Day, product: str, name: str, size: float) -> list[int]:
     walls = _forward_fill([t.books[product].wall_mid if product in t.books else None for t in day.ticks])
     spreads = [b.asks[0][0] - b.bids[0][0] for t in day.ticks if (b := t.books.get(product)) and b.bids and b.asks]
     s = max(statistics.median(spreads), 1) if spreads else 1
+    tick = _tick(day, product)
     sign = -1 if name.endswith("_down") else 1
     half = n // 2
+
+    def on_grid(x: float) -> int:  # offsets move prices by whole ticks, so the book stays on its grid
+        return round(x / tick) * tick
+
     if name == "vol2":
         first = next((w for w in walls if w is not None), None)
-        return [0 if w is None or first is None else round(size * (w - first)) for w in walls]
+        return [0 if w is None or first is None else on_grid(size * (w - first)) for w in walls]
     if name.startswith("trend"):
-        return [round(sign * 10 * s * size * k / max(n - 1, 1)) for k in range(n)]
+        return [on_grid(sign * 10 * s * size * k / max(n - 1, 1)) for k in range(n)]
     if name.startswith("shift"):
-        return [round(sign * 5 * s * size) if k >= half else 0 for k in range(n)]
-    return [round(sign * 5 * s * size) if half <= k < half + SPIKE_TICKS else 0 for k in range(n)]  # spike
+        return [on_grid(sign * 5 * s * size) if k >= half else 0 for k in range(n)]
+    return [on_grid(sign * 5 * s * size) if half <= k < half + SPIKE_TICKS else 0 for k in range(n)]  # spike
+
+
+def _tick(day: Day, product: str) -> int:
+    """The product's price increment in the data's units: the gcd of the gaps between its prices.
+
+    1 in Prosperity's data; more where a format keeps prices in a unit finer than the tick (the
+    drill format's cents, with ALPHA's tick of 5)."""
+    prices = sorted({int(price) for t in day.ticks for b in [t.books.get(product)] if b for price, _ in b.bids + b.asks})
+    return math.gcd(*(b - a for a, b in zip(prices, prices[1:]))) or 1
 
 
 def _forward_fill(values):

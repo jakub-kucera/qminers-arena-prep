@@ -624,8 +624,8 @@ def _scaled(size: int, factor: float) -> int:
 def execute(plan: Plan, resting: list[tuple[int, int, int]]) -> tuple[list[int], list[tuple[int, int, bool]]]:
     """Turns the plan into (order ids to cancel, new orders as (price, signed quantity, ioc)).
 
-    resting holds the product's resting orders as (id, price, signed quantity left), and is
-    always empty where orders don't rest. A resting order is kept, with its place in the queue,
+    resting holds the product's resting orders as (id, price, signed quantity left), oldest
+    first (ADAPTER's job: ids needn't sort by age), and is always empty where orders don't rest. A resting order is kept, with its place in the queue,
     while a quote on its side and at its price still wants at least its size. The quote then
     only sends the difference. Every other resting order is cancelled. Takes go out as
     immediate-or-cancel, so whatever the book can't fill never rests at a crossing price.
@@ -635,7 +635,7 @@ def execute(plan: Plan, resting: list[tuple[int, int, int]]) -> tuple[list[int],
         key = (quantity > 0, price)
         wanted[key] = wanted.get(key, 0) + quantity
     cancels = []
-    for order_id, price, quantity in sorted(resting):  # oldest first, as the queue has them
+    for order_id, price, quantity in resting:  # oldest first, as the queue has them
         key = (quantity > 0, price)
         if abs(quantity) <= abs(wanted.get(key, 0)):
             wanted[key] -= quantity
@@ -699,7 +699,9 @@ def read_fills(state: TradingState) -> dict[str, list[tuple[float, int]]]:
 
 
 def read_resting(state: TradingState, product: str) -> list[tuple[int, int, int]]:
-    return [(order.id, order.price, order.quantity) for order in open_orders(state).get(product, [])]
+    """The product's resting orders, oldest first, as execute needs them."""
+    resting = sorted(open_orders(state).get(product, []), key=lambda order: (order.timestamp, order.id))
+    return [(order.id, order.price, order.quantity) for order in resting]
 
 
 def _depends(p: dict) -> bool:

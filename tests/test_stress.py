@@ -31,6 +31,15 @@ def test_trends_and_spikes():
     assert prices(spike)[199] == 102 and prices(spike)[200] == 117 and prices(spike)[300] == 102
 
 
+def test_offsets_stay_on_the_products_tick_grid():
+    # Prices in cents with a five-cent tick (the drill format): a trend of 10 x the 15-cent median
+    # spread moves the book in whole ticks, never to 101.42.
+    ticks = [Tick(t * 100, {"X": Book(((9995, 2), (9990, 20)), ((10010, 20),))}, {}, {}) for t in range(7)]
+    day = perturb(Day("d", ["X"], {"X": 10}, ticks), "trend_up")
+    assert all(p % 5 == 0 for t in day.ticks for b in t.books.values() for p, _ in b.bids + b.asks)
+    assert prices(day)[-1] == 10010 + 150
+
+
 def test_no_wall_removes_the_largest_level_in_the_middle_fifth():
     day = perturb(flat_day(), "no_wall")
     assert day.ticks[4].books["X"].bids == ((99, 2),)
