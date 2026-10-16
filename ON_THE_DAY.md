@@ -13,7 +13,7 @@ same facts.
 
 Three tracks can run in parallel:
 - **Checklist:** read the docs and fill in every answer they give.
-- **Probes:** adapt `bots/template.py`'s ADAPTER into a probe bot and run it in the playground.
+- **Probes:** rewrite `bots/probe.py`'s ADAPTER for their API, set `PRODUCT` and `LIMIT`, and run it in the playground (see "Probes" below).
 - **Data:** write the loader in `arena/formats/qminers.py`, so the backtester runs on their data as soon as possible: follow "The format swap, step by step" below. Then run `arena.diagnose` on it (see "What kind of market is each product?").
 
 ## The format swap, step by step
@@ -174,9 +174,16 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
 
 ## Probes
 
-A throwaway bot can answer most of the first-hour list in one playground run. Have it print
-everything it sees (book, open orders, fills, positions) every tick, and run one experiment
-at a time:
+`bots/probe.py` answers most of the first-hour list in one playground run of about 420 ticks. It
+runs probes 10, 9, 7, 1–2, 5, 3, 12, 4, 11, 6, 8, 17, 18 and 13 in that order, each in its own window,
+cancelling and flattening between them. Each tick it prints a `SEEN` line with the book, position,
+open orders and fills, and each probe prints one `PROBE <name>: <finding>` line. Rewrite its ADAPTER
+for their API first, as for the template. In our own engine it finds:
+- per tick: orders don't rest, and limits reject every order for the product;
+- with `--resting`: orders rest, and the book doesn't show our own;
+- both: no self-trade, fills reported one call later, called again after an exception, and every kind of state kept.
+
+So any other answer on the platform is a difference to act on. Probes 14–16 compare with data outside the bot. The probes:
 
 1. **Resting:** at tick 1, bid well below the best bid. At tick 2, send nothing. If the order is still listed, or fills later, orders rest.
 2. **Own orders in the book:** with that bid resting, check the book for a level at its price and size.

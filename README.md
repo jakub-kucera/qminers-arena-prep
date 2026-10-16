@@ -9,6 +9,8 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 |---|---|
 | `arena/` | Backtesting engine; the `diagnose`, `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `arena/formats/` |
 | `bots/template.py` | Single-file market maker to copy for each round |
+| `bots/probe.py` | The first-hour probe bot: runs the probes in `ON_THE_DAY.md` and prints what it finds |
+| `bots/drill/template.py` | The template with its ADAPTER rewritten for the drill format, the worked example of the format swap |
 | `notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, PnL split, market-trade impact, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |

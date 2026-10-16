@@ -150,7 +150,7 @@ between calls.
 `bots/zoo/` holds bots written blind by language models from `bots/zoo/SPEC.md` and `PROMPTS.md`: the agent baseline and `--vs` rivals. Never edit a zoo bot or a prompt once used; its README has the protocol for adding other providers' bots.
 
 New strategy logic goes in STRATEGY, order-management changes go in EXECUTION, and format changes go in ADAPTER. `bots/datamodel.py` only
-lets editors resolve imports; it is never submitted.
+lets editors resolve imports; it is never submitted. `bots/probe.py` runs `ON_THE_DAY.md`'s probes in a schedule of tick windows and prints a `PROBE` line per finding and a `SEEN` line per tick (Prosperity format; only its ADAPTER, `PRODUCT` and `LIMIT` change on the day); `tests/test_probe.py` checks its findings against the engine's known behaviour in both modes.
 
 ## Known gaps (from README)
 
