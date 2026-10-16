@@ -48,9 +48,9 @@ The paper behind every "Avellaneda–Stoikov" market maker. A dealer quotes one 
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `s` | the fair value (`fair_value`, `bots/template.py:268`) |
+| `s` | the fair value (`fair_value`, `bots/template.py:279`) |
 | `q` | the position (`plan.net` in `make`) |
-| `r = s − qγσ²(T−t)` | `fair − shift`, where `shift = round(skew × q / limit)` (`bots/template.py:654`); equal when `skew = γσ²(T−t) × limit` |
+| `r = s − qγσ²(T−t)` | `fair − shift`, where `shift = round(skew × q / limit)` (`bots/template.py:666`); equal when `skew = γσ²(T−t) × limit` |
 | `δ^a + δ^b = γσ²(T−t) + (2/γ)·ln(1 + γ/k)` | `2 × make_edge` (`bots/template.py:45`), which has no time term; as γ → 0 the half-spread tends to `1/k` |
 | `σ` | per-tick standard deviation of the fair value, per product |
 | `A, k` | fill rate against quote distance from fair, measurable from `_fills.csv` and `_orders.csv` |

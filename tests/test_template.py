@@ -372,6 +372,17 @@ def test_the_drop_action_ends_the_level_bet_once_the_level_has_likely_moved(bot)
     assert targets[-1] == 0 and min(targets[3_000:]) == -10  # it was short the shift, then dropped the bet
 
 
+def test_flattening_before_the_close_only_reduces_the_position(bot):
+    book = bot.Book([[99, 5]], [[101, 5]])
+    trade = lambda timestamp, **kw: bot.trade_product("X", book, 4, params(bot, fair="mid", flatten_from=900, **kw), {}, bot.Market({"X": book}, timestamp=timestamp))
+    before = trade(800)
+    assert len(before.quotes) == 2  # both sides, as usual
+    at_fair = trade(900, flatten_edge=0)
+    assert at_fair.takes == [] and at_fair.quotes == [(102, -4)]  # only the ask, sized to the position
+    crossing = trade(950)  # by default it crosses up to the spread, to reach the other side
+    assert crossing.takes == [(99, -4)] and crossing.quotes == []
+
+
 def test_make_steps_inside_a_wide_book(bot):
     plan = bot.Plan(0, 10)
     bot.make(bot.Book([[95, 5]], [[105, 5]]), 100, params(bot, make_edge=2), plan)

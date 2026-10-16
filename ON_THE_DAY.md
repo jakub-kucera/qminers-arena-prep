@@ -142,7 +142,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - If the tick isn't 1: add a `tick` parameter and use it in `make` and the rounding, and keep prices as the exchange's type in the loader and the ADAPTER. With a tick of 0.01, `int(price)` would send prices off by up to a whole unit.
 - [ ] **How is PnL scored?**
   - At which price are open positions valued: mid, last trade, or a settlement price?
-  - Are positions liquidated at the end, and at what price? If badly, flatten before the close.
+  - Are positions liquidated at the end, and at what price? If badly, flatten before the close: `flatten_from` about 200 ticks before the end (it crosses up to the spread, so every Prosperity day closed flat). It cost 1.7–3.3% of a day valued at the mid (`IDEAS.md`), so it pays once the liquidation's discount times the units held beats that.
   - How are the rounds combined into a ranking? Is there a penalty for risk or drawdown?
   - If the ranking is relative, size the risk for the chance of placing, not for PnL. Qminers' 2024 winner simulated the other finalists to pick their stake, then halved it in the last round while far ahead and kept first (`references/wiki/concepts/risk-and-protecting-a-lead.md`). Before round 4 (40%), compute the lead in weighted points and decide in writing how much risk to keep.
 - [ ] **Are there fees, rate limits or caps?** Fees or rebates per trade, the maximum number of orders per call or per second, and the maximum number of open orders. AlgoTrade closed your connection above 500 messages a second, and allowed 6,000 open orders.

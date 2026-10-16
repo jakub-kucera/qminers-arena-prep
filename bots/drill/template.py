@@ -78,6 +78,13 @@ DEFAULTS = {
     # arena.stress tests them).
     "stop_loss": None,  # flatten and stop for the day once today's PnL is this far below its high; None: off
     "stop_edge": None,  # clear_edge while flattening after the stop; None: the book's spread, to reach the other side
+    # From flatten_from (a timestamp: on the day, from the round's length) to the close, work the
+    # position to zero: no takes, cut it at up to flatten_edge worse than fair (None: the book's
+    # spread, to reach the other side), and quote only the side that reduces it. For an exchange
+    # that liquidates what is left at a bad price.
+    "flatten_from": None,
+    "flatten_edge": None,
+    "reduce_only": False,  # quote only the side that moves the position toward target (set while flattening)
     "vol_guard": None,  # fall back to plain market making while recent volatility is this many times the day's
 }
 
@@ -189,8 +196,12 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
     fair = fair_value(book, p, memory)
     if fair is None:  # no price seen yet
         return plan
-    if p["stop_loss"] is not None and loss_stop(fair, position, market.fills.get(product, []), market.timestamp, p, memory):
-        edge = p["stop_edge"] if p["stop_edge"] is not None else (book.asks[0][0] - book.bids[0][0] if book.bids and book.asks else 0)
+    spread = book.asks[0][0] - book.bids[0][0] if book.bids and book.asks else 0
+    if p["flatten_from"] is not None and market.timestamp >= p["flatten_from"]:
+        edge = p["flatten_edge"] if p["flatten_edge"] is not None else spread
+        p = {**p, "target": 0, "take_edge": math.inf, "clear_edge": edge, "reduce_only": True}
+    elif p["stop_loss"] is not None and loss_stop(fair, position, market.fills.get(product, []), market.timestamp, p, memory):
+        edge = p["stop_edge"] if p["stop_edge"] is not None else spread
         p = {**p, "target": 0, "take_edge": math.inf, "make_size": 0, "clear_edge": edge}
     elif p["vol_guard"] is not None and regime_guard(fair, p, memory):
         pass  # plain market making toward the static target
@@ -592,7 +603,8 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
 
     size_skew works through size instead (Bouchaud et al. 2018, eq. 17.4): with gap the distance
     above target as a share of the limit, the bid is scaled by max(1 - size_skew * gap, 0) and the
-    ask by max(1 + size_skew * gap, 0), within the room left.
+    ask by max(1 + size_skew * gap, 0), within the room left. With reduce_only, only the side that
+    moves the position toward target quotes, and no more than the gap.
     """
     best_bid = next((price for price, volume in book.bids if volume > 0), None)
     best_ask = next((price for price, volume in book.asks if volume > 0), None)
@@ -618,8 +630,12 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
 
     size = p["make_size"]
     gap = p["size_skew"] * (plan.net - p["target"]) / plan.limit
-    plan.buy(bid, _scaled(plan.buy_room if size is None else size, 1 - gap), quote=True)
-    plan.sell(ask, _scaled(plan.sell_room if size is None else size, 1 + gap), quote=True)
+    buy = _scaled(plan.buy_room if size is None else size, 1 - gap)
+    sell = _scaled(plan.sell_room if size is None else size, 1 + gap)
+    if p["reduce_only"]:
+        buy, sell = min(buy, max(p["target"] - plan.net, 0)), min(sell, max(plan.net - p["target"], 0))
+    plan.buy(bid, buy, quote=True)
+    plan.sell(ask, sell, quote=True)
 
 
 def _scaled(size: int, factor: float) -> int:
