@@ -27,7 +27,7 @@ SEEDS = (0, 1, 2)
 
 
 def zoo_bots() -> list[Path]:
-    return sorted(p for p in ZOO.rglob("*.py") if p.name != "bundle.py")
+    return sorted(p for p in ZOO.rglob("*.py") if p.name not in {"bundle.py", "local.py"})
 
 
 def label(path: Path) -> str:

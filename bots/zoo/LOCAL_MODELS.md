@@ -35,9 +35,17 @@ only the experts they use, so they are 3–4 times faster than dense models of t
 | `deepseek-r1-14b.gguf` | dense (a Qwen2.5 distill) | 8.4 GiB | 330 | 28.3 | 20.1 |
 | `qwen3.8-27b.gguf` | dense, hybrid linear attention | 15.7 GiB | 181 | 18.2 | 9.8 |
 
-`llama-bench` runs at an empty context, which makes its numbers a best case. At a 70k-token context,
-gemma4 wrote at 19–28 tok/s instead of 76, and read the last chunks of a long prompt at about
-120 tok/s.
+`llama-bench` runs at an empty context, which makes its numbers a best case. As the context grows,
+gemma4:26b slows, with a step between 16k and 32k
+(`llama-bench -fa 1 -p 2048 -n 128 -d 0,8192,16384,32768,49152,65536 -r 2`):
+
+| Context already filled | 0 | 8k | 16k | 32k | 49k | 65k |
+|---|---|---|---|---|---|---|
+| Reading 2k more, tok/s | 1,211 | 808 | 606 | 272 | 211 | 175 |
+| Writing, tok/s | 74.7 | 65.4 | 63.6 | 26.8 | 35.4 | 29.8 |
+
+The 32k row was noisy (± 29 on reading). Through the server, with swap in use, reading near 65k fell
+to 90–100 tok/s.
 
 ## Serving a model for the zoo
 
@@ -46,6 +54,11 @@ llama-server -m ~/models/gemma4-26b.gguf -c 32768 -np 1 --jinja --port 8080
 curl -s localhost:8080/health          # {"status":"ok"} once the model is loaded
 ```
 
+- **Sampling:** each model's recommended settings, taken from Ollama's parameters for it (`ollama show --parameters <model>`). Add them to the command; `local.py` sends none and records what the server used:
+  - qwen3.8-27b: `--temp 1 --top-k 20 --top-p 0.95 --min-p 0 --presence-penalty 0 --repeat-penalty 1`
+  - gemma4-26b: `--temp 1 --top-k 64 --top-p 0.95`
+  - gpt-oss-20b: `--temp 1`
+  - phi4-14b, deepseek-r1-14b: llama.cpp's defaults (Ollama sets only stop tokens, which the chat template already has).
 - **API:** OpenAI-compatible at `http://localhost:8080/v1/chat/completions`, and Anthropic's
   Messages API at `/v1/messages`. The `model` field is ignored: the server answers with the one
   model it loaded.
@@ -60,6 +73,30 @@ curl -s localhost:8080/health          # {"status":"ok"} once the model is loade
   a memory-heavy grid.
 - **One server per port:** a second `llama-server` on a port already in use exits, and requests
   still reach the first one, whatever model that one has loaded. Check with `pgrep -fl llama-server`.
+
+## Writing zoo bots
+
+With the server up: `uv run python bots/zoo/local.py <prompt> [--n N] [--effort LEVEL]`. It writes
+`other/<model>_<prompt>.py` and a `.json` beside it; its docstring has the protocol. Then add the
+README row and run `experiments.zoo`.
+
+The first batch took, per bot (2026-10-17, `-c 32768`, no repair turn needed):
+
+| Model | Time | Tokens written |
+|---|---|---|
+| gpt-oss-20b | 38–146 s | 2.1–8.4k |
+| gemma4-26b | 192–254 s | 10–13.5k |
+| qwen3.8-27b, `--effort medium` | 19–29 min | 13–21k |
+
+Three things the batch found:
+- **Qwen3.8's chat template defaults to `reasoning_effort` xhigh,** while Ollama runs it at medium. At
+  xhigh it wrote 28k tokens of thinking in 40 minutes without an answer, close to the context's end,
+  and was stopped. Use `--effort medium`. The effort goes into the bot's name.
+- **gpt-oss garbles its channel markers** (`<|channel|>final code block>`), so llama-server leaves its
+  thinking in `content`, with drafts of the code. `local.py` takes the answer after the first
+  `<|start|>assistant`.
+- **A finished bot can be a disaster.** Every file passed `arena.validate`, and three lost 0.6–2.0
+  million on P3 round 1 (`IDEAS.md`, "The LLM zoo"). Each sample is one draw: take two or more.
 
 ## Chatting and benchmarking
 
