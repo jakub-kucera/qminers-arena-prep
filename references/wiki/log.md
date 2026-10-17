@@ -282,3 +282,6 @@ The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `wo
   - Hydrogel's level bet loses most on a trend, and its loss stop rarely fires.
   - The detector finds shifts and trends, but neither re-estimating the level nor dropping the bet wins on balance: dropping costs 17% of P4's plain days.
 - **Filed into:** `harder-rounds` (B1), `online-changepoint-detection` ("In our notation"); the repo's `IDEAS.md` (two rows), `TODO.md`, `ON_THE_DAY.md`, `CLAUDE.md`.
+
+## [2026-10-17] lint | pages that said the flatten and the probe bot were still to do
+`risk-and-protecting-a-lead`, `harder-rounds` (C5), `optimal-quoting-models` and `probing-the-environment` still described `flatten_from` and `bots/probe.py` as deferred items in `TODO.md`. Updated: both are built, with their results.

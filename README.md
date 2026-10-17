@@ -303,7 +303,7 @@ ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `s
 `arena.stress` reruns a bot on perturbed copies of each day: each product's whole book, trades and
 mark moved together, so only the price path changes. The perturbations: volatility ×2, a trend
 each way, a level shift at mid-day each way, a 100-tick spike each way, and the walls removed for
-the middle fifth. It prints each product's PnL under each one, its largest plain-day drawdown
+the middle fifth. Each is sized in the product's median spread and moves prices by whole ticks. It prints each product's PnL under each one, its largest plain-day drawdown
 (what a loss stop must leave room for) and its worst single day.
 
 ```sh
@@ -340,7 +340,7 @@ uv run python -m arena.sim run bots/template.py --products KELP,RAINFOREST_RESIN
 ```
 
 `--spec PATH=VALUE` changes any preset field, e.g. `KELP.fundamental.sd=0.3` or `KELP.limit_traders.rate=2`.
-`run` prints each product's PnL in the market next to replaying the same seed's recording, without the bot, in each `--match-trades` mode.
+`run` prints each product's PnL in the market next to replaying the same seed's recording, without the bot, in each `--match-trades` mode. `run --format` loads the bots through another format, such as `drill`.
 The recording and the run share every random draw, so the gap is the market's reaction to the bot.
 
 The template over seeds 0–4 (`IDEAS.md`, "Replay against a market that reacts"):
@@ -364,7 +364,7 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
   - **Clear:** cut inventory at fair to free room under the limit.
   - **Make:** quote `make_edge` from fair, or one tick inside the book, moved by `skew` against inventory, with sizes scaled by `size_skew` (both work toward `target`).
   - **The close** (optional): from `flatten_from`, every product works its position to zero: no takes, `clear` crosses up to the spread, and `make` quotes only the side that reduces it. For an exchange that liquidates open positions at a bad price; over the last 200 ticks it cost 1.7–3.3% of a Prosperity day valued at the mid (`IDEAS.md`).
-  - **Level** (optional): for a product that returns to a price `level`, the target becomes the full limit against any move of `level_band` from it, held until the other band (or until the price comes back within `level_exit` of the level, or past it). `clear` then crosses the spread toward it, up to `clear_edge` worse than fair. Set `level` from the earlier days' mean, or `"day"` when there is no history. On P4 rounds 3–4 it makes about 52k a day on Hydrogel and Velvetfruit when scored on days it wasn't tuned on, against 15k for plain market making (`IDEAS.md`).
+  - **Level** (optional): for a product that returns to a price `level`, the target becomes the full limit against any move of `level_band` from it, held until the other band (or until the price comes back within `level_exit` of the level, or past it). `clear` then crosses the spread toward it, up to `clear_edge` worse than fair. Set `level` from the earlier days' mean, or `"day"` when there is no history. On P4 rounds 3–4 it makes about 52k a day on Hydrogel and Velvetfruit when scored on days it wasn't tuned on, against 15k for plain market making (`IDEAS.md`). `cpd_*` adds online changepoint detection on the level (Adams & MacKay): it finds shifts and trends, but neither re-estimating the level nor dropping the bet paid on Prosperity data, so it is off.
   - **Follow** (optional): a call option on another product (`follow`, `strike`) holds that product's target as a share of its own limit, so it adds its delta to the same bet. A strike whose half-spread per unit of delta is above `max_cost_per_delta` stays flat. Delta comes from the option's own price through Black–Scholes in total variance, so no expiry date is needed. `Trader.run` trades the followed product first and hands its plan over. On P4 the vouchers following Velvetfruit add about 165k a day out of sample (`IDEAS.md`).
   - **Basket** (optional): a product that is a known combination of others (`basket`: `{leg: weight}`) trades its spread, its price less the legs' weighted prices, with the level settings: `level` is the usual spread. A family that sums to a constant is a basket with legs of weight −1. Legs with `hedge` hold `-weight × hedge_ratio` per basket held, though hedging never helped on Prosperity data. On P3 round 2 and P2 round 3 it makes 71k and 294k over three days out of sample, against 20k for plain market making. Baskets only take (`make_size` 0): under `--resting`, quotes on a product that jumps several ticks at once get picked off.
   - **Jump** (optional): for a price that jumps and snaps back, the target becomes the full limit against each move of at least `jump_min`, held until the next one (or for `jump_hold` ticks), crossing up to `jump_edge` toward it. It only trades once `jump_seen` of the day's jumps have followed another and `jump_share` of those reversed it, so it can be switched on for every product. On P4 round 5 that added 501k over three days to plain market making, in-sample, with no losing day (`IDEAS.md`).
@@ -387,7 +387,7 @@ mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head"
 
 ## On the day: adapting to the real format
 
-1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground.
+1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground. `bots/probe.py` runs most of the probes in one run: rewrite its ADAPTER like the template's, and read its `PROBE` lines (`uv run python -m arena.backtest bots/probe.py 1 --print --no-strict` shows what our engine answers).
 2. **Write `arena/formats/qminers.py`**, using `drill.py` as the model, and register it in `arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
 3. **Update the bot:** rewrite its imports, PARAMS and ADAPTER section, and leave DEFAULTS, STRATEGY and EXECUTION alone. `bots/drill/template.py` is the worked example: it is the template with only those parts rewritten for the drill API, and on the same simulated days it makes the same PnL as the template, to the cent (`tests/test_drill.py`).
 4. **Validate** with `--format qminers`, their time limit, and `--allow` for their libraries.

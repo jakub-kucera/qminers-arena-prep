@@ -95,6 +95,8 @@ class Bot(Protocol):
 
         own_fills are the fills since the last call, market_trades the previous tick's.
         open_orders are the bot's resting orders, always empty unless the engine is in resting mode.
+        An order's tag comes back unread on its OpenOrder and Fills. A bot may also define
+        begin_day(day), which is called with the Day (and its per-product info) before the first tick.
         """
         ...
 

@@ -9,7 +9,7 @@ a fixed anchor or a level set from the download breaks when the price moves away
 (references/wiki/concepts/harder-rounds.md, B1). Each perturbation moves a product's whole book,
 its market trades and its mark by the same offset at a tick, so the book's shape and the trades'
 place in it are kept; only the price path changes. Sizes are in the product's median spread `s`
-over the day, times `--size`:
+over the day, times `--size`, and every offset is a whole number of the product's ticks:
 
     vol2         every tick's distance from the day's first wall mid is doubled
     trend_up     a steady drift adding up to 10 s over the day (trend_down: down)

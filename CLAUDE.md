@@ -15,7 +15,7 @@ the day (see "Formats" below).
 ```sh
 references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
 uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
-uv run pytest                       # all tests (~9 s)
+uv run pytest                       # all tests (~14 s)
 uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
 uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
@@ -29,6 +29,10 @@ uv run python -m arena.analysis results/                          # PNGs to resu
 uv run python -m arena.stress bots/template.py 1                    # the bot on perturbed days (trend, shift, spike, vol x2, no wall)
 uv run python -m arena.sim generate data/sim --days 5              # simulated days in the Prosperity layout (--data data/sim)
 uv run python -m arena.sim run bots/template.py --days 5           # the bot inside the agent market, against replaying the same days
+uv run python -m arena.sim run bots/template.py --products KELP,RAINFOREST_RESIN,HYDROGEL_PACK --regime trend_up   # a mid-day regime change, in a market that reacts
+uv run python -m arena.backtest bots/probe.py 1 --print --no-strict   # the probe bot: one PROBE line per first-hour probe
+uv run python -m experiments.format_drill data/drill               # drill-format data, then any tool with --format drill --data data/drill/drill
+uv run python -m experiments.format_drill --sync                   # copy the template's DEFAULTS, STRATEGY and EXECUTION into bots/drill/template.py
 uv run python -m arena.analysis --grid results/grid.csv           # grid heatmaps
 uv run --group analysis jupyter lab notebooks/analysis.ipynb      # the analysis group adds Jupyter
 uv run python -m experiments.p4_levels                            # a one-off study; its numbers are in IDEAS.md
@@ -36,6 +40,7 @@ uv run python -m experiments.zoo                                  # scores every
 uv run python -m experiments.zoo_h2h                              # the template against each zoo bot, per product, under all and worse
 uv run python -m experiments.adversaries                          # the template against a trapper, spoofers and a sniper (bots/rivals/), --resting
 uv run python -m experiments.imbalance                            # does the best-level imbalance predict the mid / the wall mid, per product and day
+uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
@@ -105,7 +110,11 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **Agents per product:** a fundamental, a market maker quoting walls (optional inventory skew), limit traders, then, after the snapshot and the bots, noise, value and momentum takers. That order is what a Prosperity tick implies, so a recorded day replays with the same semantics.
 - **Seeding:** one generator per product and agent kind, ABIDES's rule; each arrival makes the same draws whatever the book shows, so a run with a bot and the recording without it share every random number.
 - **Bots:** the same `Bot` protocol and `DayResult` as the engine, both modes (default: an order lives for that tick's takers; `--resting`), `--vs`. It reuses `engine._breaches`, `_call_bot`, `_known`, `_new_result`, `_record`.
-- **Presets** are calibrated against P3 round 1 through `arena.diagnose`; `tests/test_sim.py` holds the bands. `write_day` writes the Prosperity layout plus `limits.json`, which the Prosperity loader merges into `LIMITS`.
+- **Presets** are calibrated through `arena.diagnose`, and `tests/test_sim.py` holds the bands. `KELP`, `RAINFOREST_RESIN` and `SQUID_INK` copy P3 round 1 and are the default market. `HYDROGEL_PACK` copies P4's Hydrogel (an Ornstein–Uhlenbeck fundamental) and is chosen with `--products`. `write_day` writes the Prosperity layout plus `limits.json`, which the Prosperity loader merges into `LIMITS`.
+- **Regimes:** `with_regime` (`--regime`, `--regime-at`) shifts or trends every product's fundamental and its level from mid-day, sized in its wall spread. The morning keeps the same draws, so it is the same day until the change.
+- **Formats:** `run --format` loads the bots through any format plug-in. The market's prices are whole ticks, and `begin_day` gets a day with no `info`, so a decimal-price format sees them in its price unit.
+
+**Stress harness** (`arena/stress.py`): each perturbation (volatility ×2, a trend, a mid-day shift, a spike, the walls removed) moves a product's whole book, its trades and its mark by one offset per tick. Offsets are sized in the product's median spread and kept on its tick grid (the gcd of the gaps between its prices), so a format with a tick coarser than its price unit stays on the grid.
 
 **Grid search** (`arena/grid.py`):
 - **Parallel runs:** a `ProcessPoolExecutor` runs every combination as (bot file + `--set` + grid values) × days × `--modes`. Each worker loads the days once, in `_init_worker`, into the module-level `_WORKER` dict. `--jobs 1` runs in-process.
@@ -140,6 +149,8 @@ between calls.
   - takes are sent as IOC
   - a resting quote is kept while a quote on its side and price still wants at least its size
   - everything else is cancelled
+
+  ADAPTER passes the resting orders oldest first: `execute` doesn't sort them, since a format's ids needn't grow with age.
 
   The engine applies cancels before the limit check, which is why planning with the full room is safe. With nothing resting, it sends the whole plan, so one file works in both engine modes.
 - **ADAPTER:** the only Prosperity-specific code, including the resting extensions (`state.open_orders`, `Cancel`, `ioc`).

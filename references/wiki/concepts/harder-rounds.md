@@ -144,7 +144,7 @@ Each entry gives:
 - **C4. Asymmetric limits, a cash or margin limit, a cost to borrow** (likelihood: medium; AlgoTrade had +2,000 / −200 and a cash floor).
   - Prep: limits per side in `LIMITS` and in the template's `Plan`.
 - **C5. How the close is settled** (likelihood: medium): a closing auction, an undisclosed average over a window (AlgoTrade), or a forced liquidation at a penalty.
-  - Prep: the `flatten_from` item already in `TODO.md`.
+  - Prep: built 2026-10-17, `flatten_from` in the template (works the position to zero before the close, crossing up to the spread; `IDEAS.md`, "Flattening before the close").
   - Evidence: when the mark is a VWAP over a window, a few marketable orders near its end move it, and a holder of inventory profits overall even after its trading losses ([Shearer, Rauterberg & Wellman](../sources/benchmark-manipulation.md), `literature_md/benchmark-manipulation/benchmark-manipulation.md:33` (p. 1)). So ask how the close is settled; a one-sided run of market orders in the closing window is the tell of someone doing it.
 - **C6. Scoring that isn't plain PnL** (likelihood: medium): Sharpe or a drawdown penalty, a log scale against the top (AlgoTrade), rank points per round, or zero for a loss.
   - Prep: a Sharpe per day and the drawdown in the grid's measures, so `--sort` can rank by them ([risk](risk-and-protecting-a-lead.md)).

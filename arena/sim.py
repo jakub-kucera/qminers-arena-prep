@@ -4,6 +4,8 @@
     uv run python -m arena.backtest bots/template.py 1 --data data/sim      # replay them like any data
     uv run python -m arena.sim run bots/template.py --days 5                # the bot inside the market, against replay
     uv run python -m arena.sim run bots/template.py --spec KELP.maker.skew=0.05 --resting
+    uv run python -m arena.sim run bots/template.py --products KELP,HYDROGEL_PACK --regime trend_up
+    uv run python -m arena.sim run bots/drill/template.py --format drill --set "PARAMS.KELP={'fair': 'wall_mid'}"
 
 Why: the engine replays a recording, so the market never reacts to our orders. The Arena's
 simulator may: a take moves the price, the market maker skews against the flow it receives, and
@@ -13,7 +15,8 @@ their pages in references/wiki/sources/). Per product, every tick:
 
   1. The fundamental moves. It reverts to a level at rate `reversion` (Wang & Wellman's eq. 1
      without the floor at 0), with Gaussian steps, an optional drift, and rare jumps that may
-     snap back after a while.
+     snap back after a while. With a regime change (`with_regime`, `--regime`), from a point in
+     the day the value and its level shift at once, or both start to trend.
   2. The quoters arrive and post, against the live book:
        - the market maker re-quotes its walls around its view of the fundamental, moved against
          its inventory (`skew`), so after it is hit it quotes worse (A3);
