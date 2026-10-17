@@ -91,20 +91,19 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
   - Done when: at least Gemini's bots are in `bots/zoo/` and in the zoo's results in `IDEAS.md`, with whether they behave unlike Claude's.
   - **2026-10-15, later: `market_maker` for the same three models** (results in the same `IDEAS.md` row). Gemini's is the strongest non-Claude bot (85.2k alone) and beats the committed template head to head under `all` on Squid Ink alone. Left: `mean_reversion` and `momentum` for the three, the older models, and the repair-turn record.
   - **2026-10-15: the first three are in** (`gemini/gemini-3-8-flash-high_baseline.py`, `chatgpt/gpt-5-6-luna_baseline.py`, `other/gpt-oss-120B_baseline.py`; `IDEAS.md`, "The LLM zoo"). They do behave unlike Claude's: both use the weighted mid, not the wall mid, and both chase Squid Ink's trend and lose on it; the template beats both head to head. Left: the other three prompts for the strongest Gemini and ChatGPT models, an older model of each (GPT-4o, Gemini 2.5), and whether a repair turn was used for these three (the README's table says "not recorded").
-- [ ] **(a, part 3) Zoo bots from local models, by script.** "Running a model cleanly" is one message with nothing else in context, which a script can follow exactly against a local model. A coding agent can't: Claude Code's own prompt in this repo was 69k tokens, about 5 minutes to read for gemma4:26b on the M4 Max (2026-10-17). Ollama serves an OpenAI-compatible API at `localhost:11434/v1`, and llama-server at `localhost:8080/v1`.
-  - Build `bots/zoo/local.py MODEL PROMPT [--n N] [--url URL]`, standard library only:
-    - Send `bundle(prompt)` as the only message, with no system prompt and the model's default sampling and thinking.
+- [ ] **(a, part 3) Zoo bots from local models, by script.** "Running a model cleanly" is one message with nothing else in context, which a script can follow exactly against a local model. A coding agent can't: Claude Code's own prompt in this repo was 69k tokens, about 5 minutes to read for gemma4:26b on the M4 Max (2026-10-17). The models are served with llama.cpp: `bots/zoo/LOCAL_MODELS.md` has the setup, the models and their speeds.
+  - Build `bots/zoo/local.py MODEL PROMPT [--n N] [--url URL]`, standard library only, against llama-server's OpenAI-compatible API (`--url` default `http://localhost:8080/v1`):
+    - Send `bundle(prompt)` as the only message, with no system prompt and the model's default sampling and thinking. The server ignores the `model` field, so check that the loaded file matches MODEL: the response's `model` is the file's path.
     - Save the first python code block unchanged as `other/<model>_<prompt>.py`, with `:` → `-` in the name and `_2`, `_3` for repeats.
     - Run `arena.validate <file> 1 --allow numpy,pandas`. If the file doesn't run, send one repair turn with the error, as the README allows.
-    - Write the replies, settings, token counts and timings to a `.json` beside the bot, so its README row records whether a repair was used (the by-hand rows can't).
+    - Write the replies (`content` and the thinking in `reasoning_content`), settings, token counts and timings to a `.json` beside the bot, so its README row records whether a repair was used (the by-hand rows can't).
   - What it adds:
     - Several samples per (model, prompt), so the zoo shows a model's spread, not one draw.
     - The weak, free models some teams will use.
     - On the day, a zoo that doesn't depend on the venue's internet ("Bring your own internet connection", `ON_THE_DAY.md`, "Known so far") or on chat quotas.
-  - Models already pulled on the Mac (M4 Max, 36 GB). Token-generation speeds are from 2026-10-17, measured with `llama-bench` and then Ollama's eval rate:
-    - gemma4:26b and gpt-oss:20b are MoE: 76–79 tok/s with `llama-bench`, 58 and 40 through Ollama.
-    - phi4:14b, deepseek-r1:14b and qwen3.8:27b are dense: 33, 20 and 10 tok/s through Ollama.
-    - The prompt is about 2k tokens, so a bot should take a few minutes on the MoE models and 10–15 on qwen3.8. That is an estimate: the thinking length is unknown.
+  - Models: the five in `LOCAL_MODELS.md`.
+    - The MoE models (gemma4:26b, gpt-oss:20b) write at 76–79 tok/s, the dense ones at 18–32.
+    - The prompt is 1,882 tokens, so a bot should take a few minutes on the MoE models and 10–15 on qwen3.8. That is an estimate: the thinking length is unknown.
     - gpt-oss-120B doesn't fit in 36 GB; its by-hand bots are already in the zoo, and gpt-oss:20b is its small sibling.
   - Done when:
     - the script is in, and the five models have the `baseline` and `market_maker` prompts, two samples each, in `bots/zoo/other/` with README rows;

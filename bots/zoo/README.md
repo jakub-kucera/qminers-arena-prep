@@ -13,6 +13,7 @@ bots/zoo/
   SPEC.md          the spec every model gets, unchanged (P3 round 1's products, Prosperity's API)
   PROMPTS.md       one prompt per archetype: baseline, market_maker, mean_reversion, momentum
   bundle.py        prints SPEC.md + one prompt as a single message
+  LOCAL_MODELS.md  serving local models with llama.cpp, to run the prompts without a chat app
   claude/          written by fresh Claude agents (no repo context)
   gemini/          paste here what Gemini writes
   chatgpt/         ... ChatGPT / OpenAI models, older ones included
