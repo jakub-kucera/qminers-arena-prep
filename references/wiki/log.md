@@ -288,3 +288,7 @@ The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `wo
 
 ## [2026-10-18] lint | template citations after Kelp moved to `sized_mid`
 Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted every line from 113 down by two. Re-mapped the citations in 28 pages (each cited line checked against the old file). `shared-market-and-adversaries` describes Kelp on `wall_mid` under the far spoofer; that is the result that moved it.
+
+## [2026-10-18] query | two more `arena.sim` presets: jumps that snap back, one-sided takers
+- `ROBOT_DISHES` copies P4 round 5's jumping day; `KELP_FLOW` copies P3 round 1 Kelp's taker flow, which turned out to be 35% buys by count, not persistent signs (`C(1)` 0.04 net of the imbalance).
+- **Filed into:** `jumps-and-snap-back` ("What it means for our code"), `market-making-and-inventory-skew` (the `C(1)` measurement); the repo's `IDEAS.md` (two rows), `TODO.md` (the presets item, Kelp's long drift, the mock round's data), `CLAUDE.md`, `README.md`.

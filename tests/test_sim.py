@@ -186,3 +186,42 @@ def test_generated_days_look_like_prosperity_3_round_1():
         if not band[0] <= rows[product][key] <= band[1]
     ]
     assert not misses
+
+
+def _wall_jumps(day, product, size=50):
+    walls = [tick.books[product].wall_mid for tick in day.ticks]
+    walls = [w for w in walls if w is not None]
+    moves = [b - a for a, b in zip(walls, walls[1:]) if abs(b - a) >= size]
+    reversed_ = sum(1 for a, b in zip(moves, moves[1:]) if a * b < 0) / (len(moves) - 1)
+    on_grid = sum(1 for w in walls if w % 100 == 0) / len(walls)
+    return len(moves), reversed_, on_grid
+
+
+def test_the_robot_dishes_preset_looks_like_prosperity_4s_jumping_day():
+    # P4 round 5 day 4, from tick 1,153 (`experiments.p4_jumps`): 741 jumps of 50 or more, 87%
+    # reversing the one before, the wall mid on a multiple of 100 on 88% of ticks, spread 8, 249
+    # trades. diagnose's jump share (moves past half the spread) is 0.158 there, since its first
+    # 1,153 ticks were an ordinary noisy walk that the preset leaves out.
+    days = [sim.run(sim.preset_market(["ROBOT_DISHES"]), seed).day for seed in range(3)]
+    for day in days:
+        jumps, reversed_, on_grid = _wall_jumps(day, "ROBOT_DISHES")
+        assert 550 <= jumps <= 1000 and 0.8 <= reversed_ <= 0.93 and on_grid >= 0.8
+    row = diagnose.diagnose(days)["ROBOT_DISHES"]
+    assert row["spread_ticks_median"] == 8 and 0.04 <= row["jump_share"] <= 0.2
+    assert 180 <= row["trades"] / 3 <= 330
+
+
+def test_the_kelp_flow_preset_has_prosperity_3s_one_sided_takers():
+    # P3 round 1 Kelp: 35% of the trades at the touch are buys (42% of the volume), C(1) 0.127;
+    # the rest as KELP (the same bands).
+    row = diagnose.diagnose([sim.run(sim.preset_market(["KELP_FLOW"]), seed).day for seed in range(3)])["KELP_FLOW"]
+    assert 0.31 <= row["buy_share"] <= 0.39 and 0.09 <= row["c1"] <= 0.17
+    misses = [f"{key} {row[key]:.3f} not in {band}" for key, band in BANDS["KELP"].items() if not band[0] <= row[key] <= band[1]]
+    assert not misses
+
+
+def test_noise_takers_can_repeat_the_last_side():
+    sticky = MarketSpec((ProductSpec("X", 10, Fundamental(100), Maker(size=(1000, 1000)), noise=NoiseTakers(rate=1.0, size=(1, 1), persistence=0.9)),), ticks=2000)
+    signs = [1 if t.price > 100 else -1 for tick in sim.run(sticky, 0).day.ticks for t in tick.trades.get("X", [])]
+    c1 = sum(a * b for a, b in zip(signs, signs[1:])) / (len(signs) - 1)
+    assert c1 > 0.8  # 0.9 repeat the last side, the rest draw it afresh: about 0.9 + 0.1 x 0

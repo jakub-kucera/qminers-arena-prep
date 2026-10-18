@@ -325,8 +325,10 @@ its walls and small limit traders post near the fundamental. Then the book is sn
 the bots trade. Then noise, value and momentum takers arrive and trade against the book, bots'
 orders included. Its module docstring has the details. Three presets, `KELP`, `RAINFOREST_RESIN`
 and `SQUID_INK`, are calibrated so that `arena.diagnose` sees P3 round 1 in them, and named so the
-template trades them as it is; they are the default market. A fourth, `HYDROGEL_PACK`
-(`--products`), returns to a level as P4's Hydrogel does. `--regime shift_up` (or `shift_down`,
+template trades them as it is; they are the default market. Three more are chosen with `--products`:
+`HYDROGEL_PACK` returns to a level as P4's Hydrogel does; `KELP_FLOW` is Kelp with P3 round 1's
+one-sided takers (35% of trades are buys, larger than the sells), which push a two-sided quote long;
+`ROBOT_DISHES` jumps by 100 in bursts that mostly go straight back, as on P4 round 5's day 4. `--regime shift_up` (or `shift_down`,
 `trend_up`, `trend_down`; `--regime-at`, default mid-day) changes every product's regime during the
 day, as Qminers' 2024 final did: a shift of 5 wall spreads, or a trend of 10 over the rest of the
 day. Unlike `arena.stress`'s moved recordings, the market reacts to it.

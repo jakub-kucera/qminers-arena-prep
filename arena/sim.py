@@ -14,8 +14,8 @@ the smallest such market the literature describes (PyMarketSim; Wang & Wellman 2
 their pages in references/wiki/sources/). Per product, every tick:
 
   1. The fundamental moves. It reverts to a level at rate `reversion` (Wang & Wellman's eq. 1
-     without the floor at 0), with Gaussian steps, an optional drift, and rare jumps that may
-     snap back after a while. With a regime change (`with_regime`, `--regime`), from a point in
+     without the floor at 0), with Gaussian steps, an optional drift, and jumps that may snap back
+     after a while, or come in bursts that mostly reverse the jump before. With a regime change (`with_regime`, `--regime`), from a point in
      the day the value and its level shift at once, or both start to trend.
   2. The quoters arrive and post, against the live book:
        - the market maker re-quotes its walls around its view of the fundamental, moved against
@@ -26,7 +26,8 @@ their pages in references/wiki/sources/). Per product, every tick:
      the snapshot and trade: their orders take from the book at once, and the rest waits.
   4. The takers arrive in a seeded random order, with price-time priority against the book,
      the bots' orders included. Their trades are this tick's market trades:
-       - noise takers buy or sell a few lots at the touch for no reason;
+       - noise takers buy or sell a few lots at the touch for no reason, the sides possibly
+         unequal in number and size, and possibly repeating the last noise taker's side;
        - value takers see the fundamental with noise and take when the touch is far enough off;
        - momentum takers buy when the mid's short average is above its long one, and sell below.
 
@@ -82,6 +83,12 @@ class Fundamental:
     jump_rate: float = 0.0  # chance of a jump each tick
     jump_size: float = 0.0  # each jump is this, up or down at random
     snap_back: int | None = None  # ticks after which a jump is undone; None: it stays
+    # Jumps that cluster and reverse, as on P4 round 5's ROBOT_DISHES: k ticks after a jump the
+    # chance of another is jump_rate + jump_excite x jump_decay^(k-1), and each goes against the one
+    # before with chance jump_reverse (None: up or down at random).
+    jump_excite: float = 0.0
+    jump_decay: float = 0.0
+    jump_reverse: float | None = None
     # A regime change (see with_regime): at share regime_at of the day, the value and the level
     # both move by regime_shift and stay there; from then on, both move by regime_drift a tick, so
     # a product that returns to a level follows the trend instead of pulling back against it.
@@ -118,6 +125,8 @@ class NoiseTakers:
     rate: float = 0.0
     size: tuple[int, int] = (1, 8)
     buy_share: float = 0.5
+    sell_size: tuple[int, int] | None = None  # a sell's volume, uniform; None: size
+    persistence: float = 0.0  # chance a noise taker takes the same side as the one before
 
 
 @dataclass(frozen=True)
@@ -205,6 +214,31 @@ PRESETS: dict[str, ProductSpec] = {
         LimitTraders(rate=0.08, offset=(2.0, 7.0), size=(1, 5), life=5),
         NoiseTakers(rate=0.03, size=(1, 5)),
         ValueTakers(rate=0.005, size=(1, 5), noise=2.0, threshold=1.0),
+    ),
+    # KELP with P3 round 1's taker flow, which KELP leaves balanced (so results on KELP still
+    # reproduce): 35% of the trades at the touch are buys, larger than the sells (3.5 lots against
+    # 2.6, 42% of the volume), and consecutive signs correlate (C(1) 0.13). A maker quoting both
+    # sides is hit on the bid more often, so it drifts long, as the template does on Kelp.
+    "KELP_FLOW": ProductSpec(
+        "KELP_FLOW",
+        50,
+        Fundamental(2030, sd=0.12),
+        Maker(half_spread=1.75, size=(20, 30)),
+        LimitTraders(rate=1.0, offset=(-0.5, 1.0), size=(1, 6), life=1),
+        NoiseTakers(rate=0.25, size=(2, 6), sell_size=(1, 5), buy_share=0.35, persistence=0.02),
+        ValueTakers(rate=0.04, size=(1, 5), noise=0.5, threshold=1.0),
+    ),
+    # P4 round 5's ROBOT_DISHES on day 4, from tick 1,153: the value sits on multiples of 100 and
+    # jumps by 100, mostly straight back (87% of jumps reverse the one before), in bursts (a jump
+    # follows another one tick later 29% of the time, against 3% a tick when quiet), behind walls
+    # 8 apart. The pair it flickers between wanders over the day. Limit 10, as in round 5.
+    "ROBOT_DISHES": ProductSpec(
+        "ROBOT_DISHES",
+        10,
+        Fundamental(10_400, jump_rate=0.03, jump_size=100, jump_excite=0.26, jump_decay=0.75, jump_reverse=0.87),
+        Maker(half_spread=4, size=(5, 10)),
+        LimitTraders(rate=0.3, offset=(4.5, 5.5), size=(4, 10), life=1),
+        NoiseTakers(rate=0.025, size=(1, 4)),
     ),
 }
 DEFAULT_PRESETS = ["KELP", "RAINFOREST_RESIN", "SQUID_INK"]  # P3 round 1's, the default market
@@ -389,6 +423,8 @@ class _Product:
         f = spec.fundamental
         self.value = f.start
         self.jumps: list[tuple[int, float]] = []  # (tick it snaps back at, size)
+        self.last_jump: tuple[int, float] | None = None  # (tick, size) of the last jump
+        self.last_noise_buy: bool | None = None  # the last noise taker's side
         self.maker_quotes: list[int] = []
         self.maker_inventory = 0
         self.mids: list[float] = []
@@ -402,9 +438,17 @@ class _Product:
         level = (f.start if f.level is None else f.level) + self.level_shift
         shock, jump_draw, jump_sign = rng.gauss(0, 1), rng.random(), rng.random()
         self.value += f.reversion * (level - self.value) + f.sd * shock + f.drift
-        if f.jump_rate and jump_draw < f.jump_rate:
-            size = f.jump_size if jump_sign < 0.5 else -f.jump_size
+        rate = f.jump_rate
+        if f.jump_excite and self.last_jump is not None:
+            rate += f.jump_excite * f.jump_decay ** (tick - self.last_jump[0] - 1)
+        if rate and jump_draw < rate:
+            if f.jump_reverse is not None and self.last_jump is not None:
+                last = self.last_jump[1]
+                size = -last if jump_sign < f.jump_reverse else last
+            else:
+                size = f.jump_size if jump_sign < 0.5 else -f.jump_size
             self.value += size
+            self.last_jump = (tick, size)
             if f.snap_back is not None:
                 self.jumps.append((tick + f.snap_back, size))
         for back in [jump for jump in self.jumps if jump[0] == tick]:
@@ -450,7 +494,11 @@ class _Product:
             orders = [(_Order(new_id(), LIMIT, s.name, price, size if buying else -size, timestamp, tick + t.life), True)]
         elif kind == NOISE:
             t = s.noise
-            buying, size = rng.random() < t.buy_share, rng.randint(*t.size)
+            buying = rng.random() < t.buy_share
+            if t.persistence and rng.random() < t.persistence and self.last_noise_buy is not None:
+                buying = self.last_noise_buy
+            self.last_noise_buy = buying
+            size = rng.randint(*(t.size if buying or t.sell_size is None else t.sell_size))
             touch = book.best_ask() if buying else book.best_bid()
             if touch is not None:
                 orders = [(_Order(new_id(), NOISE, s.name, touch, size if buying else -size, timestamp), False)]
