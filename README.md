@@ -88,15 +88,15 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 
 ### Fill assumptions matter
 
-Same template, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5 since 2026-10-15;
-with the earlier 1, `all` per tick was 81,292 and `worse` 57,774):
+Same template, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5 since 2026-10-15, on
+`sized_mid` since 2026-10-18; with the earlier edge 1, `all` per tick was 81,292 and `worse` 57,774):
 
 | Fills from | per tick (default) | `--resting` |
 |---|---|---|
-| book + market trades at your price or worse (`all`, default) | 72,708 | 66,518 |
-| book + market trades strictly worse than your price (`worse`) | 63,296 | 63,362 |
-| visible book only (`none`) | 28,216 | 30,436 |
-| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 40,167 | 34,428 |
+| book + market trades at your price or worse (`all`, default) | 72,674 | 66,558 |
+| book + market trades strictly worse than your price (`worse`) | 63,302 | 63,436 |
+| visible book only (`none`) | 28,217 | 30,404 |
+| `all`, but only half the liquidity (`--fill-ratio 0.5`) | 40,184 | 34,461 |
 
 Most of the default PnL comes from assuming bots would have traded with your resting quotes
 instead of with each other. When comparing variants, check that the better one also wins under
@@ -250,10 +250,10 @@ Template, Prosperity 3 round 1, all three days, `--resting`, `--match-trades all
 
 | `--queue` | Template | Kelp at `make_edge` 1 |
 |---|---|---|
-| `back` (default) | 66,518 | 67,446 |
-| `prob`, `--queue-power 1` | 66,522 | 68,084 |
-| `prob`, `--queue-power 5` / `20` | 66,518 | 67,470 / 67,446 |
-| `front` | 67,030 | 74,928 |
+| `back` (default) | 66,558 | 67,450 |
+| `prob`, `--queue-power 1` | 66,562 | 68,058 |
+| `prob`, `--queue-power 5` / `20` | 66,558 | 67,474 / 67,450 |
+| `front` | 67,070 | 74,918 |
 
 The template quotes one tick inside the best price, where it is usually alone, so its queue barely
 matters; a quote that joins a level does depend on it. In `arena.sim`, where the market maker
@@ -273,13 +273,13 @@ This models a market shared by all teams much better than `--fill-ratio`:
 - **Rivals written for Prosperity:** their orders were meant to live one tick, so they never cancel, and under `--resting` their orders pile up until every new one breaches the limit. `--requote` makes every rival cancel its resting orders before each tick.
 - **Races:** another bot can fill one of your orders after your bot decided. If your new orders then no longer fit the limit, they are rejected and counted as a race, not a limit breach. A cancel for an order that filled in the meantime does nothing.
 
-Template against copies of itself, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5):
+Template against copies of itself, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5, `sized_mid`):
 
 | Market | per tick (default) | `--resting` |
 |---|---|---|
-| alone | 72,708 | 66,518 |
-| with one copy | 42,037 + 42,294 | 28,288 + 24,746 |
-| with two copies | | 14,681 + 18,693 + 14,490 |
+| alone | 72,674 | 66,558 |
+| with one copy | 42,033 + 42,304 | 26,904 + 25,322 |
+| with two copies | | 13,161 + 14,568 + 19,044 |
 
 The two copies together make more than one alone in the default mode, because each has its
 own position limit. They also get extra fills: when one beats the other to an ask, the other's

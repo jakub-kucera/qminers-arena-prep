@@ -35,7 +35,7 @@ The question is the defender's side of D3 in [harder-rounds](../concepts/harder-
 - **Blocking level `K`** maps onto how `fair` picks its level:
   - `wall_mid` takes the largest level anywhere in the book, the place a 200-lot spoof one tick behind the best would win;
   - `outer_mid` takes the outermost;
-  - `sized_mid` takes the first level from the inside with at least `wall_size` (`bots/template.py:279`, `fair_value`).
+  - `sized_mid` takes the first level from the inside with at least `wall_size` (`bots/template.py:281`, `fair_value`).
 
   The paper's finding, that the inside quotes carry the information and a deeper level can be dropped at little cost, argues for a `fair` that doesn't jump to a new largest level the moment one appears. That is the wall-persistence check in [harder-rounds](../concepts/harder-rounds.md), D3 *(inferred)*.
 - **The negative offset** is a slightly tighter `make_edge`. The paper's gain comes from re-entry, more trades sooner, which the template already gets by re-quoting every tick.

@@ -109,8 +109,10 @@ PARAMS = {
     # data, not the Arena's: chosen 2026-10-15 for --match-trades worse and a market that reacts,
     # over all, where make_edge 1 made more (TODO.md, "Tune Kelp and Squid Ink for worse fills?").
     # Re-grid make_edge on the day once the Arena's fill mode is known. Squid Ink isn't traded:
-    # its quotes are picked off when orders rest (same TODO item).
-    "KELP": {"limit": 50, "fair": "wall_mid", "make_edge": 0.5, "stop_loss": 1200},
+    # its quotes are picked off when orders rest (same TODO item). sized_mid since 2026-10-18: the
+    # same PnL as wall_mid alone, and a rival's large order behind the best doesn't move it
+    # (TODO.md, "Move the Prosperity products' fair value to sized_mid?").
+    "KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200},
     # IMC Prosperity 3, round 2. The baskets trade their spread against the legs (level: its mean
     # over the three days, level_band about one sd; IDEAS.md). They only take: their price jumps
     # several ticks at once, and resting quotes got picked off. The legs aren't traded: market

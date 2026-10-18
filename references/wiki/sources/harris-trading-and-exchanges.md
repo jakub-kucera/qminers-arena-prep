@@ -67,7 +67,7 @@ The practitioners' textbook of market microstructure: who trades, why, and how e
 
 ## Assumptions against the Arena
 - **Human dealers and real investors.** In Prosperity the "dealers" are a market-making bot, and the "informed traders" are bots whose rules may be discoverable ([informed counterparties](../concepts/informed-counterparties.md)). Harris's categories still apply, but the motives are programmed.
-- **Our template is a quote matcher.** It quotes one tick inside the best book quote (`bots/template.py:642-685`), with the bot's large "wall" behind it as the backstop. That is safe while the wall stays. In a shared market (`--vs`), a rival can use Harris's trap: bait with size, sell into us, cancel. *(Inferred.)*
+- **Our template is a quote matcher.** It quotes one tick inside the best book quote (`bots/template.py:644-687`), with the bot's large "wall" behind it as the backstop. That is safe while the wall stays. In a shared market (`--vs`), a rival can use Harris's trap: bait with size, sell into us, cancel. *(Inferred.)*
 - **Timing option and resting orders:** in Prosperity orders live one tick, so no quote goes stale. In the Arena, if orders rest and rivals react faster, our resting quotes give away the option ([queue position](../concepts/queue-position-and-fills.md), [shared market](../concepts/shared-market-and-adversaries.md)).
 - **Bluffing needs a counterparty that reacts to flow.** Our current `fair` (mid or wall mid) does not react to trades, so it can't be bluffed that way. A flow- or imbalance-driven fair could be ([book imbalance](../concepts/book-imbalance-and-micro-price.md)).
 
@@ -76,7 +76,7 @@ The practitioners' textbook of market microstructure: who trades, why, and how e
 |---|---|
 | realized spread | markout of a round trip; `arena/analysis.py` markouts at 1–N ticks |
 | inventory imbalance inversely correlated with future price changes | corr(`position`, future change in `mark`) per product in `_timeline.csv` |
-| quote matching | `make` quoting `best_bid + 1` / `best_ask − 1` (`bots/template.py:642-685`) |
+| quote matching | `make` quoting `best_bid + 1` / `best_ask − 1` (`bots/template.py:644-687`) |
 | transitory vs permanent spread component | short-horizon markout reversal (transitory) vs persistent markout (permanent) |
 | arbitrage basis | basket price − Σ weights × components |
 
