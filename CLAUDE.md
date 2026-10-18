@@ -123,6 +123,7 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **Smoke test:** before the pool starts, a 200-tick run of the first combination makes typos fail fast.
 - **Ranking:** combinations are ranked on `pnl`, `min day`, `nbhd` (mean over the combination and its one-step grid neighbours) and the PnL under each extra mode. The summary flags when these measures disagree.
 - **Held-out days:** with two or more days, `leave_one_day_out` scores each day with the best combination by PnL on the other days, from the per-day PnL already collected (no extra runs). `repeated_days` flags days that share a product's books and trades (ignoring counterparty names): Prosperity reuses days across rounds.
+- **Overfitting:** each run's PnL is also kept per block of ticks (`block_pnl`, about `BLOCKS` = 16 over the days, never straddling one). `format_overfitting` prints the trial count, `cscv`'s PBO (Bailey et al., sampled to `MAX_SPLITS` halvings) and `deflated_sharpe` of the best cell's gain over the baseline (the bot with only `--set`), with `independent_trials` from the gains' average correlation. Both formulas were checked against the PDFs; `tests/test_grid.py` reproduces the DSR paper's worked example.
 
 **Analysis** (`arena/analysis.py`):
 - **No pyplot:** charts are `Chart` objects, a `Figure` subclass with `_repr_png_`, so they display in notebooks and save from the CLI without pyplot. Each `Chart` keeps the rc params of the theme it was drawn in.

@@ -46,7 +46,7 @@ None on the principle. On the cost of caution: Baguette Fromage notes they shipp
 ## What it means for our code
 `arena/grid.py` ranks by PnL, minimum day, neighbourhood mean and extra modes, and flags disagreement. Since 2026-10-13 it also holds out each day in turn: the best combination on the other days is scored on the day left out, which measures the selection bias directly (−14% for Velvetfruit with its vouchers on P4 rounds 3–4, none for Kelp on P3 round 1), and it flags days whose data repeats. This is CSCV's simplest relative: one split per day rather than every halving of the blocks, and no probability of overfitting (`TODO.md`: "Make `arena.grid` say how many combinations it tried"). The Arena's submission cap and private re-evaluation (`ON_THE_DAY.md`) mean every look at the public backtest is one more trial.
 
-**Is a CSCV-style PBO worth building? Yes** (decided 2026-10-12 from the papers; not yet built):
+**Is a CSCV-style PBO worth building? Yes** (decided 2026-10-12 from the papers; built 2026-10-18, below):
 - **The grid already produces CSCV's input.** It needs only every cell's PnL per block, the difference of `pnl` at block boundaries in each run's timeline. CSCV is then a few dozen lines of standard library.
 - **Blocks:** contiguous ticks within a day, never straddling days. For example, 4–8 blocks per day over 3 days gives S = 12–24; at S = 24, sample the 2.7M halvings rather than enumerating them.
 - **Report:**
@@ -57,7 +57,16 @@ None on the principle. On the cost of caution: Baguette Fromage notes they shipp
   - the deflated Sharpe ratio of the top cell, with `N̂` from the cells' average correlation.
 - **Its blind spot:** halvings mix blocks of the same days, so a day-level regime change is invisible to it. Keep the leave-one-day-out and worst-day checks next to it.
 
+**Built (2026-10-18), `arena/grid.py`, "overfitting":** every grid summary prints the trials (cells × modes), PBO by CSCV over about 16 blocks within days (identical cells counted once, halvings sampled to 4,000), the pick's mean out-of-sample rank and loss rate, and the DSR of the best cell's **gain over the bot as is**, block by block, with `N̂` from the gains' average correlation. Two departures from the papers *(our choices)*:
+- **DSR on the gain, not the PnL.** On a cell's own PnL the DSR only says the bot makes money (a per-block Sharpe of 12–17 on every grid tried); the gain over the baseline is the selection question.
+- **No degradation slope.** With PnL summed over blocks, a pick that stays the same cell has out-of-sample = total − in-sample, a slope of −1 by construction. The pick's mean relative rank out of sample replaces it.
+
 ## How to test it here
+Done 2026-10-18 (`tests/test_grid.py`, and the grids below, each `--modes all,worse`):
+- **The detector:** on noise (20 cells × 12 blocks, 10 seeds) PBO averages near 50%; one cell with an edge brings it under 10%. The DSR reproduces the paper's worked example (0.9004; 0.9505 at N = 46).
+- **Real grids:** Kelp `make_edge 0..3` × `skew 0,5,10` (P3 round 1): PBO 0%, DSR 1.00 against the committed `make_edge` 0.5 under `all`. Resin's: PBO 0%, the bot as is is best. Osmium's (P4 rounds 1–2): PBO 0%, DSR 0.00, a gain over the committed setting of nothing real. Hydrogel's 48-cell level grid (P4 rounds 3–4): PBO 30%. Osmium `smoothing 0.5–0.95`: PBO 43%, which value wins is noise, while the gain of any of them over none has DSR 0.98. The memory argument's prediction (a worse PBO on the pegged Resin than on Kelp) isn't visible: both are 0%.
+
+Before:
 1. **Check the detector before trusting it:** add a parameter with no effect (or shuffle the products' days) to a grid, and confirm that PBO comes out near 50% and the deflated Sharpe ratio is low.
 2. **Then run it on real grids:** `make_edge` × `skew` on P3 and P4 round 1. Compare PBO across a pegged product (Resin) and a drifting one (Kelp); the memory argument predicts a worse slope on the pegged one.
 3. **Record N** (cells × modes, including earlier grids on the same days) next to every grid result reported in `TODO.md` or a wiki page.

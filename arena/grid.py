@@ -21,6 +21,23 @@ didn't see, and its gap to the best combination's PnL is the selection bias of a
 It only covers the gridded values: a setting the bot fits to the data itself (say a level taken
 from the days' mean) needs its own held-out test. Days whose data repeats are flagged, since
 holding one out still trains on its copy.
+
+Last, how much the choice can be trusted, on the first mode's PnL cut into blocks of ticks within
+days (BLOCKS in all, as evenly as the days allow), with cells whose block PnL is identical counted
+once:
+  PBO       Bailey et al.'s probability of backtest overfitting by CSCV: over halvings of the blocks,
+            how often the best cell on one half ranks at or below the median on the other. Near 50%
+            the grid's pick carries no information. The same halvings give the pick's mean relative
+            rank out of sample (1 is the top, 0.5 the median) and how often it loses money there.
+            (Not the paper's slope of out-of-sample on in-sample performance: with PnL summed over
+            blocks, a pick that stays the same cell gives -1 by construction.)
+  DSR       Bailey and Lopez de Prado's deflated Sharpe ratio of the best cell's gain over the bot as
+            is (--set only), block by block: the chance that the gain's per-block Sharpe ratio beats
+            the best of N^ cells with no gain, N^ the cells' count discounted by the average
+            correlation of their gains. On the cells' own PnL it would only say that the bot makes
+            money. Below 0.95 the summary warns.
+Halvings mix blocks of the same days, so a day-level change is invisible to both: the held-out
+days are the check for that (references/wiki/concepts/validation-and-overfitting.md).
 """
 
 from __future__ import annotations
@@ -30,6 +47,7 @@ import csv
 import itertools
 import math
 import os
+import random
 import statistics
 import sys
 import time
@@ -46,6 +64,9 @@ from arena.formats import FORMATS
 from arena.model import Day
 
 SMOKE_TEST_TICKS = 200
+BLOCKS = 16  # CSCV's S over all the days: Bailey et al. call 16 reasonable (p. 21-22)
+MAX_SPLITS = 4000  # halvings of the blocks to score; sampled (seeded) when there are more
+EULER_GAMMA = 0.5772156649015329
 
 
 @dataclass(frozen=True)
@@ -66,6 +87,7 @@ class Outcome:
     values: tuple
     day_pnl: dict[TradeMatching, dict[str, float]] = field(default_factory=dict)  # mode -> day -> pnl
     product_pnl: dict[TradeMatching, dict[str, float]] = field(default_factory=dict)  # mode -> product -> pnl
+    block_pnl: dict[TradeMatching, list[float]] = field(default_factory=dict)  # mode -> PnL per block, days in order
     fills: int = 0  # under the first mode
     errors: int = 0  # over all modes
     limit_breaches: int = 0
@@ -156,9 +178,12 @@ def _evaluate(index: tuple[int, ...], values: tuple) -> Outcome:
     for mode_number, mode in enumerate(w["modes"]):
         config = replace(w["config"], trade_matching=mode)
         days, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
+        blocks = outcome.block_pnl.setdefault(mode, [])
         for day in w["days"]:
             result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], config, requote=w["requote"])[0]
-            days[day.name] = (report.total_pnl(result) or [0.0])[-1]
+            series = report.total_pnl(result) or [0.0] * len(day.ticks)
+            days[day.name] = series[-1]
+            blocks += block_pnl(series, blocks_per_day(len(w["days"])))
             for stats in report.product_stats(result):
                 products[stats.product] = products.get(stats.product, 0.0) + stats.pnl
             if mode_number == 0:
@@ -370,6 +395,142 @@ def format_held_out(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------- overfitting
+
+
+def blocks_per_day(days: int) -> int:
+    """Blocks to cut each day into: about BLOCKS in all, an even number over the days (CSCV halves them)."""
+    per_day = math.ceil(BLOCKS / days)
+    return per_day + (per_day * days) % 2
+
+
+def block_pnl(series: list[float], blocks: int) -> list[float]:
+    """A day's cumulative PnL series cut into contiguous blocks: each block's PnL. Empty if too short."""
+    if len(series) < blocks:
+        return []
+    out, last = [], 0.0
+    for k in range(blocks):
+        end = series[round(len(series) * (k + 1) / blocks) - 1]
+        out.append(end - last)
+        last = end
+    return out
+
+
+@dataclass(frozen=True)
+class Cscv:
+    pbo: float  # share of halvings where the in-sample best is at or below the out-of-sample median
+    loss: float  # share of halvings where it loses money out of sample
+    rank: float  # its mean relative rank w out of sample: near 1 the top, 0.5 the median
+    splits: int  # halvings scored
+    of: int  # halvings there are
+
+
+def cscv(columns: list[list[float]], max_splits: int = MAX_SPLITS, seed: int = 0) -> Cscv:
+    """Bailey et al.'s combinatorially symmetric cross-validation (Algorithm 2.3, p. 11-12).
+
+    `columns` holds each cell's PnL per block, the blocks in the same order for every cell. Each
+    halving of the blocks is a training half and a test half; the cell with the best training PnL
+    gets its test rank r in 1..N (higher is better, ties averaged), w = r / (N + 1), and the
+    halving counts as overfit when the logit ln(w / (1 - w)) <= 0.
+    """
+    n, s = len(columns), len(columns[0])
+    of = math.comb(s, s // 2)
+    if of <= max_splits:
+        halvings = list(itertools.combinations(range(s), s // 2))
+    else:
+        rng, seen = random.Random(seed), set()
+        while len(seen) < max_splits:
+            seen.add(tuple(sorted(rng.sample(range(s), s // 2))))
+        halvings = sorted(seen)
+    totals = [sum(column) for column in columns]
+    overfit = losses = 0
+    ranks = []
+    for train in halvings:
+        inside = [sum(column[i] for i in train) for column in columns]
+        outside = [total - x for total, x in zip(totals, inside)]
+        best = max(range(n), key=inside.__getitem__)
+        mine = outside[best]
+        rank = sum(1 for v in outside if v < mine) + (sum(1 for v in outside if v == mine) + 1) / 2
+        w = rank / (n + 1)
+        overfit += math.log(w / (1 - w)) <= 0
+        losses += mine < 0
+        ranks.append(w)
+    return Cscv(overfit / len(halvings), losses / len(halvings), statistics.fmean(ranks), len(halvings), of)
+
+
+def expected_max_sharpe(variance: float, trials: float) -> float:
+    """SR0, the best Sharpe ratio expected from `trials` independent cells with no edge whose Sharpe
+    ratios have this variance (Bailey and Lopez de Prado, eq. 1-2, p. 7-9). 0 below two trials."""
+    if trials < 2:
+        return 0.0
+    z = statistics.NormalDist().inv_cdf
+    return math.sqrt(variance) * ((1 - EULER_GAMMA) * z(1 - 1 / trials) + EULER_GAMMA * z(1 - 1 / (trials * math.e)))
+
+
+def deflated_sharpe(sharpe: float, sharpe0: float, periods: int, skew: float, kurtosis: float) -> float | None:
+    """DSR = Z[(SR - SR0) sqrt(T - 1) / sqrt(1 - skew SR + (kurtosis - 1) / 4 SR^2)] (eq. 2, p. 8-9);
+    kurtosis is not excess (3 for a normal). None when the root's argument isn't positive."""
+    spread = 1 - skew * sharpe + (kurtosis - 1) / 4 * sharpe**2
+    if spread <= 0 or periods < 2:
+        return None
+    return statistics.NormalDist().cdf((sharpe - sharpe0) * math.sqrt(periods - 1) / math.sqrt(spread))
+
+
+def independent_trials(columns: list[list[float]]) -> float:
+    """N^ = rho + (1 - rho) M, rho the average pairwise correlation of the M cells' block PnL (eq. 9,
+    p. 14-15). Cells with a constant PnL per block have no correlation and are left out of rho."""
+    m = len(columns)
+    scaled = []
+    for column in columns:
+        sd = statistics.pstdev(column)
+        if sd > 0:
+            mean = statistics.fmean(column)
+            scaled.append([(x - mean) / sd for x in column])
+    pairs = [(a, b) for i, a in enumerate(scaled) for b in scaled[i + 1 :]]
+    if not pairs:
+        return float(m)
+    rho = statistics.fmean(sum(x * y for x, y in zip(a, b)) / len(a) for a, b in pairs)
+    return rho + (1 - rho) * m
+
+
+def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: int) -> str:
+    mode = modes[0]
+    usable = [o for _, o in sorted(outcomes.items()) if not o.failed]
+    columns = list({tuple(round(v, 6) for v in o.block_pnl[mode]): o.block_pnl[mode] for o in usable}.values())
+    lines = [f"overfitting: {len(outcomes)} cells × {len(modes)} modes = {len(outcomes) * len(modes)} trials on {days} days"]
+    blocks = len(columns[0]) if columns else 0
+    if len(columns) < 2 or blocks < 2 or any(len(c) != blocks for c in columns):
+        lines.append("  fewer than two distinct cells, or days too short to cut into blocks: no PBO or DSR")
+        return "\n".join(lines)
+    result = cscv(columns)
+    sampled = f"{result.splits:,} of {result.of:,}" if result.splits < result.of else f"all {result.of:,}"
+    coarse = " (under 10: coarse ranks)" if len(columns) < 10 else ""
+    lines.append(f"  CSCV on pnl({mode}) in {blocks} blocks ({blocks // days} a day), {len(columns)} distinct cells{coarse}, {sampled} halvings:")
+    lines.append(f"  PBO {result.pbo:.0%}  ·  the pick's mean rank out of sample {result.rank:.2f} (1 top, 0.5 median)  ·  it loses money there in {result.loss:.0%}")
+    base = baseline.block_pnl[mode]
+    gains = [[x - b for x, b in zip(c, base)] for c in columns] if len(base) == blocks else []
+    best = [x - b for x, b in zip(max(usable, key=lambda o: o.pnl(mode)).block_pnl[mode], base)] if gains else []
+    sharpes = [statistics.fmean(g) / statistics.stdev(g) for g in gains if statistics.stdev(g) > 0]
+    trials = independent_trials(gains) if gains else 0.0
+    if best and not any(best):
+        lines.append("  the best cell is the bot as is: no gain to deflate")
+    elif best and statistics.stdev(best) > 0 and len(sharpes) >= 2:
+        mean, sd = statistics.fmean(best), statistics.pstdev(best)
+        skew = statistics.fmean(((x - mean) / sd) ** 3 for x in best)
+        kurtosis = statistics.fmean(((x - mean) / sd) ** 4 for x in best)
+        sharpe, sharpe0 = statistics.fmean(best) / statistics.stdev(best), expected_max_sharpe(statistics.variance(sharpes), trials)
+        dsr = deflated_sharpe(sharpe, sharpe0, blocks, skew, kurtosis)
+        rough = " (more cells than blocks: N^ is rough)" if len(columns) > blocks else ""
+        shown = f"{dsr:.2f}" if dsr is not None else "-"
+        lines.append(f"  DSR {shown} for the best cell's gain over the bot as is: per-block Sharpe {sharpe:.2f} against {sharpe0:.2f}, "
+                     f"the best of N^ {trials:.1f} cells with no gain{rough}")
+        if dsr is not None and dsr < 0.95:
+            lines.append("! the best cell's gain over the bot as is is not clearly more than the best of that many cells with no gain (DSR < 0.95)")
+    if result.pbo >= 0.5:
+        lines.append("! PBO >= 50%: the best cell in one half of the blocks is as likely as not to be below the median in the other")
+    return "\n".join(lines)
+
+
 def write_csv(path: Path, axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tuple[int, ...], Outcome]) -> None:
     """One row per combination: axis values, then per mode its pnl, min day, nbhd, per-day and per-product pnl."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -456,6 +617,7 @@ def main(argv: list[str] | None = None) -> int:
     held_out = format_held_out(axes, modes, outcomes, repeated_days(s.days))
     if held_out:
         print("\n" + held_out)
+    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days)))
     failed = [o for o in outcomes.values() if o.first_error]
     if failed:
         print(f"first error: {failed[0].first_error}")

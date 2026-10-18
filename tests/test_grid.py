@@ -184,3 +184,56 @@ def test_grid_exits_1_when_every_combination_fails(capsys, data_dir, tmp_path):
     )
     code, text = run_main(capsys, path, data_dir, "--grid", "PARAMS.size=1,2", "--jobs", "1")
     assert code == 1 and "every combination failed" in text
+
+
+def test_blocks_are_an_even_number_over_the_days_and_sum_to_the_day():
+    assert [grid.blocks_per_day(days) for days in (1, 2, 3, 6, 7)] == [16, 8, 6, 3, 4]
+    assert grid.block_pnl([1, 2, 3, 4, 5, 6], 3) == [2, 2, 2]
+    assert sum(grid.block_pnl([0, -1, 4, 2, 7], 2)) == 7
+    assert grid.block_pnl([1, 2], 3) == []
+
+
+def test_cscv_finds_no_information_in_noise_and_finds_a_planted_edge():
+    import random
+
+    def matrix(seed, edge):
+        rng = random.Random(seed)
+        columns = [[rng.gauss(0, 1) for _ in range(12)] for _ in range(20)]
+        columns[3] = [x + edge for x in columns[3]]
+        return columns
+
+    noise = [grid.cscv(matrix(seed, 0)) for seed in range(10)]
+    assert 0.35 < sum(r.pbo for r in noise) / 10 < 0.65  # the pick is a coin flip out of sample
+    assert 0.4 < sum(r.rank for r in noise) / 10 < 0.6
+    planted = [grid.cscv(matrix(seed, 1.5)) for seed in range(10)]
+    assert sum(r.pbo for r in planted) / 10 < 0.1
+    assert planted[0].splits == planted[0].of == 924  # C(12, 6), all of them
+
+
+def test_cscv_samples_the_halvings_when_there_are_many():
+    columns = [[float(i == j) for i in range(20)] for j in range(3)]
+    result = grid.cscv(columns, max_splits=500)
+    assert (result.splits, result.of) == (500, 184_756)
+
+
+def test_deflated_sharpe_ratio_reproduces_the_papers_example():
+    # Bailey and Lopez de Prado, p. 9-10: annualised SR 2.5 over 1,250 days, 100 trials with an
+    # annualised SR variance of 1/2, skew -3, kurtosis 10: SR0 0.1132 a day, DSR 0.9004.
+    sharpe = 2.5 / 250**0.5
+    sharpe0 = grid.expected_max_sharpe(0.5 / 250, 100)
+    assert sharpe0 == pytest.approx(0.1132, abs=1e-4)
+    assert grid.deflated_sharpe(sharpe, sharpe0, 1250, -3, 10) == pytest.approx(0.9004, abs=1e-4)
+    assert grid.deflated_sharpe(sharpe, grid.expected_max_sharpe(0.5 / 250, 46), 1250, -3, 10) == pytest.approx(0.9505, abs=1e-4)
+    assert grid.expected_max_sharpe(1.0, 1) == 0.0
+
+
+def test_independent_trials_discount_correlated_cells():
+    assert grid.independent_trials([[1, 2, 3], [2, 4, 6], [3, 6, 9]]) == pytest.approx(1)
+    assert grid.independent_trials([[1, -1, 1, -1], [1, 1, -1, -1]]) == pytest.approx(2)
+    assert grid.independent_trials([[1, 1, 1], [1, 2, 3]]) == 2  # a constant cell has no correlation
+
+
+def test_grid_reports_trials_and_overfitting(capsys, bot, data_dir):
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3", "--modes", "all,worse")
+    assert code == 0
+    assert "overfitting: 3 cells × 2 modes = 6 trials on 2 days" in text

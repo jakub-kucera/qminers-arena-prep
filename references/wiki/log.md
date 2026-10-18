@@ -307,3 +307,7 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - `experiments/quote_size.py`: capping the template's quote never binds alone, but saves Pepper Root's drift bet from a rival with the same view (213k → 430k against a copy). Pepper Root now quotes 10 at most.
 - `bots/template.py` gained three comment and parameter lines at 136–141: every citation at line 139 or later moved by 3 (28 pages).
 - **Filed into:** `shared-market-and-adversaries`; the repo's `IDEAS.md`, `ON_THE_DAY.md` ("Before the first submission").
+
+## [2026-10-18] query | PBO and the deflated Sharpe ratio built into arena.grid
+- `arena/grid.py` now prints the trials, CSCV's PBO and the DSR of the best cell's gain over the bot as is; the detector checks and five real grids are on `validation-and-overfitting`.
+- **Filed into:** `validation-and-overfitting` ("What it means for our code", "How to test it here"); the repo's `README.md` ("Grid search"), `TODO.md` (item ticked), `ON_THE_DAY.md` ("Evaluation data"), `IDEAS.md` ("A slow fair on Osmium").

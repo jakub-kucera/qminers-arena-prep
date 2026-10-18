@@ -164,6 +164,30 @@ days 0–1 are round 2's for every product round 2 had. It reuses them across ed
 name: P3 round 1's `RAINFOREST_RESIN` has the same books on all three days as P2 round 1's `AMETHYSTS`.
 The check matches product names, so it can't see that.
 
+Last, the summary says how far the choice can be trusted. Each run's PnL is cut into blocks of
+ticks within days (about 16 in all), and cells whose block PnL is identical count once:
+
+- **PBO** (Bailey et al.'s probability of backtest overfitting, by CSCV): over halvings of the
+  blocks, how often the best cell on one half ranks at or below the median on the other. Near 50%
+  the pick carries no information.
+- **DSR** (Bailey and López de Prado's deflated Sharpe ratio) of the best cell's gain over the bot
+  as is, block by block: the chance that the gain beats the best of that many cells with no gain,
+  their number discounted by how correlated their gains are. Below 0.95 the summary warns.
+
+On P3 round 1, Kelp's `make_edge` × `skew` gets PBO 0% and DSR 1.00 against the committed edge;
+Osmium's (P4 rounds 1–2) gets PBO 0% but DSR 0.00, since its best cell gains nothing real over the
+bot as is; its `smoothing` grid gets PBO 43%, since which of 0.5–0.95 wins is noise, though any of
+them beats none (DSR 0.98 against the template before smoothing). Halvings mix blocks of the same
+days, so a change between days is invisible to both: that is what the held-out days check.
+
+```
+overfitting: 12 cells × 2 modes = 24 trials on 6 days
+  CSCV on pnl(all) in 18 blocks (3 a day), 12 distinct cells, 4,000 of 48,620 halvings:
+  PBO 0%  ·  the pick's mean rank out of sample 0.80 (1 top, 0.5 median)  ·  it loses money there in 0%
+  DSR 0.00 for the best cell's gain over the bot as is: per-block Sharpe 0.05 against 1.20, the best of N^ 5.9 cells with no gain
+! the best cell's gain over the bot as is is not clearly more than the best of that many cells with no gain (DSR < 0.95)
+```
+
 `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
 per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL. Combinations with errors
 or limit breaches are left out of the summary's picks and of the heatmaps, and the grid exits with 1
