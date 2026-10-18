@@ -39,7 +39,7 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Options: (a) keep 30 / 8 / 0; (b) switch to 40 / 10 / 0; (c) widen the grid (band up to 60, `clear_edge` up to 14) first and pick from an interior optimum.
   - Recommendation: (c), then (b) only if 40 / 10 isn't on the new edge too. The gain is too small to act on while the best cell sits on the grid's boundary. Hydrogel is a Prosperity product, so this only matters as a benchmark, not for the Arena.
   - Done when: the user has chosen, and `PARAMS` and the `IDEAS.md` row agree with the choice.
-- [ ] **Tune Kelp and Squid Ink for `worse` fills?** (Kelp done; Squid Ink reopened, see the last bullets) The template leaves Squid Ink out, and Kelp's `make_edge` 1 was chosen under `all`. The zoo investigation found that both cost it head to head: a Squid Ink the zoo trades, and a Kelp quote a tick wider than `worse` fills reward.
+- [x] **Tune Kelp and Squid Ink for `worse` fills?** (Kelp done; Squid Ink decided 2026-10-18, see the last bullets) The template leaves Squid Ink out, and Kelp's `make_edge` 1 was chosen under `all`. The zoo investigation found that both cost it head to head: a Squid Ink the zoo trades, and a Kelp quote a tick wider than `worse` fills reward.
   - Evidence (`IDEAS.md`, "Why the zoo beat the template head to head"; P3 round 1 totals in thousands, `all` / `worse` / Kelp and Squid Ink inside `arena.sim`):
     - committed: 81.3 / 57.8 / 13.5;
     - (b) Squid Ink at `make_edge` 1: 99.6 / 60.3 / 13.5;
@@ -57,16 +57,18 @@ Choices only the user can make, each with the options, the evidence and a recomm
     - Options: (a) leave Squid Ink out (now); (b) add it anyway, accepting up to its stop a day if orders rest; (c) add it with quotes that stop once the bot sees its own orders resting (`state.open_orders` non-empty), i.e. take-only in a resting exchange.
     - Recommendation: (a) until the playground shows whether orders rest; (c) is a small template change worth making only if the Arena's products jump like Squid Ink.
     - Done when: the user has chosen again with this evidence.
+    - **Decided 2026-10-18: (a), Squid Ink stays out** until the playground shows whether orders rest. If they don't rest and an Arena product jumps like Squid Ink, quote it (edge 0.5 made 18.3k alone and 96–176k against a trend chaser); if they rest, (c) is the change to make.
 - [x] **Move the Prosperity products' fair value to `sized_mid`?** Decided 2026-10-14 (above): new products default to `sized_mid`, the Prosperity products stay on `wall_mid` to keep their benchmarks. New evidence (2026-10-15, `IDEAS.md`, "Adversarial rivals"): a rival's large order 10 ticks behind the best costs Kelp 18.9k on `wall_mid` and nothing on `sized_mid`; alone, Kelp on `sized_mid` is within 0.6% of `wall_mid` in every mode (18.7k against 18.7k under `all`, 14.5k against 14.5k under `worse`, the same in `arena.sim`, 18.2k against 18.4k on P3 round 5). The 2.3% in the earlier decision was the worst product, not Kelp.
   - Options: (a) keep `wall_mid` on the Prosperity products; (b) move Kelp only; (c) move every Prosperity product on `wall_mid` (Kelp, Starfruit, the baskets, the rock, the P4 products), re-gridding any that lose more than 1%.
   - Recommendation: (b) now, since it is free on Kelp; (c) only matters as practice, as these products won't be at the Arena. What carries over is already in place: new products start on `sized_mid`.
   - Done when: the user has chosen, and `PARAMS` and the benchmark figures agree with the choice.
   - **Decided 2026-10-18: (b), Kelp only.** P3 round 1 now 72,674 under `all`, 63,302 under `worse`, 66,558 with `--resting` (`README.md`'s tables re-recorded; `IDEAS.md`, "Wall-mid definitions").
-- [ ] **When the bid and ask meet at target, which one steps back?** Since `9f13090`, `make` keeps the bid below the ask. If they meet, it moves the side that would add to inventory: the bid when the position is at or above target, the ask when below. Exactly at target neither adds, and the tie goes to stepping the bid back, which leans slightly toward selling.
+- [x] **When the bid and ask meet at target, which one steps back?** Since `9f13090`, `make` keeps the bid below the ask. If they meet, it moves the side that would add to inventory: the bid when the position is at or above target, the ask when below. Exactly at target neither adds, and the tie goes to stepping the bid back, which leans slightly toward selling.
   - Evidence: it only happens with a narrow book and `make_edge` 0, or with a skew. No benchmark moved when the rule went in (P3 round 1: 81,292 unchanged; the Kelp `make_edge=0` grid row went from 63,068 to 63,054 under `worse`).
   - Options: (a) keep the tie on the bid; (b) at target, step back the side whose last fill was more recent, so neither side is favoured over a day; (c) at target, quote neither side that tick.
   - Recommendation: (a) for now: nothing measurable rides on it. Revisit if a product on the day is quoted at `make_edge` 0. (When they meet, both quotes sit at fair, so "the side further from fair" can't break the tie.)
   - Done when: the user has chosen, and `make`'s docstring and its test agree with the choice.
+  - **Decided 2026-10-18: (a), the tie stays on the bid.** `make`'s docstring and its test already say so.
 
 ## Harder-round prep
 
