@@ -297,6 +297,29 @@ def test_a_call_follows_the_underlyings_target_as_a_share_of_its_limit(bot):
     assert bot.follow_target(wide, 7.5, p, {}, underlying) == 0
 
 
+
+def test_a_smile_call_is_priced_off_its_underlying_plus_its_usual_offset(bot):
+    import math
+    # S = K = 100 at one year (expiry 365 days, timestamp 0): m = 0, so the smile gives c = 0.2,
+    # w = 0.04 and Black-Scholes 7.9656. The call's own mid is 9: its offset starts at 1.0344.
+    p = params(bot, fair="mid", smile=(1.0, 0.5, 0.2), underlying="U", strike=100, expiry=365, smile_window=3, hedge_ratio=1)
+    market, memory = bot.Market({"U": bot.Book([[99, 5]], [[101, 5]])}), {}
+    book = bot.Book([[8, 5]], [[10, 5]])
+    assert bot.smile_fair(book, p, memory, market) == pytest.approx(9.0)  # the first tick: model plus its own offset
+    assert memory["delta"] == pytest.approx(0.5398, abs=1e-4)
+    # The underlying moves to 110 and the call doesn't: the fair follows the model with the old
+    # offset, then the offset moves halfway (EMA over 3 ticks) toward the new one.
+    market.books["U"] = bot.Book([[109, 5]], [[111, 5]])
+    m = math.log(100 / 110)
+    model = bot.call_price(110, 100, (m * m + 0.5 * m + 0.2) ** 2)
+    assert bot.smile_fair(book, p, memory, market) == pytest.approx(model + 1.0344, abs=1e-4)
+    assert memory["offset"] == pytest.approx((1.0344 + 9 - model) / 2, abs=1e-4)
+    del market.books["U"]  # no underlying price: keep the last fair
+    assert bot.smile_fair(book, p, memory, market) == pytest.approx(model + 1.0344, abs=1e-4)
+    # trade_product asks the underlying for minus delta times the position held.
+    plan = bot.trade_product("C", book, 4, p, memory, bot.Market({"U": bot.Book([[109, 5]], [[111, 5]])}))
+    assert plan.legs == {"U": pytest.approx(-4 * memory["delta"])}
+
 def test_followers_trade_after_the_product_they_follow(bot, monkeypatch):
     monkeypatch.setattr(bot, "PARAMS", {
         "C": {"limit": 10, "fair": "mid", "follow": "U", "strike": 100, "clear_edge": 5, "make_size": 0},

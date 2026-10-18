@@ -57,10 +57,18 @@ DEFAULTS = {
     "follow": None,
     "strike": None,  # the call's strike
     "max_cost_per_delta": 20.0,  # stay flat when half the spread per unit of delta is above this
+    # A call priced off a volatility smile fitted on earlier days (see smile_fair): the fair is
+    # Black-Scholes at v(m) = a m^2 + b m + c, m = ln(strike / S) / sqrt(T), plus the call's usual
+    # offset from that, so take, clear and make trade its fast deviations. None turns it off.
+    "smile": None,  # (a, b, c)
+    "underlying": None,  # the product S is read from, by this product's fair method
+    "expiry": None,  # days to expiry at the open of the day
+    "day_length": 1_000_000,  # timestamps in a day, for the time to expiry
+    "smile_window": 20,  # ticks the call's offset from the smile is averaged over (EMA)
     # A basket of other products, {leg: weight} (see basket_target). Its spread, the basket's price
     # less the legs' weighted prices, is traded with the level settings, level being its usual value.
     "basket": None,
-    "hedge_ratio": 0.0,  # the legs that hedge hold -weight * hedge_ratio per basket held
+    "hedge_ratio": 0.0,  # the legs that hedge hold -weight * hedge_ratio per basket (or delta * hedge_ratio per smile call) held
     "hedge": False,  # a basket leg: hold what the baskets it belongs to want against them
     # Fading jumps that snap back (see jump_target): a move of the fair value at least this big
     # is a jump. None turns it off. While on, it sets target instead.
@@ -193,7 +201,7 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
     """Fair value -> take -> clear -> make, on a copy of the book: market.books stays untouched."""
     plan = Plan(position, p["limit"])
     market = market or Market({product: book})
-    fair = fair_value(book, p, memory)
+    fair = smile_fair(book, p, memory, market) if p["smile"] is not None else fair_value(book, p, memory)
     if fair is None:  # no price seen yet
         return plan
     spread = book.asks[0][0] - book.bids[0][0] if book.bids and book.asks else 0
@@ -219,6 +227,8 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
         p = {**p, "target": follow_target(book, fair, p, memory, market.plans.get(p["follow"]))}
     elif p["hedge"]:
         p = {**p, "target": hedge_target(product, p, market)}
+    if p["smile"] is not None and p["hedge_ratio"]:
+        plan.legs = {p["underlying"]: -p["hedge_ratio"] * memory.get("delta", 0.0) * position}
     plan.fair, plan.target = fair, p["target"]
     if p["imbalance"] and book.bids and book.asks:
         fair += p["imbalance"] * imbalance(book)
@@ -539,6 +549,32 @@ def implied_variance(price: float, s: float, k: float) -> float:
         else:
             hi = mid_w
     return (lo + hi) / 2
+
+
+def smile_fair(book: Book, p: dict, memory: dict, market: Market) -> float | None:
+    """A call's fair value: Black-Scholes at the smile's volatility, plus its usual offset from that.
+
+    The smile v(m) = a m^2 + b m + c in m = ln(strike / S) / sqrt(T) is fitted on earlier days
+    (experiments/p3_smile.py does it), S is the underlying's price and T the years to expiry. A
+    strike keeps a steady offset from any fitted smile (P3's volcanic vouchers: up to 2 a day), so
+    the fair adds the EMA of the call's own price less the model, up to the last tick; what is
+    left to trade is the fast deviation. Keeps the last fair while either book has an empty side.
+    """
+    underlying = market.books.get(p["underlying"])
+    s = price(underlying, p) if underlying is not None else None
+    own = price(book, p)
+    if s is None or own is None:
+        return memory.get("fair")
+    k, t = p["strike"], max(p["expiry"] - market.timestamp / p["day_length"], 1e-6) / 365
+    a, b, c = p["smile"]
+    m = math.log(k / s) / math.sqrt(t)
+    w = max(a * m * m + b * m + c, 0.0) ** 2 * t
+    model = call_price(s, k, w)
+    memory["delta"] = call_delta(s, k, w)
+    offset = memory.get("offset", own - model)
+    memory["offset"] = offset + 2 / (p["smile_window"] + 1) * (own - model - offset)
+    memory["fair"] = model + offset
+    return memory["fair"]
 
 
 def basket_target(fair: float, p: dict, memory: dict, market: Market, plan: Plan) -> int:
