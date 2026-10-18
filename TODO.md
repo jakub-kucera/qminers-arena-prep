@@ -70,6 +70,11 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Recommendation: (a) for now: nothing measurable rides on it. Revisit if a product on the day is quoted at `make_edge` 0. (When they meet, both quotes sit at fair, so "the side further from fair" can't break the tie.)
   - Done when: the user has chosen, and `make`'s docstring and its test agree with the choice.
   - **Decided 2026-10-18: (a), the tie stays on the bid.** `make`'s docstring and its test already say so.
+- [ ] **Move Resin (and Amethysts) to `make_edge` 1, against a rival that undercuts?** From `experiments.undercut` (2026-10-18, `IDEAS.md`, "Against a rival that undercuts us").
+  - Evidence: with `--resting`, a copy of the template at `make_edge` 0 or 1 takes 99% of Resin's passive volume from ours at 2 (0.5k against 49.7k alone, P3 round 1). At 1 we are the best reply to every rival edge: 22.7k against a rival at 2, 11.5k at 1, 8.1k at 0. Per tick no rival edge matters (Resin −22k against any copy). Alone, edge 1 costs 2.5k under `all`, gains 2.7k under `worse` and costs 0.5k with `--resting` (49,190 against 49,725). The other products' fairs move, and an undercutter there loses money itself.
+  - Options: (a) keep 2 on the Prosperity products (benchmarks unchanged); the rule for the day is already in `ON_THE_DAY.md`, "Do unfilled orders rest between ticks?"; (b) move Resin and Amethysts to 1 now and re-record the benchmarks.
+  - Recommendation: (a). These products won't be at the Arena, and (b) moves every P2/P3 benchmark for a case that only exists when orders rest and a rival undercuts; what carries over is the rule.
+  - Done when: the user has chosen, and `PARAMS` and the benchmark figures agree with the choice.
 
 ## Harder-round prep
 

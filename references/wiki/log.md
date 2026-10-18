@@ -298,3 +298,7 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - `experiments/glft_skew.py`: `σ`, `A`, `k` per product and GLFT's skew. The exponential fill model fits poorly, and every `γ` costs PnL.
 - Checked jmerle's claim that P3's Resin is P2's Amethysts: the same books on all three days (`submission-and-scoring-mechanics`).
 - **Filed into:** the repo's `IDEAS.md` (three rows moved from "Not yet tested"), `README.md` (reused days), `ON_THE_DAY.md` (probe 18).
+
+## [2026-10-18] query | a rival that undercuts the template
+- `experiments/undercut.py`: the template against a copy at `make_edge` 0, per tick and with `--resting`. Per tick it costs what any copy costs; with resting orders it wins Resin's whole passive flow from `make_edge` 2, and 1 is the best reply. Two copies of Pepper Root's drift bet fight over it.
+- **Filed into:** `shared-market-and-adversaries` (the Wang et al. bullet); the repo's `IDEAS.md` (the row moved from "Not yet tested"), `TODO.md` (a decision on Resin's edge), `ON_THE_DAY.md` (orders that rest).
