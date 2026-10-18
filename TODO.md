@@ -34,11 +34,12 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Decided 2026-10-14: (b). Done 2026-10-15: `DEFAULTS["fair"]` is `"sized_mid"`; every Prosperity product sets its own `fair`, so no benchmark moved.
   - Done when: the user has chosen, and `DEFAULTS`, `README.md` and `ON_THE_DAY.md` agree with the choice.
 
-- [ ] **Should Hydrogel move to the setting that's best under the fixed `level_exit`?** The committed `level_band` 30, `clear_edge` 8, `level_exit` 0 was tuned while `level_exit` only fired at a gap of exactly 0. After the fix (`9f13090`), Hydrogel's in-sample PnL fell from 165k to 156k.
+- [x] **Should Hydrogel move to the setting that's best under the fixed `level_exit`?** The committed `level_band` 30, `clear_edge` 8, `level_exit` 0 was tuned while `level_exit` only fired at a gap of exactly 0. After the fix (`9f13090`), Hydrogel's in-sample PnL fell from 165k to 156k.
   - Evidence (`IDEAS.md`, "Trading toward a known level"): re-gridded in-sample on P4 rounds 3–4, `level_band` 40, `clear_edge` 10, `level_exit` 0 is best on every measure (pnl, nbhd, worst day, `worse` fills). It is only 7.8k ahead (1,165k against 1,157k for the whole bot, 0.7%), and the committed setting ranks third. 40 and 10 are at the edge of the grid's band and `clear_edge` axes. The held-out days chose 40 / 10 / 0 in three folds of four.
   - Options: (a) keep 30 / 8 / 0; (b) switch to 40 / 10 / 0; (c) widen the grid (band up to 60, `clear_edge` up to 14) first and pick from an interior optimum.
   - Recommendation: (c), then (b) only if 40 / 10 isn't on the new edge too. The gain is too small to act on while the best cell sits on the grid's boundary. Hydrogel is a Prosperity product, so this only matters as a benchmark, not for the Arena.
   - Done when: the user has chosen, and `PARAMS` and the `IDEAS.md` row agree with the choice.
+  - **Decided 2026-10-18: (c), then 35 / 10 / 0.** The wider grid's optimum is inside it (band 35, not 40); `level_band` 35, `clear_edge` 10 is near the top on every measure. P4 rounds 3–4 now 1,175,129 (Hydrogel 174.0k, was 156.4k), in-sample (`IDEAS.md`, "Trading toward a known level").
 - [x] **Tune Kelp and Squid Ink for `worse` fills?** (Kelp done; Squid Ink decided 2026-10-18, see the last bullets) The template leaves Squid Ink out, and Kelp's `make_edge` 1 was chosen under `all`. The zoo investigation found that both cost it head to head: a Squid Ink the zoo trades, and a Kelp quote a tick wider than `worse` fills reward.
   - Evidence (`IDEAS.md`, "Why the zoo beat the template head to head"; P3 round 1 totals in thousands, `all` / `worse` / Kelp and Squid Ink inside `arena.sim`):
     - committed: 81.3 / 57.8 / 13.5;
