@@ -160,7 +160,9 @@ This only covers the gridded values. A setting the bot takes from the data itsel
 level from the days' mean, needs its own held-out test (`experiments/p4_level_template.py` does
 both). Days whose data repeats are flagged, product by product, since holding one out still trains on its
 copy. Prosperity reuses days across rounds: P4's round 4 days 1–2 are round 3's, and P3's round 3
-days 0–1 are round 2's for every product round 2 had.
+days 0–1 are round 2's for every product round 2 had. It reuses them across editions too, under a new
+name: P3 round 1's `RAINFOREST_RESIN` has the same books on all three days as P2 round 1's `AMETHYSTS`.
+The check matches product names, so it can't see that.
 
 `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
 per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL. Combinations with errors

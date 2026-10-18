@@ -292,3 +292,9 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 ## [2026-10-18] query | two more `arena.sim` presets: jumps that snap back, one-sided takers
 - `ROBOT_DISHES` copies P4 round 5's jumping day; `KELP_FLOW` copies P3 round 1 Kelp's taker flow, which turned out to be 35% buys by count, not persistent signs (`C(1)` 0.04 net of the imbalance).
 - **Filed into:** `jumps-and-snap-back` ("What it means for our code"), `market-making-and-inventory-skew` (the `C(1)` measurement); the repo's `IDEAS.md` (two rows), `TODO.md` (the presets item, Kelp's long drift, the mock round's data), `CLAUDE.md`, `README.md`.
+
+## [2026-10-18] query | when is a quote worth posting; GLFT's skew measured
+- `experiments/quote_markouts.py`: the template's passive fills, valued against the wall mid by the state when quoted. No state has a negative total on Prosperity data; the adverse moves are 0.5 a unit at most, against edges of 0.6–7.4.
+- `experiments/glft_skew.py`: `σ`, `A`, `k` per product and GLFT's skew. The exponential fill model fits poorly, and every `γ` costs PnL.
+- Checked jmerle's claim that P3's Resin is P2's Amethysts: the same books on all three days (`submission-and-scoring-mechanics`).
+- **Filed into:** the repo's `IDEAS.md` (three rows moved from "Not yet tested"), `README.md` (reused days), `ON_THE_DAY.md` (probe 18).
