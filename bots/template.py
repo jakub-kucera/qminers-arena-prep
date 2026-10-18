@@ -133,8 +133,8 @@ PARAMS = {
     "GIFT_BASKET": {"limit": 60, "fair": "wall_mid", "make_size": 0, "basket": {"CHOCOLATE": 4, "STRAWBERRIES": 6, "ROSES": 1},
                     "level": 380, "level_band": 57, "clear_edge": 6},
     # IMC Prosperity 4, rounds 1-2. Pepper Root rises about 1,000 a day, so it holds a long target
-    # (grid over target and skew on rounds 1-2, IDEAS.md); Osmium is untuned.
-    "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "stop_loss": 5500},
+    # (grid over target and skew on rounds 1-2, IDEAS.md); Osmium's fair is slowed (smoothing 0.9, IDEAS.md).
+    "ASH_COATED_OSMIUM": {"limit": 80, "fair": "wall_mid", "smoothing": 0.9, "make_edge": 1, "stop_loss": 5500},
     "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "target": 80, "skew": 20, "stop_loss": 4500},
     # IMC Prosperity 4, rounds 3-4. Both return to a level that held across days (IDEAS.md).
     "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 35, "level_exit": 0, "clear_edge": 10,
