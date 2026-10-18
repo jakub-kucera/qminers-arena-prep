@@ -80,23 +80,29 @@ With the server up: `uv run python bots/zoo/local.py <prompt> [--n N] [--effort 
 `other/<model>_<prompt>.py` and a `.json` beside it; its docstring has the protocol. Then add the
 README row and run `experiments.zoo`.
 
-The first batch took, per bot (2026-10-17, `-c 32768`, no repair turn needed):
+Time per bot, both turns where there was a repair (2026-10-17 and 18, `-c 32768`; phi4 at `-c 16384`, its
+trained context):
 
 | Model | Time | Tokens written |
 |---|---|---|
+| phi4-14b (no thinking) | 24–73 s | 0.8–2.3k |
 | gpt-oss-20b | 38–146 s | 2.1–8.4k |
 | gemma4-26b | 192–254 s | 10–13.5k |
+| deepseek-r1-14b | 7.5–13 min | 10–14k |
 | qwen3.8-27b, `--effort medium` | 19–29 min | 13–21k |
 
-Three things the batch found:
+What the batches found:
+- **The repair turn sends the validator's FAIL lines with the traceback under them.** Without the
+  traceback a model gets "30000 errors in 30,000 ticks" and nothing to fix: deepseek-r1 answered
+  with debugging advice and no code.
 - **Qwen3.8's chat template defaults to `reasoning_effort` xhigh,** while Ollama runs it at medium. At
   xhigh it wrote 28k tokens of thinking in 40 minutes without an answer, close to the context's end,
   and was stopped. Use `--effort medium`. The effort goes into the bot's name.
 - **gpt-oss garbles its channel markers** (`<|channel|>final code block>`), so llama-server leaves its
   thinking in `content`, with drafts of the code. `local.py` takes the answer after the first
   `<|start|>assistant`.
-- **A finished bot can be a disaster.** Every file passed `arena.validate`, and three lost 0.6–2.0
-  million on P3 round 1 (`IDEAS.md`, "The LLM zoo"). Each sample is one draw: take two or more.
+- **A finished bot can be a disaster.** Of the 20 bots, 18 passed `arena.validate`, and four of those lost
+  0.6–2.2 million on P3 round 1 (`IDEAS.md`, "The LLM zoo"). Each sample is one draw: take two or more.
 
 ## Chatting and benchmarking
 

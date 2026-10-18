@@ -1,0 +1,48 @@
+{
+ "model": "phi4-14b",
+ "prompt": "market_maker",
+ "date": "2026-10-18",
+ "file": "phi4-14b_market_maker_2.py",
+ "reasoning_effort": "the chat template's default",
+ "server": {
+  "model_path": "/Users/jakubkucera/models/phi4-14b.gguf",
+  "n_ctx": 16384,
+  "build": "b11669-620d2225c",
+  "temperature": 0.800000011920929,
+  "top_k": 40,
+  "top_p": 0.949999988079071,
+  "min_p": 0.05000000074505806,
+  "presence_penalty": 0.0,
+  "repeat_penalty": 1.0,
+  "n_predict": -1,
+  "seed": 4294967295
+ },
+ "turns": [
+  {
+   "content": "Creating a market-making algorithm involves setting up a strategy to take advantage of the price spreads while managing inventory risks effectively. Below is a Python implementation of such an algorithm for the given trading competition. This algorithm maintains a fair value for each product, quotes orders around this value, and handles inventory management to avoid hitting position limits.\n\n```python\nimport json\nfrom typing import List, Dict\nfrom datamodel import Order, OrderDepth, TradingState\n\nclass Trader:\n    def __init__(self):\n        self.trader_data = {\n            \"cash\": 0,\n            \"inventory\": {},\n            \"fair_value\": {\n                \"RAINFOREST_RESIN\": 10000,  # Starting fair value\n                \"KELP\": 2030,  # Starting fair value\n                \"SQUID_INK\": 1969  # Starting fair value\n            }\n        }\n\n    def run(self, state: TradingState):\n        # Load previous trader data\n        if state.traderData:\n            self.trader_data = json.loads(state.traderData)\n\n        # Initialize inventory if not already present\n        for product in state.order_depths.keys():\n            if product not in self.trader_data[\"inventory\"]:\n                self.trader_data[\"inventory\"][product] = 0\n\n        # Update cash and inventory from trades\n        self._update_from_trades(state)\n\n        # Prepare the orders\n        result = {}\n        for product, order_depth in state.order_depths.items():\n            fair_value = self.trader_data[\"fair_value\"][product]\n            inventory = self.trader_data[\"inventory\"][product]\n\n            # Determine spread and quote levels\n            bid_price = fair_value - 1\n            ask_price = fair_value + 1\n            bid_quantity = 10\n            ask_quantity = 10\n\n            # Adjust bid/ask prices based on inventory\n            if inventory > 0:\n                bid_price += inventory // 5\n                ask_price -= inventory // 5\n            elif inventory < 0:\n                bid_price -= abs(inventory) // 5\n                ask_price += abs(inventory) // 5\n\n            # Ensure we are within position limits\n            max_position = 50\n            if inventory + ask_quantity > max_position:\n                ask_quantity = max_position - inventory\n            if inventory - bid_quantity < -max_position:\n                bid_quantity = inventory + max_position\n\n            # Create orders\n            orders = [\n                Order(product, bid_price, bid_quantity),\n                Order(product, ask_price, -ask_quantity)\n            ]\n\n            # Filter out invalid orders\n            orders = [order for order in orders if self._is_order_valid(order, inventory)]\n\n            result[product] = orders\n\n        # Update trader data\n        trader_data_str = json.dumps(self.trader_data)\n        return result, 0, trader_data_str\n\n    def _update_from_trades(self, state: TradingState):\n        for product, trades in state.own_trades.items():\n            for trade in trades:\n                self.trader_data[\"cash\"] += trade.price * trade.quantity\n                self.trader_data[\"inventory\"][product] += trade.quantity\n\n    def _is_order_valid(self, order: Order, current_inventory: int) -> bool:\n        max_position = 50\n        if order.quantity > 0:  # Buy order\n            return current_inventory + order.quantity <= max_position\n        else:  # Sell order\n            return current_inventory + order.quantity >= -max_position\n\n# Ensure to include the datamodel module as per the competition's specification\n```\n\n### Key Points of the Algorithm:\n\n1. **Fair Value Estimation**: The algorithm starts with a predefined fair value for each product. These values can be adjusted dynamically based on historical data or other indicators if needed.\n\n2. **Order Placement**: For each product, the algorithm places a bid and ask order around the fair value. The spread is set to 2 SEASHELLS.\n\n3. **Inventory Management**: The algorithm adjusts the bid and ask prices based on the current inventory to avoid hitting position limits. It also adjusts the quantity of orders to ensure compliance with position limits.\n\n4. **State Persistence**: The algorithm uses `traderData` to persist cash and inventory information across iterations, ensuring continuity in trading decisions.\n\n5. **Order Validity**: Before placing an order, the algorithm checks if it would violate position limits.\n\nThis algorithm provides a basic market-making strategy that can be further enhanced with more sophisticated fair value estimation and risk management techniques.",
+   "reasoning_content": "",
+   "finish_reason": "stop",
+   "usage": {
+    "completion_tokens": 930,
+    "prompt_tokens": 1697,
+    "total_tokens": 2627,
+    "prompt_tokens_details": {
+     "cached_tokens": 1696
+    }
+   },
+   "timings": {
+    "cache_n": 1696,
+    "prompt_n": 1,
+    "prompt_ms": 47.402,
+    "prompt_per_token_ms": 47.402,
+    "prompt_per_second": 21.096156280325726,
+    "predicted_n": 930,
+    "predicted_ms": 31703.337,
+    "predicted_per_token_ms": 34.12630462863294,
+    "predicted_per_second": 29.30290902815688
+   },
+   "seconds": 31.8
+  }
+ ],
+ "validate": "Validating bots/zoo/other/phi4-14b_market_maker_2.py on r1d-2, r1d-1, r1d0 (prosperity format)\n  PASS  parses and defines the entry point\n  PASS  imports: datamodel, json, typing\n  PASS  no environment variables, files, processes or network\n  PASS  no errors in 30,000 ticks\n  PASS  orders never breach a position limit\n  PASS  slowest tick 0.6 ms (limit 900 ms), mean 0.01 ms\n  PASS  same fills when r1d-2 is replayed again\n  PASS  same fills when the bot is reloaded every tick\n  PASS  no exception escapes the bot with STRICT off on r1d-2\n  INFO  pnl: r1d-2 861 · r1d-1 1,409 · r1d0 -2,762\n  INFO  largest state 160 chars, largest print per tick 0 chars\nResult: OK\n"
+}

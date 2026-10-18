@@ -90,8 +90,17 @@ def validate(path: Path) -> tuple[str, list[str]]:
         cwd=ROOT, capture_output=True, text=True,
     )
     output = run.stdout + run.stderr
-    failures = [line.strip()[len("FAIL"):].strip() for line in output.splitlines() if line.strip().startswith("FAIL")]
-    return output, [f for f in failures if f.startswith(NOT_RUNNING) or " errors in " in f]
+    # Each FAIL line with the indented lines under it (the traceback), so a repair turn sees the error.
+    failures, in_fail = [], False
+    for line in output.splitlines():
+        if line.strip().startswith("FAIL"):
+            failures.append([line.strip()[len("FAIL"):].strip()])
+            in_fail = True
+        elif in_fail and line.startswith(" " * 8):
+            failures[-1].append(line[8:].replace(f"{ROOT}/", ""))
+        else:
+            in_fail = False
+    return output, ["\n".join(f) for f in failures if f[0].startswith(NOT_RUNNING) or " errors in " in f[0]]
 
 
 def next_path(model: str, prompt: str) -> Path:

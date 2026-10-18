@@ -1,0 +1,48 @@
+{
+ "model": "phi4-14b",
+ "prompt": "market_maker",
+ "date": "2026-10-18",
+ "file": "phi4-14b_market_maker.py",
+ "reasoning_effort": "the chat template's default",
+ "server": {
+  "model_path": "/Users/jakubkucera/models/phi4-14b.gguf",
+  "n_ctx": 16384,
+  "build": "b11669-620d2225c",
+  "temperature": 0.800000011920929,
+  "top_k": 40,
+  "top_p": 0.949999988079071,
+  "min_p": 0.05000000074505806,
+  "presence_penalty": 0.0,
+  "repeat_penalty": 1.0,
+  "n_predict": -1,
+  "seed": 4294967295
+ },
+ "turns": [
+  {
+   "content": "Below is a Python code for a market-making algorithm tailored for the described trading competition. The algorithm estimates fair values based on historical mid prices, places bids and asks around these values, and manages inventory to ensure position limits are not breached.\n\n```python\nimport json\nfrom typing import List, Dict\nfrom datamodel import Order, OrderDepth, TradingState, Trade\n\nclass Trader:\n    def __init__(self):\n        self.fair_values = {}  # To store estimated fair values\n        self.last_mid_prices = {}  # To store last mid prices\n        self.position_limits = {'RAINFOREST_RESIN': 50, 'KELP': 50, 'SQUID_INK': 50}\n        self.bids_spread = 1\n        self.asks_spread = 1\n        self.max_inventory = 10\n\n    def run(self, state: TradingState):\n        result = {}  # symbol -> list of Order\n        trader_data = json.loads(state.traderData or '{}')\n\n        # Update fair values and last mid prices\n        for product, order_depth in state.order_depths.items():\n            mid_price = (min(order_depth.sell_orders) + max(order_depth.buy_orders)) / 2\n            self.last_mid_prices[product] = mid_price\n\n            if product in trader_data.get('fair_values', {}):\n                self.fair_values[product] = (self.fair_values[product] + mid_price) / 2\n            else:\n                self.fair_values[product] = mid_price\n\n        # Prepare orders\n        for product, order_depth in state.order_depths.items():\n            current_position = state.position.get(product, 0)\n            inventory = abs(current_position)\n\n            # Determine bid and ask prices based on fair value\n            bid_price = int(self.fair_values[product]) - self.bids_spread\n            ask_price = int(self.fair_values[product]) + self.asks_spread\n\n            # Ensure we don't exceed position limits\n            max_bid_quantity = self.position_limits[product] - inventory\n            max_ask_quantity = self.position_limits[product] - (self.position_limits[product] - inventory)\n\n            if max_bid_quantity > 0:\n                result[product] = [Order(product, bid_price, min(max_bid_quantity, self.max_inventory))]\n            else:\n                result[product] = []\n\n            if max_ask_quantity > 0:\n                result[product].append(Order(product, ask_price, -min(max_ask_quantity, self.max_inventory)))\n            else:\n                result[product] = result.get(product, [])\n\n        # Prepare trader data for the next iteration\n        trader_data['fair_values'] = self.fair_values\n        trader_data_json = json.dumps(trader_data)\n\n        return result, 0, trader_data_json\n\n# The datamodel module is assumed to be provided by the exchange as described.\n```\n\n### Key Features of the Algorithm:\n1. **Fair Value Estimation**: The algorithm maintains a moving average of the mid prices as the estimated fair value for each product.\n2. **Market-Making Strategy**: It places bid and ask orders around the estimated fair value, adjusting for a fixed spread to earn from the spread.\n3. **Position Management**: The algorithm ensures that the number of shares held does not exceed the position limits by dynamically adjusting the order quantities.\n4. **Inventory Management**: It limits the number of shares it is willing to hold at any given time to avoid being stuck at position limits.\n5. **State Persistence**: All necessary state information is stored in `traderData` as a JSON string to persist across iterations.\n\nThis algorithm is designed to be simple yet effective, focusing on market-making and risk management to maximize profit while adhering to competition rules.",
+   "reasoning_content": "",
+   "finish_reason": "stop",
+   "usage": {
+    "completion_tokens": 779,
+    "prompt_tokens": 1697,
+    "total_tokens": 2476,
+    "prompt_tokens_details": {
+     "cached_tokens": 1606
+    }
+   },
+   "timings": {
+    "cache_n": 1606,
+    "prompt_n": 91,
+    "prompt_ms": 332.642,
+    "prompt_per_token_ms": 3.6554065934065934,
+    "prompt_per_second": 273.56737874351404,
+    "predicted_n": 779,
+    "predicted_ms": 23866.841,
+    "predicted_per_token_ms": 30.6771735218509,
+    "predicted_per_second": 32.59752725549225
+   },
+   "seconds": 24.2
+  }
+ ],
+ "validate": "Validating bots/zoo/other/phi4-14b_market_maker.py on r1d-2, r1d-1, r1d0 (prosperity format)\n  PASS  parses and defines the entry point\n  PASS  imports: datamodel, json, typing\n  PASS  no environment variables, files, processes or network\n  PASS  no errors in 30,000 ticks\n  PASS  orders never breach a position limit\n  PASS  slowest tick 39.8 ms (limit 900 ms), mean 0.02 ms\n  PASS  same fills when r1d-2 is replayed again\n  WARN  fills change when the bot is reloaded every tick: it keeps state in instance or module variables, which the real engine may not preserve between calls\n  PASS  no exception escapes the bot with STRICT off on r1d-2\n  INFO  pnl: r1d-2 11,273 · r1d-1 13,298 · r1d0 12,862\n  INFO  largest state 118 chars, largest print per tick 0 chars\nResult: OK\n"
+}

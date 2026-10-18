@@ -1,0 +1,48 @@
+{
+ "model": "phi4-14b",
+ "prompt": "baseline",
+ "date": "2026-10-18",
+ "file": "phi4-14b_baseline_2.py",
+ "reasoning_effort": "the chat template's default",
+ "server": {
+  "model_path": "/Users/jakubkucera/models/phi4-14b.gguf",
+  "n_ctx": 16384,
+  "build": "b11669-620d2225c",
+  "temperature": 0.800000011920929,
+  "top_k": 40,
+  "top_p": 0.949999988079071,
+  "min_p": 0.05000000074505806,
+  "presence_penalty": 0.0,
+  "repeat_penalty": 1.0,
+  "n_predict": -1,
+  "seed": 4294967295
+ },
+ "turns": [
+  {
+   "content": "To create a trading algorithm for this competition, we need to focus on each product's characteristics and devise strategies that can capitalize on their behavior. Below is a Python implementation of a `Trader` class that attempts to maximize profit based on the given specifications and characteristics of the products:\n\n```python\nimport json\nfrom typing import List, Dict\nfrom datamodel import OrderDepth, TradingState, Order, Trade\n\nclass Trader:\n    def __init__(self):\n        self.reset()\n\n    def reset(self):\n        self.traderData = {\n            \"cash\": 0,\n            \"positions\": { \"RAINFOREST_RESIN\": 0, \"KELP\": 0, \"SQUID_INK\": 0 },\n            \"buy_prices\": { \"RAINFOREST_RESIN\": None, \"KELP\": None, \"SQUID_INK\": None },\n            \"sell_prices\": { \"RAINFOREST_RESIN\": None, \"KELP\": None, \"SQUID_INK\": None },\n            \"buy_orders\": { \"RAINFOREST_RESIN\": [], \"KELP\": [], \"SQUID_INK\": [] },\n            \"sell_orders\": { \"RAINFOREST_RESIN\": [], \"KELP\": [], \"SQUID_INK\": [] }\n        }\n\n    def run(self, state: TradingState):\n        # Deserialize traderData\n        if state.traderData:\n            self.traderData = json.loads(state.traderData)\n\n        # Update cash and positions based on recent trades\n        for product, trades in state.own_trades.items():\n            for trade in trades:\n                if trade.seller == \"my_trader_id\":  # Assuming your ID is known\n                    self.traderData[\"cash\"] += trade.quantity * trade.price\n                if trade.buyer == \"my_trader_id\":\n                    self.traderData[\"cash\"] -= trade.quantity * trade.price\n                self.traderData[\"positions\"][product] += trade.quantity\n\n        # Strategy for each product\n        result = {}\n        for product, order_depth in state.order_depths.items():\n            orders = []\n\n            # RAINFOREST_RESIN: Stable, so hold a small position\n            if product == \"RAINFOREST_RESIN\":\n                target_position = 10\n                current_position = self.traderData[\"positions\"].get(product, 0)\n                if current_position < target_position:\n                    # Buy if below target\n                    best_price = min(order_depth.buy_orders.keys())\n                    quantity = min(target_position - current_position, 50)\n                    orders.append(Order(product, best_price, quantity))\n                elif current_position > target_position:\n                    # Sell if above target\n                    best_price = max(order_depth.sell_orders.keys())\n                    quantity = min(current_position - target_position, 50)\n                    orders.append(Order(product, best_price, -quantity))\n\n            # KELP: Trend following\n            elif product == \"KELP\":\n                mid_price = (min(order_depth.sell_orders.keys()) + max(order_depth.buy_orders.keys())) // 2\n                if self.traderData[\"sell_prices\"].get(product) is None:\n                    self.traderData[\"sell_prices\"][product] = mid_price\n                if self.traderData[\"buy_prices\"].get(product) is None:\n                    self.traderData[\"buy_prices\"][product] = mid_price\n\n                # Simple moving average crossover strategy\n                if mid_price > self.traderData[\"sell_prices\"][product]:\n                    # Current trend is up, consider buying\n                    best_price = max(order_depth.buy_orders.keys())\n                    quantity = 10  # Small position\n                    orders.append(Order(product, best_price, quantity))\n                elif mid_price < self.traderData[\"buy_prices\"][product]:\n                    # Current trend is down, consider selling\n                    best_price = min(order_depth.sell_orders.keys())\n                    quantity = 10  # Small position\n                    orders.append(Order(product, best_price, -quantity))\n\n                # Update prices\n                self.traderData[\"sell_prices\"][product] = max(self.traderData[\"sell_prices\"][product], mid_price)\n                self.traderData[\"buy_prices\"][product] = min(self.traderData[\"buy_prices\"][product], mid_price)\n\n            # SQUID_INK: Pattern recognition\n            elif product == \"SQUID_INK\":\n                # Look for potential reversal patterns\n                if len(order_depth.buy_orders) > 0 and len(order_depth.sell_orders) > 0:\n                    top_buy_price = max(order_depth.buy_orders.keys())\n                    top_sell_price = min(order_depth.sell_orders.keys())\n                    if top_buy_price > top_sell_price:  # Potential reversal\n                        # Buy at sell side, sell at buy side\n                        quantity = 10\n                        orders.append(Order(product, top_sell_price, quantity))\n                        orders.append(Order(product, top_buy_price, -quantity))\n\n            # Ensure position limits\n            current_position = self.traderData[\"positions\"].get(product, 0)\n            for order in orders:\n                if (order.quantity > 0 and current_position + order.quantity > 50) or \\\n                   (order.quantity < 0 and current_position + order.quantity < -50):\n                    orders.remove(order)\n\n            result[product] = orders\n\n        # Serialize traderData\n        self.traderData[\"traderData\"] = json.dumps(self.traderData)\n\n        # Return orders and traderData\n        conversions = 0\n        return result, conversions, self.traderData[\"traderData\"]\n\n```\n\n### Explanation:\n\n1. **RAINFOREST_RESIN Strategy**: \n   - This product is stable, so we maintain a small position (e.g., 10 units) and adjust it by buying or selling to reach the target.\n\n2. **KELP Strategy**:\n   - We use a simple moving average crossover strategy. If the current mid-price is higher than the previous sell price, we consider buying. If it's lower than the previous buy price, we consider selling. This helps in following the trend.\n\n3. **SQUID_INK Strategy**:\n   - This product is volatile, and we look for potential reversal patterns. If the highest buy price is greater than the lowest sell price, it suggests a potential reversal, prompting us to buy at the sell side and sell at the buy side.\n\n4. **Position Limits**:\n   - Before placing orders, we ensure that executing them won't exceed the position limits.\n\n5. **Data Persistence**:\n   - We serialize and deserialize `traderData` using JSON to maintain state across iterations.\n\nThis algorithm aims to exploit the characteristics of each product to maximize profit while adhering to the competition rules.",
+   "reasoning_content": "",
+   "finish_reason": "stop",
+   "usage": {
+    "completion_tokens": 1382,
+    "prompt_tokens": 1643,
+    "total_tokens": 3025,
+    "prompt_tokens_details": {
+     "cached_tokens": 1642
+    }
+   },
+   "timings": {
+    "cache_n": 1642,
+    "prompt_n": 1,
+    "prompt_ms": 45.57,
+    "prompt_per_token_ms": 45.57,
+    "prompt_per_second": 21.94426157559798,
+    "predicted_n": 1382,
+    "predicted_ms": 42863.05,
+    "predicted_per_token_ms": 31.037690079652428,
+    "predicted_per_second": 32.2188924959843
+   },
+   "seconds": 43.1
+  }
+ ],
+ "validate": "Validating bots/zoo/other/phi4-14b_baseline_2.py on r1d-2, r1d-1, r1d0 (prosperity format)\n  PASS  parses and defines the entry point\n  PASS  imports: datamodel, json, typing\n  PASS  no environment variables, files, processes or network\n  PASS  no errors in 30,000 ticks\n  PASS  orders never breach a position limit\n  PASS  slowest tick 0.5 ms (limit 900 ms), mean 0.01 ms\n  PASS  same fills when r1d-2 is replayed again\n  PASS  same fills when the bot is reloaded every tick\n  PASS  no exception escapes the bot with STRICT off on r1d-2\n  INFO  pnl: r1d-2 251 · r1d-1 -281 · r1d0 -86\n  INFO  largest state 368 chars, largest print per tick 0 chars\nResult: OK\n"
+}
