@@ -132,6 +132,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
 
 ## Before the first submission
 
+- [ ] **Cap the quote of a product that holds a target.** A drift bet (`target` with `skew`, Pepper Root-like) quoted with the full room offers the whole position one tick above fair, and a rival with the same view takes it in a tick: against a copy of the template, Pepper Root made 213k with the full room and 430k quoting 10 at most (`IDEAS.md`, "Using less than the full position limit"). Grid `make_size` alone and take the smallest value that costs nothing (the market's passive flow per tick); it never binds alone on Prosperity data.
 - [ ] **How do submissions work?** The exact deadline, how many submissions you get per round, the file size cap, and whether the public backtest score counts or only a private run.
   - From the site (see Known so far): single `.py` upload, a cap per round, newest upload becomes final unless you mark another, public and private evaluations.
   - So: run `arena.validate` before every upload. Never spend a submission on untested code. Before the deadline, check which submission is marked final.

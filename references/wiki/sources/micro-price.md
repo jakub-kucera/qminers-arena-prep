@@ -37,7 +37,7 @@ A 9-page paper that defines a fair price from the top of the book: the limit of 
 | Paper | Ours |
 |---|---|
 | `Pᵇ, Qᵇ` / `Pᵃ, Qᵃ` | `book.bids[0]` / `book.asks[0]` as `(price, volume)` in `bots/template.py` (volumes positive, `arena/model.py:16-17`); `bid_price_1`, `bid_volume_1`, `ask_price_1`, `ask_volume_1` in the CSVs |
-| `M` | `mid()`, `bots/template.py:339`; `fair: "mid"` |
+| `M` | `mid()`, `bots/template.py:342`; `fair: "mid"` |
 | `W` | not in the template; one line from the best levels |
 | `G*(I, S)` | would be a lookup table in `PARAMS`, estimated offline from the CSVs, since the bot must stay standard library and self-contained |
 | a tick | 1 price unit in Prosperity (the paper's 1 cent) |

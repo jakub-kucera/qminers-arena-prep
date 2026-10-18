@@ -40,6 +40,7 @@ uv run python -m experiments.zoo                                  # scores every
 uv run python -m experiments.zoo_h2h                              # the template against each zoo bot, per product, under all and worse
 uv run python -m experiments.adversaries                          # the template against a trapper, spoofers and a sniper (bots/rivals/), --resting
 uv run python -m experiments.undercut                             # the template against a copy of itself at make_edge 0 (Wang et al.), per tick and --resting
+uv run python -m experiments.quote_size                           # make_size caps against rivals: a copy, the trapper, spoofer and sniper
 uv run python -m experiments.imbalance                            # does the best-level imbalance predict the mid / the wall mid, per product and day
 uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
 ```
