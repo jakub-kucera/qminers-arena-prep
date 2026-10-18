@@ -4,6 +4,14 @@ How to run the zoo's prompts on a model served on the laptop (`TODO.md`, "(a, pa
 `ON_THE_DAY.md`, "The round's zoo"). Measured on the M4 Max with 36 GB, 2026-10-17, llama.cpp
 build 11669.
 
+**On the day, use gemma4:26b only, and only if the hosted chats can't be reached.** No team will code
+the challenge with a 14–27B model, so local bots don't look like the field; they are an offline
+baseline. gemma4 writes a bot in 3–4 minutes and its replies parse cleanly. gpt-oss:20b is faster but
+garbles its channel markers, qwen3.8 takes 20–30 minutes, and phi4 and deepseek-r1 added nothing over
+them (`IDEAS.md`, "The LLM zoo"). The twenty local bots already made stay in the zoo, but
+`experiments.zoo` leaves them out of the field unless `--local`. The other four models are documented
+below as measured.
+
 ## Install
 
 ```sh

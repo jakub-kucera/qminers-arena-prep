@@ -1,12 +1,14 @@
 """Scores every bot in bots/zoo/ against the template.
 
-usage (from the repo root): uv run python -m experiments.zoo [--jobs N]
+usage (from the repo root): uv run python -m experiments.zoo [--jobs N] [--local]
 
 Each zoo bot, and the template, on P3 round 1 (all three days, the data SPEC.md describes):
   - alone, per tick, under --match-trades all and worse;
   - in one market with the template (`--vs`, per tick, all): the zoo bot's PnL and the template's;
   - inside arena.sim's market (its presets, seeds 0-2, default mode), where orders move the price.
-Then the whole field at once: the template and every zoo bot in one market on P3 round 1.
+Then the whole field at once: the template and the zoo bots in one market on P3 round 1. The field
+leaves out the bots from local models (those with a `.json` from bots/zoo/local.py) unless --local:
+no team will code with them, and their disasters would make the template's field PnL flatter it.
 Errors, limit breaches and the bot's slowest tick are listed too. Results go into IDEAS.md
 ("The LLM zoo"); bots/zoo/README.md says how to add bots from other providers.
 """
@@ -28,6 +30,10 @@ SEEDS = (0, 1, 2)
 
 def zoo_bots() -> list[Path]:
     return sorted(p for p in ZOO.rglob("*.py") if p.name not in {"bundle.py", "local.py"})
+
+
+def is_local(path: Path) -> bool:
+    return path.with_suffix(".json").exists()
 
 
 def label(path: Path) -> str:
@@ -70,9 +76,9 @@ def score(path: Path) -> dict:
     return row
 
 
-def field() -> dict[str, float]:
+def field(local: bool) -> dict[str, float]:
     days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
-    paths = [TEMPLATE, *zoo_bots()]
+    paths = [TEMPLATE, *(p for p in zoo_bots() if local or not is_local(p))]
     totals = dict.fromkeys(map(label, paths), 0.0)
     for day in days:
         results = run_market(day, [(label(p), load(p)) for p in paths])
@@ -84,20 +90,23 @@ def field() -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.zoo")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--local", action="store_true", help="put the local models' bots in the field too")
     args = parser.parse_args()
     paths = [TEMPLATE, *zoo_bots()]
     with ProcessPoolExecutor(args.jobs) as pool:
         rows = list(pool.map(score, paths))
-        crowd = pool.submit(field).result()
+        crowd = pool.submit(field, args.local).result()
 
-    print("P3 round 1, all three days; sim = arena.sim presets, seeds 0-2. PnL in thousands.\n")
+    print(f"P3 round 1, all three days; sim = arena.sim presets, seeds 0-2; a field of {len(crowd)}"
+          f"{'' if args.local else ', without the local models'}. PnL in thousands.\n")
     print("| Bot | alone, `all` | alone, `worse` | with the template (bot / template) | in arena.sim | in the field | errors | breaches | slowest tick |")
     print("|---|---|---|---|---|---|---|---|---|")
     for row in rows:
         vs = f"{row['vs_template'] / 1000:.1f} / {row['template_vs'] / 1000:.1f}" if "vs_template" in row else "-"
+        in_field = f"{crowd[row['bot']] / 1000:.1f}" if row["bot"] in crowd else "-"
         print(
             f"| {row['bot']} | {row['all'] / 1000:.1f} | {row['worse'] / 1000:.1f} | {vs} | {row['sim'] / 1000:.1f}"
-            f" | {crowd[row['bot']] / 1000:.1f} | {row['errors']} | {row['breaches']} | {row['slowest_ms']:.1f} ms |"
+            f" | {in_field} | {row['errors']} | {row['breaches']} | {row['slowest_ms']:.1f} ms |"
         )
     print("\nAlone under `all`, by product (thousands):")
     for row in rows:

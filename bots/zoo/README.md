@@ -13,7 +13,7 @@ bots/zoo/
   SPEC.md          the spec every model gets, unchanged (P3 round 1's products, Prosperity's API)
   PROMPTS.md       one prompt per archetype: baseline, market_maker, mean_reversion, momentum
   bundle.py        prints SPEC.md + one prompt as a single message
-  LOCAL_MODELS.md  serving local models with llama.cpp, to run the prompts without a chat app
+  LOCAL_MODELS.md  serving local models with llama.cpp: an offline fallback, not the field
   claude/          written by fresh Claude agents (no repo context)
   gemini/          paste here what Gemini writes
   chatgpt/         ... ChatGPT / OpenAI models, older ones included
@@ -49,6 +49,9 @@ Which models: Gemini (Gemini 4, and an older one such as 2.5 Pro), and ChatGPT, 
 older (GPT-4o, o3, GPT-4.1, ...). Older models matter: some
 teams will use whatever is free. Then all four prompts for the strongest of each, `baseline` for
 the rest.
+
+Local models (`local.py`) aren't on that list: no team will code with them. Their twenty bots stay, and
+`experiments.zoo` leaves them out of the field unless `--local`.
 
 ## The bots
 
