@@ -301,3 +301,23 @@ def test_snooping_names_the_cells_and_checks_them_under_the_other_modes():
 def test_snooping_skips_short_days(capsys, bot, data_dir):
     code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3")
     assert "SPA, StepM: skipped" in text
+
+
+def test_grid_runs_a_permutation_test(capsys, bot, data_dir):
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3", "--permute", "3", "--jobs", "1")
+    assert code == 0
+    assert "permutation test: the whole grid on 3 copies of the days, their ticks shuffled in runs of 1" in text
+    assert "best cell's PnL:" in text and "lift of the best cell over the median one:" in text
+    assert "(smallest possible 0.250)" in text
+
+
+def test_axis_products_are_the_products_the_axes_set():
+    axes = [grid.Axis("PARAMS.KELP.make_edge", [1]), grid.Axis("PARAMS.KELP.take_edge", [1])]
+    assert grid.axis_products(axes, ["KELP", "RESIN"]) == ["KELP"]
+    assert grid.axis_products([grid.Axis("PARAMS.size", [1])], ["KELP", "RESIN"]) == ["KELP", "RESIN"]
+    assert grid.axis_products([grid.Axis("DEFAULTS.make_edge", [1])], ["KELP"]) == ["KELP"]
+
+
+def test_permute_needs_sensible_arguments(capsys, bot, data_dir):
+    with pytest.raises(SystemExit):
+        run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", "--permute-block", "0")

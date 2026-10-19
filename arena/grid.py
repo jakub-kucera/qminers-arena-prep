@@ -46,6 +46,15 @@ once:
   pick      StepM's best cell that also beats the bot as is under every other --modes entry, else
             the bot as is. Of ten ways of choosing tried on unseen days, the only one that never lost
             money, under either fill mode (experiments/selection_rules.py).
+With --permute N the whole grid is also run on N copies of the days made of their own ticks in a
+shuffled order (arena.stress.permute, in runs of --permute-block ticks), after Masters' permutation
+test of a whole search (our adaptation; his book is unread). Two statistics of the search, on the
+PnL of the products the axes set, are compared with each copy's: the best cell's PnL, and its lift
+over the median cell. p is the share of copies, the real days counted as one, at least as large.
+A small p for the lift says choosing exploits the order of the ticks (a trend, a level the price
+returns to, a signal that leads it); a large one says a search this wide finds as much without
+it, from what the copies keep (each tick's book and the fill model). Neither is measured against
+the bot as is: its settings were tuned to the real order, which the copies remove.
 Halvings and bootstrap blocks mix blocks of the same days, so a day-level change is invisible to
 all of them: the held-out days are the check for that, and a cell they accept still has to hold
 under the other --modes (references/wiki/concepts/validation-and-overfitting.md).
@@ -68,7 +77,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from arena import report
+from arena import report, stress
 from arena.botfile import OverrideError, parse_value
 from arena.cli import Setup, add_common_arguments, add_rival_argument, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
@@ -189,20 +198,29 @@ def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, tar
     )
 
 
-def _evaluate(index: tuple[int, ...], values: tuple) -> Outcome:
+def _evaluate(index: tuple[int, ...], values: tuple, permutation: tuple[int, int] | None = None) -> Outcome:
+    """One combination on every day under every mode, or, with `permutation` (seed, block), on the
+    permuted copies of the days under the first mode only."""
     w = _WORKER
     overrides = {**w["base"], **dict(zip(w["targets"], values))}
     outcome = Outcome(index, values)
-    for mode_number, mode in enumerate(w["modes"]):
+    days, modes = w["days"], w["modes"]
+    if permutation is not None:
+        cache = w.setdefault("permuted", {})
+        if permutation not in cache:
+            cache.clear()  # tasks come seed by seed, so one copy of the days is enough
+            cache[permutation] = [stress.permute(day, *permutation) for day in days]
+        days, modes = cache[permutation], modes[:1]
+    for mode_number, mode in enumerate(modes):
         config = replace(w["config"], trade_matching=mode)
-        days, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
+        day_pnl, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
         blocks = outcome.block_pnl.setdefault(mode, [])
         fine = outcome.fine_pnl.setdefault(mode, [])
-        for day in w["days"]:
+        for day in days:
             result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], config, requote=w["requote"])[0]
             series = report.total_pnl(result) or [0.0] * len(day.ticks)
-            days[day.name] = series[-1]
-            blocks += block_pnl(series, blocks_per_day(len(w["days"])))
+            day_pnl[day.name] = series[-1]
+            blocks += block_pnl(series, blocks_per_day(len(days)))
             fine += block_pnl(series, len(series) // FINE_TICKS)
             for stats in report.product_stats(result):
                 products[stats.product] = products.get(stats.product, 0.0) + stats.pnl
@@ -239,6 +257,70 @@ def run_grid(
                 progress.step()
     progress.done()
     return outcomes.pop(()), outcomes
+
+
+def run_permutations(
+    s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str,
+    day_specs: list[str], copies: int, block: int,
+) -> list[tuple[Outcome, dict[tuple[int, ...], Outcome]]]:
+    """The whole grid on `copies` permuted copies of the days (seeds 1..copies), under the first mode:
+    for each copy, the bot as is and every combination."""
+    combos = list(itertools.product(*(range(len(axis.values)) for axis in axes)))
+    cells = [((), ())] + [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
+    tasks = [(seed, index, values) for seed in range(1, copies + 1) for index, values in cells]
+    init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals, s.requote)
+    found: dict[int, dict[tuple[int, ...], Outcome]] = {seed: {} for seed in range(1, copies + 1)}
+    progress = _Progress(len(tasks))
+    if jobs <= 1:
+        _init_worker(*init_args, days=s.days)
+        for seed, index, values in tasks:
+            found[seed][index] = _evaluate(index, values, (seed, block))
+            progress.step()
+    else:
+        with ProcessPoolExecutor(jobs, initializer=_init_worker, initargs=init_args) as pool:
+            futures = {pool.submit(_evaluate, index, values, (seed, block)): seed for seed, index, values in tasks}
+            for future in as_completed(futures):
+                outcome = future.result()
+                found[futures[future]][outcome.index] = outcome
+                progress.step()
+    progress.done()
+    return [(cells.pop(()), cells) for cells in found.values()]
+
+
+def axis_products(axes: list[Axis], products: list[str]) -> list[str]:
+    """The products the axes set (PARAMS.<product>.<key>); every product if an axis sets something else."""
+    named = [axis.target.split(".")[1] if axis.target.startswith("PARAMS.") and axis.target.count(".") >= 2 else None for axis in axes]
+    return products if any(n not in products for n in named) else sorted(set(named))
+
+
+def search_stats(outcomes: dict[tuple[int, ...], Outcome], mode: TradeMatching, products: list[str]) -> tuple[float, float] | None:
+    """The best working combination's PnL over `products`, and its lift over the median combination's."""
+    pnl = sorted(sum(o.product_pnl[mode].get(p, 0.0) for p in products) for o in outcomes.values() if not o.failed)
+    return (pnl[-1], pnl[-1] - statistics.median(pnl)) if pnl else None
+
+
+def format_permutations(axes: list[Axis], outcomes: dict[tuple[int, ...], Outcome], copies: list, mode: TradeMatching, block: int, products: list[str]) -> str:
+    traded = axis_products(axes, products)
+    real = search_stats(outcomes, mode, traded)
+    found = [x for x in (search_stats(o, mode, traded) for _, o in copies) if x is not None]
+    shown = ", ".join(traded) if len(traded) <= 3 else f"{len(traded)} products"
+    lines = [f"permutation test: the whole grid on {len(copies)} copies of the days, their ticks shuffled in runs of {block:,} (pnl({mode}) of {shown}):"]
+    if real is None or not found:
+        lines.append("  no working combination: skipped")
+        return "\n".join(lines)
+    smallest = 1 / (1 + len(found))
+    for k, name, meaning in ((0, "best cell's PnL", "the search's best does as well without the order of the ticks"),
+                             (1, "lift of the best cell over the median one", "choosing among the cells adds as much without the order of the ticks")):
+        values = sorted(x[k] for x in found)
+        p = (1 + sum(v >= real[k] for v in values)) / (1 + len(values))
+        q95 = values[min(len(values) - 1, math.ceil(0.95 * len(values)) - 1)]
+        lines.append(f"  {name}: {real[k]:+,.0f} on the real days; on the copies mean {statistics.fmean(values):+,.0f}, "
+                     f"95th percentile {q95:+,.0f}; p {p:.3f} that {meaning} (smallest possible {smallest:.3f})")
+    lift_p = (1 + sum(x[1] >= real[1] for x in found)) / (1 + len(found))
+    if lift_p > ALPHA:
+        lines.append("! the copies' searches lift as much: what choosing finds here doesn't need the order of the ticks "
+                     "(it comes from each tick's book and the fill model, or from the width of the search)")
+    return "\n".join(lines)
 
 
 def smoke_test(s: Setup, bot: Path, axes: list[Axis]) -> None:
@@ -751,6 +833,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--top", type=int, default=15, help="rows to show (default: 15)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     parser.add_argument("--out", type=Path, help="write every combination's results to this CSV")
+    parser.add_argument("--permute", type=int, default=0, metavar="N",
+                        help="also run the whole grid on N copies of the days with their ticks shuffled, for a permutation test (default: 0)")
+    parser.add_argument("--permute-block", type=int, default=1, metavar="TICKS",
+                        help="shuffle the ticks in runs of this many, keeping the order inside a run (default: 1)")
     args = parser.parse_args(argv)
 
     try:
@@ -758,6 +844,8 @@ def main(argv: list[str] | None = None) -> int:
         axes = [parse_axis(text) for text in args.axes]
         modes = [TradeMatching(mode.strip()) for mode in args.modes.split(",")] if args.modes else [args.match_trades]
         _check(axes, modes, s, args.sort)
+        if args.permute < 0 or args.permute_block < 1:
+            raise ValueError("--permute needs N >= 0 and --permute-block a run of at least 1 tick")
         smoke_test(s, args.bot, axes)
     except (ValueError, OSError, OverrideError) as error:
         parser.error(str(error))
@@ -778,6 +866,11 @@ def main(argv: list[str] | None = None) -> int:
     if held_out:
         print("\n" + held_out)
     print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes))
+    if args.permute > 0:
+        start = time.perf_counter()
+        copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block)
+        products = sorted({p for day in s.days for p in day.products})
+        print(f"\n{format_permutations(axes, outcomes, copies, modes[0], args.permute_block, products)}  ({time.perf_counter() - start:.0f} s)")
     failed = [o for o in outcomes.values() if o.first_error]
     if failed:
         print(f"first error: {failed[0].first_error}")

@@ -210,6 +210,18 @@ overfitting: 64 cells × 2 modes = 128 trials on 3 days
   pick: the bot as is: no StepM cell beats it under every mode
 ```
 
+`--permute N` adds a permutation test of the whole search, after Masters' (our adaptation: the
+book isn't read). The grid is rerun on N copies of the days made of their own ticks in a shuffled
+order (`arena.stress.permute`). Each tick keeps its book, its trades and its wall bid's real move,
+and is shifted to continue from the tick before it; `--permute-block` shuffles in runs of that many
+ticks, keeping the order inside a run. Two statistics of the search, on the PnL of the products the
+axes set, are ranked among the copies': the best cell's PnL, and its lift over the median cell. A
+small p for the lift says choosing exploits the order of the ticks (a trend, a level the price
+returns to, a signal that leads it). A large one says a search this wide finds as much without it,
+from each tick's book and the fill model, so check the pick under `--modes worse`. Neither is
+measured against the bot as is, whose settings were tuned to the real order. Each copy reruns the
+whole grid under the first mode, so 19 copies (the fewest for p 0.05) cost about 19 grids.
+
 `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
 per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL. Combinations with errors
 or limit breaches are left out of the summary's picks and of the heatmaps, and the grid exits with 1

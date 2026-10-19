@@ -17,6 +17,13 @@ over the day, times `--size`, and every offset is a whole number of the product'
     spike_up     the price moves 5 s at the middle of the day and comes back 100 ticks later
     no_wall      for the middle fifth of the day the largest level on each side is gone
 
+`permute(day, seed, block)` is a different kind of copy, for arena.grid's permutation test: the
+day's own ticks in a shuffled order, in runs of `block` ticks, each shifted so the price continues
+by the move it had in the real day. Each tick's book, its trades' place in it, the products'
+ticks together and the day's net move are kept; anything that depends on the order of ticks
+longer than a run (mean reversion, trends, a level the price returns to, a signal that leads the
+price) is gone.
+
 It prints each product's PnL on the plain day and under each perturbation, summed over the days,
 its largest intraday drawdown on a plain day (what a loss stop must leave room for), and its worst
 single (day, perturbation). The template's loss stop and regime guard are judged by that last
@@ -27,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import random
 import statistics
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -57,6 +65,44 @@ def perturb(day: Day, name: str, size: float = 1.0) -> Day:
     offsets = {product: _offsets(day, product, name, size) for product in day.products}
     ticks = [_shifted(t, {p: offsets[p][k] for p in day.products}) for k, t in enumerate(day.ticks)]
     return replace(day, name=f"{day.name}/{name}", ticks=ticks)
+
+
+def permute(day: Day, seed: int, block: int = 1) -> Day:
+    """A copy of the day made of its own ticks in a shuffled order, in runs of `block` ticks.
+
+    Each tick keeps its book, its trades and its mark, and the move of its wall bid (the largest
+    bid level, as Book.wall_mid picks it) from the tick before it in the real day. In the copy it
+    is shifted so that its wall bid continues from the previous copied tick's by that move: the
+    wall bid is on the tick grid, so the shift is exact. Inside a run the copy is the real day,
+    moved by a constant; only the joins between runs are new. The shuffle is the same for every
+    product, so their ticks stay together, timestamps stay in order, and each product's wall bid
+    ends where the real day's does (and starts at most one real move from where it did)."""
+    n = len(day.ticks)
+    runs = [list(range(k, min(k + block, n))) for k in range(0, n, block)]
+    random.Random(seed).shuffle(runs)
+    order = [k for run in runs for k in run]
+    offsets = {}
+    for product in day.products:
+        walls = _forward_fill([max(b.bids, key=lambda level: level[1])[0] if (b := t.books.get(product)) and b.bids else None
+                               for t in day.ticks])
+        first = next((w for w in walls if w is not None), None)
+        if first is None:
+            offsets[product] = [0] * n
+            continue
+        walls = [first if w is None else w for w in walls]
+        moves = [0] + [walls[k] - walls[k - 1] for k in range(1, n)]
+        level, out = walls[0], []  # the level before the first tick (whose own move is 0)
+        for k in order:
+            level += moves[k]
+            out.append(level - walls[k])
+        offsets[product] = out
+    ticks = []
+    for j, k in enumerate(order):
+        moved = _shifted(day.ticks[k], {p: offsets[p][j] for p in day.products})
+        stamp = day.ticks[j].timestamp
+        trades = {p: [replace(t, timestamp=stamp) for t in ts] for p, ts in moved.trades.items()}
+        ticks.append(replace(moved, timestamp=stamp, trades=trades))
+    return replace(day, name=f"{day.name}/permuted{seed}", ticks=ticks)
 
 
 def _offsets(day: Day, product: str, name: str, size: float) -> list[int]:

@@ -84,7 +84,7 @@ None on the principle. On the cost of caution: Baguette Fromage notes they shipp
 - **Osmium `smoothing`, P4 rounds 1–2:** every test agrees nothing beats the committed 0.9 (DSR 0.13, SPA^c p 0.87–0.93, StepM none).
 - **Null controls:** 5 grids of 32 cells, each cell the same bot under a different liquidity seed (fill ratio 0.8). SPA^c p-values were 0.20–0.88 and StepM rejected nothing, so neither test produced a false positive. The DSR stayed below 0.95 (0.18–0.65); over the top 9 it reached 0.94, which is why that subset is only an illustration.
 - **Built into `arena.grid`, 2026-10-19:**
-  - **What every grid summary now prints:** SPA's p-value that no cell beats the bot as is, and StepM's cells that do. Each StepM cell is checked under the other `--modes`, then the summary gives a pick: StepM's best cell that beats the bot as is under every mode, else the bot as is (`arena/grid.py:592`, `format_snooping`).
+  - **What every grid summary now prints:** SPA's p-value that no cell beats the bot as is, and StepM's cells that do. Each StepM cell is checked under the other `--modes`, then the summary gives a pick: StepM's best cell that beats the bot as is under every mode, else the bot as is (`arena/grid.py:674`, `format_snooping`).
   - **What it costs:** about 0.4 s even at 64 cells × 600 blocks.
   - **The DSR, PBO and the held-out days stay.** Every one of these tests shares a blind spot: blocks within days can't see a change between days.
 - **Ten selection rules on unseen days** (`uv run python -m experiments.selection_rules`; `IDEAS.md`, "Selection rules on unseen days"):
@@ -94,6 +94,11 @@ None on the principle. On the cost of caution: Baguette Fromage notes they shipp
   - **So the pick rule is SPA, then StepM, then every mode.** It was the only rule never to lose money, in either table or either mode. The plateau rules (`nbhd`, top-5 average) did no better than the single best PnL here.
 - **Leakage between neighbouring blocks** (the reason for López de Prado's purging and embargo): on ten null grids, CSCV's PBO over the grid's 16 blocks averaged 46.5% (11–86%), close to the 50% of no information. Neighbouring blocks don't leak enough to bias it at that block size *(checked, `experiments/snooping_tests.py`)*.
 - **Harvey & Liu's BHY** (false discovery rate at 5%) named the same number of cells as StepM on every grid: 3 on Kelp, 0 on Osmium and the nulls.
+- **A permutation test of the whole search** (`arena.grid --permute N`, after Masters' idea: rerun the whole optimisation on data with its order destroyed; our adaptation, his book unread, `MANUAL_TODO.md` G):
+  - **The copies** (`arena/stress.py`, `permute`): the days' own ticks in a shuffled order, in runs of `--permute-block`. Each tick is shifted so its wall bid continues by its own real move. Each tick's book, its trades and the products' ticks together are kept; any structure longer than a run is gone.
+  - **Two statistics, on the products the axes set:** the best cell's PnL (does the strategy family need the real order?) and its lift over the median cell (does the *choice* need it?). Neither is measured against the bot as is: its settings were tuned to the real order, so on the copies almost any cell beat it, and that first version said nothing.
+  - **Measured 2026-10-19** (19 copies, `IDEAS.md`, "A permutation test of the whole search"): Hydrogel's level grid is the positive control. Its lift is 97.6k against the copies' 36.8k (p 0.05 for runs of 1 and of 100 ticks). Resin and Pepper Root need the order for their best PnL (p 0.05) but not for the choice (lift p 0.90, 0.95). Kelp's edge grid needs it for neither (best p 0.55, lift p 0.80): its gain comes from the books and the fill model, the same conclusion `worse` and the held-out days reached.
+  - **What it adds to SPA and StepM:** they say a cell beats the bot as is on these days. The permutation test says whether that comes from how the price moves (which can change on the scored day) or from what each tick looks like (which the fill model decides).
 
 ## How to test it here
 Done 2026-10-18 (`tests/test_grid.py`, and the grids below, each `--modes all,worse`):

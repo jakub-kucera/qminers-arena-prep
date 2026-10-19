@@ -327,3 +327,7 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - `arena/grid.py` prints SPA, StepM, each StepM cell under the other modes, and a pick. `experiments/selection_rules.py` scores ten selection rules on unseen days; SPA + `worse` was the only one never to lose. `experiments/snooping_tests.py` gained PBO and BHY columns and ten null grids: null PBO averages 46.5%, so neighbouring blocks don't leak.
 - **Filed into:** `validation-and-overfitting` ("What it means for our code"), the source pages' code maps (`superior-predictive-ability`, `stepwise-multiple-testing`); the repo's `IDEAS.md`, `TODO.md`, `ON_THE_DAY.md` ("Evaluation data"), `README.md` ("Grid search"), `CLAUDE.md`.
 
+## [2026-10-19] query | a permutation test of the whole search
+- `arena.grid --permute N` and `arena.stress.permute`: the grid rerun on copies of the days made of their own ticks shuffled. Hydrogel's level grid is the positive control (lift p 0.05); Kelp's edge gain needs no price order (lift p 0.80). Masters' book is unread; the method is our adaptation.
+- **Filed into:** `validation-and-overfitting` ("What it means for our code"); the repo's `IDEAS.md`, `TODO.md`, `MANUAL_TODO.md` (G), `README.md`, `CLAUDE.md`.
+

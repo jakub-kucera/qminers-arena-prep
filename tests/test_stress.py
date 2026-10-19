@@ -1,7 +1,7 @@
 import pytest
 
 from arena.model import Book, Day, MarketTrade, Tick
-from arena.stress import perturb
+from arena.stress import permute, perturb
 
 
 def flat_day(n=10):
@@ -57,3 +57,46 @@ def test_vol2_doubles_the_distance_from_the_first_wall_mid():
 def test_unknown_perturbation():
     with pytest.raises(ValueError, match="unknown perturbation"):
         perturb(flat_day(), "nope")
+
+
+def walking_day(n=40):
+    """Two products whose walls step up one tick per tick, with a trade at the wall each tick."""
+    ticks = []
+    for t in range(n):
+        books = {p: Book(((90 + base + t, 20), (91 + base + t, 2)), ((95 + base + t, 20),)) for p, base in (("X", 0), ("Y", 50))}
+        books = {p: Book(tuple(sorted(b.bids, reverse=True)), b.asks) for p, b in books.items()}
+        trades = {p: [MarketTrade(p, 95 + base + t, 1, timestamp=t * 100)] for p, base in (("X", 0), ("Y", 50))}
+        ticks.append(Tick(t * 100, books, trades, {"X": 92.5 + t, "Y": 142.5 + t}))
+    return Day("d", ["X", "Y"], {"X": 10, "Y": 10}, ticks)
+
+
+def wall_bids(day, p):
+    return [max(t.books[p].bids, key=lambda level: level[1])[0] for t in day.ticks]
+
+
+def test_permute_keeps_each_tick_and_its_move_and_the_ends():
+    day = walking_day()
+    copy = permute(day, seed=3)
+    assert [t.timestamp for t in copy.ticks] == [t.timestamp for t in day.ticks]
+    for p in ("X", "Y"):
+        bids = wall_bids(copy, p)
+        assert bids[-1] == wall_bids(day, p)[-1] and abs(bids[0] - wall_bids(day, p)[0]) <= 1  # the same end, a start one move away
+        steps = [b - a for a, b in zip(bids, bids[1:])]
+        assert set(steps) <= {0, 1} and steps.count(0) <= 1  # every move is a real one; the first tick has none (0)
+    for t in copy.ticks:  # each tick's book keeps its shape, its trades sit where they did and carry the new time
+        book = t.books["X"]
+        assert [price - book.asks[0][0] for price, _ in book.bids] == [-4, -5]
+        assert [trade.price for trade in t.trades["X"]] == [book.asks[0][0]]
+        assert all(trade.timestamp == t.timestamp for trade in t.trades["X"])
+        assert t.books["Y"].asks[0][0] - book.asks[0][0] == 50  # the products' ticks stay together
+
+
+def test_permute_shuffles_in_runs_and_is_seeded():
+    day = flat_day(30)
+    for t, k in zip(day.ticks, range(30)):  # tag each tick by its trade quantity
+        t.trades["X"][0] = MarketTrade("X", 102, k + 1)
+    order = [t.trades["X"][0].quantity - 1 for t in permute(day, seed=1, block=5).ticks]
+    assert sorted(order) == list(range(30)) and order != list(range(30))
+    assert all(b - a == 1 for run in range(6) for a, b in zip(order[run * 5 : run * 5 + 4], order[run * 5 + 1 : run * 5 + 5]))
+    assert order == [t.trades["X"][0].quantity - 1 for t in permute(day, seed=1, block=5).ticks]
+    assert [t.trades["X"][0].quantity for t in permute(day, seed=1, block=30).ticks] == list(range(1, 31))
