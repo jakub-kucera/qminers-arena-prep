@@ -66,6 +66,7 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out: probe 1.
   - We assume: no. Everything unfilled is cancelled at the end of the tick.
   - If they rest: backtest with `--resting`. The template already handles both. On a product whose fair is known exactly (Resin-like, `fair` "fixed"), quote at `make_edge` 1, not 2: with resting orders, a rival one tick tighter took 99% of Resin's passive fills from ours at 2, and 1 is the best reply to every rival edge (`IDEAS.md`, "Against a rival that undercuts us"). But on a product that `arena.diagnose` notes as jumping, take only (`make_size` 0): resting quotes there get filled at stale prices. On P4 round 5 that turned 2–27k per product into losses of 0.7–2.4M (`IDEAS.md`).
+  - If they don't rest: a jumping product is worth quoting, at the edge its fill mode favours. Squid Ink made +10.1k at 0.5 under `worse` and +29.6k at 1 under `all` on P3 days it was never tuned on, while every quote lost 45–72k with `--resting` (`TODO.md`, the Squid Ink decision).
 - [ ] **Where does a new order join the queue?**
   - Find out: probe 11.
   - We assume (in `--resting`): at the back. The visible volume at your price is ahead of you, and you only move up when it shrinks. If the exchange's bots re-quote every tick, as Prosperity's did, you would reach the front much sooner.
