@@ -56,9 +56,11 @@ import ast
 import csv
 import json
 import math
+import os
 import random
 import sys
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 
@@ -811,6 +813,7 @@ def _spec_from_args(args) -> MarketSpec:
 def _add_market_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--days", type=int, default=3, help="days to simulate, one seed each (default: 3)")
     parser.add_argument("--seed", type=int, default=0, help="seed of the first day; day k uses seed + k (default: 0)")
+    parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes, one day each (default: CPU count)")
     parser.add_argument("--products", help=f"comma-separated presets, from {', '.join(PRESETS)} (default: {','.join(DEFAULT_PRESETS)})")
     parser.add_argument("--ticks", type=int, default=10_000, help="ticks a day (default: 10,000)")
     parser.add_argument("--names", action="store_true", help="show the agents' kinds as buyer and seller")
@@ -847,59 +850,88 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(error))
 
     if args.command == "generate":
-        for k in range(args.days):
-            sim = run(spec, args.seed + k)
-            write_day(sim, args.out, args.round, k)
-            print(f"round {args.round} day {k} (seed {args.seed + k}): {sum(len(v) for t in sim.day.ticks for v in t.trades.values()):,} trades")
+        for line in _map(args.jobs, _generate_day, [(spec, args.out, args.round, k, args.seed + k) for k in range(args.days)]):
+            print(line)
         print(f"written to {args.out}/: replay with --data {args.out}")
         return 0
     return _run_command(args, spec, parser)
 
 
-def _run_command(args, spec: MarketSpec, parser) -> int:
-    from arena import report
-    from arena.botfile import OverrideError, parse_override
-    from arena.cli import participant_names
-    from arena.engine import run_market
+def _map(jobs: int, fn, tasks: list[tuple]) -> list:
+    """fn over the tasks, in a process pool unless one job, results in task order."""
+    if jobs <= 1 or len(tasks) <= 1:
+        return [fn(*task) for task in tasks]
+    with ProcessPoolExecutor(min(jobs, len(tasks))) as pool:
+        return list(pool.map(fn, *zip(*tasks)))
+
+
+def _generate_day(spec: MarketSpec, out: Path, round_number: int, k: int, seed: int) -> str:
+    sim = run(spec, seed)
+    write_day(sim, out, round_number, k)
+    return f"round {round_number} day {k} (seed {seed}): {sum(len(v) for t in sim.day.ticks for v in t.trades.values()):,} trades"
+
+
+def _load_bots(args, overrides) -> list:
     from arena.formats import FORMATS
 
+    fmt = FORMATS[args.format]
+    return [fmt.load_bot(args.bot, overrides, strict=True)] + [fmt.load_bot(r, {}, strict=True) for r in args.rivals]
+
+
+def _run_day(args, spec: MarketSpec, overrides: dict, seed: int) -> tuple[str, dict[str, dict[str, float]], bool]:
+    """One seed's day: the bot in the market and in each replay. Returns what to print, each
+    product's PnL by key (replay modes, then "market"), and whether anything raised."""
+    from arena import report
+    from arena.cli import participant_names
+    from arena.engine import run_market
+
     names = participant_names(args.bot, args.rivals)
+    modes = list(TradeMatching)
+    header = "".join(f"  {'replay ' + m.value:>14}" for m in modes) + f"  {'in market':>14}"
+    inside = run(spec, seed, list(zip(names, _load_bots(args, overrides))), resting=args.resting)
+    recording = run(spec, seed).day
+    config = {m: EngineConfig(trade_matching=m, resting=args.resting, queue=args.queue, queue_power=args.queue_power) for m in modes}
+    replays = {m: run_market(recording, list(zip(names, _load_bots(args, overrides))), config[m])[0] for m in modes}
+    mine = inside.results[0]
+    failed = bool(mine.errors or any(r.errors for r in replays.values()))
+    lines = [report.format_day(mine)]
+    if args.rivals:
+        lines.append(report.format_rivals(names[1:], inside.results[1:]))
+    lines.append("  pnl in the market, and replaying the same day without the bot (--match-trades):")
+    lines.append(f"    {'':<20}{header}")
+    rows = {}
+    for product in mine.products:
+        row = {m.value: replays[m].pnl[product][-1] for m in modes} | {"market": mine.pnl[product][-1]}
+        if any(row.values()):
+            rows[product] = row
+            lines.append(f"    {product:<20}" + "".join(f"  {v:>14,.0f}" for v in row.values()))
+    lines.append("")
+    if args.out:
+        report.write_csvs(mine, args.out)
+    return "\n".join(lines), rows, failed
+
+
+def _run_command(args, spec: MarketSpec, parser) -> int:
+    from arena.botfile import OverrideError, parse_override
+    from arena.formats import FORMATS
+
     try:
         fmt = FORMATS[args.format]
         overrides = dict(parse_override(text) for text in args.overrides)
         args.resting = args.resting or getattr(fmt, "RESTING", False)
-
-        def load():
-            return [fmt.load_bot(args.bot, overrides, strict=True)] + [fmt.load_bot(r, {}, strict=True) for r in args.rivals]
-
-        load()
+        _load_bots(args, overrides)  # fail on a bad bot or override before any day runs
     except (KeyError, ValueError, OSError, OverrideError) as error:
         parser.error(f"unknown format {error}" if isinstance(error, KeyError) else str(error))
     modes = list(TradeMatching)
     totals: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     failed = False
     header = "".join(f"  {'replay ' + m.value:>14}" for m in modes) + f"  {'in market':>14}"
-    for k in range(args.days):
-        seed = args.seed + k
-        inside = run(spec, seed, list(zip(names, load())), resting=args.resting)
-        recording = run(spec, seed).day
-        replays = {m: run_market(recording, list(zip(names, load())), EngineConfig(trade_matching=m, resting=args.resting, queue=args.queue, queue_power=args.queue_power))[0] for m in modes}
-        mine = inside.results[0]
-        failed |= bool(mine.errors or any(r.errors for r in replays.values()))
-        print(report.format_day(mine))
-        if args.rivals:
-            print(report.format_rivals(names[1:], inside.results[1:]))
-        print("  pnl in the market, and replaying the same day without the bot (--match-trades):")
-        print(f"    {'':<20}{header}")
-        for product in mine.products:
-            row = {m.value: replays[m].pnl[product][-1] for m in modes} | {"market": mine.pnl[product][-1]}
-            if any(row.values()):
-                for key, value in row.items():
-                    totals[product][key] += value
-                print(f"    {product:<20}" + "".join(f"  {v:>14,.0f}" for v in row.values()))
-        print()
-        if args.out:
-            report.write_csvs(mine, args.out)
+    for text, rows, day_failed in _map(args.jobs, _run_day, [(args, spec, overrides, args.seed + k) for k in range(args.days)]):
+        print(text)
+        failed |= day_failed
+        for product, row in rows.items():
+            for key, value in row.items():
+                totals[product][key] += value
     print(f"over {args.days} days (seeds {args.seed}-{args.seed + args.days - 1}){' with --resting' if args.resting else ''}:")
     print(f"  {'':<20}{header}")
     for product, row in [*totals.items(), ("total", {key: sum(t[key] for t in totals.values()) for key in [m.value for m in modes] + ["market"]})]:

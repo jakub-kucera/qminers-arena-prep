@@ -179,15 +179,26 @@ def _range(text: str) -> list:
 
 # ---------------------------------------------------------------------------- running
 
-# Set once per worker process by _init_worker, read by _evaluate.
+# Set once per worker process by _init_worker, read by _run_piece.
 _WORKER: dict = {}
 
 
-def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, targets, modes, config, rivals, requote, days=None):
+def only(day: Day, products: list[str]) -> Day:
+    """The day with only these products' books, trades and marks."""
+    keep = set(products)
+    ticks = [replace(t, books={p: b for p, b in t.books.items() if p in keep}, trades={p: ts for p, ts in t.trades.items() if p in keep},
+                     marks={p: m for p, m in t.marks.items() if p in keep}) for t in day.ticks]
+    return replace(day, products=[p for p in day.products if p in keep], limits={p: v for p, v in day.limits.items() if p in keep},
+                   ticks=ticks, info={p: v for p, v in day.info.items() if p in keep})
+
+
+def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, targets, modes, config, rivals, requote, subset, days=None):
     fmt = FORMATS[format_name]
+    days = days if days is not None else fmt.load_days(fmt.resolve_data_dir(data_arg), day_specs)
     _WORKER.update(
         fmt=fmt,
-        days=days if days is not None else fmt.load_days(fmt.resolve_data_dir(data_arg), day_specs),
+        days=days,
+        restricted=[only(day, subset) for day in days] if subset else None,
         bot=bot_path,
         base=base_overrides,
         targets=targets,
@@ -198,93 +209,188 @@ def _init_worker(format_name, data_arg, day_specs, bot_path, base_overrides, tar
     )
 
 
-def _evaluate(index: tuple[int, ...], values: tuple, permutation: tuple[int, int] | None = None) -> Outcome:
-    """One combination on every day under every mode, or, with `permutation` (seed, block), on the
-    permuted copies of the days under the first mode only."""
+@dataclass
+class Piece:
+    """One combination on one day under one mode."""
+
+    pnl: float
+    blocks: list[float]
+    fine: list[float]
+    products: dict[str, float]
+    fills: int
+    errors: int
+    breaches: int
+    first_error: str
+
+
+def _run_piece(values: tuple, day_index: int, mode: TradeMatching, restricted: bool, permutation: tuple[int, int] | None) -> Piece:
+    """One backtest: the combination on one day (only the axes' products if `restricted`, a permuted
+    copy with `permutation` (seed, block)) under one mode."""
     w = _WORKER
     overrides = {**w["base"], **dict(zip(w["targets"], values))}
-    outcome = Outcome(index, values)
-    days, modes = w["days"], w["modes"]
+    days = w["restricted"] if restricted else w["days"]
+    day = days[day_index]
     if permutation is not None:
         cache = w.setdefault("permuted", {})
-        if permutation not in cache:
-            cache.clear()  # tasks come seed by seed, so one copy of the days is enough
-            cache[permutation] = [stress.permute(day, *permutation) for day in days]
-        days, modes = cache[permutation], modes[:1]
+        key = (permutation, restricted, day_index)
+        if key not in cache:
+            if len(cache) > 4 * len(days):  # tasks come seed by seed, so a few copies are enough
+                cache.clear()
+            cache[key] = stress.permute(day, *permutation)
+        day = cache[key]
+    result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], replace(w["config"], trade_matching=mode), requote=w["requote"])[0]
+    series = report.total_pnl(result) or [0.0] * len(day.ticks)
+    return Piece(
+        pnl=series[-1],
+        blocks=block_pnl(series, blocks_per_day(len(days))),
+        fine=block_pnl(series, len(series) // FINE_TICKS),
+        products={stats.product: stats.pnl for stats in report.product_stats(result)},
+        fills=len(result.fills),
+        errors=len(result.errors),
+        breaches=len(result.limit_breaches),
+        first_error=report.last_line(result.errors[0][1]) if result.errors else "",
+    )
+
+
+def _assemble(index: tuple, values: tuple, pieces: dict, days: list[Day], modes: list[TradeMatching], extra: dict | None = None) -> Outcome:
+    """An Outcome from its pieces, keyed (day index, mode), days in order. `extra` holds, per key,
+    what the products left out of a restricted run add: their Piece from the bot as is."""
+    outcome = Outcome(index, values)
     for mode_number, mode in enumerate(modes):
-        config = replace(w["config"], trade_matching=mode)
         day_pnl, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
-        blocks = outcome.block_pnl.setdefault(mode, [])
-        fine = outcome.fine_pnl.setdefault(mode, [])
-        for day in days:
-            result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], config, requote=w["requote"])[0]
-            series = report.total_pnl(result) or [0.0] * len(day.ticks)
-            day_pnl[day.name] = series[-1]
-            blocks += block_pnl(series, blocks_per_day(len(days)))
-            fine += block_pnl(series, len(series) // FINE_TICKS)
-            for stats in report.product_stats(result):
-                products[stats.product] = products.get(stats.product, 0.0) + stats.pnl
+        blocks, fine = outcome.block_pnl.setdefault(mode, []), outcome.fine_pnl.setdefault(mode, [])
+        for d, day in enumerate(days):
+            piece = pieces[(d, mode)]
+            more = extra[(d, mode)] if extra else None
+            day_pnl[day.name] = piece.pnl + (more.pnl if more else 0.0)
+            blocks += [a + b for a, b in zip(piece.blocks, more.blocks)] if more else piece.blocks
+            fine += [a + b for a, b in zip(piece.fine, more.fine)] if more else piece.fine
+            for source in (piece, more) if more else (piece,):
+                for product, value in source.products.items():
+                    products[product] = products.get(product, 0.0) + value
             if mode_number == 0:
-                outcome.fills += len(result.fills)
-            outcome.errors += len(result.errors)
-            outcome.limit_breaches += len(result.limit_breaches)
-            if result.errors and not outcome.first_error:
-                outcome.first_error = report.last_line(result.errors[0][1])
+                outcome.fills += piece.fills + (more.fills if more else 0)
+            outcome.errors += piece.errors + (more.errors if more else 0)
+            outcome.limit_breaches += piece.breaches + (more.breaches if more else 0)
+            outcome.first_error = outcome.first_error or piece.first_error or (more.first_error if more else "")
     return outcome
 
 
-def run_grid(
-    s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str, day_specs: list[str]
-) -> tuple[Outcome, dict[tuple[int, ...], Outcome]]:
-    """Returns the baseline (the bot with only --set applied) and every combination's outcome."""
-    combos = list(itertools.product(*(range(len(axis.values)) for axis in axes)))
-    tasks = [((), ())] + [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
-    init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals, s.requote)
+def _difference(full: Piece, part: Piece, kept: set[str]) -> Piece:
+    """What the products outside `kept` add to a full run: its totals minus the restricted run's."""
+    return Piece(
+        pnl=full.pnl - part.pnl,
+        blocks=[a - b for a, b in zip(full.blocks, part.blocks)],
+        fine=[a - b for a, b in zip(full.fine, part.fine)],
+        products={p: v for p, v in full.products.items() if p not in kept},
+        fills=full.fills - part.fills,
+        errors=full.errors - part.errors,
+        breaches=full.breaches - part.breaches,
+        first_error=full.first_error if not part.first_error else "",
+    )
 
-    outcomes: dict[tuple[int, ...], Outcome] = {}
-    progress = _Progress(len(tasks))
-    if jobs <= 1:
-        _init_worker(*init_args, days=s.days)  # reuse the days already loaded
-        for index, values in tasks:
-            outcomes[index] = _evaluate(index, values)
-            progress.step()
-    else:
-        with ProcessPoolExecutor(jobs, initializer=_init_worker, initargs=init_args) as pool:
-            futures = [pool.submit(_evaluate, index, values) for index, values in tasks]
-            for future in as_completed(futures):
-                outcome = future.result()
-                outcomes[outcome.index] = outcome
+
+class _Runner:
+    """Runs backtests in one pool (or in-process with jobs 1), with a progress line per batch."""
+
+    def __init__(self, s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str,
+                 day_specs: list[str], subset: list[str] | None):
+        self.init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals,
+                          s.requote, subset)
+        self.jobs, self.days = jobs, s.days
+        self.pool = None
+
+    def __enter__(self):
+        if self.jobs <= 1:
+            _init_worker(*self.init_args, days=self.days)  # reuse the days already loaded
+        else:
+            self.pool = ProcessPoolExecutor(self.jobs, initializer=_init_worker, initargs=self.init_args)
+        return self
+
+    def __exit__(self, *exc):
+        if self.pool:
+            self.pool.shutdown()
+
+    def run(self, tasks: list[tuple]) -> dict:
+        """tasks: (key, values, day index, mode, restricted, permutation) -> {key: Piece}."""
+        out, progress = {}, _Progress(len(tasks))
+        if self.pool is None:
+            for key, *args in tasks:
+                out[key] = _run_piece(*args)
                 progress.step()
-    progress.done()
-    return outcomes.pop(()), outcomes
+        else:
+            futures = {self.pool.submit(_run_piece, *args): key for key, *args in tasks}
+            for future in as_completed(futures):
+                out[futures[future]] = future.result()
+                progress.step()
+        progress.done()
+        return out
+
+
+def _cells(axes: list[Axis]) -> list[tuple[tuple, tuple]]:
+    combos = itertools.product(*(range(len(axis.values)) for axis in axes))
+    return [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
+
+
+@dataclass
+class GridRun:
+    baseline: Outcome
+    outcomes: dict[tuple[int, ...], Outcome]
+    restricted: list[str] | None  # the products the cells ran on, when not every product
+    note: str  # why the run was or wasn't restricted
+
+
+def run_grid(
+    s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str, day_specs: list[str],
+    all_products: bool = False,
+) -> GridRun:
+    """The baseline (the bot with only --set applied) and every combination, one backtest per worker
+    task. Unless `all_products`, when the axes set only some products, the combinations run on days
+    holding only those, if the bot as is makes the same PnL on them with and without the others on
+    every day and mode; the others' PnL is then added from the bot as is's run."""
+    products = sorted({p for day in s.days for p in day.products})
+    traded = axis_products(axes, products)
+    subset = traded if not all_products and len(traded) < len(products) else None
+    keys = [(d, m) for m in modes for d in range(len(s.days))]
+    with _Runner(s, bot, axes, modes, jobs, format_name, data_arg, day_specs, subset) as runner:
+        tasks = [(("full", d, m), (), d, m, False, None) for d, m in keys]
+        if subset:
+            tasks += [(("part", d, m), (), d, m, True, None) for d, m in keys]
+        base = runner.run(tasks)
+        full = {(d, m): base[("full", d, m)] for d, m in keys}
+        restricted, note = None, ""
+        if subset:
+            kept = set(subset)
+            same = all(abs(sum(v for p, v in full[k].products.items() if p in kept) - sum(base[("part", *k)].products.values())) < 1e-6
+                       and not base[("part", *k)].errors for k in keys)
+            if same:
+                restricted = subset
+                note = (f"the combinations ran on {', '.join(subset) if len(subset) <= 4 else f'{len(subset)} products'} only: the bot as is "
+                        "makes the same PnL there with or without the other products, so theirs is added from its run (--all-products to run them all)")
+            else:
+                note = "the combinations ran on every product: the bot as is trades the axes' products differently without the others"
+        cells = _cells(axes)
+        pieces = runner.run([((index, d, m), values, d, m, restricted is not None, None) for index, values in cells for d, m in keys])
+    extra = {k: _difference(full[k], base[("part", *k)], set(restricted)) for k in keys} if restricted else None
+    outcomes = {index: _assemble(index, values, {k: pieces[(index, *k)] for k in keys}, s.days, modes, extra) for index, values in cells}
+    return GridRun(_assemble((), (), full, s.days, modes), outcomes, restricted, note)
 
 
 def run_permutations(
     s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str,
-    day_specs: list[str], copies: int, block: int,
-) -> list[tuple[Outcome, dict[tuple[int, ...], Outcome]]]:
-    """The whole grid on `copies` permuted copies of the days (seeds 1..copies), under the first mode:
-    for each copy, the bot as is and every combination."""
-    combos = list(itertools.product(*(range(len(axis.values)) for axis in axes)))
-    cells = [((), ())] + [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
-    tasks = [(seed, index, values) for seed in range(1, copies + 1) for index, values in cells]
-    init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals, s.requote)
-    found: dict[int, dict[tuple[int, ...], Outcome]] = {seed: {} for seed in range(1, copies + 1)}
-    progress = _Progress(len(tasks))
-    if jobs <= 1:
-        _init_worker(*init_args, days=s.days)
-        for seed, index, values in tasks:
-            found[seed][index] = _evaluate(index, values, (seed, block))
-            progress.step()
-    else:
-        with ProcessPoolExecutor(jobs, initializer=_init_worker, initargs=init_args) as pool:
-            futures = {pool.submit(_evaluate, index, values, (seed, block)): seed for seed, index, values in tasks}
-            for future in as_completed(futures):
-                outcome = future.result()
-                found[futures[future]][outcome.index] = outcome
-                progress.step()
-    progress.done()
-    return [(cells.pop(()), cells) for cells in found.values()]
+    day_specs: list[str], copies: int, block: int, restricted: list[str] | None,
+) -> list[dict[tuple[int, ...], Outcome]]:
+    """The whole grid on `copies` permuted copies of the days (seeds 1..copies), under the first mode,
+    on the products the grid itself ran on: for each copy, every combination."""
+    mode = modes[0]
+    cells = _cells(axes)
+    tasks = [((seed, index, d), values, d, mode, restricted is not None, (seed, block))
+             for seed in range(1, copies + 1) for index, values in cells for d in range(len(s.days))]
+    with _Runner(s, bot, axes, modes, jobs, format_name, data_arg, day_specs, restricted) as runner:
+        pieces = runner.run(tasks)
+    days = [only(day, restricted) for day in s.days] if restricted else s.days
+    return [{index: _assemble(index, values, {(d, mode): pieces[(seed, index, d)] for d in range(len(days))}, days, [mode])
+             for index, values in cells} for seed in range(1, copies + 1)]
 
 
 def axis_products(axes: list[Axis], products: list[str]) -> list[str]:
@@ -302,7 +408,7 @@ def search_stats(outcomes: dict[tuple[int, ...], Outcome], mode: TradeMatching, 
 def format_permutations(axes: list[Axis], outcomes: dict[tuple[int, ...], Outcome], copies: list, mode: TradeMatching, block: int, products: list[str]) -> str:
     traded = axis_products(axes, products)
     real = search_stats(outcomes, mode, traded)
-    found = [x for x in (search_stats(o, mode, traded) for _, o in copies) if x is not None]
+    found = [x for x in (search_stats(o, mode, traded) for o in copies) if x is not None]
     shown = ", ".join(traded) if len(traded) <= 3 else f"{len(traded)} products"
     lines = [f"permutation test: the whole grid on {len(copies)} copies of the days, their ticks shuffled in runs of {block:,} (pnl({mode}) of {shown}):"]
     if real is None or not found:
@@ -833,6 +939,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--top", type=int, default=15, help="rows to show (default: 15)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     parser.add_argument("--out", type=Path, help="write every combination's results to this CSV")
+    parser.add_argument("--all-products", action="store_true",
+                        help="run every product in every combination, even when the axes set only some (default: only those, when that gives the bot as is the same PnL)")
     parser.add_argument("--permute", type=int, default=0, metavar="N",
                         help="also run the whole grid on N copies of the days with their ticks shuffled, for a permutation test (default: 0)")
     parser.add_argument("--permute-block", type=int, default=1, metavar="TICKS",
@@ -851,14 +959,14 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(error))
 
     combos = math.prod(len(axis.values) for axis in axes)
-    jobs = max(1, min(args.jobs, combos + 1))
     runs = (combos + 1) * len(s.days) * len(modes)
-    print(f"{combos} combinations × {len(s.days)} days × {len(modes)} modes ({runs} backtests) on {jobs} workers")
+    print(f"{combos} combinations × {len(s.days)} days × {len(modes)} modes ({runs} backtests) on {args.jobs} workers")
     if s.rivals:
         print(f"each against {', '.join(participant_names(args.bot, s.rivals)[1:])} in the same market")
     start = time.perf_counter()
-    baseline, outcomes = run_grid(s, args.bot, axes, modes, jobs, args.format, args.data, args.days)
-    print(f"done in {time.perf_counter() - start:.1f} s\n")
+    run = run_grid(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.all_products)
+    baseline, outcomes = run.baseline, run.outcomes
+    print(f"done in {time.perf_counter() - start:.1f} s" + (f"; {run.note}" if run.note else "") + "\n")
 
     rows = build_rows(axes, modes, outcomes)
     print(format_summary(axes, modes, baseline, rows, args.sort, args.top))
@@ -868,7 +976,8 @@ def main(argv: list[str] | None = None) -> int:
     print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes))
     if args.permute > 0:
         start = time.perf_counter()
-        copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block)
+        copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block,
+                                  run.restricted)
         products = sorted({p for day in s.days for p in day.products})
         print(f"\n{format_permutations(axes, outcomes, copies, modes[0], args.permute_block, products)}  ({time.perf_counter() - start:.0f} s)")
     failed = [o for o in outcomes.values() if o.first_error]

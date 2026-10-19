@@ -119,6 +119,13 @@ default all cores). The example above runs 78 backtests in about 6 s. Each axis 
 options apply to every run, including `--vs`, which tunes the bot against rivals in the same
 market. A short run of the first combination catches typos before the grid starts.
 
+Each backtest (combination, day, mode) is its own worker task, so a small grid still uses every
+core. When the axes set only some products (`PARAMS.KELP.*`), the grid first runs the bot as is
+with and without the other products. If those products make the same PnL either way, every
+combination runs on them alone and the others' PnL is added from the bot as is, so the summary is
+the same as a full run's, faster (Kelp's 64 cells: 14 s against 25 s). `--all-products` runs
+everything.
+
 The highest backtest PnL is usually overfit, so each combination is ranked on four measures:
 
 | Measure | Meaning |
@@ -423,7 +430,7 @@ uv run python -m arena.sim run bots/template.py --products KELP,RAINFOREST_RESIN
 ```
 
 `--spec PATH=VALUE` changes any preset field, e.g. `KELP.fundamental.sd=0.3` or `KELP.limit_traders.rate=2`.
-`run` prints each product's PnL in the market next to replaying the same seed's recording, without the bot, in each `--match-trades` mode. `run --format` loads the bots through another format, such as `drill`.
+`run` prints each product's PnL in the market next to replaying the same seed's recording, without the bot, in each `--match-trades` mode. Both commands run one day per worker (`--jobs`, default all cores). `run --format` loads the bots through another format, such as `drill`.
 The recording and the run share every random draw, so the gap is the market's reaction to the bot.
 
 The template over seeds 0–4 (`IDEAS.md`, "Replay against a market that reacts"):

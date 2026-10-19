@@ -321,3 +321,55 @@ def test_axis_products_are_the_products_the_axes_set():
 def test_permute_needs_sensible_arguments(capsys, bot, data_dir):
     with pytest.raises(SystemExit):
         run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", "--permute-block", "0")
+
+
+TWO_PRODUCTS = """
+from datamodel import Order
+
+PARAMS = {"KELP": {"size": 1}, "RAINFOREST_RESIN": {"size": 1}}
+PRICES = {"KELP": 2032, "RAINFOREST_RESIN": 10004}
+
+class Trader:
+    def run(self, state):
+        if state.timestamp != 0 and state.timestamp != 100:
+            return {}, 0, ""
+        orders = {}
+        for product, params in PARAMS.items():
+            depth = state.order_depths.get(product)
+            if depth and (not DEPENDENT or "RAINFOREST_RESIN" in state.order_depths):
+                orders[product] = [Order(product, PRICES[product] if state.timestamp == 0 else PRICES[product] - 4, params["size"])]
+        return orders, 0, ""
+"""
+
+
+def _two_product_bot(tmp_path, dependent):
+    path = tmp_path / f"two_{dependent}.py"
+    path.write_text(textwrap.dedent(TWO_PRODUCTS) + f"\nDEPENDENT = {dependent}\n")
+    return path
+
+
+def _summary(text):
+    return [line for line in text.splitlines() if "done in" not in line and "workers" not in line]
+
+
+def test_a_grid_on_one_product_runs_it_alone_and_adds_the_others_back(capsys, tmp_path, data_dir):
+    bot = _two_product_bot(tmp_path, False)
+    code, restricted = run_main(capsys, bot, data_dir, "--grid", "PARAMS.KELP.size=1..3", "--modes", "all,worse", "--jobs", "1")
+    assert code == 0 and "the combinations ran on KELP only" in restricted
+    _, full = run_main(capsys, bot, data_dir, "--grid", "PARAMS.KELP.size=1..3", "--modes", "all,worse", "--jobs", "1", "--all-products")
+    assert "ran on KELP only" not in full
+    assert _summary(restricted) == _summary(full)
+
+
+def test_a_grid_runs_every_product_when_the_bot_as_is_needs_them(capsys, tmp_path, data_dir):
+    bot = _two_product_bot(tmp_path, True)
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.KELP.size=1..3", "--jobs", "1")
+    assert code == 0 and "the combinations ran on every product" in text
+
+
+def test_the_grid_gives_the_same_summary_on_one_worker_and_on_several(capsys, tmp_path, data_dir):
+    bot = _two_product_bot(tmp_path, False)
+    args = ["--grid", "PARAMS.KELP.size=1..3", "--grid", "PARAMS.RAINFOREST_RESIN.size=1,2", "--modes", "all,worse"]
+    _, serial = run_main(capsys, bot, data_dir, *args, "--jobs", "1")
+    _, parallel = run_main(capsys, bot, data_dir, *args, "--jobs", "3")
+    assert _summary(serial) == _summary(parallel)
