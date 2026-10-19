@@ -227,6 +227,27 @@ per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL. Combina
 or limit breaches are left out of the summary's picks and of the heatmaps, and the grid exits with 1
 if every combination failed.
 
+## Compare bots
+
+`arena.grid` varies settings inside one file. `arena.compare` runs several bot files, or variants of
+them, against one baseline, with the same checks:
+
+```sh
+uv run python -m arena.compare bots/template.py 1 --bot bots/zoo/claude/*.py --modes all,worse
+uv run python -m arena.compare bots/template.py 1 --bot bots/mine.py "bots/template.py@PARAMS.KELP.make_edge=1@PARAMS.KELP.take_edge=2"
+uv run python -m arena.compare bots/template.py 1 2 --data p4 --resting --bot bots/a.py bots/b.py --vs bots/rivals/sniper.py --out results/compare.csv
+```
+
+- **The baseline** is the first bot, the bot as is. `--set` applies to it alone.
+- **Each `--bot`** is a file, or `FILE@PATH=VALUE@...` for a variant. It takes several, so a shell glob works.
+- **One worker task per (bot, day, mode),** so even a few bots use every core. Every bot trades against the same `--vs` rivals.
+- **The summary:**
+  - a ranked table (PnL, the gain over the baseline, worst day, each extra mode, fills);
+  - PnL per product, the ten products with the most at stake;
+  - each day held out;
+  - the grid's overfitting lines, ending with the pick: StepM's best bot that beats the baseline under every mode, or the baseline.
+- **A bot that fails to load, raises or breaches a limit** is flagged with its first error and left out of the picks. The command exits with 1 only if every bot does.
+
 ## Charts and fill statistics
 
 ```sh

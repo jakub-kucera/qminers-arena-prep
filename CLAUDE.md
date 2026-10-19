@@ -25,6 +25,7 @@ uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2
 uv run python -m arena.backtest bots/template.py 1 --resting --vs bots/template.py   # orders rest; a rival copy shares the market
 uv run python -m arena.validate bots/template.py 1                # pre-submission checks, exit 1 on FAIL
 uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
+uv run python -m arena.compare bots/template.py 1 --bot bots/zoo/claude/*.py "bots/template.py@PARAMS.KELP.make_edge=1" --modes all,worse   # several bots or variants against a baseline
 uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
 uv run python -m arena.stress bots/template.py 1                    # the bot on perturbed days (trend, shift, spike, vol x2, no wall)
 uv run python -m arena.sim generate data/sim --days 5              # simulated days in the Prosperity layout (--data data/sim)
@@ -129,6 +130,8 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **SPA, StepM and the pick:** each cell's PnL is also kept per block of `FINE_TICKS` (100) ticks for Hansen's SPA test and Romano and Wolf's StepM (stationary bootstrap, `SPA_Q`, `BOOTSTRAP`). StepM's cells are checked under every `--modes` entry, and the summary's `pick` is the best that beats the bot as is under all of them (`format_snooping`).
 - **Held-out days:** with two or more days, `leave_one_day_out` scores each day with the best combination by PnL on the other days, from the per-day PnL already collected (no extra runs). `repeated_days` flags days that share a product's books and trades (ignoring counterparty names): Prosperity reuses days across rounds.
 - **Overfitting:** each run's PnL is also kept per block of ticks (`block_pnl`, about `BLOCKS` = 16 over the days, never straddling one). `format_overfitting` prints the trial count, `cscv`'s PBO (Bailey et al., sampled to `MAX_SPLITS` halvings) and `deflated_sharpe` of the best cell's gain over the baseline (the bot with only `--set`), with `independent_trials` from the gains' average correlation. Both formulas were checked against the PDFs; `tests/test_grid.py` reproduces the DSR paper's worked example.
+
+**Bot comparison** (`arena/compare.py`): several bot files or `FILE@PATH=VALUE` variants against the first bot as baseline, one pool task per (bot, day, mode). Each bot becomes an `arena.grid.Outcome` under a one-value `Axis("bot")`, so the grid's held-out days, PBO, DSR, SPA, StepM and pick apply unchanged.
 
 **Analysis** (`arena/analysis.py`):
 - **No pyplot:** charts are `Chart` objects, a `Figure` subclass with `_repr_png_`, so they display in notebooks and save from the CLI without pyplot. Each `Chart` keeps the rc params of the theme it was drawn in.
