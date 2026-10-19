@@ -32,8 +32,8 @@ A 36-page working paper (Universitat Pompeu Fabra, paper 712) that extends White
 |---|---|
 | strategy k, K | a distinct grid cell |
 | `w_{T,k}` | mean gain of the cell over the bot as is, per block |
-| `σ̂_{T,k}` | `√(ω̂²_k / n)` from Hansen's kernel (`arena/grid.py:598-609`) |
-| `d_{K_i+1}(1−α)` | the `c` in `stepm()` (`arena/grid.py:652-671`) |
+| `σ̂_{T,k}` | `√(ω̂²_k / n)` from Hansen's kernel (`arena/grid.py:705-716`) |
+| `d_{K_i+1}(1−α)` | the `c` in `stepm()` (`arena/grid.py:759-778`) |
 | J | `--boot` (2,000) |
 
 ## Traps

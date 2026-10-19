@@ -44,8 +44,9 @@ once:
   StepM     Romano and Wolf's step-down test on the same resamples: every cell that beats the bot as
             is, with the chance of naming even one false cell held at ALPHA.
   pick      StepM's best cell that also beats the bot as is under every other --modes entry, else
-            the bot as is. Of ten ways of choosing tried on unseen days, the only one that never lost
-            money, under either fill mode (experiments/selection_rules.py).
+            the bot as is. Of ten ways of choosing, scored on unseen Prosperity days and on fresh
+            simulated ones, it lost least often among those that gained (experiments/
+            selection_rules.py, selection_rules_sim.py).
 With --permute N the whole grid is also run on N copies of the days made of their own ticks in a
 shuffled order (arena.stress.permute, in runs of --permute-block ticks), after Masters' permutation
 test of a whole search (our adaptation; his book is unread). Two statistics of the search, on the

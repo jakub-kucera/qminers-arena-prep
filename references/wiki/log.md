@@ -331,3 +331,7 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - `arena.grid --permute N` and `arena.stress.permute`: the grid rerun on copies of the days made of their own ticks shuffled. Hydrogel's level grid is the positive control (lift p 0.05); Kelp's edge gain needs no price order (lift p 0.80). Masters' book is unread; the method is our adaptation.
 - **Filed into:** `validation-and-overfitting` ("What it means for our code"); the repo's `IDEAS.md`, `TODO.md`, `MANUAL_TODO.md` (G), `README.md`, `CLAUDE.md`.
 
+## [2026-10-19] query | the selection rules on simulated days
+- `experiments/selection_rules_sim.py`: each preset's grid tuned on 3 fresh `arena.sim` days, ten times, and scored on 20 other days. The grid's pick lost in 2 of 120 runs, against 10–22 for the rules that gained as much; it is not "never loses", and the docs now say so.
+- **Filed into:** `validation-and-overfitting`; the repo's `IDEAS.md`, `README.md`, `ON_THE_DAY.md`, `arena/grid.py`'s docstring.
+

@@ -197,10 +197,12 @@ Then two bootstrap tests, on each cell's gain over the bot as is per block of 10
   and on the days the grid never saw the gain held (`references/wiki/contradictions.md`, row 18).
 - **StepM** (Romano and Wolf's step-down test): every cell that beats the bot as is, with the
   chance of naming even one false cell held at 5%. Each is then checked under the other `--modes`.
-- **pick**: StepM's best cell that beats the bot as is under every mode, else the bot as is. Of ten
-  ways of choosing a cell, scored on unseen days (`experiments/selection_rules.py`), it was the
-  only one that never lost money under either fill mode, and from the template's defaults it found
-  nearly all of the gain the best cell on those days had.
+- **pick**: StepM's best cell that beats the bot as is under every mode, else the bot as is. Ten
+  ways of choosing a cell were scored on unseen days. On Prosperity's (`experiments/selection_rules.py`)
+  it was the only one that never lost money under either fill mode. On fresh simulated days
+  (`experiments/selection_rules_sim.py`) it lost in 2 of 120 runs, where the rules that gained as
+  much lost in 10 to 22. From the template's defaults it found most of the gain the best cell on
+  those days had.
 
 ```
 overfitting: 64 cells × 2 modes = 128 trials on 3 days

@@ -47,6 +47,7 @@ uv run python -m experiments.imbalance                            # does the bes
 uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
 uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls
 uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw
+uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.

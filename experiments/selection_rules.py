@@ -125,17 +125,16 @@ def dsr(base: list[float], columns: list[list[float]], best: list[float]) -> flo
     return grid.deflated_sharpe(mean / statistics.stdev(mine), sharpe0, len(mine), skew, kurtosis)
 
 
-def default_cell(name: str) -> int:
+def default_cell(axes: dict) -> int:
     """The grid cell with the template's DEFAULTS for both parameters."""
-    axes = STUDIES[name][4]
     values = tuple(DEFAULTS[k] for k in axes)
     return list(itertools.product(*axes.values())).index(values)
 
 
-def pick(name: str, base: dict, results: list[dict]) -> dict[str, int | None]:
-    """Each rule's cell, from the training days only (None: the baseline)."""
+def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
+    """Each rule's cell, from the training days only (None: the baseline). `axes` maps each
+    parameter to its values, results are the cells in itertools.product order."""
     all_, worse = MODES
-    axes = STUDIES[name][4]
     shape = tuple(len(v) for v in axes.values())
     index = list(itertools.product(*(range(n) for n in shape)))
     pnl = {m: [sum(r["train"][m]) for r in results] for m in MODES}
@@ -192,8 +191,8 @@ def main() -> None:
         print("|---" * (len(RULES) + 2) + "|")
         for name in STUDIES:
             results = [done[(name, k)] for k in range(len(cells(name)))]
-            base = done[(name, -1)] if baseline == "committed" else results[default_cell(name)]
-            picks = pick(name, base, results)
+            base = done[(name, -1)] if baseline == "committed" else results[default_cell(STUDIES[name][4])]
+            picks = pick(STUDIES[name][4], base, results)
             axes = STUDIES[name][4]
             row = []
             for rule in RULES:
