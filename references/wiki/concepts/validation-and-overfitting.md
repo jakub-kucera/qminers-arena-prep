@@ -1,7 +1,7 @@
 ---
 title: Validation and avoiding over-fitting
 type: concept
-updated: 2026-10-12
+updated: 2026-10-19
 ---
 
 # Validation and avoiding over-fitting
@@ -38,8 +38,21 @@ Every team that did well on the final rounds describes the same discipline: trea
 - **Hold-out alone doesn't protect:** repeated 20 times at 95%, a false positive is expected (`literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:77` (p. 6)). That is the theory behind "don't open the unseen day early".
 - **Stopping rule** (secretary problem): explore a random 37% of the planned candidates, then stop at the first that beats them all (`literature_md/deflated-sharpe-ratio/deflated-sharpe-ratio.md:141-145` (p. 10–11)). This is a pre-committed plan for capped portal submissions.
 
+- **Testing the best cell against a benchmark, with the joint distribution of all cells** (second pass, 2026-10-19; source pages [SPA](../sources/superior-predictive-ability.md), [StepM](../sources/stepwise-multiple-testing.md)):
+  - **White's Reality Check:** a bootstrap of the best of m cells against the benchmark, assuming every cell is exactly as good as the benchmark.
+  - **Hansen's SPA test** fixes its weak spot: poor alternatives raise the Reality Check's critical value, so adding junk cells can drive its power to zero (`literature_md/superior-predictive-ability/superior-predictive-ability.md:169` (p. 5)). SPA studentizes each cell and recentres the bootstrap only on cells that aren't clearly worse, `µ̂^c_k = d̄_k·1{√n·d̄_k/ω̂_k ≤ −√(2 log log n)}` (`literature_md/superior-predictive-ability/superior-predictive-ability.md:98-103` (p. 4, checked)). On the paper's own data the two disagree outright: SPA^c 10%, the Reality Check about 96% (`literature_md/superior-predictive-ability/superior-predictive-ability.md:550` (p. 14)).
+  - **Romano and Wolf's StepM** steps down from the best cell to name *every* cell that beats the benchmark, with the familywise error held at α (`literature_md/stepwise-multiple-testing/stepwise-multiple-testing.md:274-282` (p. 14, checked)). On autocorrelated data only the studentized version holds its error rate (`literature_md/stepwise-multiple-testing/stepwise-multiple-testing.md:414` (p. 21)).
+- **Haircuts and false discovery rates** ([Harvey & Liu](../sources/backtesting-haircut.md)):
+  - **The haircut:** convert the Sharpe ratio to a p-value, adjust it for N tests (`p^M = 1 − (1 − p^S)^N` when independent), and convert back (`literature_md/backtesting-haircut/backtesting-haircut.md:73-81` (p. 3, checked)). The cut is nonlinear: marginal strategies lose most.
+  - **FDR over FWER:** BHY's false discovery rate is preferred to Bonferroni or Holm when a few false discoveries are acceptable (`literature_md/backtesting-haircut/backtesting-haircut.md:221` (p. 9)).
+  - **Out-of-sample tests aren't out of sample** once a strategy is revised after failing, and a split trades in-sample power against out-of-sample power (`literature_md/backtesting-haircut/backtesting-haircut.md:160-174` (p. 6–7)).
+- **Reusing a holdout adaptively** ([Dwork et al.](../sources/reusable-holdout.md)): an analyst who keeps checking ideas against the same holdout overfits it. On pure noise their holdout reports 63% accuracy where fresh data gives 50% (`literature_md/reusable-holdout/reusable-holdout.md:570` (p. 21)). Thresholdout answers from the training set unless the holdout disagrees beyond a noisy threshold, and spends a budget each time it does (`literature_md/reusable-holdout/reusable-holdout.md:408-428` (p. 15–16, checked)).
+- **Tune on a fitted process, not on the path** ([Carr & López de Prado](../sources/optimal-trading-rules.md)): fit an O-U process, simulate 100,000 paths, and choose the exit thresholds on those (`literature_md/optimal-trading-rules/optimal-trading-rules.md:91-112` (p. 6–7, checked)). For a market maker's mean-reverting inventory the best rule is a small profit-take with a stop several times wider (`literature_md/optimal-trading-rules/optimal-trading-rules.md:132` (p. 8)). On a random walk no rule is best, and any rule a backtest picks is noise (`literature_md/optimal-trading-rules/optimal-trading-rules.md:148` (p. 9)).
+
 ## Where they disagree
 Theory against practice: whether a held-out day still protects when it is reused across many variants ([contradictions](../contradictions.md), row 15).
+
+Theory against theory, on our data: the DSR and the bootstrap tests disagree on whether the best cell of a wide grid beats the bot as is ([contradictions](../contradictions.md), row 18).
 
 None on the principle. On the cost of caution: Baguette Fromage notes they shipped parts they suspected were over-fit "because at some point you have to stop researching" (`prosperity4-baguette-fromage/README.md:1099`).
 
@@ -61,6 +74,20 @@ None on the principle. On the cost of caution: Baguette Fromage notes they shipp
 - **DSR on the gain, not the PnL.** On a cell's own PnL the DSR only says the bot makes money (a per-block Sharpe of 12–17 on every grid tried); the gain over the baseline is the selection question.
 - **No degradation slope.** With PnL summed over blocks, a pick that stays the same cell has out-of-sample = total − in-sample, a slope of −1 by construction. The pick's mean relative rank out of sample replaces it.
 
+**Measured 2026-10-19: the DSR is too strict on wide grids, and SPA and StepM should sit next to it** (`uv run python -m experiments.snooping_tests`, gains per block of 100 ticks; `IDEAS.md`, "Bootstrap tests of the best cell"):
+- **Kelp `make_edge` 0–7 × `take_edge` 0–7, P3 round 1, 12 distinct cells:**
+  - **The DSR fails it:** 0.76 over every cell, as `arena.grid` prints, below the 0.95 bar.
+  - **SPA and StepM accept it:** SPA^c's p-value is 0.00 with mean bootstrap blocks of 5, 10 or 25 (500–2,500 ticks). StepM names exactly the three cells with `make_edge` 1 as beating the committed 0.5.
+  - **The poor cells are why:** the DSR over the 9 best cells is 1.00. Its threshold `SR₀` comes from the variance of the cells' Sharpe ratios, and the poor corners of the grid inflate that variance. This is the Reality Check's weakness, which Hansen's recentring removes.
+  - **Held out, SPA was right:** on the four P3 days whose Kelp data isn't round 1's, `make_edge` 1 gains 2.2–2.8k on every day under `all` (contradictions, row 18).
+  - **But the gain is a fill-model artefact:** under `worse` it loses 1.2–2.1k on each of those days, and on round 1 too. A significant gain under one matching mode is still only as good as that mode. `arena.grid`'s extra `--modes` column is the check for that, and Kelp stays at 0.5.
+- **Osmium `smoothing`, P4 rounds 1–2:** every test agrees nothing beats the committed 0.9 (DSR 0.13, SPA^c p 0.87–0.93, StepM none).
+- **Null controls:** 5 grids of 32 cells, each cell the same bot under a different liquidity seed (fill ratio 0.8). SPA^c p-values were 0.20–0.88 and StepM rejected nothing, so neither test produced a false positive. The DSR stayed below 0.95 (0.18–0.65); over the top 9 it reached 0.94, which is why that subset is only an illustration.
+- **What changes:**
+  - **Add both to `arena.grid`'s summary:** SPA^c as the answer to "does any cell beat the bot as is", and StepM's list as "which ones". Keep the DSR, PBO and the held-out days next to them.
+  - **Read a failing DSR on a wide grid as "not shown"**, not as "no gain", until SPA has been run (`TODO.md`, "SPA and StepM in `arena.grid`").
+  - **Both tests share one blind spot:** blocks within days can't see a change between days, so the leave-one-day-out check stays.
+
 ## How to test it here
 Done 2026-10-18 (`tests/test_grid.py`, and the grids below, each `--modes all,worse`):
 - **The detector:** on noise (20 cells × 12 blocks, 10 seeds) PBO averages near 50%; one cell with an edge brings it under 10%. The DSR reproduces the paper's worked example (0.9004; 0.9505 at N = 46).
@@ -72,4 +99,4 @@ Before:
 3. **Record N** (cells × modes, including earlier grids on the same days) next to every grid result reported in `TODO.md` or a wiki page.
 
 ## Sources
-[pseudo-math](../sources/pseudo-math.md), [PBO](../sources/probability-of-backtest-overfitting.md), [deflated Sharpe ratio](../sources/deflated-sharpe-ratio.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [Qminers 2025](../sources/qminers-hackathon-2025.md) (hidden seasons). [Kayzerjali](../sources/prosperity4-kayzerjali.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [CMU Physics](../sources/prosperity3-cmu-physics.md).
+[pseudo-math](../sources/pseudo-math.md), [PBO](../sources/probability-of-backtest-overfitting.md), [deflated Sharpe ratio](../sources/deflated-sharpe-ratio.md), [SPA](../sources/superior-predictive-ability.md), [StepM](../sources/stepwise-multiple-testing.md), [Harvey & Liu](../sources/backtesting-haircut.md), [reusable holdout](../sources/reusable-holdout.md), [optimal trading rules](../sources/optimal-trading-rules.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Ryan Challman](../sources/prosperity4-ryan-challman.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [Linear Utility](../sources/prosperity2-linear-utility.md), [Qminers 2025](../sources/qminers-hackathon-2025.md) (hidden seasons). [Kayzerjali](../sources/prosperity4-kayzerjali.md), [Leo-Hawking](../sources/prosperity4-leo-hawking-review.md), [CMU Physics](../sources/prosperity3-cmu-physics.md).

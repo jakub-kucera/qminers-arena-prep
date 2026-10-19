@@ -90,6 +90,11 @@ Documents with a source page (each says which formulas were checked against the 
 - [pseudo-math](sources/pseudo-math.md): Bailey et al. 2014; the best of N null trials, MinBTL, and why memory makes the in-sample winner lose.
 - [probability-of-backtest-overfitting](sources/probability-of-backtest-overfitting.md): Bailey et al. 2017; PBO and CSCV, the recipe for `arena.grid`.
 - [deflated-sharpe-ratio](sources/deflated-sharpe-ratio.md): Bailey & López de Prado 2014; DSR, independent trials from correlated ones, the 37% stopping rule. OCR lost the inline math; read the PDF.
+- [superior-predictive-ability](sources/superior-predictive-ability.md): Hansen 2005; the SPA test, White's Reality Check without its weakness to poor alternatives. Our grids' best-cell test.
+- [stepwise-multiple-testing](sources/stepwise-multiple-testing.md): Romano & Wolf 2003 (working paper); StepM names every strategy that beats a benchmark, with the familywise error held. Studentize on time series.
+- [backtesting-haircut](sources/backtesting-haircut.md): Harvey & Liu 2015; Sharpe-ratio haircuts from multiple testing (Bonferroni, Holm, BHY), and the limits of out-of-sample tests.
+- [reusable-holdout](sources/reusable-holdout.md): Dwork et al. 2015; adaptive reuse overfits a holdout, and Thresholdout lets it be reused on a budget. Theory sections unread.
+- [optimal-trading-rules](sources/optimal-trading-rules.md): Carr & López de Prado 2014; choose exit thresholds on paths simulated from a fitted O-U process, not on the history. OCR lost the inline math.
 - [queue-position-valuation](sources/queue-position-valuation.md): Moallemi & Yuan 2017; order value = fill probability × (premium − adverse selection); front against back of the queue on ITCH data.
 - [queue-reactive-model](sources/queue-reactive-model.md): Huang, Lehalle & Rosenbaum 2015; queue-size-dependent order flow as a simulator; uniform cancellation overstates fills.
 - [rigtorp-queue-position](sources/rigtorp-queue-position.md): Rigtorp 2013; the queue estimate behind `ProbQueueModel`; `log(1 + x)` is not a back bias at every position.

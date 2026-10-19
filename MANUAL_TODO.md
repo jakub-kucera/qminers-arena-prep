@@ -157,6 +157,17 @@ The free ones (Tao et al. on arXiv, the two Cartea et al. papers on SSRN, Li et 
   - Done when (each): converted with a source page, or ticked as "not needed".
   - 2026-10-14: everything else on the spoofing and harder-round lists was fetched or split out by the agent and ingested (12 papers, `references/SEARCH_LOG.md`). Lee et al.'s spoof criterion is known second-hand (`references/wiki/sources/optimal-spoofing.md`), so that paper is optional now.
 
+## G. Overfitting, second pass (`TODO.md`, "Second pass on overfitting")
+
+Five papers were fetched and ingested by the agent on 2026-10-19 (Hansen's SPA, Romano–Wolf, Harvey & Liu, Dwork et al., Carr & López de Prado). These need a person:
+
+- [ ] **White, *A Reality Check for Data Snooping* (Econometrica 68(5), 2000)** as `literature_raw/reality-check.pdf`. The two free copies the search found (a course page at users.ssc.wisc.edu, a mirror at par.cse.nsysu.edu.tw) did not connect from the agent's network. Lower priority: Hansen's SPA paper restates its test.
+- [ ] **López de Prado, *Advances in Financial Machine Learning* (Wiley, 2018), chapters 7 (cross-validation: purging and embargo), 11 (the dangers of backtesting) and 12 (combinatorial purged CV)** as `literature_raw/afml-ch7-11-12.pdf`. Our CSCV blocks touch and positions carry across their edges; these chapters say how wide a gap to leave.
+- [ ] **Arian, Norouzi & Seco, *Backtest overfitting in the machine learning era* (Knowledge-Based Systems 305, 2024; SSRN 4778909)** as `literature_raw/backtest-overfitting-ml-era.pdf`. It compares CPCV, walk-forward and k-fold on synthetic markets, the closest test of which method to trust.
+- [ ] **(Optional) Masters, *Testing and Tuning Market Trading Systems* (Apress, 2018), the chapters on permutation tests** as `literature_raw/masters-permutation.pdf`. The repo's null grids (`experiments/snooping_tests.py`) are a home-made version; the book would say how to permute a whole search.
+- [ ] **(Optional) Politis & Romano, *The stationary bootstrap* (JASA 89, 1994)** as `literature_raw/stationary-bootstrap.pdf`, for the block length. Hansen's paper gives the algorithm we use.
+  - Done when (each): converted with a source page by the agent, or ticked as "not needed".
+
 ## Not on this list
 
 The agent can download these free papers itself on request, so there is nothing for a person to do: Gatheral & Jacquier (SVI),

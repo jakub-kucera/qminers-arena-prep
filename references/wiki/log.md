@@ -316,3 +316,10 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - `experiments/p3_smile.py`: the smile from held-out days, the residual's fast part, and the template's new `smile` fair. Take-only on two strikes made 529k over five days, every day positive; a flat vol does as well; the delta hedge halves it; quotes lose when orders rest.
 - `bots/template.py` gained the `smile` parameters and `smile_fair` (37 lines); every citation re-mapped by a line diff (28 pages).
 - **Filed into:** `options-and-vouchers` ("What it means for our code", "How to test it here"), `contradictions` row 6; the repo's `IDEAS.md` (row moved from "Not yet tested"), `TODO.md`, `ON_THE_DAY.md` ("Products").
+
+## [2026-10-19] ingest | overfitting, second pass: SPA, StepM, haircuts, the reusable holdout, optimal trading rules
+- **Documents:** `superior-predictive-ability` (Hansen 2005), `stepwise-multiple-testing` (Romano & Wolf 2003), `backtesting-haircut` (Harvey & Liu 2015), `reusable-holdout` (Dwork et al. 2015), `optimal-trading-rules` (Carr & López de Prado 2014). White 2000, López de Prado's book chapters, Arian et al. 2024, Masters and Politis–Romano are in `MANUAL_TODO.md` (G).
+- **Measured:** `experiments/snooping_tests.py`. The DSR fails Kelp's best `make_edge` × `take_edge` cell (0.76) where SPA (p 0.00) and StepM (three cells) pass it. Held out, the gain is real under `all` but reverses under `worse`. Five null grids gave no false positive.
+- **Filed into:** `validation-and-overfitting` (theory, "What it means for our code"), `contradictions` row 18; the repo's `IDEAS.md` ("Bootstrap tests of the best cell"), `TODO.md` (research item, "SPA and StepM in `arena.grid`", the rewrite decision), `MANUAL_TODO.md` (G).
+- **Traps found:** Hansen's stationary-bootstrap recursion prints `u_{b,1}` for `u_{b,t}` (typo in the paper itself); Marker dropped decimal points in Hansen's tables, moved Holm's `j ≤ i` from the max to the min, and lost all inline math in Carr & López de Prado's Section 4.
+

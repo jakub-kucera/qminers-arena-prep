@@ -78,6 +78,11 @@ PAPERS=(
   "online-changepoint-detection   online-changepoint-detection"
   "trading-under-manipulation     Learning-based trading strategies in the face of market manipulation"
   "spoofability-and-liquidity     spoofability-and-liquidity"
+  "superior-predictive-ability    superior-predictive-ability"
+  "stepwise-multiple-testing      stepwise-multiple-testing"
+  "backtesting-haircut            backtesting-haircut"
+  "reusable-holdout               reusable-holdout"
+  "optimal-trading-rules          optimal-trading-rules"
 )
 
 for entry in "${PAPERS[@]}"; do
