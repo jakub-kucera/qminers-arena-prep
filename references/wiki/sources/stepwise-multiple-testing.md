@@ -25,15 +25,15 @@ A 36-page working paper (Universitat Pompeu Fabra, paper 712) that extends White
 ## Assumptions against the Arena
 - **Many strategies, one data set,** which is a grid. Each cell is a hypothesis "beats the bot as is".
 - **Time-series dependence.** Our block gains are autocorrelated within a day; per the paper, only the studentized version is safe there.
-- **Our simplification** *(ours, not the paper's)*: `experiments/snooping_tests.py` studentizes with Hansen's closed-form `ω̂_k`, held fixed across resamples, rather than recomputing `σ̂*` in each resample as Algorithm 4.2 step 3 does. Hansen notes his test stays valid with a fixed (even wrong) scale ([SPA](superior-predictive-ability.md)); whether the step-down keeps its FWE with a fixed scale on our data was checked only through the null controls (no false rejections in five).
+- **Our simplification** *(ours, not the paper's)*: `arena/grid.py`'s `stepm` studentizes with Hansen's closed-form `ω̂_k`, held fixed across resamples, rather than recomputing `σ̂*` in each resample as Algorithm 4.2 step 3 does. Hansen notes his test stays valid with a fixed (even wrong) scale ([SPA](superior-predictive-ability.md)); whether the step-down keeps its FWE with a fixed scale on our data was checked only through the null controls (no false rejections in ten, `experiments/snooping_tests.py`).
 
 ## In our notation
 | Paper | Ours |
 |---|---|
 | strategy k, K | a distinct grid cell |
 | `w_{T,k}` | mean gain of the cell over the bot as is, per block |
-| `σ̂_{T,k}` | `√(ω̂²_k / n)` from Hansen's kernel (`experiments/snooping_tests.py:95-106`) |
-| `d_{K_i+1}(1−α)` | the `c` in `stepm()` (`experiments/snooping_tests.py:145-162`) |
+| `σ̂_{T,k}` | `√(ω̂²_k / n)` from Hansen's kernel (`arena/grid.py:516-527`) |
+| `d_{K_i+1}(1−α)` | the `c` in `stepm()` (`arena/grid.py:570-589`) |
 | J | `--boot` (2,000) |
 
 ## Traps

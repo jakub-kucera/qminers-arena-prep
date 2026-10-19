@@ -180,12 +180,34 @@ bot as is; its `smoothing` grid gets PBO 43%, since which of 0.5–0.95 wins is 
 them beats none (DSR 0.98 against the template before smoothing). Halvings mix blocks of the same
 days, so a change between days is invisible to both: that is what the held-out days check.
 
+Then two bootstrap tests, on each cell's gain over the bot as is per block of 100 ticks (about
+100 a day), with Politis and Romano's stationary bootstrap (blocks of 1,000 ticks on average,
+1,000 resamples):
+
+- **SPA** (Hansen's test for superior predictive ability): the p-value that no cell beats the bot
+  as is. Unlike the DSR, it discounts cells that are clearly worse, so a wide grid's poor corners
+  don't hide a real gain. Kelp's 64-cell `make_edge` × `take_edge` grid gets DSR 0.76 but SPA p 0.000,
+  and on the days the grid never saw the gain held (`references/wiki/contradictions.md`, row 18).
+- **StepM** (Romano and Wolf's step-down test): every cell that beats the bot as is, with the
+  chance of naming even one false cell held at 5%. Each is then checked under the other `--modes`.
+- **pick**: StepM's best cell that beats the bot as is under every mode, else the bot as is. Of ten
+  ways of choosing a cell, scored on unseen days (`experiments/selection_rules.py`), it was the
+  only one that never lost money under either fill mode, and from the template's defaults it found
+  nearly all of the gain the best cell on those days had.
+
 ```
-overfitting: 12 cells × 2 modes = 24 trials on 6 days
-  CSCV on pnl(all) in 18 blocks (3 a day), 12 distinct cells, 4,000 of 48,620 halvings:
-  PBO 0%  ·  the pick's mean rank out of sample 0.80 (1 top, 0.5 median)  ·  it loses money there in 0%
-  DSR 0.00 for the best cell's gain over the bot as is: per-block Sharpe 0.05 against 1.20, the best of N^ 5.9 cells with no gain
+overfitting: 64 cells × 2 modes = 128 trials on 3 days
+  CSCV on pnl(all) in 18 blocks (6 a day), 12 distinct cells, 4,000 of 48,620 halvings:
+  PBO 0%  ·  the pick's mean rank out of sample 0.92 (1 top, 0.5 median)  ·  it loses money there in 0%
+  DSR 0.76 for the best cell's gain over the bot as is: per-block Sharpe 5.75 against 5.09, the best of N^ 8.5 cells with no gain
 ! the best cell's gain over the bot as is is not clearly more than the best of that many cells with no gain (DSR < 0.95)
+  SPA on pnl(all) gains over the bot as is, 300 blocks of 100 ticks, 12 distinct cells, bootstrap blocks of 1,000 ticks on average, 1,000 resamples:
+  p 0.000 that no cell beats the bot as is (bounds 0.000 to 0.000; the upper is the Reality Check)
+  StepM at 5%: 3 cells beat the bot as is: KELP.make_edge=1, KELP.take_edge=1 | ...
+! SPA finds a gain the DSR doesn't: the DSR's bar rises with the spread of all cells, poor ones included, and SPA discounts those (references/wiki/contradictions.md, row 18)
+  under worse: 0 of StepM's 8 cells beat the bot as is (best by -5,537)
+! StepM's cells only beat the bot as is under all: the gain depends on the fill model
+  pick: the bot as is: no StepM cell beats it under every mode
 ```
 
 `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:

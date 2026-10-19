@@ -323,3 +323,7 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - **Filed into:** `validation-and-overfitting` (theory, "What it means for our code"), `contradictions` row 18; the repo's `IDEAS.md` ("Bootstrap tests of the best cell"), `TODO.md` (research item, "SPA and StepM in `arena.grid`", the rewrite decision), `MANUAL_TODO.md` (G).
 - **Traps found:** Hansen's stationary-bootstrap recursion prints `u_{b,1}` for `u_{b,t}` (typo in the paper itself); Marker dropped decimal points in Hansen's tables, moved Holm's `j ≤ i` from the max to the min, and lost all inline math in Carr & López de Prado's Section 4.
 
+## [2026-10-19] query | SPA and StepM built into arena.grid; selection rules on unseen days
+- `arena/grid.py` prints SPA, StepM, each StepM cell under the other modes, and a pick. `experiments/selection_rules.py` scores ten selection rules on unseen days; SPA + `worse` was the only one never to lose. `experiments/snooping_tests.py` gained PBO and BHY columns and ten null grids: null PBO averages 46.5%, so neighbouring blocks don't leak.
+- **Filed into:** `validation-and-overfitting` ("What it means for our code"), the source pages' code maps (`superior-predictive-ability`, `stepwise-multiple-testing`); the repo's `IDEAS.md`, `TODO.md`, `ON_THE_DAY.md` ("Evaluation data"), `README.md` ("Grid search"), `CLAUDE.md`.
+

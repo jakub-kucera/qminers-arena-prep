@@ -19,6 +19,13 @@ of TICKS_PER_BLOCK ticks (days concatenated), goes through:
   StepM     Romano and Wolf's step-down test at 5%: how many cells beat the bot as is, each with
             the familywise error controlled (studentized with Hansen's fixed omega, not a
             bootstrap-studentized one: our simplification)
+The tests are arena.grid's (spa, stepm), which every grid summary now prints at one block length.
+
+  PBO       arena.grid's CSCV over its 16 blocks. On the null grids it should average about 50%;
+            well below would mean blocks next to each other leak (the reason for purging and an
+            embargo in López de Prado's cross-validation)
+  BHY       Harvey and Liu's false-discovery procedure at 5% on each cell's one-sided p-value
+            (normal, studentized by Hansen's omega): how many cells it calls real
 
 GRIDS holds two real grids and a null control: the template at fill ratio 0.8, each cell a
 different liquidity seed and the bot as is another, so no cell has an edge and every test should
@@ -29,11 +36,8 @@ tests of the best cell") and references/wiki/concepts/validation-and-overfitting
 from __future__ import annotations
 
 import argparse
-import math
-import random
 import statistics
 from concurrent.futures import ProcessPoolExecutor
-from operator import itemgetter
 
 from arena import grid, report
 from arena.engine import EngineConfig, run_day
@@ -42,8 +46,7 @@ from arena.formats import prosperity
 TEMPLATE = "bots/template.py"
 TICKS_PER_BLOCK = 100
 QS = (0.2, 0.1, 0.04)  # stationary bootstrap: mean blocks of 5, 10 and 25 (500 to 2,500 ticks)
-ALPHA = 0.05
-NULL_CELLS, NULL_RUNS = 32, 5
+NULL_CELLS, NULL_RUNS = 32, 10
 
 
 def _grids() -> dict:
@@ -92,76 +95,6 @@ def run(task: tuple[str, int]) -> tuple[tuple[str, int], list[float], list[float
 # ---------------------------------------------------------------------------- the tests
 
 
-def omega2(d: list[float], q: float) -> float:
-    """Hansen's variance of sqrt(n) times the mean under the stationary bootstrap (p. 7-8):
-    gamma_0 + 2 sum_i kappa(n, i) gamma_i, kappa(n, i) = (n-i)/n (1-q)^i + i/n (1-q)^(n-i)."""
-    n, mean = len(d), statistics.fmean(d)
-    c = [x - mean for x in d]
-    total = sum(x * x for x in c) / n
-    for i in range(1, n):
-        kappa = (n - i) / n * (1 - q) ** i + i / n * (1 - q) ** (n - i)
-        if kappa < 1e-12:
-            continue
-        total += 2 * kappa * sum(c[j] * c[j + i] for j in range(n - i)) / n
-    return total
-
-
-def bootstrap_means(d: list[list[float]], q: float, boot: int, seed: int) -> list[list[float]]:
-    """Each resample's mean of every column, Politis and Romano's stationary bootstrap (p. 7)."""
-    n, rng, out = len(d[0]), random.Random(seed), []
-    for _ in range(boot):
-        idx, t = [], rng.randrange(n)
-        for _ in range(n):
-            idx.append(t)
-            t = rng.randrange(n) if rng.random() < q else (t + 1) % n
-        pick = itemgetter(*idx)
-        out.append([sum(pick(column)) / n for column in d])
-    return out
-
-
-def spa(d: list[list[float]], q: float, boot: int, seed: int = 0) -> dict[str, float]:
-    """Hansen's SPA p-values for H0: no column has a positive mean, with the bootstrap recentred
-    at mu_l = min(mean, 0), mu_c (only the clearly negative means kept) and mu_u = 0 (p. 7-8)."""
-    n = len(d[0])
-    means = [statistics.fmean(c) for c in d]
-    omegas = [math.sqrt(max(omega2(c, q), 1e-12)) for c in d]
-    t = max(0.0, max(math.sqrt(n) * m / w for m, w in zip(means, omegas)))
-    loglog = math.sqrt(2 * math.log(math.log(n)))
-    g = {
-        "l": [max(0.0, m) for m in means],
-        "c": [m if m >= -w / math.sqrt(n) * loglog else 0.0 for m, w in zip(means, omegas)],
-        "u": means,
-    }
-    draws = bootstrap_means(d, q, boot, seed)
-    out = {}
-    for name, shift in g.items():
-        above = sum(
-            max(0.0, max(math.sqrt(n) * (x - s) / w for x, s, w in zip(draw, shift, omegas))) > t for draw in draws
-        )
-        out[name] = above / boot
-    return out
-
-
-def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 1) -> list[int]:
-    """Romano and Wolf's studentized step-down (Algorithms 3.1-3.2, p. 9-12): the columns whose
-    mean is significantly positive, the familywise error held at alpha."""
-    n = len(d[0])
-    means = [statistics.fmean(c) for c in d]
-    omegas = [math.sqrt(max(omega2(c, q), 1e-12)) for c in d]
-    z = [math.sqrt(n) * m / w for m, w in zip(means, omegas)]
-    draws = [[math.sqrt(n) * (x - m) / w for x, m, w in zip(draw, means, omegas)] for draw in bootstrap_means(d, q, boot, seed)]
-    active, rejected = set(range(len(d))), []
-    while active:
-        maxima = sorted(max(draw[k] for k in active) for draw in draws)
-        c = maxima[min(len(maxima) - 1, math.ceil((1 - alpha) * len(maxima)) - 1)]
-        newly = [k for k in active if z[k] > c]
-        if not newly:
-            break
-        rejected += newly
-        active -= set(newly)
-    return sorted(rejected)
-
-
 def dsr(base: list[float], cells: list[list[float]], best: list[float]) -> float | None:
     """arena.grid's DSR of the best cell's gain over the bot as is, against `cells` as the trials."""
     gains = [[x - b for x, b in zip(c, base)] for c in cells]
@@ -177,6 +110,18 @@ def dsr(base: list[float], cells: list[list[float]], best: list[float]) -> float
     return grid.deflated_sharpe(sharpe, sharpe0, len(mine), skew, kurtosis)
 
 
+def bhy(pvalues: list[float], level: float = 0.05) -> int:
+    """How many hypotheses Benjamini, Hochberg and Yekutieli's adjustment rejects at `level`
+    (Harvey and Liu, p. 5): from the largest p, p_(i) = min(p_(i+1), M c(M) / i p_(i))."""
+    m = len(pvalues)
+    c = sum(1 / j for j in range(1, m + 1))
+    adjusted, running = [0.0] * m, 1.0
+    for i, p in sorted(enumerate(sorted(pvalues), 1), reverse=True):
+        running = min(running, m * c / i * p)
+        adjusted[i - 1] = running
+    return sum(a < level for a in adjusted)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.snooping_tests")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
@@ -189,10 +134,10 @@ def main() -> None:
     def fmt(x):
         return "-" if x is None else f"{x:.2f}"
 
-    print(f"Gains over the bot as is per block of {TICKS_PER_BLOCK} ticks; SPA p-values l / c / u; StepM at {ALPHA:.0%}; "
+    print(f"Gains over the bot as is per block of {TICKS_PER_BLOCK} ticks; SPA p-values l / c / u; StepM at {grid.ALPHA:.0%}; "
           f"{args.boot} bootstrap resamples; q = {' / '.join(map(str, QS))} (mean blocks of {' / '.join(str(round(1 / q)) for q in QS)}).\n")
-    print("| Grid | Cells | Blocks | Best cell (gain) | DSR, all cells | DSR, top 9 only | SPA p (l / c / u) per q | StepM: cells that beat the bot as is |")
-    print("|---|---|---|---|---|---|---|---|")
+    print("| Grid | Cells | Blocks | Best cell (gain) | PBO | DSR, all cells | DSR, top 9 only | SPA p (l / c / u) per q | StepM: cells that beat the bot as is | BHY |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
     for name, (_, _, _, cells) in GRIDS.items():
         base_fine, base_coarse, base_total = results[(name, -1)]
         fine = [results[(name, k)][0] for k in range(len(cells))]
@@ -207,12 +152,16 @@ def main() -> None:
 
         dsr_all = dsr(base_coarse, unique(range(len(cells))), coarse[best])
         dsr_top = dsr(base_coarse, unique(order[:9]), coarse[best])
-        spas = [spa(distinct, q, args.boot) for q in QS]
+        spas = [grid.spa(distinct, q, args.boot) for q in QS]
         spa_text = "; ".join(f"{s['l']:.2f} / {s['c']:.2f} / {s['u']:.2f}" for s in spas)
-        steps = stepm(distinct, QS[1], args.boot)
+        steps = grid.stepm(distinct, QS[1], args.boot)
+        n, normal = len(distinct[0]), statistics.NormalDist()
+        pvalues = [1 - normal.cdf(n**0.5 * statistics.fmean(g) / w) for g, w in zip(distinct, grid._scales(distinct, QS[1]))]
+        columns = unique(range(len(cells)))
+        pbo = f"{grid.cscv(columns).pbo:.0%}" if len(columns) > 1 else "-"
         winners = ", ".join(next(cells[k][0] for k in range(len(cells)) if gains[k] == distinct[j]) for j in steps) or "none"
         print(f"| {name} | {len(cells)} ({len(distinct)} distinct) | {len(base_fine)} | {cells[best][0]} ({totals[best] - base_total:+,.0f}) "
-              f"| {fmt(dsr_all)} | {fmt(dsr_top)} | {spa_text} | {len(steps)}: {winners} |")
+              f"| {pbo} | {fmt(dsr_all)} | {fmt(dsr_top)} | {spa_text} | {len(steps)}: {winners} | {bhy(pvalues)} |")
 
 
 if __name__ == "__main__":

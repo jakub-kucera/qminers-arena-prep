@@ -1,4 +1,6 @@
 import csv
+import random
+import statistics
 import textwrap
 
 import pytest
@@ -237,3 +239,65 @@ def test_grid_reports_trials_and_overfitting(capsys, bot, data_dir):
     code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3", "--modes", "all,worse")
     assert code == 0
     assert "overfitting: 3 cells × 2 modes = 6 trials on 2 days" in text
+
+
+def test_omega_is_the_plain_variance_without_blocks():
+    d = [1.0, -2.0, 0.5, 3.0, -1.0]
+    assert grid.omega2(d, 1.0) == pytest.approx(statistics.pvariance(d))
+
+
+def _gains(seed, cells, n, edge=0.0, planted=3):
+    rng = random.Random(seed)
+    columns = [[rng.gauss(0, 1) for _ in range(n)] for _ in range(cells)]
+    columns[planted] = [x + edge for x in columns[planted]]
+    return columns
+
+
+def test_spa_and_stepm_find_no_edge_in_noise_and_find_a_planted_one():
+    nulls = [grid.spa(_gains(seed, 15, 200), 0.1, 300, seed) for seed in range(10)]
+    assert 0.2 < statistics.fmean(p["c"] for p in nulls) < 0.8
+    assert all(p["l"] <= p["c"] <= p["u"] for p in nulls)
+    assert sum(len(grid.stepm(_gains(seed, 15, 200), 0.1, 300)) for seed in range(10)) <= 1
+    planted = _gains(0, 15, 200, edge=0.4)
+    assert grid.spa(planted, 0.1, 300)["c"] < 0.01
+    assert grid.stepm(planted, 0.1, 300) == [3]
+
+
+def test_spa_is_not_hidden_by_poor_cells():
+    # Hansen's point: adding clearly worse cells shouldn't sink a real gain under the consistent p.
+    good = _gains(1, 5, 200, edge=0.2, planted=0)
+    poor = [[x - 1.0 for x in column] for column in _gains(2, 40, 200)]
+    with_poor = grid.spa(good + poor, 0.1, 300)
+    assert with_poor["c"] <= grid.spa(good, 0.1, 300)["c"] + 0.02
+    assert with_poor["c"] <= with_poor["u"]
+
+
+def _outcome(index, fine, pnl):
+    o = grid.Outcome(index, index)
+    for mode, value in pnl.items():
+        o.fine_pnl[mode] = fine
+        o.day_pnl[mode] = {"d": value}
+    return o
+
+
+def test_snooping_names_the_cells_and_checks_them_under_the_other_modes():
+    all_, worse = TradeMatching.ALL, TradeMatching.WORSE
+    axes = [grid.Axis("PARAMS.edge", [0, 1, 2])]
+    columns = _gains(3, 3, 100, edge=0.5, planted=1)
+    baseline = _outcome((), [0.0] * 100, {all_: 0.0, worse: 0.0})
+    outcomes = {(k,): _outcome((k,), columns[k], {all_: sum(columns[k]), worse: -1.0}) for k in range(3)}
+    text = grid.format_snooping(axes, baseline, outcomes, [all_, worse], dsr=0.5)
+    assert "100 blocks of 100 ticks, 3 distinct cells" in text
+    assert "StepM at 5%: 1 cells beat the bot as is: edge=1" in text
+    assert "SPA finds a gain the DSR doesn't" in text
+    assert "under worse: 0 of StepM's 1 cells beat the bot as is" in text
+    assert "only beat the bot as is under all" in text
+    assert "pick: the bot as is" in text
+    outcomes[(1,)].day_pnl[worse] = {"d": 1.0}
+    text = grid.format_snooping(axes, baseline, outcomes, [all_, worse], dsr=0.5)
+    assert "pick: edge=1 (all +" in text and "worse +1)" in text
+
+
+def test_snooping_skips_short_days(capsys, bot, data_dir):
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3")
+    assert "SPA, StepM: skipped" in text

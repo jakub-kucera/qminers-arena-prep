@@ -36,8 +36,19 @@ once:
             the best of N^ cells with no gain, N^ the cells' count discounted by the average
             correlation of their gains. On the cells' own PnL it would only say that the bot makes
             money. Below 0.95 the summary warns.
-Halvings mix blocks of the same days, so a day-level change is invisible to both: the held-out
-days are the check for that (references/wiki/concepts/validation-and-overfitting.md).
+  SPA       Hansen's test that no cell beats the bot as is, on each cell's gain per block of
+            FINE_TICKS ticks, with Politis and Romano's stationary bootstrap. Its p-value is the
+            consistent one (c), between the liberal (l) and the studentized Reality Check (u). Unlike
+            the DSR it discounts cells that are clearly worse, so a wide grid's poor corners don't
+            hide a real gain.
+  StepM     Romano and Wolf's step-down test on the same resamples: every cell that beats the bot as
+            is, with the chance of naming even one false cell held at ALPHA.
+  pick      StepM's best cell that also beats the bot as is under every other --modes entry, else
+            the bot as is. Of ten ways of choosing tried on unseen days, the only one that never lost
+            money, under either fill mode (experiments/selection_rules.py).
+Halvings and bootstrap blocks mix blocks of the same days, so a day-level change is invisible to
+all of them: the held-out days are the check for that, and a cell they accept still has to hold
+under the other --modes (references/wiki/concepts/validation-and-overfitting.md).
 """
 
 from __future__ import annotations
@@ -52,6 +63,7 @@ import statistics
 import sys
 import time
 from collections.abc import Callable
+from operator import itemgetter, mul
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -67,6 +79,11 @@ SMOKE_TEST_TICKS = 200
 BLOCKS = 16  # CSCV's S over all the days: Bailey et al. call 16 reasonable (p. 21-22)
 MAX_SPLITS = 4000  # halvings of the blocks to score; sampled (seeded) when there are more
 EULER_GAMMA = 0.5772156649015329
+FINE_TICKS = 100  # ticks per block for SPA and StepM: about 100 blocks a day
+SPA_Q = 0.1  # stationary bootstrap: a new block starts with probability q, so blocks average 1/q
+BOOTSTRAP = 1000  # resamples; Romano and Wolf recommend at least 1,000 (p. 15)
+ALPHA = 0.05  # StepM's familywise error
+MIN_FINE_BLOCKS = 20  # fewer and the bootstrap tests are skipped
 
 
 @dataclass(frozen=True)
@@ -88,6 +105,7 @@ class Outcome:
     day_pnl: dict[TradeMatching, dict[str, float]] = field(default_factory=dict)  # mode -> day -> pnl
     product_pnl: dict[TradeMatching, dict[str, float]] = field(default_factory=dict)  # mode -> product -> pnl
     block_pnl: dict[TradeMatching, list[float]] = field(default_factory=dict)  # mode -> PnL per block, days in order
+    fine_pnl: dict[TradeMatching, list[float]] = field(default_factory=dict)  # the same per block of FINE_TICKS ticks
     fills: int = 0  # under the first mode
     errors: int = 0  # over all modes
     limit_breaches: int = 0
@@ -179,11 +197,13 @@ def _evaluate(index: tuple[int, ...], values: tuple) -> Outcome:
         config = replace(w["config"], trade_matching=mode)
         days, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
         blocks = outcome.block_pnl.setdefault(mode, [])
+        fine = outcome.fine_pnl.setdefault(mode, [])
         for day in w["days"]:
             result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], config, requote=w["requote"])[0]
             series = report.total_pnl(result) or [0.0] * len(day.ticks)
             days[day.name] = series[-1]
             blocks += block_pnl(series, blocks_per_day(len(w["days"])))
+            fine += block_pnl(series, len(series) // FINE_TICKS)
             for stats in report.product_stats(result):
                 products[stats.product] = products.get(stats.product, 0.0) + stats.pnl
             if mode_number == 0:
@@ -493,7 +513,142 @@ def independent_trials(columns: list[list[float]]) -> float:
     return rho + (1 - rho) * m
 
 
-def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: int) -> str:
+def omega2(d: list[float], q: float) -> float:
+    """Hansen's variance of sqrt(n) times the mean under the stationary bootstrap (p. 8):
+    gamma_0 + 2 sum_i kappa(n, i) gamma_i, kappa(n, i) = (n-i)/n (1-q)^i + i/n (1-q)^(n-i)."""
+    n, mean = len(d), statistics.fmean(d)
+    c = [x - mean for x in d]
+    total = sum(map(mul, c, c)) / n
+    for i in range(1, n):
+        kappa = (n - i) / n * (1 - q) ** i + i / n * (1 - q) ** (n - i)
+        if kappa < 1e-12:
+            continue
+        total += 2 * kappa * sum(map(mul, c, itertools.islice(c, i, None))) / n
+    return total
+
+
+def bootstrap_means(d: list[list[float]], q: float, boot: int, seed: int) -> list[list[float]]:
+    """Each resample's mean of every column, by Politis and Romano's stationary bootstrap (Hansen,
+    p. 7): with probability q the next index is drawn afresh, else it follows the last, wrapping."""
+    n, rng, out = len(d[0]), random.Random(seed), []
+    for _ in range(boot):
+        idx, t = [], rng.randrange(n)
+        for _ in range(n):
+            idx.append(t)
+            t = rng.randrange(n) if rng.random() < q else (t + 1) % n
+        pick = itemgetter(*idx)
+        out.append([sum(pick(column)) / n for column in d])
+    return out
+
+
+def _scales(d: list[list[float]], q: float) -> list[float]:
+    return [math.sqrt(max(omega2(c, q), 1e-12)) for c in d]
+
+
+def spa(d: list[list[float]], q: float, boot: int, seed: int = 0, *, omegas=None, draws=None) -> dict[str, float]:
+    """Hansen's SPA p-values for H0: no column of gains has a positive mean (p. 4 and 7-8). The
+    bootstrap is recentred at mu_l = min(mean, 0), at mu_c (only means clearly below 0 kept, the
+    consistent one) and at mu_u = 0 (the studentized Reality Check)."""
+    n = len(d[0])
+    means = [statistics.fmean(c) for c in d]
+    omegas = omegas or _scales(d, q)
+    t = max(0.0, max(math.sqrt(n) * m / w for m, w in zip(means, omegas)))
+    loglog = math.sqrt(2 * math.log(math.log(n)))
+    shifts = {
+        "l": [max(0.0, m) for m in means],
+        "c": [m if m >= -w / math.sqrt(n) * loglog else 0.0 for m, w in zip(means, omegas)],
+        "u": means,
+    }
+    draws = draws or bootstrap_means(d, q, boot, seed)
+    out = {}
+    for name, shift in shifts.items():
+        above = sum(max(0.0, max(math.sqrt(n) * (x - s) / w for x, s, w in zip(draw, shift, omegas))) > t for draw in draws)
+        out[name] = above / len(draws)
+    return out
+
+
+def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 1, *, omegas=None, draws=None) -> list[int]:
+    """Romano and Wolf's studentized step-down (Algorithms 4.1-4.2, p. 14-15): the columns whose
+    mean gain is significantly positive, the familywise error held at alpha. Studentized by
+    Hansen's omega, fixed across resamples (ours; the paper recomputes it in each)."""
+    n = len(d[0])
+    means = [statistics.fmean(c) for c in d]
+    omegas = omegas or _scales(d, q)
+    z = [math.sqrt(n) * m / w for m, w in zip(means, omegas)]
+    draws = draws or bootstrap_means(d, q, boot, seed)
+    centred = [[math.sqrt(n) * (x - m) / w for x, m, w in zip(draw, means, omegas)] for draw in draws]
+    active, rejected = set(range(len(d))), []
+    while active:
+        maxima = sorted(max(draw[k] for k in active) for draw in centred)
+        c = maxima[min(len(maxima) - 1, math.ceil((1 - alpha) * len(maxima)) - 1)]
+        newly = [k for k in active if z[k] > c]
+        if not newly:
+            break
+        rejected += newly
+        active -= set(newly)
+    return sorted(rejected)
+
+
+def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], dsr: float | None) -> str:
+    """SPA and StepM on each distinct cell's gain over the bot as is, per block of FINE_TICKS ticks,
+    under the first mode; StepM's cells are then checked against the bot as is under the others."""
+    mode = modes[0]
+    base = baseline.fine_pnl.get(mode, [])
+    cells: dict[tuple, tuple[list[float], list[Outcome]]] = {}
+    for _, o in sorted(outcomes.items()):
+        fine = o.fine_pnl.get(mode, [])
+        if o.failed or len(fine) != len(base):
+            continue
+        gain = [x - b for x, b in zip(fine, base)]
+        if any(gain):
+            cells.setdefault(tuple(round(x, 6) for x in gain), (gain, []))[1].append(o)
+    if baseline.failed or len(base) < MIN_FINE_BLOCKS or not cells:
+        return f"  SPA, StepM: skipped (needs a working bot as is, a cell that differs from it, and {MIN_FINE_BLOCKS}+ blocks of {FINE_TICKS} ticks)"
+    groups = list(cells.values())
+    d = [gain for gain, _ in groups]
+    omegas = _scales(d, SPA_Q)
+    draws = bootstrap_means(d, SPA_Q, BOOTSTRAP, seed=0)
+    p = spa(d, SPA_Q, BOOTSTRAP, omegas=omegas, draws=draws)
+    winners = stepm(d, SPA_Q, BOOTSTRAP, omegas=omegas, draws=draws)
+    lines = [
+        f"  SPA on pnl({mode}) gains over the bot as is, {len(base)} blocks of {FINE_TICKS} ticks, {len(d)} distinct cells, "
+        f"bootstrap blocks of {round(FINE_TICKS / SPA_Q):,} ticks on average, {BOOTSTRAP:,} resamples:",
+        f"  p {p['c']:.3f} that no cell beats the bot as is (bounds {p['l']:.3f} to {p['u']:.3f}; the upper is the Reality Check)",
+    ]
+    if winners:
+        ranked = sorted(winners, key=lambda k: -statistics.fmean(d[k]))
+        named = ["; ".join(", ".join(f"{a.label}={v}" for a, v in zip(axes, o.values)) for o in groups[k][1]) for k in ranked]
+        shown = " | ".join(named[:5]) + (f" | ... {len(named) - 5} more" if len(named) > 5 else "")
+        lines.append(f"  StepM at {ALPHA:.0%}: {len(winners)} cells beat the bot as is: {shown}")
+    else:
+        lines.append(f"  StepM at {ALPHA:.0%}: no cell beats the bot as is")
+    if p["c"] < ALPHA and dsr is not None and dsr < 0.95:
+        lines.append("! SPA finds a gain the DSR doesn't: the DSR's bar rises with the spread of all cells, poor ones included, "
+                     "and SPA discounts those (references/wiki/contradictions.md, row 18)")
+    for other in modes[1:]:
+        found = [o for k in winners for o in groups[k][1]]
+        if not found:
+            break
+        holds = [o for o in found if o.pnl(other) > baseline.pnl(other)]
+        best = max(o.pnl(other) - baseline.pnl(other) for o in found)
+        lines.append(f"  under {other}: {len(holds)} of StepM's {len(found)} cells beat the bot as is (best by {best:+,.0f})")
+        if not holds:
+            lines.append(f"! StepM's cells only beat the bot as is under {mode}: the gain depends on the fill model")
+    if p["c"] < ALPHA and len(modes) == 1:
+        lines.append("  a gain under one matching mode still has to hold under the others: rerun with --modes all,worse")
+    found = [o for k in winners for o in groups[k][1]]
+    holding = [o for o in found if all(o.pnl(m) > baseline.pnl(m) for m in modes[1:])]
+    if holding:
+        best = max(holding, key=lambda o: o.pnl(mode))
+        setting = ", ".join(f"{a.label}={v}" for a, v in zip(axes, best.values))
+        gains = " · ".join(f"{m} {best.pnl(m) - baseline.pnl(m):+,.0f}" for m in modes)
+        lines.append(f"  pick: {setting} ({gains}): StepM's best cell that beats the bot as is under every mode")
+    else:
+        lines.append("  pick: the bot as is: no StepM cell beats it under every mode")
+    return "\n".join(lines)
+
+
+def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: int, axes: list[Axis] | None = None) -> str:
     mode = modes[0]
     usable = [o for _, o in sorted(outcomes.items()) if not o.failed]
     columns = list({tuple(round(v, 6) for v in o.block_pnl[mode]): o.block_pnl[mode] for o in usable}.values())
@@ -501,6 +656,8 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     blocks = len(columns[0]) if columns else 0
     if len(columns) < 2 or blocks < 2 or any(len(c) != blocks for c in columns):
         lines.append("  fewer than two distinct cells, or days too short to cut into blocks: no PBO or DSR")
+        if axes is not None:
+            lines.append(format_snooping(axes, baseline, outcomes, modes, None))
         return "\n".join(lines)
     result = cscv(columns)
     sampled = f"{result.splits:,} of {result.of:,}" if result.splits < result.of else f"all {result.of:,}"
@@ -512,6 +669,7 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     best = [x - b for x, b in zip(max(usable, key=lambda o: o.pnl(mode)).block_pnl[mode], base)] if gains else []
     sharpes = [statistics.fmean(g) / statistics.stdev(g) for g in gains if statistics.stdev(g) > 0]
     trials = independent_trials(gains) if gains else 0.0
+    dsr = None
     if best and not any(best):
         lines.append("  the best cell is the bot as is: no gain to deflate")
     elif best and statistics.stdev(best) > 0 and len(sharpes) >= 2:
@@ -528,6 +686,8 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
             lines.append("! the best cell's gain over the bot as is is not clearly more than the best of that many cells with no gain (DSR < 0.95)")
     if result.pbo >= 0.5:
         lines.append("! PBO >= 50%: the best cell in one half of the blocks is as likely as not to be below the median in the other")
+    if axes is not None:
+        lines.append(format_snooping(axes, baseline, outcomes, modes, dsr))
     return "\n".join(lines)
 
 
@@ -617,7 +777,7 @@ def main(argv: list[str] | None = None) -> int:
     held_out = format_held_out(axes, modes, outcomes, repeated_days(s.days))
     if held_out:
         print("\n" + held_out)
-    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days)))
+    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes))
     failed = [o for o in outcomes.values() if o.first_error]
     if failed:
         print(f"first error: {failed[0].first_error}")
