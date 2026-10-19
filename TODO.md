@@ -75,6 +75,18 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Options: (a) keep 2 on the Prosperity products (benchmarks unchanged); the rule for the day is already in `ON_THE_DAY.md`, "Do unfilled orders rest between ticks?"; (b) move Resin and Amethysts to 1 now and re-record the benchmarks.
   - Recommendation: (a). These products won't be at the Arena, and (b) moves every P2/P3 benchmark for a case that only exists when orders rest and a rival undercuts; what carries over is the rule.
   - Done when: the user has chosen, and `PARAMS` and the benchmark figures agree with the choice.
+- [ ] **Rewrite the engine and the strategies in a fast language for huge sweeps?** Raised 2026-10-19: search in Rust or Numba, then port the winner back to the Python file and test that it trades the same.
+  - Evidence:
+    - **Cost today:** a backtest is about 0.6 s per (variant, day, mode), and 14 cores run about 55k an hour. So 10k variants × 3 days × 2 modes take about 1 hour, 100k about 11 hours and 1M about 4–5 days. A compiled engine plus strategy might be ~100× faster per core. That is an estimate, not measured.
+    - **Data, not compute, is the binding constraint:** 64 cells of Kelp's `make_edge` × `take_edge` on P3 round 1 already give DSR 0.76. The best cell's gain over the bot as is can't be told apart from the best of 8.5 cells with no gain (`uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --grid PARAMS.KELP.take_edge=0..7 --modes all,worse`). With a million variants on 3–6 days, the winner is mostly noise.
+    - **The cost of a rewrite:** every strategy and variant is written twice and has to be proved equal. The engine's rules (resting, queue models, `--vs`, races, limits) need a second copy with its own parity test, and all of it under a 5-hour round. Even a port that passes its parity tests is still a second implementation to keep equal.
+    - **The case where it pays:** a fixed strategy family searched over many `arena.sim` days, where days are unlimited. There the limit becomes how well the simulator matches the real market.
+  - Options:
+    - (a) No rewrite. First do the cheaper sweeps in "Tooling": per-run tasks, split by product, successive halving, and comparing several bot files.
+    - (b) (a), plus a Numba or Rust kernel for one fixed strategy family over many simulated days, built only if a sweep on the day takes over ~30 minutes after (a).
+    - (c) A full port of the engine and the template now.
+  - Recommendation: (a) before the event, with (b) kept for the case it names. With rounds of a few days' data, more variants mostly buy false winners. The tooling items cut wall time several-fold on typical sweeps, with one implementation.
+  - Done when: the user has chosen.
 
 ## Harder-round prep
 
@@ -238,6 +250,11 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 - [ ] **Compare several bot files in one parallel run.** On the day the work is many separate strategies (simple ones, complex ones, mixes), not only `--set` variants of one file. `arena.grid` takes one bot file, `arena.backtest` runs one bot day after day, and `experiments/zoo.py` does it for the zoo only.
   - Done when: something like `uv run python -m arena.compare bots/a.py bots/b.py ... 1 --modes all,worse [--vs ...] [--set ...]` runs every (bot, day, mode) in a process pool, prints a table ranked like the grid's (PnL, worst day, PnL per extra mode, errors and breaches, PnL per product), writes `--out` CSV, and has a test.
+
+- [ ] **Cheaper sweeps that keep the Python file the only implementation.** Both come before any rewrite (see the decision "Rewrite the engine and the strategies in a fast language for huge sweeps?").
+  - Per product: a grid whose axes all touch one product (and nothing that `follow`s or `hedge`s it) only needs that product's books. Measured 2026-10-19: a P3 day with only Kelp takes 0.35 s against 0.60 s with all three products, and makes the same Kelp PnL (6,724), likewise Resin. Axes on independent products add instead of multiplying (N + M runs, not N × M). The gain grows with the product count (P4 round 5 has 50).
+  - Successive halving: screen every combination on one day and the first mode, then rerun the top share on every day and mode.
+  - Done when: `arena.grid` restricts the days to the products its axes touch, when they are independent (a test that the PnL matches the full run), and has an option for the halving screen whose summary says what was screened out.
 
 - [x] **Is PyPy or the GPU worth it for sweeps?** No, measured 2026-10-19. One P3 day takes 0.42 s on PyPy 3.11 against 0.58 s on CPython 3.12, with the same PnL, and CPython 3.13 and 3.14 are no faster than 3.12. In the 64-combination grid above, PyPy finished in 20.4 s against 22.3 s, with identical results (`PYTHONPATH=. uv run --no-project --python pypy3.11 python -m arena.grid ...` works, since the engine is standard library; `arena.analysis` needs CPython). Each run re-execs the bot, so the JIT warms up again every time. The GPU can't run the bot, which is branching Python per tick. Using it would mean rewriting a strategy as array code, which is no longer the file we submit. The ceiling is cores × 0.6 s per day, so the time to save is in tasks left idle (above), not in a faster interpreter.
 
