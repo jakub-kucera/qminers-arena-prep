@@ -1,49 +1,63 @@
-"""The Rust engine against ours: same results, then how much faster. For TODO.md's decision
-"Rewrite the engine and the strategies in a fast language for huge sweeps?".
+"""The Rust port (rust/) against ours: every twin trades the same, then how much faster.
 
-usage (from the repo root; needs cargo): uv run python -m experiments.rust_bench [--jobs N] [--parity-only]
+usage (from the repo root; needs cargo): uv run python -m experiments.rust_bench [--jobs N] [--parity-only] [--record]
 
-rust/ ports arena/engine.py whole (both modes, the three queue models, the fill ratio's seeded
-draws, several bots in one market) and one bot, rust/src/bots/mm.rs, whose Python twin is
-bots/mm.py. Days are loaded by our format plug-ins and exported for it (`export_day`).
+rust/ ports arena/engine.py whole and the bots listed in rust/twins.json, each with its Python
+file as a twin (rust/README.md). Days are loaded by our format plug-ins and exported for it
+(arena/rust.py, `export_day`), and each Rust bot reads its settings from its Python file.
   1. parity: every field a DayResult records (fills, orders, cancels, breaches, races, errors, and
      per tick each product's position, mark, PnL, best bid and ask, wall mid), Rust against our
-     engine, under each configuration in CONFIGS, on P3 round 1 day -2;
-  2. one core: time per backtest of the same bot, ours (the bot file through the Prosperity
-     adapter, loaded per backtest as arena.grid does) against Rust's, default and resting mode;
-  3. every core: Kelp's 64-cell grid (make_edge 0..7 x take_edge 0..7) on the round's three days
-     under all and worse: arena.grid against `arena-rs grid`.
-Results go into TODO.md (the decision). tests/test_rust.py runs part 1 on an arena.sim day.
+     engine, for bots/mm.py in each engine configuration (CONFIGS) on P3 round 1 day -2; for the
+     template in each part of its STRATEGY (VARIANTS, template_cases) on an arena.sim day, and on
+     real days from P2 to P4 (REAL); for the rivals (rival_cases). --record then writes each
+     twin's hash to rust/twins.json, if every case was identical;
+  2. one core: time per backtest of mm and of the template, ours (the bot file through the
+     Prosperity adapter, loaded per backtest as arena.grid does) against Rust's;
+  3. every core: Kelp's 64-cell mm grid on the round's three days under all and worse, arena.grid
+     against `arena-rs grid`.
+Results go into TODO.md (the decisions on the Rust port). tests/test_rust.py runs part 1, shorter.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import replace
 from pathlib import Path
 
-from arena import grid
+from arena import grid, rust
+from arena.cli import Requote
 from arena.engine import EngineConfig, QueueModel, TradeMatching, run_day, run_market
 from arena.formats import prosperity
 from arena.model import Day
 
 ROOT = Path(__file__).resolve().parent.parent
-RUST = ROOT / "rust"
-BINARY = RUST / "target" / "release" / "arena-rs"
+RUST = rust.RUST
+BINARY = rust.BINARY
 BOT = ROOT / "bots" / "mm.py"
+TEMPLATE = ROOT / "bots" / "template.py"
 SAMPLE = 6  # Python backtests timed on one core per measurement
 
-# A bot: (name, {product: (make_edge, take_edge, hold)}). Two products, so the engine's per-product
+build, export_day = rust.build, rust.export_day
+
+
+def mm(params: dict) -> dict:
+    """bots/mm.py's PARAMS override from {product: (make_edge, take_edge, hold)}."""
+    return {"PARAMS": {p: {"make_edge": m, "take_edge": t, "hold": h} for p, (m, t, h) in params.items()}}
+
+
+# A participant: (name, bot file, overrides, requote). Two products, so the engine's per-product
 # paths run; `hold` keeps quotes resting, so their queue position matters.
-ONE = [("you", {"KELP": (1, 1, False), "RAINFOREST_RESIN": (2, 1, False)})]
-TWO = ONE + [("rival", {"KELP": (0, 1, False), "RAINFOREST_RESIN": (1, 2, False)})]
-HOLD = [("you", {"KELP": (1, 1, True), "RAINFOREST_RESIN": (2, 1, True)})]
-HOLD_TWO = HOLD + [("rival", {"KELP": (0, 1, True), "RAINFOREST_RESIN": (1, 2, False)})]
+ONE = [("you", BOT, mm({"KELP": (1, 1, False), "RAINFOREST_RESIN": (2, 1, False)}), False)]
+TWO = ONE + [("rival", BOT, mm({"KELP": (0, 1, False), "RAINFOREST_RESIN": (1, 2, False)}), False)]
+HOLD = [("you", BOT, mm({"KELP": (1, 1, True), "RAINFOREST_RESIN": (2, 1, True)}), False)]
+HOLD_TWO = HOLD + [("rival", BOT, mm({"KELP": (0, 1, True), "RAINFOREST_RESIN": (1, 2, False)}), False)]
 ALL, WORSE, NONE = TradeMatching.ALL, TradeMatching.WORSE, TradeMatching.NONE
 CONFIGS = [
     ("default, all", EngineConfig(), ONE),
@@ -63,64 +77,86 @@ CONFIGS = [
     ("two bots, resting, holding, prob, fill ratio 0.6", EngineConfig(resting=True, queue=QueueModel.PROB, fill_ratio=0.6, seed=3), HOLD_TWO),
 ]
 
-
-def build() -> None:
-    subprocess.run(["cargo", "build", "--release", "--quiet", "--manifest-path", str(RUST / "Cargo.toml")], check=True)
-
-
-# ---------------------------------------------------------------------------- export
-
-
-def _whole(price) -> int:
-    if price != int(price):
-        raise ValueError(f"the Rust engine takes whole prices, got {price}")
-    return int(price)
-
-
-def _name(text: str) -> str:
-    if any(c.isspace() for c in text):
-        raise ValueError(f"trader names can't hold whitespace in a day file: {text!r}")
-    return text
-
-
-def export_day(day: Day, path: Path) -> None:
-    """Writes the day in rust/src/dayfile.rs's format (products sorted by name, names by first appearance)."""
-    products = sorted(day.products)
-    index = {p: k for k, p in enumerate(products)}
-    names = {"": 0}
-    for tick in day.ticks:
-        for trades in tick.trades.values():
-            for t in trades:
-                names.setdefault(_name(t.buyer), len(names))
-                names.setdefault(_name(t.seller), len(names))
-    lines = ["arena-day 1", f"name {day.name}", f"products {len(products)}", *(f"{p} {day.limits[p]}" for p in products),
-             f"names {len(names)}", *names, f"ticks {len(day.ticks)}"]
-    side = lambda levels: f"{len(levels)}" + "".join(f" {_whole(price)} {volume}" for price, volume in levels)
-    for tick in day.ticks:
-        trades = [t for p in tick.trades for t in tick.trades[p]]
-        lines.append(f"t {tick.timestamp} {len(tick.books)} {len(trades)} {len(tick.marks)}")
-        lines += [f"b {index[p]} {side(book.bids)} {side(book.asks)}" for p, book in tick.books.items()]
-        lines += [f"x {index[t.product]} {_whole(t.price)} {t.quantity} {names[t.buyer]} {names[t.seller]} {t.timestamp}" for t in trades]
-        lines += [f"m {index[p]} {float(mark)!r}" for p, mark in tick.marks.items()]
-    path.write_text("\n".join(lines) + "\n")
+# The template's settings, each turning on one part of STRATEGY, on a day of KELP (about 2,030)
+# and RAINFOREST_RESIN (10,000): (label, --set overrides). Some pair the products in ways that make
+# no economic sense (Kelp as a call on Resin), only so the code runs with numbers it can't fold away.
+K, R = "PARAMS.KELP.", "PARAMS.RAINFOREST_RESIN."
+VARIANTS = [
+    ("as committed", {}),
+    ("mid", {K + "fair": "mid"}),
+    ("wall_mid, smoothing", {K + "fair": "wall_mid", K + "smoothing": 0.6}),
+    ("outer_mid", {K + "fair": "outer_mid", K + "make_edge": 1}),
+    ("weighted_mid, imbalance", {K + "fair": "weighted_mid", K + "imbalance": 0.7, K + "take_edge": 0.5}),
+    ("skew, size_skew, target, make_size", {K + "skew": 3, K + "size_skew": 0.8, K + "target": 12, K + "make_size": 9, K + "clear_edge": 1}),
+    ("level: the day's mean, exit", {K + "level": "day", K + "level_band": 2, K + "level_exit": 0, K + "clear_edge": 2}),
+    ("level: a number, weight, guard", {K + "level": 2031, K + "level_weight": 500, K + "level_band": 2.5, K + "level_guard": 2, K + "clear_edge": 1}),
+    ("stop loss that fires", {K + "stop_loss": 3, R + "stop_loss": 2, R + "stop_edge": 1}),
+    ("flatten before the close", {K + "flatten_from": 120_000, R + "flatten_from": 150_000, R + "flatten_edge": 2}),
+    ("vol guard", {K + "vol_guard": 1.3, K + "level": "day", K + "level_band": 2}),
+    ("changepoint, level", {K + "level": 2031, K + "level_band": 2, K + "cpd_hazard": 3000, K + "cpd_reversion": 0.02, K + "cpd_sd": 1.2, K + "cpd_block": 20}),
+    ("changepoint, drop", {K + "level": 2031, K + "level_band": 2, K + "cpd_hazard": 3000, K + "cpd_reversion": 0.02, K + "cpd_sd": 1.2,
+                           K + "cpd_block": 20, K + "cpd_action": "drop", K + "cpd_threshold": 0.3}),
+    ("jumps", {K + "jump_min": 0.5, K + "jump_seen": 2, K + "jump_share": 0.3, K + "jump_hold": 15, K + "jump_edge": 2}),
+    ("copy: our own fills and a rival", {K + "copy": {"SUBMISSION": 0.4, "rival": -1.5}, K + "copy_hold": 30}),
+    ("basket with a hedged leg", {R + "basket": {"KELP": 5}, R + "fair": "wall_mid", R + "level": "day", R + "level_band": 3, R + "hedge_ratio": 0.5,
+                                  R + "make_size": 0, K + "hedge": True}),
+    ("follow: a call on the other", {R + "level": "day", R + "level_band": 1, R + "fair": "wall_mid", K + "follow": "RAINFOREST_RESIN",
+                                     K + "strike": 9000, K + "fair": "wall_mid", K + "max_cost_per_delta": 50, K + "clear_edge": 3}),
+    ("smile, hedged", {K + "smile": (0.05, 0.01, 0.15), K + "underlying": "RAINFOREST_RESIN", K + "strike": 9000, K + "expiry": 3, K + "hedge_ratio": 0.6,
+                       K + "fair": "wall_mid", R + "hedge": True}),
+]
 
 
-# ---------------------------------------------------------------------------- parity
+def template_cases(variants=VARIANTS) -> list[tuple[str, EngineConfig, list]]:
+    """Every variant on its own (per tick) and in a resting market with a rival (prob queue, a fill
+    ratio), plus the committed settings in every configuration with a rival or a copy."""
+    def bots(overrides, rivals=()):
+        return [("you", TEMPLATE, {k: v for k, v in overrides.items()}, False), *rivals]
+    rival = ("rival", BOT, mm({"KELP": (1, 1, True), "RAINFOREST_RESIN": (1, 1, True)}), False)
+    resting = EngineConfig(resting=True, queue=QueueModel.PROB, fill_ratio=0.7, seed=4)
+    cases = [(f"{label}, default", EngineConfig(), bots(o, [rival])) for label, o in variants]
+    cases += [(f"{label}, resting with a rival", resting, bots(o, [rival])) for label, o in variants]
+    committed = dict(variants)["as committed"] if "as committed" in dict(variants) else {}
+    copy = ("template#2", TEMPLATE, {K + "make_edge": 1}, False)
+    cases += [
+        ("as committed, worse", EngineConfig(trade_matching=WORSE), bots(committed)),
+        ("as committed, none, fill ratio 0.5", EngineConfig(trade_matching=NONE, fill_ratio=0.5, seed=7), bots(committed)),
+        ("as committed, resting, back", EngineConfig(resting=True), bots(committed)),
+        ("as committed, resting, front, worse", EngineConfig(resting=True, queue=QueueModel.FRONT, trade_matching=WORSE), bots(committed)),
+        ("as committed against a copy, resting", EngineConfig(resting=True), bots(committed, [copy])),
+        ("as committed against a requoted mm, resting", EngineConfig(resting=True), bots(committed, [("mm", BOT, mm({"KELP": (0, 1, False)}), True)])),
+    ]
+    return cases
 
 
-def _rust_bots(bots) -> list[str]:
-    return [arg for name, params in bots
-            for arg in ("--bot", f"{name}=" + "+".join(f"{p}:{m}:{t}" + (":hold" if h else "") for p, (m, t, h) in params.items()))]
+RIVALS = {name: ROOT / "bots" / "rivals" / f"{name}.py" for name in ("sniper", "spoofer", "trapper")}
 
 
-def _rust_engine(config: EngineConfig) -> list[str]:
-    args = ["--match-trades", str(config.trade_matching), "--queue", str(config.queue), "--queue-power", repr(config.queue_power),
-            "--fill-ratio", repr(config.fill_ratio), "--seed", str(config.seed)]
-    return args + (["--resting"] if config.resting else [])
+def rival_cases() -> list[tuple[str, EngineConfig, list]]:
+    """bots/rivals/ against the template and mm: resting (where the rivals mean something), per
+    tick, with --set changes to their constants, and all three in one market."""
+    template = ("template", TEMPLATE, {}, False)
+    holding = ("mm", BOT, mm({"KELP": (1, 1, True), "RAINFOREST_RESIN": (2, 1, True)}), False)
+    resting, prob = EngineConfig(resting=True), EngineConfig(resting=True, queue=QueueModel.PROB, fill_ratio=0.8, seed=5)
+    cases = []
+    for name, path in RIVALS.items():
+        rival = (name, path, {}, False)
+        cases += [(f"template against the {name}, resting", resting, [template, rival]),
+                  (f"template against the {name}, per tick", EngineConfig(), [template, rival]),
+                  (f"mm holding against the {name}, resting, prob, fill ratio", prob, [holding, rival])]
+    cases += [
+        ("the spoofer 3 ticks behind, flipping every 50", resting, [template, ("spoofer", RIVALS["spoofer"], {"OFFSET": 3, "PERIOD": 50}, False)]),
+        ("a small trapper with a short cooldown", resting, [template, ("trapper", RIVALS["trapper"], {"BAIT": 12, "PERIOD": 60, "COOLDOWN": 5}, False)]),
+        ("the sniper at edge 0, Kelp's limit 20", resting, [template, ("sniper", RIVALS["sniper"], {"EDGE": 0, "LIMITS.KELP": 20}, False)]),
+        ("all three against the template, resting, worse", EngineConfig(resting=True, trade_matching=WORSE),
+         [template, *[(name, path, {}, False) for name, path in RIVALS.items()]]),
+    ]
+    return cases
 
 
-def _python_bot(params: dict):
-    return prosperity.load_bot(BOT, {"PARAMS": {p: {"make_edge": m, "take_edge": t, "hold": h} for p, (m, t, h) in params.items()}}, strict=True)
+def _python_bot(path: Path, overrides: dict, requote: bool):
+    bot = prosperity.load_bot(path, overrides, strict=True)
+    return Requote(bot) if requote else bot
 
 
 def _int_or_none(text: str):
@@ -209,20 +245,35 @@ def differences(ours: dict, theirs: dict) -> list[str]:
 
 
 def parity(day: Day, scratch: Path, configs=CONFIGS) -> list[tuple[str, tuple, list[str]]]:
-    """Each configuration on the day in both engines: (name, (fills, cross fills, races, breaches), differences)."""
+    """Each case (label, config, participants) on the day in both engines: (label, (fills, cross
+    fills, races, breaches, the first participant's PnL), differences)."""
     path = scratch / f"{day.name}.day"
     export_day(day, path)
     out = []
-    for name, config, bots in configs:
+    for label, config, bots in configs:
+        args = []
+        for k, (name, bot, overrides, requote) in enumerate(bots):
+            spec = scratch / f"bot{k}.json"
+            spec.write_text(json.dumps(rust.bot_spec(bot, overrides, requote)))
+            args += ["--bot", f"{name}={spec}"]
         dump = scratch / "dump.txt"
-        subprocess.run([str(BINARY), "run", str(path), *_rust_engine(config), *_rust_bots(bots), "--dump", str(dump)], check=True, capture_output=True)
+        run = subprocess.run([str(BINARY), "run", str(path), *_rust_engine(config), *args, "--dump", str(dump)], capture_output=True, text=True)
+        if run.returncode != 0:
+            out.append((label, (0, 0, 0, 0, 0.0), [f"arena-rs failed: {run.stderr.strip()}"]))
+            continue
         theirs = parse_dump(dump.read_text())
-        ours = run_market(day, [(bot, _python_bot(params)) for bot, params in bots], config)
-        found = [f"{bot}: {d}" for (bot, _), result in zip(bots, ours) for d in differences(python_view(result), theirs[bot])]
+        ours = run_market(day, [(name, _python_bot(bot, overrides, requote)) for name, bot, overrides, requote in bots], config)
+        found = [f"{name}: {d}" for (name, *_), result in zip(bots, ours) for d in differences(python_view(result), theirs[name])]
         counts = (sum(len(r.fills) for r in ours), sum(f.source == "cross" for r in ours for f in r.fills),
-                  sum(len(r.races) for r in ours), sum(len(r.limit_breaches) for r in ours))
-        out.append((name, counts, found))
+                  sum(len(r.races) for r in ours), sum(len(r.limit_breaches) for r in ours), sum(s[-1] for s in ours[0].pnl.values() if s))
+        out.append((label, counts, found))
     return out
+
+
+def _rust_engine(config: EngineConfig) -> list[str]:
+    args = ["--match-trades", str(config.trade_matching), "--queue", str(config.queue), "--queue-power", repr(config.queue_power),
+            "--fill-ratio", repr(config.fill_ratio), "--seed", str(config.seed)]
+    return args + (["--resting"] if config.resting else [])
 
 
 # ---------------------------------------------------------------------------- timing
@@ -248,19 +299,99 @@ def rust_grid(paths: list[Path], config: EngineConfig, threads: int, repeat: int
     return float(match.group(2)) / 1e3, float(match.group(1)) / repeat, out.stdout
 
 
+def template_time(day: Day, path: Path, config: EngineConfig, scratch: Path) -> tuple[float, float]:
+    """Seconds per backtest of bots/template.py as committed: ours (loaded per backtest), and the
+    Rust twin's (`arena-rs batch` on one thread, 41 tasks less 1 to leave out loading)."""
+    start = time.perf_counter()
+    for _ in range(SAMPLE):
+        run_day(day, prosperity.load_bot(TEMPLATE, {}, strict=False), config)
+    ours = (time.perf_counter() - start) / SAMPLE
+    spec = rust.bot_spec(TEMPLATE, {})
+    task = {"day": 0, "config": rust.config_json(config), "bots": [["template", 0]], "blocks": 2, "fine": 10}
+    seconds = []
+    for n in (1, 41):
+        start = time.perf_counter()
+        rust.run_batch([path], [spec], [task] * n, 1, scratch)
+        seconds.append(time.perf_counter() - start)
+    return ours, (seconds[1] - seconds[0]) / 40
+
+
+def _report(label: str, counts: tuple, found: list[str], width: int = 58) -> bool:
+    fills, crossed, races, breaches, pnl = counts
+    print(f"   {label:<{width}} {fills:>6,} fills ({crossed:,} crossed), {races} races, {breaches} breaches, PnL {pnl:>9,.0f}: "
+          + ("identical" if not found else f"! {len(found)} differences: {found[0]}"))
+    return not found
+
+
+# Real days for the template: (data, round, what it exercises, --set overrides), each on the round's
+# first day, the committed settings unless the label says otherwise.
+REAL = [
+    ("p2", "1", "Amethysts (fixed fair) and Starfruit", {}),
+    ("p2", "3", "the gift basket against its legs", {}),
+    ("p3", "1", "Kelp, Resin (stop losses, fixed guard)", {}),
+    ("p3", "2", "the picnic baskets", {}),
+    ("p3", "3", "Volcanic Rock (the day's level) and its vouchers (follow)", {}),
+    ("p3", "3", "a voucher priced off a smile, hedged", {"PARAMS.VOLCANIC_ROCK_VOUCHER_10000": {
+        "limit": 200, "fair": "wall_mid", "smile": [0.25, 0.0, 0.16], "underlying": "VOLCANIC_ROCK", "strike": 10000, "expiry": 5,
+        "hedge_ratio": 0.5, "make_size": 20}}),
+    ("p3", "5", "copying Olivia", {"PARAMS.SQUID_INK": {"limit": 50, "fair": "wall_mid", "copy": {"Olivia": 1}, "copy_edge": 5}}),
+    ("p4", "1", "Osmium (smoothing), Pepper Root (target, skew, make_size)", {}),
+    ("p4", "3", "Hydrogel, Velvetfruit (levels) and the VEV vouchers", {}),
+    ("p4", "5", "fading Robot Dishes' jumps", {"PARAMS.ROBOT_DISHES": {"limit": 10, "fair": "wall_mid", "make_edge": 1, "jump_min": 50,
+                                                                     "jump_edge": 10, "jump_seen": 5, "jump_share": 0.6}}),
+]
+REAL_CONFIGS = [("default", EngineConfig()), ("resting, prob, worse", EngineConfig(resting=True, queue=QueueModel.PROB, trade_matching=WORSE))]
+
+
+def real_parity(scratch: Path, ticks: int | None = None, real=REAL) -> list[tuple[str, tuple, list[str]]]:
+    """REAL in both engines, each case under REAL_CONFIGS (on the first `ticks` ticks if given)."""
+    out = []
+    for data, round_, label, overrides in real:
+        day = prosperity.load_days(prosperity.resolve_data_dir(data), [round_])[0]
+        day = replace(day, ticks=day.ticks[:ticks]) if ticks else day
+        cases = [(f"{data} {day.name}: {label}, {name}", config, [("you", TEMPLATE, overrides, False)]) for name, config in REAL_CONFIGS]
+        out += parity(day, scratch, cases)
+    return out
+
+
+def sim_day(ticks: int = 2000) -> Day:
+    """The day VARIANTS are written for: arena.sim's Kelp and Resin, seed 5."""
+    from arena import sim
+
+    day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN"]), 5).day
+    return replace(day, ticks=day.ticks[:ticks])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.rust_bench")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1)
     parser.add_argument("--parity-only", action="store_true")
+    parser.add_argument("--record", action="store_true",
+                        help="with every case identical, record each twin's Python file as checked (rust/twins.json)")
     args = parser.parse_args()
     build()
     days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
     with tempfile.TemporaryDirectory() as folder:
         scratch = Path(folder)
-        print(f"1. parity on {days[0].name}, every recorded field (bots/mm.py against rust/src/bots/mm.rs):")
-        for name, (fills, crossed, races, breaches), found in parity(days[0], scratch):
-            print(f"   {name:<50} {fills:>6,} fills ({crossed:,} crossed), {races} races, {breaches} breaches: "
-                  + ("identical" if not found else f"! {len(found)} differences: {found[0]}"))
+        same = True
+        print(f"1. parity, every recorded field. bots/mm.py against rust/src/bots/mm.rs on {days[0].name}:")
+        for label, counts, found in parity(days[0], scratch):
+            same &= _report(label, counts, found)
+        print("   bots/template.py against rust/src/bots/template.rs, each part of STRATEGY on arena.sim's Kelp and Resin (2,000 ticks):")
+        for label, counts, found in parity(sim_day(), scratch, template_cases()):
+            same &= _report(label, counts, found)
+        print("   bots/rivals/ against rust/src/bots/rivals.rs, on the same day:")
+        for label, counts, found in parity(sim_day(), scratch, rival_cases()):
+            same &= _report(label, counts, found)
+        print("   ... and on real days, whole:")
+        for label, counts, found in real_parity(scratch):
+            same &= _report(label, counts, found, 80)
+        print("   all identical" if same else "   ! differences")
+        if args.record:
+            if not same:
+                sys.exit("not recorded: the twins differ")
+            rust.record_hashes()
+            print(f"   recorded in {rust.TWINS.relative_to(ROOT)}")
         if args.parity_only:
             return
 
@@ -269,17 +400,23 @@ def main() -> None:
         for day, a, b in zip(days, full, kelp):
             export_day(day, a)
             export_day(grid.only(day, ["KELP"]), b)
-        print(f"\n2. one core, per backtest of a {len(days[0].ticks):,}-tick day, bots/mm.py on Kelp (Python: the bot file "
-              "through the Prosperity adapter, loaded per backtest):")
+        print(f"\n2. one core, per backtest of a {len(days[0].ticks):,}-tick day (Python: the bot file through the Prosperity adapter, "
+              "loaded per backtest). bots/mm.py on Kelp:")
         for label, day, path, config in (("all three products, default", days[0], full[0], EngineConfig()),
                                          ("all three products, resting", days[0], full[0], EngineConfig(resting=True)),
                                          ("Kelp only, default", grid.only(days[0], ["KELP"]), kelp[0], EngineConfig())):
             ours, share = python_time(day, config)
             theirs = rust_grid([path], config, 1, 200)[0]
             print(f"   {label:<30} Python {ours * 1e3:6.1f} ms ({share:.0%} in the bot)   Rust {theirs * 1e3:6.3f} ms   {ours / theirs:,.0f}x")
+        print("   bots/template.py as committed (Kelp and Resin):")
+        for label, day, path, config in (("all three products, default", days[0], full[0], EngineConfig()),
+                                         ("all three products, resting", days[0], full[0], EngineConfig(resting=True)),
+                                         ("Kelp only, default", grid.only(days[0], ["KELP"]), kelp[0], EngineConfig())):
+            ours, theirs = template_time(day, path, config, scratch)
+            print(f"   {label:<30} Python {ours * 1e3:6.1f} ms   Rust {theirs * 1e3:6.3f} ms   {ours / theirs:,.0f}x")
 
         edges = range(8)
-        print(f"\n3. every core ({args.jobs}): Kelp's 64-cell grid on {len(days)} days under all and worse (384 backtests):")
+        print(f"\n3. every core ({args.jobs}). Kelp's 64-cell mm grid on {len(days)} days under all and worse (384 backtests):")
         sys.stdout.flush()
         start = time.perf_counter()
         subprocess.run([sys.executable, "-m", "arena.grid", str(BOT), "1", "--data", "p3", "--grid", "PARAMS.KELP.make_edge=0..7",

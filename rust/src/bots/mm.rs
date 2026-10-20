@@ -6,6 +6,7 @@
 //! `hold`: those already at the quote's price are kept (oldest first, while they fit its room).
 
 use crate::engine::{Bot, TickView};
+use crate::json::Value;
 use crate::model::{wall, Action, Book, Day, Fill, MarketTrade, OpenOrder, Order};
 
 pub const LIMIT: i64 = 50;
@@ -20,17 +21,32 @@ pub struct Params {
 
 pub struct MarketMaker {
     params: Vec<Params>,
+    limit: i64,
     ids: Vec<usize>,
 }
 
 impl MarketMaker {
     pub fn new(params: Vec<Params>) -> Self {
-        MarketMaker { params, ids: Vec::new() }
+        MarketMaker { params, limit: LIMIT, ids: Vec::new() }
+    }
+
+    /// From bots/mm.py's globals: PARAMS ({product: {make_edge, take_edge, hold}}) and LIMIT.
+    pub fn from_globals(globals: &Value) -> Result<Self, String> {
+        let products = globals.get("PARAMS").and_then(Value::as_object).ok_or("mm: PARAMS must be a dict")?;
+        let params = products
+            .iter()
+            .map(|(product, p)| {
+                let number = |key: &str| p.get(key).and_then(Value::as_f64).ok_or_else(|| format!("mm: PARAMS[{product}][{key}] must be a number"));
+                Ok(Params { product: product.clone(), make_edge: number("make_edge")?, take_edge: number("take_edge")?, hold: p.get("hold").is_some_and(Value::truthy) })
+            })
+            .collect::<Result<_, String>>()?;
+        let limit = globals.get("LIMIT").map_or(Some(LIMIT), Value::as_i64).ok_or("mm: LIMIT must be an integer")?;
+        Ok(MarketMaker { params, limit, ids: Vec::new() })
     }
 }
 
 impl Bot for MarketMaker {
-    fn begin_day(&mut self, day: &Day) {
+    fn begin_day(&mut self, day: &Day, _names: &[String]) {
         self.ids = self.params.iter().map(|p| day.product(&p.product).unwrap_or(usize::MAX)).collect();
     }
 
@@ -38,14 +54,15 @@ impl Bot for MarketMaker {
         for (params, &product) in self.params.iter().zip(&self.ids) {
             let resting = open_orders.iter().filter(|o| o.product == product);
             match tick.books.get(product).and_then(|b| b.as_ref()) {
-                Some(book) if !book.bids.is_empty() && !book.asks.is_empty() => quote(product, params, book, positions[product], resting, actions),
+                Some(book) if !book.bids.is_empty() && !book.asks.is_empty() => quote(product, params, self.limit, book, positions[product], resting, actions),
                 _ => actions.extend(resting.map(|o| Action::Cancel(o.id))),
             }
         }
     }
 }
 
-fn quote<'a>(product: usize, params: &Params, book: &Book, position: i64, resting: impl Iterator<Item = &'a OpenOrder>, actions: &mut Vec<Action>) {
+#[allow(clippy::too_many_arguments)]
+fn quote<'a>(product: usize, params: &Params, limit: i64, book: &Book, position: i64, resting: impl Iterator<Item = &'a OpenOrder>, actions: &mut Vec<Action>) {
     let (bids, asks) = (&book.bids, &book.asks);
     let fair = (wall(bids) + wall(asks)) as f64 / 2.0;
     // The takes: every level at least take_edge through fair, while the room lasts.
@@ -60,8 +77,8 @@ fn quote<'a>(product: usize, params: &Params, book: &Book, position: i64, restin
         }
         (count, left)
     };
-    let (buys, buy_room) = takes(asks, LIMIT - position, &|price| price as f64 <= fair - params.take_edge);
-    let (sells, sell_room) = takes(bids, LIMIT + position, &|price| price as f64 >= fair + params.take_edge);
+    let (buys, buy_room) = takes(asks, limit - position, &|price| price as f64 <= fair - params.take_edge);
+    let (sells, sell_room) = takes(bids, limit + position, &|price| price as f64 >= fair + params.take_edge);
     let bid = (bids[0].0 + 1).min((fair - params.make_edge).floor() as i64);
     let ask = (asks[0].0 - 1).max((fair + params.make_edge).ceil() as i64);
     let (mut kept_buys, mut kept_sells) = (0, 0);
@@ -74,13 +91,13 @@ fn quote<'a>(product: usize, params: &Params, book: &Book, position: i64, restin
             actions.push(Action::Cancel(order.id));
         }
     }
-    let mut room = LIMIT - position;
+    let mut room = limit - position;
     for &(price, volume) in &asks[..buys] {
         let quantity = volume.min(room);
         actions.push(Action::Order(Order { product, price, quantity, ioc: true }));
         room -= quantity;
     }
-    let mut room = LIMIT + position;
+    let mut room = limit + position;
     for &(price, volume) in &bids[..sells] {
         let quantity = volume.min(room);
         actions.push(Action::Order(Order { product, price, quantity: -quantity, ioc: true }));

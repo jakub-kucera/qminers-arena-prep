@@ -402,13 +402,20 @@ ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `s
 
 ## The engine in Rust
 
-`rust/` is a Rust port of the whole engine and one bot, for benchmarking, not for use (`rust/README.md`).
-`uv run python -m experiments.rust_bench` builds it (needs `cargo`). It checks that it records exactly
-what our engine does in 15 configurations, then times both on the same bot (`bots/mm.py` and its
-twin `rust/src/bots/mm.rs`). On P3 round 1, one core, per day: about 150× faster (Kelp only 158 ms
-against 0.9 ms; all three products 208 ms against 1.5 ms). Kelp's 64-cell grid on three days under
-`all` and `worse` took 8.4 s in `arena.grid` against 88 ms. The gain only comes from strategies
-written in Rust: the template would need porting first.
+`rust/` is a Rust port of the engine, the template, the rivals and `bots/mm.py`, each with its Python file as a twin that must trade the
+same (`rust/README.md` has the table of what is in Python, in Rust, and in both). `uv run python -m experiments.rust_bench` builds it
+(needs `cargo`), then checks every recorded field against our engine:
+- 15 engine configurations with `mm`;
+- every part of the template's STRATEGY, alone and with a rival;
+- 10 real days from P2 to P4;
+- the rivals.
+
+Then it times both. On P3 round 1, one core, per day, the template as committed takes 577 ms in Python and 4.5 ms in Rust (129×);
+`mm` takes 208 ms against 1.5 ms.
+
+The Rust bots take their settings from the Python file, so `--set` reaches both. `rust/twins.json` records the hash of each Python
+twin as last checked, and `tests/test_rust.py` fails when one changes until `uv run python -m experiments.rust_bench --parity-only
+--record` has checked the pair again. The submitted bot stays a Python file.
 
 ## Stress
 

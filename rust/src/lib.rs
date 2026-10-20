@@ -4,6 +4,7 @@
 pub mod bots;
 pub mod dayfile;
 pub mod engine;
+pub mod json;
 pub mod model;
 pub mod pyrandom;
 mod sha512;

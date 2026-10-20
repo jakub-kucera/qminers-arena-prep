@@ -1,16 +1,23 @@
-"""The Rust port of the engine (rust/) against ours, on a short arena.sim day: every recorded field
-under each configuration of experiments/rust_bench.py, plus the crate's own unit tests. Skipped
-without cargo. A change to arena/engine.py's rules must be made in rust/src/engine.rs too."""
+"""The Rust port (rust/) against our engine and bots: every recorded field in every configuration,
+for each Python file with a Rust twin (rust/twins.json), plus the crate's own unit tests. Skipped
+without cargo, except the checks that need no build: that each twin's Python file is the one its
+port was last checked against, and that rust/README.md's table lists it.
 
+A change to a twin's Python file (arena/engine.py, bots/template.py, ...) goes into its Rust file
+too; then `uv run python -m experiments.rust_bench --parity-only --record` checks the pair and
+records the new hash."""
+
+import json
 import shutil
 import subprocess
 from dataclasses import replace
 
 import pytest
 
-from arena import sim
+from arena import rust, sim
 
-pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="needs cargo (rust/)")
+needs_cargo = pytest.mark.skipif(shutil.which("cargo") is None, reason="needs cargo (rust/)")
+needs_references = pytest.mark.skipif(not (rust.ROOT / "references" / "prosperity4-backtester").exists(), reason="needs references/ (clone.sh)")
 
 
 @pytest.fixture(scope="module")
@@ -21,12 +28,26 @@ def bench():
     return rust_bench
 
 
+def test_every_twin_was_checked_since_its_python_file_changed():
+    stale = rust.stale_twins()
+    assert not stale, (f"{', '.join(stale)} changed since its Rust twin was checked: port the change to the file rust/twins.json names, then "
+                       "run `uv run python -m experiments.rust_bench --parity-only --record`")
+
+
+def test_the_readme_table_lists_every_twin():
+    readme = (rust.RUST / "README.md").read_text()
+    for path, twin in rust.twins().items():
+        assert f"`{path}`" in readme and f"`{twin['rust'].removeprefix('rust/')}`" in readme, path
+
+
+@needs_cargo
 def test_the_crates_unit_tests_pass(bench):
     out = subprocess.run(["cargo", "test", "--release", "--quiet", "--manifest-path", str(bench.RUST / "Cargo.toml")], capture_output=True, text=True)
     assert out.returncode == 0, out.stdout + out.stderr
 
 
-def test_rust_records_what_our_engine_records_in_every_configuration(bench, tmp_path):
+@needs_cargo
+def test_mm_records_what_our_engine_records_in_every_configuration(bench, tmp_path):
     day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN"]), 5).day
     day = replace(day, ticks=day.ticks[:2000])
     results = bench.parity(day, tmp_path)
@@ -37,6 +58,49 @@ def test_rust_records_what_our_engine_records_in_every_configuration(bench, tmp_
     assert fills["two bots, resting"][1] > 0 and fills["two bots, resting"][2] > 0  # crosses and races happen
 
 
+@needs_cargo
+def test_the_template_trades_the_same_in_every_part_of_its_strategy(bench, tmp_path):
+    results = bench.parity(bench.sim_day(1500), tmp_path, bench.template_cases())
+    assert {label: found[:1] for label, _, found in results} == {label: [] for label, _, _ in results}
+    # Each variant trades differently from the committed settings, so the part it turns on ran.
+    default = {label.removesuffix(", default"): counts for label, counts, _ in results if label.endswith(", default")}
+    assert set(default) == {label for label, _ in bench.VARIANTS}
+    committed = default.pop("as committed")
+    assert [label for label, counts in default.items() if (counts[0], counts[4]) == (committed[0], committed[4])] == []
+
+
+@needs_cargo
+def test_the_rivals_trade_the_same(bench, tmp_path):
+    results = bench.parity(bench.sim_day(1500), tmp_path, bench.rival_cases())
+    assert {label: found[:1] for label, _, found in results} == {label: [] for label, _, _ in results}
+    counts = {label: c for label, c, _ in results}
+    assert counts["template against the trapper, resting"][1] > 0  # the bait gets crossed
+    assert all(c[0] > 0 for c in counts.values())
+
+
+@needs_cargo
+@needs_references
+def test_the_template_trades_the_same_on_real_days(bench, tmp_path):
+    results = bench.real_parity(tmp_path, ticks=1000)
+    assert {label: found[:1] for label, _, found in results} == {label: [] for label, _, _ in results}
+    assert all(counts[0] > 0 for _, counts, _ in results)
+
+
+@needs_cargo
+def test_settings_the_rust_template_cant_hold_are_refused(bench, tmp_path):
+    day = sim.run(sim.preset_market(["KELP"]), 1).day
+    rust.export_day(replace(day, ticks=day.ticks[:50]), tmp_path / "day")
+    task = {"day": 0, "config": rust.config_json(bench.EngineConfig()), "bots": [["you", 0]], "blocks": 1, "fine": 0}
+    for overrides, message in (({"PARAMS.KELP.target": 1.5}, "target must be an integer"),
+                               ({"PARAMS.KELP.fair": "best_guess"}, "fair must be a known fair value method"),
+                               ({"PARAMS.KELP.make_egde": 1}, "unknown params for KELP: make_egde")):
+        path = tmp_path / "batch.json"
+        path.write_text(json.dumps({"days": [str(tmp_path / "day")], "bots": [rust.bot_spec(bench.TEMPLATE, overrides)], "tasks": [task]}))
+        out = subprocess.run([str(rust.BINARY), "batch", str(path)], capture_output=True, text=True)
+        assert out.returncode != 0 and message in out.stderr, (overrides, out.stderr)
+
+
+@needs_cargo
 def test_the_day_file_rejects_what_the_rust_engine_cant_hold(bench, tmp_path):
     day = sim.run(sim.preset_market(["KELP"]), 1).day
     tick = day.ticks[0]

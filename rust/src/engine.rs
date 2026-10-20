@@ -42,14 +42,17 @@ impl Default for EngineConfig {
     }
 }
 
-/// What a bot sees of a tick: the book, with the other bots' resting orders in it.
+/// What a bot sees of a tick: the book, with the other bots' resting orders in it, and the
+/// products that have one in the order the Python bot's dict would list them.
 pub struct TickView<'a> {
     pub timestamp: i64,
     pub books: &'a [Option<Book>],
+    pub order: &'a [usize],
 }
 
 pub trait Bot {
-    fn begin_day(&mut self, _day: &Day) {}
+    /// names: the engine's trader names (the day's, then the participants'), which Name indexes.
+    fn begin_day(&mut self, _day: &Day, _names: &[String]) {}
     /// Pushes this tick's orders and cancels onto `out` (empty on entry). positions per product;
     /// own_fills since the last call; market_trades the previous tick's, per product; open_orders
     /// this bot's resting orders (always empty in the default mode).
@@ -184,7 +187,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
         })
         .collect();
     for (_, bot) in bots.iter_mut() {
-        bot.begin_day(day);
+        bot.begin_day(day, &names);
     }
     let mut mark = vec![0.0f64; n];
     let mut resting: Vec<Live> = Vec::new();
@@ -212,8 +215,8 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
         for (i, (player, (_, bot))) in players.iter_mut().zip(bots.iter_mut()).enumerate() {
             player.decided_open.clear();
             player.decided_open.extend(resting.iter().filter(|o| o.owner == i).map(Live::view));
-            let seen = seen_by(&current, &resting, i);
-            let view = TickView { timestamp: ts, books: &seen };
+            let (seen, order) = seen_by(&current, &tick.order, &resting, i);
+            let view = TickView { timestamp: ts, books: &seen, order: &order };
             player.actions.clear();
             bot.step(&view, &player.position, &player.unseen_fills, &player.market_trades, &player.decided_open, &mut player.actions);
             player.decided_position.copy_from_slice(&player.position);
@@ -504,12 +507,15 @@ fn remaining_trades(trades: &[Vec<Entry>], out: &mut [Vec<MarketTrade>]) {
     }
 }
 
-/// The book one participant sees: the tick's plus the other participants' resting orders.
-fn seen_by<'a>(books: &'a [Option<Book>], resting: &[Live], participant: usize) -> Cow<'a, [Option<Book>]> {
+/// The book one participant sees: the tick's plus the other participants' resting orders, and the
+/// products with a book in order (one with only others' orders goes last, where Python's dict puts it;
+/// Python adds several such in set order, which isn't fixed, and here they go by index).
+fn seen_by<'a>(books: &'a [Option<Book>], order: &'a [usize], resting: &[Live], participant: usize) -> (Cow<'a, [Option<Book>]>, Cow<'a, [usize]>) {
     let others: Vec<&Live> = resting.iter().filter(|o| o.owner != participant && o.quantity != 0).collect();
     if others.is_empty() {
-        return Cow::Borrowed(books);
+        return (Cow::Borrowed(books), Cow::Borrowed(order));
     }
+    let mut seen_order = Cow::Borrowed(order);
     let mut out = books.to_vec();
     let mut products: Vec<usize> = others.iter().map(|o| o.product).collect();
     products.sort_unstable();
@@ -526,9 +532,12 @@ fn seen_by<'a>(books: &'a [Option<Book>], resting: &[Live], participant: usize) 
         }
         bids.sort_by(|a, b| b.0.cmp(&a.0));
         asks.sort_by(|a, b| a.0.cmp(&b.0));
+        if out[p].is_none() {
+            seen_order.to_mut().push(p);
+        }
         out[p] = Some(Book { bids, asks });
     }
-    Cow::Owned(out)
+    (Cow::Owned(out), seen_order)
 }
 
 /// Market trades one participant sees next tick (into `view`): the recorded ones plus other participants' trades.

@@ -1,0 +1,31 @@
+{
+  "arena/engine.py": {
+    "rust": "rust/src/engine.rs",
+    "sha256": "bc65286578cf014fa09e604fe75bbeafb75b229413a2fe68a9747e1352f168d9"
+  },
+  "bots/mm.py": {
+    "kind": "mm",
+    "rust": "rust/src/bots/mm.rs",
+    "sha256": "92f0727953d654cc8a85516058b4594706ff458da98fc07549ed92ec0fec1302"
+  },
+  "bots/template.py": {
+    "kind": "template",
+    "rust": "rust/src/bots/template.rs",
+    "sha256": "2ae2dace6b4d436c9339bf5e1ca8c61b466a575921ab32efc9d75264b5966fee"
+  },
+  "bots/rivals/sniper.py": {
+    "kind": "sniper",
+    "rust": "rust/src/bots/rivals.rs",
+    "sha256": "f7b417450ce85395de94b5e2c451cfbd10e133f502a289007e17e655003f6435"
+  },
+  "bots/rivals/spoofer.py": {
+    "kind": "spoofer",
+    "rust": "rust/src/bots/rivals.rs",
+    "sha256": "9b7488ee9aae48c40f9552bd178d7638d670bdb8059863d4864544975eee616a"
+  },
+  "bots/rivals/trapper.py": {
+    "kind": "trapper",
+    "rust": "rust/src/bots/rivals.rs",
+    "sha256": "68268d7729abff7665fc7855ebd6372a68fa9a16f99c8d05af301ba8b5d391ba"
+  }
+}

@@ -2,9 +2,10 @@
 //! Python, and this is the engine's input, after them. Plain text, whitespace-separated:
 //!
 //! ```text
-//! arena-day 1
+//! arena-day 2
 //! name <day name>
 //! products <n>                       then n lines: <name> <limit>, sorted by name
+//! order <product>...                 the Python day's product order
 //! names <n>                          then n lines: one trader name each; the first is the empty name
 //! ticks <n>                          then per tick:
 //! t <timestamp> <books> <trades> <marks>
@@ -12,7 +13,8 @@
 //! x <product> <price> <quantity> <buyer> <seller> <timestamp>         (one per market trade)
 //! m <product> <mark>                                                   (one per mark)
 //! ```
-//! Products and trader names are indices into those tables.
+//! Products and trader names are indices into those tables. A tick's book lines come in the Python
+//! tick's dict order, which a bot sees its products in (order ids depend on it).
 
 use std::fs;
 
@@ -26,8 +28,8 @@ pub fn load(path: &str) -> Result<Day, String> {
 pub fn parse(text: &str) -> Result<Day, String> {
     let mut lines = text.lines();
     let mut next = || lines.next().ok_or_else(|| "unexpected end of file".to_string());
-    if next()? != "arena-day 1" {
-        return Err("not an arena-day 1 file".into());
+    if next()? != "arena-day 2" {
+        return Err("not an arena-day 2 file (re-export it)".into());
     }
     let name = next()?.strip_prefix("name ").ok_or("expected name")?.to_string();
     let count = |line: &str, key: &str| -> Result<usize, String> {
@@ -41,6 +43,13 @@ pub fn parse(text: &str) -> Result<Day, String> {
         products.push(product.to_string());
         limits.push(limit.parse().map_err(|_| "bad limit")?);
     }
+    let line = next()?;
+    let order: Vec<usize> = line
+        .strip_prefix("order")
+        .ok_or_else(|| format!("expected order, got {line:?}"))?
+        .split_ascii_whitespace()
+        .map(|v| v.parse().map_err(|_| "bad order".to_string()))
+        .collect::<Result<_, _>>()?;
     let names_count = count(next()?, "names ")?;
     let mut names = Vec::new();
     for _ in 0..names_count {
@@ -57,7 +66,7 @@ pub fn parse(text: &str) -> Result<Day, String> {
         }
         let timestamp = int(f.next())?;
         let (nb, nt, nm) = (int(f.next())?, int(f.next())?, int(f.next())?);
-        let mut tick = Tick { timestamp, books: vec![None; n], trades: vec![Vec::new(); n], marks: vec![None; n] };
+        let mut tick = Tick { timestamp, books: vec![None; n], order: Vec::with_capacity(nb as usize), trades: vec![Vec::new(); n], marks: vec![None; n] };
         for _ in 0..nb {
             let line = next()?;
             let mut f = line.split_ascii_whitespace().skip(1);
@@ -69,6 +78,7 @@ pub fn parse(text: &str) -> Result<Day, String> {
             let bids = side()?;
             let asks = side()?;
             tick.books[product] = Some(Book { bids, asks });
+            tick.order.push(product);
         }
         for _ in 0..nt {
             let line = next()?;
@@ -85,5 +95,5 @@ pub fn parse(text: &str) -> Result<Day, String> {
         }
         ticks.push(tick);
     }
-    Ok(Day { name, products, limits, ticks, names })
+    Ok(Day { name, products, limits, order, ticks, names })
 }

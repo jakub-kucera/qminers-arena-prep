@@ -15,7 +15,7 @@ the day (see "Formats" below).
 ```sh
 references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
 uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
-uv run pytest                       # all tests (~14 s)
+uv run pytest                       # all tests (~50 s; tests/test_rust.py's parity checks are most of it)
 uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
 uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
@@ -49,7 +49,8 @@ uv run python -m experiments.sim_regimes                          # the template
 uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls
 uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw
 uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
-uv run python -m experiments.rust_bench                           # the Rust engine (rust/, needs cargo) against ours: parity in 15 configurations, then speed
+uv run python -m experiments.rust_bench                           # the Rust port (rust/, needs cargo) against ours: every twin's parity, then speed
+uv run python -m experiments.rust_bench --parity-only --record    # after changing a twin (rust/twins.json): check it, then record its hash
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
@@ -138,7 +139,14 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 
 **Bot comparison** (`arena/compare.py`): several bot files or `FILE@PATH=VALUE` variants against the first bot as baseline, one pool task per (bot, day, mode). Each bot becomes an `arena.grid.Outcome` under a one-value `Axis("bot")`, so the grid's held-out days, PBO, DSR, SPA, StepM and pick apply unchanged.
 
-**Rust port** (`rust/`, its own Cargo crate, kept apart from the Python code; `rust/README.md`): `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names, for benchmarking. Days are loaded by the Python format plug-ins and exported (`experiments/rust_bench.py`, `export_day`; format in `rust/src/dayfile.rs`). `rust/src/pyrandom.rs` reproduces Python's `random.Random` draw for draw, so seeded runs (fill ratio, arrival shuffle) match. Its one bot, `rust/src/bots/mm.rs`, has a Python twin, `bots/mm.py`. `tests/test_rust.py` (skipped without `cargo`) checks every recorded field against ours: **a change to the engine's rules goes into both**, as does a change to either `mm`. Nothing in `arena/` imports it.
+**Rust port** (`rust/`, its own Cargo crate, kept apart from the Python code; `rust/README.md` has the table of what is in Python, Rust and both):
+- **Twins:** `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names. `rust/src/bots/` ports `bots/template.py` (all of STRATEGY and EXECUTION, and ADAPTER as the Prosperity plug-in presents a tick), `bots/rivals/` and `bots/mm.py`.
+- **`rust/twins.json`** lists each pair with the hash of the Python file as last checked. `tests/test_rust.py` fails when one changes. **A change to a twin's Python file goes into its Rust file too**, then `experiments.rust_bench --parity-only --record` compares every recorded field in every case and records the new hash.
+- **The bridge** (`arena/rust.py`):
+  - days are loaded by the Python format plug-ins and exported (`export_day`; format in `rust/src/dayfile.rs`, products sorted by name plus the Python order, since order ids depend on it);
+  - a Rust bot reads its settings from its Python file's upper-case globals after `--set` (`bot_spec`).
+- **Exact floats:** `rust/src/pyrandom.rs` reproduces Python's `random.Random` draw for draw, and the template calls libm's `erf`, `exp`, `log` and `pow` as CPython does (`x ** 2` is `pow`, not `x * x`), so the PnL matches to the bit.
+- `tests/test_rust.py` is skipped without `cargo`, except the hash check.
 
 **Analysis** (`arena/analysis.py`):
 - **No pyplot:** charts are `Chart` objects, a `Figure` subclass with `_repr_png_`, so they display in notebooks and save from the CLI without pyplot. Each `Chart` keeps the rc params of the theme it was drawn in.

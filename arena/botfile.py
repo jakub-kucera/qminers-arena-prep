@@ -35,7 +35,8 @@ class BotFile:
         self.strict = strict
         self._code = compile(self.path.read_text(encoding="utf-8"), str(self.path), "exec")
 
-    def load(self) -> ModuleType:
+    def load(self, overrides: dict[str, object] | None = None) -> ModuleType:
+        """A fresh module, with `overrides` instead of the file's own when given."""
         sys.modules.update(self.provided_modules)
         name = f"arena_bot_{self.path.stem}"
         module = ModuleType(name)
@@ -45,7 +46,7 @@ class BotFile:
         exec(self._code, module.__dict__)
         if self.strict and hasattr(module, "STRICT"):
             module.STRICT = True
-        for target, value in self.overrides.items():
+        for target, value in (self.overrides if overrides is None else overrides).items():
             _apply_override(module, target, value)
         return module
 

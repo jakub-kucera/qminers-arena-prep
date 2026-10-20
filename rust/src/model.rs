@@ -51,6 +51,7 @@ pub struct MarketTrade {
 pub struct Tick {
     pub timestamp: i64,
     pub books: Vec<Option<Book>>,         // per product; None: no book this tick
+    pub order: Vec<usize>,                // the products with a book, in the Python day's dict order
     pub trades: Vec<Vec<MarketTrade>>,    // per product
     pub marks: Vec<Option<f64>>,          // per product; None: fall back to the book mid
 }
@@ -59,6 +60,7 @@ pub struct Day {
     pub name: String,
     pub products: Vec<String>,
     pub limits: Vec<i64>,
+    pub order: Vec<usize>, // the products in the Python day's order (its `products` list)
     pub ticks: Vec<Tick>,
     pub names: Vec<String>,
 }
