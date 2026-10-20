@@ -15,6 +15,9 @@ literature_raw/
 results/
 data/
 
+# Rust build output (experiments/rust_mm)
+target/
+
 # Python
 __pycache__/
 *.py[cod]
