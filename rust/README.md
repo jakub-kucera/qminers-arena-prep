@@ -1,12 +1,14 @@
 # rust/: the engine and the bots in Rust
 
 A Rust port of `arena/engine.py` and of the bots we run most, kept apart from the Python code. It
-gives the same results as the Python, to the bit, about 100–200 times faster. Loading data, the
-statistics and the reports stay Python. The submitted bot is still a Python file: a Rust bot is a twin for searching, never for
+gives the same results as the Python, to the bit, about 100–200 times faster. `arena.grid --engine
+rust` runs its backtests here; everything else (loading data, the statistics, the reports) stays
+Python. The submitted bot is still a Python file: a Rust bot is a twin for searching, never for
 submitting.
 
 ```sh
 brew install rust                                     # or rustup; any recent stable toolchain
+uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --engine rust
 uv run python -m experiments.rust_bench               # build, check every twin, then time both engines
 uv run python -m experiments.rust_bench --parity-only --record   # after changing a twin: check, then record its hash
 uv run pytest tests/test_rust.py                      # the parity checks, shorter, and `cargo test`

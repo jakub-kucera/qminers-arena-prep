@@ -84,7 +84,7 @@ None on the principle. On the cost of caution: Baguette Fromage notes they shipp
 - **Osmium `smoothing`, P4 rounds 1–2:** every test agrees nothing beats the committed 0.9 (DSR 0.13, SPA^c p 0.87–0.93, StepM none).
 - **Null controls:** 5 grids of 32 cells, each cell the same bot under a different liquidity seed (fill ratio 0.8). SPA^c p-values were 0.20–0.88 and StepM rejected nothing, so neither test produced a false positive. The DSR stayed below 0.95 (0.18–0.65); over the top 9 it reached 0.94, which is why that subset is only an illustration.
 - **Built into `arena.grid`, 2026-10-19:**
-  - **What every grid summary now prints:** SPA's p-value that no cell beats the bot as is, and StepM's cells that do. Each StepM cell is checked under the other `--modes`, then the summary gives a pick: StepM's best cell that beats the bot as is under every mode, else the bot as is (`arena/grid.py:882`, `format_snooping`).
+  - **What every grid summary now prints:** SPA's p-value that no cell beats the bot as is, and StepM's cells that do. Each StepM cell is checked under the other `--modes`, then the summary gives a pick: StepM's best cell that beats the bot as is under every mode, else the bot as is (`arena/grid.py:936`, `format_snooping`).
   - **What it costs:** about 0.4 s even at 64 cells × 600 blocks.
   - **The DSR, PBO and the held-out days stay.** Every one of these tests shares a blind spot: blocks within days can't see a change between days.
 - **Ten selection rules on unseen days** (`uv run python -m experiments.selection_rules`; `IDEAS.md`, "Selection rules on unseen days"):

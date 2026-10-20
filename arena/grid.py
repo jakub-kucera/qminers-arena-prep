@@ -78,6 +78,7 @@ import os
 import random
 import statistics
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from operator import itemgetter, mul
@@ -85,7 +86,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from arena import report, stress
+from arena import report, rust, stress
 from arena.botfile import OverrideError, parse_value
 from arena.cli import Setup, add_common_arguments, add_rival_argument, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
@@ -299,17 +300,22 @@ def _difference(full: Piece, part: Piece, kept: set[str]) -> Piece:
 
 
 class _Runner:
-    """Runs backtests in one pool (or in-process with jobs 1), with a progress line per batch."""
+    """Runs backtests in one pool (or in-process with jobs 1), with a progress line per batch. With
+    `s.engine` "rust", each batch is one `arena-rs batch` on `jobs` threads instead (arena/rust.py)."""
 
     def __init__(self, s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str,
                  day_specs: list[str], subset: list[str] | None):
         self.init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals,
                           s.requote, subset)
         self.jobs, self.days = jobs, s.days
-        self.pool = None
+        self.s, self.bot, self.targets, self.subset = s, bot, [axis.target for axis in axes], subset
+        self.pool = self.scratch = None
 
     def __enter__(self):
-        if self.jobs <= 1:
+        if self.s.engine == "rust":
+            self.scratch = tempfile.TemporaryDirectory(prefix="arena-grid-")
+            self.exported, self.specs = {}, {}
+        elif self.jobs <= 1:
             _init_worker(*self.init_args, days=self.days)  # reuse the days already loaded
         else:
             self.pool = ProcessPoolExecutor(self.jobs, initializer=_init_worker, initargs=self.init_args)
@@ -318,9 +324,57 @@ class _Runner:
     def __exit__(self, *exc):
         if self.pool:
             self.pool.shutdown()
+        if self.scratch:
+            self.scratch.cleanup()
+
+    def _rust(self, tasks: list[tuple]) -> dict:
+        """The batch on the Rust engine: each day (restricted, permuted) exported once per run, each
+        combination's settings read from the bot file once."""
+        s, folder = self.s, Path(self.scratch.name)
+        names = participant_names(self.bot, s.rivals)
+        paths: list[Path] = []
+        specs: list[dict] = []
+        local_days: dict[Path, int] = {}
+        local_specs: dict[tuple, int] = {}
+
+        def day_index(d: int, restricted: bool, permutation) -> tuple[int, int]:
+            key = (d, restricted, permutation)
+            if key not in self.exported:
+                day = only(s.days[d], self.subset) if restricted else s.days[d]
+                if permutation is not None:
+                    day = stress.permute(day, *permutation)
+                path = folder / f"day{len(self.exported)}.day"
+                rust.export_day(day, path)
+                self.exported[key] = (path, len(day.ticks))
+            path, ticks = self.exported[key]
+            if path not in local_days:
+                local_days[path] = len(paths)
+                paths.append(path)
+            return local_days[path], ticks
+
+        def spec_index(key: tuple, make) -> int:
+            if key not in self.specs:
+                self.specs[key] = make()
+            if key not in local_specs:
+                local_specs[key] = len(specs)
+                specs.append(self.specs[key])
+            return local_specs[key]
+
+        batch = []
+        for _key, values, d, mode, restricted, permutation in tasks:
+            day, ticks = day_index(d, restricted, permutation)
+            overrides = {**s.overrides, **dict(zip(self.targets, values))}
+            bots = [[names[0], spec_index(("bot", repr(values)), lambda: rust.bot_spec(self.bot, overrides))]]
+            bots += [[names[k + 1], spec_index(("rival", k), lambda path=path: rust.bot_spec(path, {}, s.requote))] for k, path in enumerate(s.rivals)]
+            batch.append({"day": day, "config": rust.config_json(replace(s.config, trade_matching=mode)), "bots": bots,
+                          "blocks": blocks_per_day(len(s.days)), "fine": ticks // FINE_TICKS})
+        results = rust.run_batch(paths, specs, batch, self.jobs, folder)
+        return {key: Piece(**found) for (key, *_), found in zip(tasks, results)}
 
     def run(self, tasks: list[tuple]) -> dict:
         """tasks: (key, values, day index, mode, restricted, permutation) -> {key: Piece}."""
+        if self.s.engine == "rust":
+            return self._rust(tasks)
         out, progress = {}, _Progress(len(tasks))
         if self.pool is None:
             for key, *args in tasks:
@@ -1047,6 +1101,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="also run the whole grid on N copies of the days with their ticks shuffled, for a permutation test (default: 0)")
     parser.add_argument("--permute-block", type=int, default=1, metavar="TICKS",
                         help="shuffle the ticks in runs of this many, keeping the order inside a run (default: 1)")
+    parser.add_argument("--engine", choices=["python", "rust"], default="python",
+                        help="run the backtests on our engine, or on its Rust port (rust/: needs cargo, and a bot with a Rust twin, "
+                        "rust/twins.json), with the same results about 100 times faster (default: python)")
     parser.add_argument("--screen", type=float, metavar="SHARE",
                         help="successive halving: run every combination on the first day under the first mode, then only this share "
                         "of them, the best there, on every day and mode (e.g. 0.25)")
@@ -1061,8 +1118,10 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--permute needs N >= 0 and --permute-block a run of at least 1 tick")
         if args.screen is not None and not 0 < args.screen < 1:
             raise ValueError("--screen needs a share between 0 and 1, e.g. 0.25")
+        if s.engine == "rust":
+            _check_rust(s, args.bot, args.format)
         smoke_test(s, args.bot, axes)
-    except (ValueError, OSError, OverrideError) as error:
+    except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))
 
     combos = math.prod(len(axis.values) for axis in axes)
@@ -1104,6 +1163,20 @@ def main(argv: list[str] | None = None) -> int:
         write_csv(args.out, axes, modes, outcomes)
         print(f"\nall combinations written to {args.out}")
     return 1 if all(outcome.failed for outcome in outcomes.values()) else 0
+
+
+def _check_rust(s: Setup, bot: Path, format_name: str) -> None:
+    """--engine rust: the Prosperity format, bots with a Rust twin that has been checked against
+    them since they last changed, and a built binary."""
+    if format_name != "prosperity":
+        raise ValueError("--engine rust runs the Prosperity bots' Rust twins: use --format prosperity")
+    for path in [bot, *s.rivals]:
+        rust.kind_of(path)
+    stale = rust.stale_twins()
+    if stale:
+        print(f"! the Rust twins of {', '.join(stale)} weren't checked since that file changed: their results may differ "
+              "(uv run python -m experiments.rust_bench --parity-only --record)", file=sys.stderr)
+    rust.build()
 
 
 def _check(axes: list[Axis], modes: list[TradeMatching], s: Setup, sort: str) -> None:

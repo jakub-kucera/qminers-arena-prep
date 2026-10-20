@@ -8,6 +8,7 @@ too; then `uv run python -m experiments.rust_bench --parity-only --record` check
 records the new hash."""
 
 import json
+import re
 import shutil
 import subprocess
 from dataclasses import replace
@@ -98,6 +99,39 @@ def test_settings_the_rust_template_cant_hold_are_refused(bench, tmp_path):
         path.write_text(json.dumps({"days": [str(tmp_path / "day")], "bots": [rust.bot_spec(bench.TEMPLATE, overrides)], "tasks": [task]}))
         out = subprocess.run([str(rust.BINARY), "batch", str(path)], capture_output=True, text=True)
         assert out.returncode != 0 and message in out.stderr, (overrides, out.stderr)
+
+
+def _grid_output(capsys, argv) -> str:
+    from arena import grid
+
+    assert grid.main(argv) == 0
+    out = capsys.readouterr().out
+    return "\n".join(re.sub(r"  \(\d+ s\)$", "", line) for line in out.splitlines() if not line.startswith(("done in", "all combinations written")))
+
+
+@needs_cargo
+def test_the_grid_prints_the_same_on_either_engine(bench, tmp_path, capsys):
+    """Everything arena.grid prints and writes, with a rival, resting, a screen and a permutation test."""
+    for k, seed in enumerate((11, 12)):
+        day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN"]), seed)
+        sim.write_day(replace(day, day=replace(day.day, ticks=day.day.ticks[:1000])), tmp_path / "data", 1, k)
+    argv = ["bots/template.py", "1", "--data", str(tmp_path / "data"), "--grid", "PARAMS.KELP.make_edge=0.5,1,2", "--grid", "PARAMS.KELP.take_edge=1,2",
+            "--modes", "all,worse", "--resting", "--vs", "bots/rivals/trapper.py", "--screen", "0.5", "--permute", "2", "--jobs", "2"]
+    ours = _grid_output(capsys, [*argv, "--out", str(tmp_path / "python.csv")])
+    theirs = _grid_output(capsys, [*argv, "--engine", "rust", "--out", str(tmp_path / "rust.csv")])
+    assert theirs == ours
+    assert (tmp_path / "rust.csv").read_text() == (tmp_path / "python.csv").read_text()
+    assert "permutation test" in ours and "screened" in ours
+
+
+def test_the_grid_refuses_a_bot_without_a_rust_twin(tmp_path, capsys):
+    from arena import grid
+
+    day = sim.run(sim.preset_market(["KELP"]), 1)
+    sim.write_day(replace(day, day=replace(day.day, ticks=day.day.ticks[:300])), tmp_path, 1, 0)
+    with pytest.raises(SystemExit):
+        grid.main(["bots/probe.py", "1", "--data", str(tmp_path), "--grid", "LIMIT=40,50", "--engine", "rust"])
+    assert "has no Rust twin" in capsys.readouterr().err
 
 
 @needs_cargo

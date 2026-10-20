@@ -338,3 +338,6 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 ## [2026-10-20] query | screening a big grid
 - `arena.grid --screen SHARE`: every cell on the first day under the first mode, then the best share on every day and mode; SPA, StepM and the pick are repeated on the days the screen didn't see.
 - **Filed into:** `validation-and-overfitting`; the repo's `README.md`, `TODO.md`, `arena/grid.py`'s docstring.
+
+## [2026-10-21] lint | arena.grid's lines moved
+- `arena.grid --engine rust` added code above the bootstrap tests: the citations of `omega2`, `spa`, `stepm`, `format_snooping` and `FINE_TICKS` re-mapped (`stepwise-multiple-testing`, `superior-predictive-ability`, `validation-and-overfitting`).

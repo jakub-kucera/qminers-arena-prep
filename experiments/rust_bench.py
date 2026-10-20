@@ -14,7 +14,8 @@ file as a twin (rust/README.md). Days are loaded by our format plug-ins and expo
   2. one core: time per backtest of mm and of the template, ours (the bot file through the
      Prosperity adapter, loaded per backtest as arena.grid does) against Rust's;
   3. every core: Kelp's 64-cell mm grid on the round's three days under all and worse, arena.grid
-     against `arena-rs grid`.
+     against `arena-rs grid`; and the template's 256-cell Kelp grid, arena.grid end to end with
+     --engine python against --engine rust (the same CSV).
 Results go into TODO.md (the decisions on the Rust port). tests/test_rust.py runs part 1, shorter.
 """
 
@@ -316,6 +317,14 @@ def template_time(day: Day, path: Path, config: EngineConfig, scratch: Path) -> 
     return ours, (seconds[1] - seconds[0]) / 40
 
 
+def _grid_wall(engine: str, jobs: int, out: Path) -> float:
+    start = time.perf_counter()
+    subprocess.run([sys.executable, "-m", "arena.grid", str(TEMPLATE), "1", "--data", "p3", "--grid", "PARAMS.KELP.make_edge=0..15",
+                    "--grid", "PARAMS.KELP.take_edge=0..15", "--modes", "all,worse", "--jobs", str(jobs), "--engine", engine, "--out", str(out)],
+                   check=True, capture_output=True)
+    return time.perf_counter() - start
+
+
 def _report(label: str, counts: tuple, found: list[str], width: int = 58) -> bool:
     fills, crossed, races, breaches, pnl = counts
     print(f"   {label:<{width}} {fills:>6,} fills ({crossed:,} crossed), {races} races, {breaches} breaches, PnL {pnl:>9,.0f}: "
@@ -427,6 +436,11 @@ def main() -> None:
         same = [line.split(",")[4] for line in csv_kelp.splitlines()[1:]] == [line.split(",")[4] for line in csv_full.splitlines()[1:]]
         print(f"   arena.grid (its checks, Kelp-only days): {python_wall:.1f} s;  arena-rs grid: {rust_kelp * 1e3:.0f} ms on Kelp-only days, "
               f"{rust_full * 1e3:.0f} ms on full days (same PnL: {same});  {python_wall / rust_kelp:,.0f}x")
+        print("   the template's 256-cell Kelp grid (make_edge 0..15 x take_edge 0..15) under all and worse (1,542 backtests), arena.grid end to end:")
+        sys.stdout.flush()
+        ours, theirs = _grid_wall("python", args.jobs, scratch / "python.csv"), _grid_wall("rust", args.jobs, scratch / "rust.csv")
+        same = (scratch / "python.csv").read_text() == (scratch / "rust.csv").read_text()
+        print(f"   --engine python {ours:.1f} s, --engine rust {theirs:.1f} s ({ours / theirs:,.0f}x), the same CSV: {same}")
 
 
 if __name__ == "__main__":

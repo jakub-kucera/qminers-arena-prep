@@ -37,9 +37,9 @@ A 16-page paper that improves on White's (2000) Reality Check (RC), the bootstra
 |---|---|
 | benchmark `δ_0` | the bot as is (`--set` only), `arena/grid.py` `run_grid`'s baseline |
 | alternative k, m | a distinct grid cell, the number of distinct cells |
-| `d_{k,t}` | the cell's PnL minus the bot's in block t (`arena/grid.py:99`, `FINE_TICKS`; filled in `_run_piece`) |
+| `d_{k,t}` | the cell's PnL minus the bot's in block t (`arena/grid.py:100`, `FINE_TICKS`; filled in `_run_piece`) |
 | `q` | 1 / mean bootstrap block length, in blocks (`SPA_Q` in `arena/grid.py`, 0.1) |
-| `T^SPA`, `p̂_SPA` | `spa()` in `arena/grid.py:838-857` |
+| `T^SPA`, `p̂_SPA` | `spa()` in `arena/grid.py:892-911` |
 
 ## Traps
 - **Typo in the paper itself:** the stationary bootstrap's recursion prints `⌈n·u_{b,1}⌉` for a fresh draw at t ≥ 2 (p. 7, the page image has it too); the text says the t-th element is then "chosen uniformly on {1, …, n}", which needs `u_{b,t}`. Our code follows the text.

@@ -22,6 +22,7 @@ class Setup:
     overrides: dict[str, object]
     rivals: list[Path] = field(default_factory=list)  # bots trading in the same market (--vs)
     requote: bool = False  # the rivals cancel all their resting orders every tick (--requote)
+    engine: str = "python"  # arena.grid --engine: "rust" runs the backtests on rust/ (arena/rust.py)
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -108,7 +109,7 @@ def setup(args: argparse.Namespace) -> Setup:
         seed=args.seed,
     )
     overrides = dict(parse_override(text) for text in args.overrides)
-    return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False))
+    return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False), getattr(args, "engine", "python"))
 
 
 def participant_names(bot: Path, rivals: list[Path]) -> list[str]:

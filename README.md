@@ -138,6 +138,14 @@ on the days the screen didn't see, which its choice can't bias. Order the days s
 typical. A cell that only does well under a later mode can be dropped, and `nbhd` only counts
 kept neighbours. With `--permute`, each copy is screened the same way.
 
+`--engine rust` runs the backtests on the Rust port (`rust/`, needs `cargo`), on `--jobs` threads,
+and prints and writes the same results to the last digit. The axes, the screen, the permuted
+copies and the statistics stay in Python. It takes a bot and rivals with a Rust twin
+(`rust/twins.json`: the template, the rivals, `mm`) in the Prosperity format, and warns if a twin's
+Python file changed since the pair was last checked. Kelp's 256 cells (`make_edge` × `take_edge`, P3
+round 1, `--modes all,worse`, 1,542 backtests) took 1.3 s against 50.6 s, with the same CSV; the
+grid's own work is most of the 1.3 s.
+
 The highest backtest PnL is usually overfit, so each combination is ranked on four measures:
 
 | Measure | Meaning |
