@@ -79,6 +79,28 @@ def test_the_rivals_trade_the_same(bench, tmp_path):
     assert all(c[0] > 0 for c in counts.values())
 
 
+def test_every_zoo_bot_has_a_rust_twin():
+    zoo = rust.ROOT / "bots" / "zoo"
+    files = {p.relative_to(rust.ROOT).as_posix() for p in zoo.rglob("*.py") if p.name not in {"bundle.py", "local.py"}}
+    assert files - set(rust.twins()) == set()
+
+
+def test_a_zoo_twin_refuses_settings():
+    with pytest.raises(ValueError, match="runs as written"):
+        rust.bot_spec(rust.ROOT / "bots/zoo/claude/opus-5.5_baseline.py", {"PARAMS.KELP.take_edge": 2})
+
+
+@needs_cargo
+def test_the_zoo_twins_trade_the_same(bench, tmp_path):
+    """Every zoo bot alone in five configurations and all of them in one market, on a simulated day
+    and the same day trending hard up and down (where the trend followers trade)."""
+    results = bench.zoo_parity(tmp_path, bench.zoo_days(1000))
+    assert {label: found[:1] for label, _, found in results} == {label: [] for label, _, _ in results}
+    assert len(results) == 3 * (5 * len(bench.zoo_twins()) + 2)
+    momentum = [counts[0] for label, counts, _ in results if "opus-5.5_momentum.py, all" in label]
+    assert momentum[0] == 0 and min(momentum[1:]) > 0  # flat on the calm day, trading on the trends
+
+
 @needs_cargo
 @needs_references
 def test_the_template_trades_the_same_on_real_days(bench, tmp_path):

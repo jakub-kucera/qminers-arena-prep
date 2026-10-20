@@ -9,9 +9,10 @@ file as a twin (rust/README.md). Days are loaded by our format plug-ins and expo
      per tick each product's position, mark, PnL, best bid and ask, wall mid), Rust against our
      engine, for bots/mm.py in each engine configuration (CONFIGS) on P3 round 1 day -2; for the
      template in each part of its STRATEGY (VARIANTS, template_cases) on an arena.sim day, and on
-     real days from P2 to P4 (REAL); for the rivals (rival_cases). --record then writes each
+     real days from P2 to P4 (REAL); for the rivals (rival_cases); for every zoo bot alone and all in
+     one market, on calm and trending arena.sim days and a real one (zoo_parity). --record then writes each
      twin's hash to rust/twins.json, if every case was identical;
-  2. one core: time per backtest of mm and of the template, ours (the bot file through the
+  2. one core: time per backtest of mm, of the template, and of the zoo's whole field in one market, ours (the bot file through the
      Prosperity adapter, loaded per backtest as arena.grid does) against Rust's;
   3. every core: Kelp's 64-cell mm grid on the round's three days under all and worse, arena.grid
      against `arena-rs grid`; and the template's 256-cell Kelp grid, arena.grid end to end with
@@ -29,6 +30,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 
@@ -155,6 +157,49 @@ def rival_cases() -> list[tuple[str, EngineConfig, list]]:
     return cases
 
 
+def zoo_twins() -> list[Path]:
+    """The zoo bots with a Rust twin."""
+    return [ROOT / path for path in rust.twins() if path.startswith("bots/zoo/")]
+
+
+def zoo_days(ticks: int = 2000) -> list[tuple[str, Day]]:
+    """The days the zoo twins are checked on: arena.sim's three P3 round 1 products as they are, and
+    trending hard up and down (arena.stress, 60 spreads over the day), where the trend followers trade."""
+    from arena import sim, stress
+
+    day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN", "SQUID_INK"]), 5).day
+    days = [("a simulated day", day), ("trending up", stress.perturb(day, "trend_up", 60)), ("trending down", stress.perturb(day, "trend_down", 60))]
+    return [(label, replace(d, ticks=d.ticks[:ticks])) for label, d in days]
+
+
+def zoo_parity(scratch: Path, days: list[tuple[str, Day]], paths: list[Path] | None = None) -> list[tuple[str, tuple, list[str]]]:
+    """zoo_cases on each of the days."""
+    return [(f"{label}: {case}", counts, found) for label, day in days for case, counts, found in parity(day, scratch, zoo_cases(paths))]
+
+
+def zoo_cases(paths: list[Path] | None = None) -> list[tuple[str, EngineConfig, list]]:
+    """Each zoo twin alone (all, worse, a fill ratio, resting as written, resting requoted), then
+    all of them with the template in one market, per tick and resting (requoted, as
+    experiments/zoo.py runs them)."""
+    paths = zoo_twins() if paths is None else paths
+    cases = []
+    for path in paths:
+        name = path.relative_to(ROOT / "bots" / "zoo").as_posix()
+        alone = [(path.stem, path, {}, False)]
+        cases += [(f"{name}, all", EngineConfig(), alone),
+                  (f"{name}, worse", EngineConfig(trade_matching=WORSE), alone),
+                  (f"{name}, fill ratio 0.7", EngineConfig(fill_ratio=0.7, seed=6), alone),
+                  (f"{name}, resting as written", EngineConfig(resting=True), alone),
+                  (f"{name}, resting requoted, prob", EngineConfig(resting=True, queue=QueueModel.PROB), [(path.stem, path, {}, True)])]
+    field = [("template", TEMPLATE, {}, False)]
+    names = [p.stem for p in paths]
+    field += [(stem if names.count(stem) == 1 else f"{p.parent.name}/{stem}", p, {}, False) for stem, p in zip(names, paths)]
+    if paths:
+        cases += [("the field: the template and every zoo twin, all", EngineConfig(), field),
+                  ("the field, resting, the zoo requoted", EngineConfig(resting=True), [field[0]] + [(n, p, o, True) for n, p, o, _ in field[1:]])]
+    return cases
+
+
 def _python_bot(path: Path, overrides: dict, requote: bool):
     bot = prosperity.load_bot(path, overrides, strict=True)
     return Requote(bot) if requote else bot
@@ -207,6 +252,11 @@ def parse_dump(text: str) -> dict[str, dict]:
     return out
 
 
+def _error(text: str) -> str:
+    """A bot's exception by its type (a Rust twin reports only that); the engine's own errors whole."""
+    return text.strip().splitlines()[-1].split(":")[0] if text.startswith("Traceback") else text
+
+
 def python_view(result) -> dict:
     """The same fields from our engine's DayResult."""
     return {
@@ -215,7 +265,7 @@ def python_view(result) -> dict:
         "cancels": list(result.cancels),
         "breaches": list(result.limit_breaches),
         "races": list(result.races),
-        "errors": list(result.errors),
+        "errors": [(ts, _error(text)) for ts, text in result.errors],
         "market_trades": len(result.market_trades),
         "series": {p: {field: getattr(result, field)[p] for field in SERIES} for p in sorted(result.products)},
     }
@@ -245,30 +295,46 @@ def differences(ours: dict, theirs: dict) -> list[str]:
     return found
 
 
-def parity(day: Day, scratch: Path, configs=CONFIGS) -> list[tuple[str, tuple, list[str]]]:
-    """Each case (label, config, participants) on the day in both engines: (label, (fills, cross
-    fills, races, breaches, the first participant's PnL), differences)."""
-    path = scratch / f"{day.name}.day"
+_CASE: dict = {}  # set per worker process by _init_case: the day and its exported file
+
+
+def _init_case(day: Day, path: Path, scratch: Path) -> None:
+    _CASE.update(day=day, path=path, scratch=scratch)
+
+
+def _run_case(k: int, label: str, config: EngineConfig, bots: list) -> tuple[str, tuple, list[str]]:
+    """One case in both engines: (label, (fills, cross fills, races, breaches, the first participant's PnL), differences)."""
+    day, path, scratch = _CASE["day"], _CASE["path"], _CASE["scratch"]
+    args = []
+    for j, (name, bot, overrides, requote) in enumerate(bots):
+        spec = scratch / f"case{k}_bot{j}.json"
+        spec.write_text(json.dumps(rust.bot_spec(bot, overrides, requote)))
+        args += ["--bot", f"{name}={spec}"]
+    dump = scratch / f"case{k}_dump.txt"
+    run = subprocess.run([str(BINARY), "run", str(path), *_rust_engine(config), *args, "--dump", str(dump)], capture_output=True, text=True)
+    if run.returncode != 0:
+        return label, (0, 0, 0, 0, 0.0), [f"arena-rs failed: {run.stderr.strip()}"]
+    theirs = parse_dump(dump.read_text())
+    ours = run_market(day, [(name, _python_bot(bot, overrides, requote)) for name, bot, overrides, requote in bots], config)
+    found = [f"{name}: {d}" for (name, *_), result in zip(bots, ours) for d in differences(python_view(result), theirs[name])]
+    counts = (sum(len(r.fills) for r in ours), sum(f.source == "cross" for r in ours for f in r.fills),
+              sum(len(r.races) for r in ours), sum(len(r.limit_breaches) for r in ours), sum(s[-1] for s in ours[0].pnl.values() if s))
+    return label, counts, found
+
+
+def parity(day: Day, scratch: Path, configs=CONFIGS, jobs: int | None = None) -> list[tuple[str, tuple, list[str]]]:
+    """Each case (label, config, participants) on the day in both engines, on `jobs` processes
+    (default: every core): (label, (fills, cross fills, races, breaches, the first participant's
+    PnL), differences), in the cases' order."""
+    path = scratch / (day.name.replace("/", "_") + ".day")
     export_day(day, path)
-    out = []
-    for label, config, bots in configs:
-        args = []
-        for k, (name, bot, overrides, requote) in enumerate(bots):
-            spec = scratch / f"bot{k}.json"
-            spec.write_text(json.dumps(rust.bot_spec(bot, overrides, requote)))
-            args += ["--bot", f"{name}={spec}"]
-        dump = scratch / "dump.txt"
-        run = subprocess.run([str(BINARY), "run", str(path), *_rust_engine(config), *args, "--dump", str(dump)], capture_output=True, text=True)
-        if run.returncode != 0:
-            out.append((label, (0, 0, 0, 0, 0.0), [f"arena-rs failed: {run.stderr.strip()}"]))
-            continue
-        theirs = parse_dump(dump.read_text())
-        ours = run_market(day, [(name, _python_bot(bot, overrides, requote)) for name, bot, overrides, requote in bots], config)
-        found = [f"{name}: {d}" for (name, *_), result in zip(bots, ours) for d in differences(python_view(result), theirs[name])]
-        counts = (sum(len(r.fills) for r in ours), sum(f.source == "cross" for r in ours for f in r.fills),
-                  sum(len(r.races) for r in ours), sum(len(r.limit_breaches) for r in ours), sum(s[-1] for s in ours[0].pnl.values() if s))
-        out.append((label, counts, found))
-    return out
+    jobs = jobs or os.cpu_count() or 1
+    cases = [(k, *case) for k, case in enumerate(configs)]
+    if jobs <= 1 or len(cases) <= 1:
+        _init_case(day, path, scratch)
+        return [_run_case(*case) for case in cases]
+    with ProcessPoolExecutor(min(jobs, len(cases)), initializer=_init_case, initargs=(day, path, scratch)) as pool:
+        return list(pool.map(_run_case, *zip(*cases)))
 
 
 def _rust_engine(config: EngineConfig) -> list[str]:
@@ -323,6 +389,23 @@ def _grid_wall(engine: str, jobs: int, out: Path) -> float:
                     "--grid", "PARAMS.KELP.take_edge=0..15", "--modes", "all,worse", "--jobs", str(jobs), "--engine", engine, "--out", str(out)],
                    check=True, capture_output=True)
     return time.perf_counter() - start
+
+
+def field_time(day: Day, path: Path, config: EngineConfig, scratch: Path) -> tuple[int, float, float]:
+    """The template and every zoo twin in one market: (participants, Python seconds, Rust seconds
+    on one thread, 5 runs less 1 to leave out loading)."""
+    field = [("template", TEMPLATE)] + [(p.relative_to(ROOT / "bots" / "zoo").as_posix(), p) for p in zoo_twins()]
+    start = time.perf_counter()
+    run_market(day, [(name, prosperity.load_bot(p, {}, strict=False)) for name, p in field], config)
+    ours = time.perf_counter() - start
+    specs = [rust.bot_spec(p, {}) for _, p in field]
+    task = {"day": 0, "config": rust.config_json(config), "bots": [[name, k] for k, (name, _) in enumerate(field)], "blocks": 2, "fine": 10}
+    seconds = []
+    for n in (1, 5):
+        start = time.perf_counter()
+        rust.run_batch([path], specs, [task] * n, 1, scratch)
+        seconds.append(time.perf_counter() - start)
+    return len(field), ours, (seconds[1] - seconds[0]) / 4
 
 
 def _report(label: str, counts: tuple, found: list[str], width: int = 58) -> bool:
@@ -392,7 +475,11 @@ def main() -> None:
         print("   bots/rivals/ against rust/src/bots/rivals.rs, on the same day:")
         for label, counts, found in parity(sim_day(), scratch, rival_cases()):
             same &= _report(label, counts, found)
-        print("   ... and on real days, whole:")
+        print("   bots/zoo/ against rust/src/bots/zoo/, on arena.sim days (2,000 ticks) and P3 round 1 day 0, whole:")
+        day = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1-0"])[0]
+        for label, counts, found in zoo_parity(scratch, [*zoo_days(), ("P3 r1d0", day)]):
+            same &= _report(label, counts, found, 90)
+        print("   ... and the template on real days, whole:")
         for label, counts, found in real_parity(scratch):
             same &= _report(label, counts, found, 80)
         print("   all identical" if same else "   ! differences")
@@ -423,6 +510,11 @@ def main() -> None:
                                          ("Kelp only, default", grid.only(days[0], ["KELP"]), kelp[0], EngineConfig())):
             ours, theirs = template_time(day, path, config, scratch)
             print(f"   {label:<30} Python {ours * 1e3:6.1f} ms   Rust {theirs * 1e3:6.3f} ms   {ours / theirs:,.0f}x")
+
+        print("   the template and every zoo bot in one market (P3 round 1, all three products):")
+        for label, config in (("default", EngineConfig()), ("resting", EngineConfig(resting=True))):
+            n, ours, theirs = field_time(days[0], full[0], config, scratch)
+            print(f"   {label:<30} {n} bots: Python {ours:6.1f} s   Rust {theirs * 1e3:6.1f} ms   {ours / theirs:,.0f}x")
 
         edges = range(8)
         print(f"\n3. every core ({args.jobs}). Kelp's 64-cell mm grid on {len(days)} days under all and worse (384 backtests):")

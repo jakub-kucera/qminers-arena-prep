@@ -56,6 +56,12 @@ def _kinds() -> dict[str, str]:
     return {path: twin["kind"] for path, twin in twins().items() if "kind" in twin}
 
 
+@functools.lru_cache(maxsize=None)
+def _reads_settings() -> dict[str, bool]:
+    """Per kind: whether the Rust bot reads its settings from the Python file's globals (the zoo's don't)."""
+    return {twin["kind"]: twin.get("settings", True) for twin in twins().values() if "kind" in twin}
+
+
 def file_hash(relative: str) -> str:
     return hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
 
@@ -111,7 +117,10 @@ def bot_globals(path: Path, overrides: dict[str, object]) -> dict:
 
 
 def bot_spec(path: Path, overrides: dict[str, object], requote: bool = False) -> dict:
-    return {"kind": kind_of(path), "globals": bot_globals(path, overrides), "requote": requote}
+    kind = kind_of(path)
+    if overrides and not _reads_settings()[kind]:
+        raise ValueError(f"{path}'s Rust twin doesn't read its settings from the file (a zoo bot runs as written): drop the --set or use --engine python")
+    return {"kind": kind, "globals": bot_globals(path, overrides) if _reads_settings()[kind] else {}, "requote": requote}
 
 
 def config_json(config: EngineConfig) -> dict:

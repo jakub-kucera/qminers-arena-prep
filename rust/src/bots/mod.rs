@@ -5,6 +5,7 @@
 pub mod mm;
 pub mod rivals;
 pub mod template;
+pub mod zoo;
 
 use crate::engine::{Bot, TickView};
 use crate::json::Value;
@@ -18,7 +19,10 @@ pub fn build(kind: &str, globals: &Value) -> Result<Box<dyn Bot + Send>, String>
         "sniper" => Box::new(rivals::Sniper::from_globals(globals)?),
         "spoofer" => Box::new(rivals::Spoofer::from_globals(globals)?),
         "trapper" => Box::new(rivals::Trapper::from_globals(globals)?),
-        other => return Err(format!("no Rust bot of kind {other:?}")),
+        other => match zoo::build(other) {
+            Some(bot) => bot,
+            None => return Err(format!("no Rust bot of kind {other:?}")),
+        },
     })
 }
 
@@ -37,6 +41,14 @@ impl Requote {
 impl Bot for Requote {
     fn begin_day(&mut self, day: &Day, names: &[String]) {
         self.inner.begin_day(day, names);
+    }
+
+    fn failed(&mut self) -> Option<String> {
+        self.inner.failed()
+    }
+
+    fn product_name(&self, product: usize) -> Option<String> {
+        self.inner.product_name(product)
     }
 
     fn step(&mut self, tick: &TickView, positions: &[i64], own_fills: &[Fill], market_trades: &[Vec<MarketTrade>], open_orders: &[OpenOrder], out: &mut Vec<Action>) {

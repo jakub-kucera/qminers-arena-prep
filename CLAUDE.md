@@ -142,7 +142,7 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 **Bot comparison** (`arena/compare.py`): several bot files or `FILE@PATH=VALUE` variants against the first bot as baseline, one pool task per (bot, day, mode). Each bot becomes an `arena.grid.Outcome` under a one-value `Axis("bot")`, so the grid's held-out days, PBO, DSR, SPA, StepM and pick apply unchanged.
 
 **Rust port** (`rust/`, its own Cargo crate, kept apart from the Python code; `rust/README.md` has the table of what is in Python, Rust and both):
-- **Twins:** `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names. `rust/src/bots/` ports `bots/template.py` (all of STRATEGY and EXECUTION, and ADAPTER as the Prosperity plug-in presents a tick), `bots/rivals/` and `bots/mm.py`.
+- **Twins:** `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names. `rust/src/bots/` ports `bots/template.py` (all of STRATEGY and EXECUTION, and ADAPTER as the Prosperity plug-in presents a tick), `bots/rivals/`, `bots/mm.py` and every zoo bot (`rust/src/bots/zoo/`, with Python's `sum`, `round`, numpy's `mean`/`std` and exceptions reproduced in `py.rs` and `Bot::failed`).
 - **`rust/twins.json`** lists each pair with the hash of the Python file as last checked. `tests/test_rust.py` fails when one changes. **A change to a twin's Python file goes into its Rust file too**, then `experiments.rust_bench --parity-only --record` compares every recorded field in every case and records the new hash.
 - **The bridge** (`arena/rust.py`):
   - days are loaded by the Python format plug-ins and exported (`export_day`; format in `rust/src/dayfile.rs`, products sorted by name plus the Python order, since order ids depend on it);
@@ -186,7 +186,7 @@ between calls.
 
 `bots/rivals/` holds adversarial `--vs` rivals for `--resting`: a quote-matching trapper, a spoofer (`OFFSET` ticks behind the best) and a sniper of stale quotes.
 
-`bots/zoo/` holds bots written blind by language models from `bots/zoo/SPEC.md` and `PROMPTS.md`: the agent baseline and `--vs` rivals. Never edit a zoo bot or a prompt once used; its README has the protocol for adding other providers' bots.
+`bots/zoo/` holds bots written blind by language models from `bots/zoo/SPEC.md` and `PROMPTS.md`: the agent baseline and `--vs` rivals. Never edit a zoo bot or a prompt once used; its README has the protocol for adding other providers' bots. Each zoo bot has a Rust twin (`rust/src/bots/zoo/`), and `tests/test_rust.py` fails until a new one has its own.
 
 New strategy logic goes in STRATEGY, order-management changes go in EXECUTION, and format changes go in ADAPTER. `bots/datamodel.py` only
 lets editors resolve imports; it is never submitted. `bots/probe.py` runs `ON_THE_DAY.md`'s probes in a schedule of tick windows and prints a `PROBE` line per finding and a `SEEN` line per tick (Prosperity format; only its ADAPTER, `PRODUCT` and `LIMIT` change on the day); `tests/test_probe.py` checks its findings against the engine's known behaviour in both modes.

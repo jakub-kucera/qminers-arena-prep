@@ -57,6 +57,16 @@ pub trait Bot {
     /// own_fills since the last call; market_trades the previous tick's, per product; open_orders
     /// this bot's resting orders (always empty in the default mode).
     fn step(&mut self, tick: &TickView, positions: &[i64], own_fills: &[Fill], market_trades: &[Vec<MarketTrade>], open_orders: &[OpenOrder], out: &mut Vec<Action>);
+    /// After a step: the exception its Python twin raised there, by type (e.g. "NameError"), if
+    /// any. The engine then drops the tick's actions and records the error, as `_call_bot` does.
+    fn failed(&mut self) -> Option<String> {
+        None
+    }
+    /// The name of a product index the bot made up for one the day doesn't have (its Python twin
+    /// sent an order for that name), for the engine's "order for unknown product" error.
+    fn product_name(&self, _product: usize) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Default, Debug)]
@@ -219,6 +229,10 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             let view = TickView { timestamp: ts, books: &seen, order: &order };
             player.actions.clear();
             bot.step(&view, &player.position, &player.unseen_fills, &player.market_trades, &player.decided_open, &mut player.actions);
+            if let Some(error) = bot.failed() {
+                player.actions.clear();
+                player.result.errors.push((ts, error));
+            }
             player.decided_position.copy_from_slice(&player.position);
             player.unseen_fills.clear();
         }
@@ -237,7 +251,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             if !s.cancelled.is_empty() {
                 working.retain(|o| !s.cancelled.contains(&o.id));
             }
-            known(&mut s.orders, n, ts, &mut player.result);
+            known(&mut s.orders, n, ts, &mut player.result, &*bots[i].1);
             let cancelled = &s.cancelled;
             let seen_left = player.decided_open.iter().filter(|o| !cancelled.contains(&o.id)).map(|o| (o.product, o.quantity));
             breaches(&s.orders, &player.decided_position, seen_left, &day.limits, &mut s.buys, &mut s.sells, &mut s.breached);
@@ -360,11 +374,12 @@ fn cancel(actions: &[Action], working: &[Live], owner: usize, seen: &[OpenOrder]
     }
 }
 
-/// Drops empty orders, and orders for unknown products (an error).
-fn known(orders: &mut Vec<Order>, products: usize, ts: i64, result: &mut DayResult) {
+/// Drops empty orders, and orders for unknown products (an error, naming the product as Python's repr does).
+fn known(orders: &mut Vec<Order>, products: usize, ts: i64, result: &mut DayResult, bot: &dyn Bot) {
     for order in orders.iter() {
         if order.product >= products {
-            result.errors.push((ts, format!("order for unknown product {}", order.product)));
+            let name = bot.product_name(order.product).map_or_else(|| order.product.to_string(), |name| format!("'{name}'"));
+            result.errors.push((ts, format!("order for unknown product {name}")));
         }
     }
     orders.retain(|o| o.product < products && o.quantity != 0);

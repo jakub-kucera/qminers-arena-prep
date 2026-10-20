@@ -27,6 +27,44 @@ against. `tests/test_rust.py` fails when a Python twin changes until the Rust si
 | `bots/mm.py` | `src/bots/mm.rs` | a plain wall-mid market maker, the benchmark's bot | 15 engine configurations (`CONFIGS`) |
 | `bots/template.py` | `src/bots/template.rs` | STRATEGY and EXECUTION function for function, and ADAPTER as the Prosperity plug-in presents a tick to it; the settings come from the Python file's own DEFAULTS and PARAMS | 18 variants, one per part of STRATEGY, alone and in a resting market with a rival; the committed settings in 6 more configurations; 10 real days (P2, P3, P4) under two configurations |
 | `bots/rivals/sniper.py`, `bots/rivals/spoofer.py`, `bots/rivals/trapper.py` | `src/bots/rivals.rs` | the adversarial `--vs` rivals | 13 cases: against the template and `mm`, resting and per tick, with their constants changed by `--set`, all three at once |
+| the 32 zoo bots, below | `src/bots/zoo/` | translated line by line, never edited on either side; they don't read settings from the file, so `--set` on one is refused | each alone (all, worse, a fill ratio, resting as written, resting requoted) and all of them with the template in one market, per tick and resting, on a simulated day, the same day trending hard up and down, and P3 round 1 day 0: 648 cases |
+
+The zoo's twins, one row per Python file (several small bots share a Rust file, one struct each):
+
+| Python | Rust | | |
+|---|---|---|---|
+| `bots/zoo/chatgpt/gpt-5-6-luna_baseline.py` | `src/bots/zoo/chatgpt_luna_baseline.rs` | | |
+| `bots/zoo/chatgpt/gpt-5-6-luna_market_maker.py` | `src/bots/zoo/chatgpt_luna_market_maker.rs` | | |
+| `bots/zoo/claude/haiku-5.5_baseline.py` | `src/bots/zoo/claude_haiku_baseline.rs` | | |
+| `bots/zoo/claude/opus-5.5_baseline.py` | `src/bots/zoo/claude_opus_baseline.rs` | | |
+| `bots/zoo/claude/opus-5.5_market_maker.py` | `src/bots/zoo/claude_opus_market_maker.rs` | | |
+| `bots/zoo/claude/opus-5.5_mean_reversion.py` | `src/bots/zoo/claude_opus_mean_reversion.rs` | | |
+| `bots/zoo/claude/opus-5.5_momentum.py` | `src/bots/zoo/claude_opus_momentum.rs` | | |
+| `bots/zoo/claude/sonnet-5.5_baseline.py` | `src/bots/zoo/claude_sonnet_baseline.rs` | | |
+| `bots/zoo/gemini/gemini-3-8-flash-high_baseline.py` | `src/bots/zoo/gemini_flash_baseline.rs` | | |
+| `bots/zoo/gemini/gemini-3-8-flash-high_market_maker.py` | `src/bots/zoo/gemini_flash_market_maker.rs` | | |
+| `bots/zoo/other/deepseek-r1-14b_baseline.py` | `src/bots/zoo/deepseek_baseline.rs` | | |
+| `bots/zoo/other/deepseek-r1-14b_baseline_2.py` | `src/bots/zoo/deepseek_baseline_2.rs` | | |
+| `bots/zoo/other/deepseek-r1-14b_market_maker.py` | `src/bots/zoo/deepseek_market_maker.rs` | | |
+| `bots/zoo/other/deepseek-r1-14b_market_maker_2.py` | `src/bots/zoo/deepseek_market_maker_2.rs` | | |
+| `bots/zoo/other/gemma4-26b_baseline.py` | `src/bots/zoo/gemma_baseline.rs` | | |
+| `bots/zoo/other/gemma4-26b_baseline_2.py` | `src/bots/zoo/gemma_baseline_2.rs` | | |
+| `bots/zoo/other/gemma4-26b_market_maker.py` | `src/bots/zoo/gemma_market_maker.rs` | | |
+| `bots/zoo/other/gemma4-26b_market_maker_2.py` | `src/bots/zoo/gemma_market_maker_2.rs` | | |
+| `bots/zoo/other/gpt-oss-120B_baseline.py` | `src/bots/zoo/gpt_oss.rs` | | |
+| `bots/zoo/other/gpt-oss-120B_market_maker.py` | `src/bots/zoo/gpt_oss.rs` | | |
+| `bots/zoo/other/gpt-oss-20b_baseline.py` | `src/bots/zoo/gpt_oss.rs` | | |
+| `bots/zoo/other/gpt-oss-20b_baseline_2.py` | `src/bots/zoo/gpt_oss.rs` | | |
+| `bots/zoo/other/gpt-oss-20b_market_maker.py` | `src/bots/zoo/gpt_oss.rs` | | |
+| `bots/zoo/other/gpt-oss-20b_market_maker_2.py` | `src/bots/zoo/gpt_oss.rs` | | |
+| `bots/zoo/other/phi4-14b_baseline.py` | `src/bots/zoo/phi4.rs` | | |
+| `bots/zoo/other/phi4-14b_baseline_2.py` | `src/bots/zoo/phi4.rs` | | |
+| `bots/zoo/other/phi4-14b_market_maker.py` | `src/bots/zoo/phi4.rs` | | |
+| `bots/zoo/other/phi4-14b_market_maker_2.py` | `src/bots/zoo/phi4.rs` | | |
+| `bots/zoo/other/qwen3.8-27b-medium_baseline.py` | `src/bots/zoo/qwen.rs` | | |
+| `bots/zoo/other/qwen3.8-27b-medium_baseline_2.py` | `src/bots/zoo/qwen.rs` | | |
+| `bots/zoo/other/qwen3.8-27b-medium_market_maker.py` | `src/bots/zoo/qwen.rs` | | |
+| `bots/zoo/other/qwen3.8-27b-medium_market_maker_2.py` | `src/bots/zoo/qwen.rs` | | |
 
 Supporting pieces that copy Python exactly but have no file of their own to hash:
 
@@ -37,13 +75,15 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 | `arena.cli.Requote` | `Requote` in `src/bots/mod.rs` | `--requote` for rivals |
 | `arena.grid.block_pnl`, `report.total_pnl`, `product_stats` | `block_pnl`, `piece` in `src/main.rs` | what a grid task returns (`arena-rs batch`) |
 | `math.erf`, `x ** 2`, `math.exp`, `math.log` | libm's `erf`, `pow`, `exp`, `log` | CPython calls the C library for these, so the Rust does too. On macOS `pow(x, 2)` isn't always `x * x`. |
+| `sum()` of floats, `round(x, n)`, `//`, `max`/`min`; numpy's `mean`, `std` | `src/bots/zoo/py.rs` | CPython 3.12's `sum` is compensated (Neumaier), not a plain loop; numpy's sums are pairwise from 0.0. Each checked against the real thing on random inputs, and `cargo test` holds CPython's vectors |
+| an exception in `Trader.run` | `Bot::failed` | the twin reports the exception's type, and the engine drops the tick's orders and records it, as `_call_bot` does. The twin keeps what the Python keeps: traderData as last returned, the instance's changes up to the error |
 
 **Only in Python**:
 - the format plug-ins (`arena/formats/`), which load the data;
 - `arena.backtest` and `arena.validate`;
 - everything in `arena.grid` but the backtests: the axes, screening, the permutation test's shuffles (`arena.stress.permute`), and the statistics (held-out days, PBO, DSR, SPA, StepM);
 - `arena.compare`, `arena.analysis`, `arena.diagnose`, `arena.stress`, `arena.sim`, and `arena.report`'s CSVs;
-- `bots/drill/template.py`, `bots/probe.py`, `bots/zoo/`, and `experiments/`.
+- `bots/drill/template.py`, `bots/probe.py`, the zoo's tooling (`bundle.py`, `local.py`), and `experiments/`.
 
 `arena/rust.py` is the bridge. It exports days, turns a twin's Python file into its Rust bot's settings (`bot_spec`, with any `--set` overrides), and runs `arena-rs batch`.
 
@@ -55,7 +95,7 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 |---|---|
 | `src/engine.rs` | the engine (above) |
 | `src/model.rs`, `src/dayfile.rs` | the types, and the exported day format |
-| `src/bots/` | the twins; `mod.rs` builds one by its kind (`rust/twins.json`) from its Python file's globals |
+| `src/bots/` | the twins; `mod.rs` builds one by its kind (`rust/twins.json`) from its Python file's globals; `zoo/` holds the zoo's, with `py.rs` for Python's arithmetic |
 | `src/pyrandom.rs`, `src/sha512.rs`, `src/json.rs` | Python's random numbers, its string seeding, and the settings' format |
 | `src/main.rs` | `arena-rs run` (one market; `--dump` writes every recorded field for the parity check), `batch` (arena.grid's backtests on N threads), `grid` (`mm`'s make × take grid, for timing) |
 
