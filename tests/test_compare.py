@@ -39,6 +39,17 @@ def test_candidates_parse_files_and_variants(bots):
         compare.parse_candidate("missing.py")
 
 
+def test_long_values_are_cut_and_names_replace_the_label(bots):
+    long = "{'fair':'wall_mid','make_edge':0.5,'take_edge':1}"
+    cut = compare.parse_candidate(f"{bots['base']}@PARAMS.SQUID_INK={long}")
+    assert cut.label == "bot SQUID_INK={'fair':'wall_m…" and len(cut.label) == len("bot SQUID_INK=") + compare.MAX_VALUE_CHARS
+    named = compare.parse_candidate(f"ink:{bots['base']}@PARAMS.SQUID_INK={long}")
+    assert named.label == "ink" and named.overrides == cut.overrides
+    short = compare.parse_candidate(f"{bots['base']}@PARAMS.size=2")
+    legend = compare.format_legend([short, cut, named])
+    assert "bot size=2" not in legend and legend.count("'take_edge': 1") == 2 and "  ink: " in legend
+
+
 def test_labels_are_made_unique(bots):
     a, b = compare.parse_candidate(str(bots["base"])), compare.parse_candidate(str(bots["same_stem"]))
     assert [c.label for c in compare.labelled([a, b])] == ["a/bot", "b/bot"]

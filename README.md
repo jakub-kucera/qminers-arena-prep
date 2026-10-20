@@ -248,7 +248,7 @@ uv run python -m arena.compare bots/template.py 1 2 --data p4 --resting --bot bo
 ```
 
 - **The baseline** is the first bot, the bot as is. `--set` applies to it alone.
-- **Each `--bot`** is a file, or `FILE@PATH=VALUE@...` for a variant. It takes several, so a shell glob works.
+- **Each `--bot`** is a file, or `FILE@PATH=VALUE@...` for a variant. It takes several, so a shell glob works. `NAME:FILE@...` names a variant in the tables; without a name, a value over 16 characters (a whole product's dict) is cut in its label, and the summary lists such variants' settings in full.
 - **One worker task per (bot, day, mode),** so even a few bots use every core. Every bot trades against the same `--vs` rivals.
 - **The summary:**
   - a ranked table (PnL, the gain over the baseline, worst day, each extra mode, fills);

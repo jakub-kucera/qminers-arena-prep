@@ -5,7 +5,9 @@
     uv run python -m arena.compare bots/template.py 1 2 --data p4 --resting --bot bots/a.py bots/b.py --vs bots/rivals/sniper.py
 
 The first bot is the baseline, the bot as is (`--set` applies to it alone). Each `--bot` is a
-file, or a variant of one: FILE@PATH=VALUE@PATH=VALUE sets globals as `--set` does. Every bot runs
+file, or a variant of one: FILE@PATH=VALUE@PATH=VALUE sets globals as `--set` does, and a leading
+NAME: names it in the tables (a value longer than MAX_VALUE_CHARS is cut in the label, and the
+summary lists such bots' settings in full). Every bot runs
 on every day under each `--modes` entry, one backtest per worker task, against the same `--vs`
 rivals. The summary ranks the bots by PnL, worst day and the other modes, scores each day held
 out, and then judges the choice as arena.grid judges a grid's (references/wiki/concepts/
@@ -34,6 +36,7 @@ from arena.engine import TradeMatching
 from arena.formats import FORMATS
 
 MAX_PRODUCT_COLUMNS = 10
+MAX_VALUE_CHARS = 16  # a longer setting is cut in the label; --out and the legend keep it whole
 
 
 @dataclass(frozen=True)
@@ -41,16 +44,29 @@ class Candidate:
     path: Path
     overrides: dict
     label: str
+    named: bool = False  # the label was given as NAME:FILE...
+
+
+def _value(value) -> str:
+    """A setting's value for a label, cut to MAX_VALUE_CHARS (a whole dict would make the table unreadable)."""
+    text = str(value).replace(" ", "")
+    return text if len(text) <= MAX_VALUE_CHARS else text[:MAX_VALUE_CHARS - 1] + "…"
+
+
+def default_label(path: Path, overrides: dict) -> str:
+    return path.stem + "".join(f" {k.removeprefix('PARAMS.')}={_value(v)}" for k, v in overrides.items())
 
 
 def parse_candidate(text: str) -> Candidate:
-    """FILE or FILE@PATH=VALUE@...; the label is the file's stem plus its settings."""
-    path, *settings = text.split("@")
+    """[NAME:]FILE or [NAME:]FILE@PATH=VALUE@...; the label is NAME, else the file's stem plus its settings."""
+    name, sep, rest = text.partition(":")
+    if not sep or any(c in name for c in "/@="):
+        name, rest = "", text
+    path, *settings = rest.split("@")
     overrides = dict(parse_override(s) for s in settings)
     if not Path(path).is_file():
         raise ValueError(f"no bot file {path!r}")
-    label = Path(path).stem + "".join(f" {k.removeprefix('PARAMS.')}={v}" for k, v in overrides.items())
-    return Candidate(Path(path), overrides, label)
+    return Candidate(Path(path), overrides, name or default_label(Path(path), overrides), bool(name))
 
 
 def labelled(candidates: list[Candidate]) -> list[Candidate]:
@@ -154,6 +170,13 @@ def run_compare(s: Setup, candidates: list[Candidate], modes: list[TradeMatching
 # ---------------------------------------------------------------------------- results
 
 
+def format_legend(candidates: list[Candidate]) -> str:
+    """The full settings of each bot whose label doesn't show them: named, or with a value cut."""
+    hidden = [c for c in candidates if c.overrides and (c.named or any(_value(v) != str(v).replace(" ", "") for v in c.overrides.values()))]
+    lines = [f"  {c.label}: {c.path} " + " ".join(f"{k}={v!r}" for k, v in c.overrides.items()) for c in hidden]
+    return "\n".join(["settings in full:", *lines]) if lines else ""
+
+
 def format_table(candidates: list[Candidate], modes: list[TradeMatching], outcomes: dict[int, grid.Outcome], top: int) -> str:
     primary, base = modes[0], outcomes[0]
     header = ["rank", "bot", f"pnl({primary})", "vs base", "min day", *(f"pnl({m})" for m in modes[1:]), "fills", ""]
@@ -231,8 +254,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m arena.compare", description="Compare bots against a baseline, with robustness checks.")
     add_common_arguments(parser)
     add_rival_argument(parser)
-    parser.add_argument("--bot", dest="bots", action="extend", nargs="+", required=True, metavar="FILE[@PATH=VALUE...]",
-                        help="a bot to compare with the baseline, or a variant FILE@PATH=VALUE@...; repeatable, and takes several")
+    parser.add_argument("--bot", dest="bots", action="extend", nargs="+", required=True, metavar="[NAME:]FILE[@PATH=VALUE...]",
+                        help="a bot to compare with the baseline, or a variant FILE@PATH=VALUE@..., optionally named NAME:...; repeatable, and takes several")
     parser.add_argument("--modes", help="comma-separated trade-matching modes, e.g. all,worse; the first is the main one (default: --match-trades)")
     parser.add_argument("--top", type=int, default=20, help="rows to show (default: 20)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
@@ -244,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
         modes = [TradeMatching(m.strip()) for m in args.modes.split(",")] if args.modes else [args.match_trades]
         if len(set(modes)) != len(modes):
             raise ValueError("--modes lists a mode twice")
-        base = Candidate(args.bot, s.overrides, args.bot.stem + "".join(f" {k.removeprefix('PARAMS.')}={v}" for k, v in s.overrides.items()))
+        base = Candidate(args.bot, s.overrides, default_label(args.bot, s.overrides))
         candidates = labelled([base, *(parse_candidate(text) for text in args.bots)])
     except (ValueError, OSError, OverrideError) as error:
         parser.error(str(error))
@@ -258,6 +281,9 @@ def main(argv: list[str] | None = None) -> int:
     outcomes = run_compare(s, candidates, modes, jobs, args.format, args.data, args.days)
     print(f"done in {time.perf_counter() - start:.1f} s\n")
     print(f"baseline: {candidates[0].label}\n")
+    legend = format_legend(candidates)
+    if legend:
+        print(legend + "\n")
     print(format_table(candidates, modes, outcomes, args.top))
     products = format_products(candidates, modes[0], outcomes, args.top)
     if products:
