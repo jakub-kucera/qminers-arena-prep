@@ -56,6 +56,13 @@ A small p for the lift says choosing exploits the order of the ticks (a trend, a
 returns to, a signal that leads it); a large one says a search this wide finds as much without
 it, from what the copies keep (each tick's book and the fill model). Neither is measured against
 the bot as is: its settings were tuned to the real order, which the copies remove.
+With --screen SHARE (successive halving, one rung) every combination first runs on the first day
+under the first mode, and only that share of them, the best there, on every day and mode. The
+summary says what it dropped and how the screen day ranks the kept cells against the other days.
+PBO, the DSR, SPA and StepM then see the kept cells only, on days that include the screen's, so
+they understate the selection bias of the cells tried; with two or more days SPA, StepM and the
+pick are also given on the other days alone, which the screen's choice can't bias. --permute
+screens each copy the same way.
 Halvings and bootstrap blocks mix blocks of the same days, so a day-level change is invisible to
 all of them: the held-out days are the check for that, and a cell they accept still has to hold
 under the other --modes (references/wiki/concepts/validation-and-overfitting.md).
@@ -334,21 +341,43 @@ def _cells(axes: list[Axis]) -> list[tuple[tuple, tuple]]:
 
 
 @dataclass
+class Screen:
+    """The first rung of successive halving: every cell on the first day under the first mode."""
+
+    share: float
+    day: str
+    mode: TradeMatching
+    pnl: dict[tuple[int, ...], float]  # every cell's PnL there (the axes' products only, when restricted)
+    failed: set[tuple[int, ...]]
+    kept: list[tuple[int, ...]]  # best first
+
+
+@dataclass
 class GridRun:
     baseline: Outcome
-    outcomes: dict[tuple[int, ...], Outcome]
+    outcomes: dict[tuple[int, ...], Outcome]  # with a screen, only the cells it kept
     restricted: list[str] | None  # the products the cells ran on, when not every product
     note: str  # why the run was or wasn't restricted
+    screen: Screen | None = None
+
+
+def screened(cells: list[tuple[tuple, tuple]], found: dict, share: float) -> tuple[list[tuple[tuple, tuple]], dict, set]:
+    """The top `share` of the cells (at least one) by their screen Piece's PnL, working ones first."""
+    failed = {index for index, _ in cells if found[index].errors or found[index].breaches}
+    ranked = sorted(cells, key=lambda cell: (cell[0] in failed, -found[cell[0]].pnl))
+    return ranked[:max(1, math.ceil(share * len(cells)))], {index: found[index].pnl for index, _ in cells}, failed
 
 
 def run_grid(
     s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str, day_specs: list[str],
-    all_products: bool = False,
+    all_products: bool = False, screen: float | None = None,
 ) -> GridRun:
     """The baseline (the bot with only --set applied) and every combination, one backtest per worker
     task. Unless `all_products`, when the axes set only some products, the combinations run on days
     holding only those, if the bot as is makes the same PnL on them with and without the others on
-    every day and mode; the others' PnL is then added from the bot as is's run."""
+    every day and mode; the others' PnL is then added from the bot as is's run. With `screen`, every
+    combination first runs on the first day under the first mode, and only that share of them, the
+    best there, runs on the other days and modes."""
     products = sorted({p for day in s.days for p in day.products})
     traded = axis_products(axes, products)
     subset = traded if not all_products and len(traded) < len(products) else None
@@ -370,28 +399,42 @@ def run_grid(
                         "makes the same PnL there with or without the other products, so theirs is added from its run (--all-products to run them all)")
             else:
                 note = "the combinations ran on every product: the bot as is trades the axes' products differently without the others"
-        cells = _cells(axes)
-        pieces = runner.run([((index, d, m), values, d, m, restricted is not None, None) for index, values in cells for d, m in keys])
+        cells, first, chosen = _cells(axes), keys[0], None
+        if screen:
+            found = runner.run([(index, values, *first, restricted is not None, None) for index, values in cells])
+            cells, pnl, failed = screened(cells, found, screen)
+            chosen = Screen(screen, s.days[0].name, modes[0], pnl, failed, [index for index, _ in cells])
+            pieces = {(index, *first): found[index] for index, _ in cells}
+            pieces |= runner.run([((index, d, m), values, d, m, restricted is not None, None) for index, values in cells for d, m in keys[1:]])
+        else:
+            pieces = runner.run([((index, d, m), values, d, m, restricted is not None, None) for index, values in cells for d, m in keys])
     extra = {k: _difference(full[k], base[("part", *k)], set(restricted)) for k in keys} if restricted else None
     outcomes = {index: _assemble(index, values, {k: pieces[(index, *k)] for k in keys}, s.days, modes, extra) for index, values in cells}
-    return GridRun(_assemble((), (), full, s.days, modes), outcomes, restricted, note)
+    return GridRun(_assemble((), (), full, s.days, modes), outcomes, restricted, note, chosen)
 
 
 def run_permutations(
     s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str,
-    day_specs: list[str], copies: int, block: int, restricted: list[str] | None,
+    day_specs: list[str], copies: int, block: int, restricted: list[str] | None, screen: float | None = None,
 ) -> list[dict[tuple[int, ...], Outcome]]:
     """The whole grid on `copies` permuted copies of the days (seeds 1..copies), under the first mode,
-    on the products the grid itself ran on: for each copy, every combination."""
-    mode = modes[0]
+    on the products the grid itself ran on: for each copy, every combination, or with `screen` the
+    share of them that the same screen keeps on the copy's first day."""
+    mode, seeds, days = modes[0], range(1, copies + 1), range(len(s.days))
     cells = _cells(axes)
-    tasks = [((seed, index, d), values, d, mode, restricted is not None, (seed, block))
-             for seed in range(1, copies + 1) for index, values in cells for d in range(len(s.days))]
     with _Runner(s, bot, axes, modes, jobs, format_name, data_arg, day_specs, restricted) as runner:
-        pieces = runner.run(tasks)
-    days = [only(day, restricted) for day in s.days] if restricted else s.days
-    return [{index: _assemble(index, values, {(d, mode): pieces[(seed, index, d)] for d in range(len(days))}, days, [mode])
-             for index, values in cells} for seed in range(1, copies + 1)]
+        if screen:
+            found = runner.run([((seed, index, 0), values, 0, mode, restricted is not None, (seed, block)) for seed in seeds for index, values in cells])
+            kept = {seed: screened(cells, {index: found[(seed, index, 0)] for index, _ in cells}, screen)[0] for seed in seeds}
+            pieces = found | runner.run([((seed, index, d), values, d, mode, restricted is not None, (seed, block))
+                                         for seed in seeds for index, values in kept[seed] for d in days[1:]])
+        else:
+            kept = {seed: cells for seed in seeds}
+            pieces = runner.run([((seed, index, d), values, d, mode, restricted is not None, (seed, block))
+                                 for seed in seeds for index, values in cells for d in days])
+    shown = [only(day, restricted) for day in s.days] if restricted else s.days
+    return [{index: _assemble(index, values, {(d, mode): pieces[(seed, index, d)] for d in days}, shown, [mode])
+             for index, values in kept[seed]} for seed in seeds]
 
 
 def axis_products(axes: list[Axis], products: list[str]) -> list[str]:
@@ -462,15 +505,15 @@ def neighborhood_mean(outcomes: dict[tuple[int, ...], Outcome], index: tuple[int
     """Mean PnL of a combination and its neighbours one step along each axis.
 
     Neighbours that failed (errors or limit breaches) are left out: their PnL isn't what the
-    setting would make, and the summary leaves them out too.
+    setting would make, and the summary leaves them out too. So are neighbours that --screen dropped.
     """
     pnls = [outcomes[index].pnl(mode)]
     for axis, size in enumerate(shape):
         for step in (-1, 1):
             position = index[axis] + step
             if 0 <= position < size:
-                neighbour = outcomes[index[:axis] + (position,) + index[axis + 1 :]]
-                if not neighbour.failed:
+                neighbour = outcomes.get(index[:axis] + (position,) + index[axis + 1 :])
+                if neighbour is not None and not neighbour.failed:  # None: dropped by --screen
                     pnls.append(neighbour.pnl(mode))
     return statistics.fmean(pnls)
 
@@ -602,6 +645,64 @@ def format_held_out(
         which = ", ".join(products) if len(products) <= 4 else f"{len(products)} products"
         lines.append(f"! {', '.join(names)} hold the same data for {which}: holding one out still trains on the other")
     return "\n".join(lines)
+
+
+def format_screen(axes: list[Axis], screen: Screen, outcomes: dict[tuple[int, ...], Outcome]) -> str:
+    """What the screen tried and dropped, and whether its day ranks the kept cells as the other days do."""
+    tried, kept = len(screen.pnl), len(screen.kept)
+    setting = lambda index: ", ".join(f"{a.label}={a.values[i]}" for a, i in zip(axes, index))
+    lines = [f"screen: all {tried} cells on {screen.day} under {screen.mode}, the best {kept} ({screen.share:.0%}) kept for every day and mode",
+             f"  kept from {_num(screen.pnl[screen.kept[0]])} to {_num(screen.pnl[screen.kept[-1]])} on {screen.day}"]
+    dropped = [index for index in screen.pnl if index not in outcomes]
+    working = [index for index in dropped if index not in screen.failed]
+    if working:
+        best = max(working, key=screen.pnl.get)
+        lines[-1] += f"; best dropped {setting(best)} ({_num(screen.pnl[best])})"
+    if len(dropped) > len(working):
+        lines[-1] += f"; {len(dropped) - len(working)} dropped with errors or limit breaches"
+    names = list(next(iter(outcomes.values())).day_pnl[screen.mode])
+    usable = [o for o in outcomes.values() if not o.failed]
+    if len(names) >= 2 and len(usable) >= 3:
+        rho = _spearman([o.day_pnl[screen.mode][screen.day] for o in usable], [o.pnl(screen.mode) - o.day_pnl[screen.mode][screen.day] for o in usable])
+        lines.append(f"  among the kept cells, {screen.day}'s pnl against the other days': Spearman {rho:+.2f}")
+        if rho < 0.3:
+            lines.append(f"! {screen.day} ranks the kept cells unlike the other days: the screen may have dropped good cells (a larger --screen share, or another day first)")
+    lines.append(f"! the tests below see the {kept} kept cells only, chosen on {screen.day}, which they include: they understate the selection "
+                 f"bias of {tried} cells" + ("; the unseen-days section after them does not" if len(names) >= 2 else ""))
+    return "\n".join(lines)
+
+
+def _spearman(x: list[float], y: list[float]) -> float:
+    def ranks(v):
+        order = sorted(range(len(v)), key=v.__getitem__)
+        r = [0.0] * len(v)
+        k = 0
+        while k < len(order):
+            j = k
+            while j + 1 < len(order) and v[order[j + 1]] == v[order[k]]:
+                j += 1
+            for i in order[k:j + 1]:
+                r[i] = (k + j) / 2
+            k = j + 1
+        return r
+    rx, ry = ranks(x), ranks(y)
+    if statistics.pstdev(rx) == 0 or statistics.pstdev(ry) == 0:
+        return 0.0
+    return statistics.correlation(rx, ry)
+
+
+def without_first_day(outcome: Outcome, days: list[Day]) -> Outcome:
+    """The outcome on every day but the first: its day PnL and fine blocks (for SPA and StepM)."""
+    first, cut = days[0].name, len(days[0].ticks) // FINE_TICKS
+    return replace(outcome, day_pnl={m: {d: v for d, v in pnl.items() if d != first} for m, pnl in outcome.day_pnl.items()},
+                   fine_pnl={m: fine[cut:] for m, fine in outcome.fine_pnl.items()})
+
+
+def format_unseen(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: list[Day]) -> str:
+    """SPA, StepM and the pick on the days the screen didn't see: the screen's choice can't bias them."""
+    trimmed = {index: without_first_day(o, days) for index, o in outcomes.items()}
+    head = f"on the days the screen didn't see ({', '.join(d.name for d in days[1:])}), so free of its choice:"
+    return head + "\n" + format_snooping(axes, without_first_day(baseline, days), trimmed, modes, None)
 
 
 # ---------------------------------------------------------------------------- overfitting
@@ -946,6 +1047,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="also run the whole grid on N copies of the days with their ticks shuffled, for a permutation test (default: 0)")
     parser.add_argument("--permute-block", type=int, default=1, metavar="TICKS",
                         help="shuffle the ticks in runs of this many, keeping the order inside a run (default: 1)")
+    parser.add_argument("--screen", type=float, metavar="SHARE",
+                        help="successive halving: run every combination on the first day under the first mode, then only this share "
+                        "of them, the best there, on every day and mode (e.g. 0.25)")
     args = parser.parse_args(argv)
 
     try:
@@ -955,17 +1059,25 @@ def main(argv: list[str] | None = None) -> int:
         _check(axes, modes, s, args.sort)
         if args.permute < 0 or args.permute_block < 1:
             raise ValueError("--permute needs N >= 0 and --permute-block a run of at least 1 tick")
+        if args.screen is not None and not 0 < args.screen < 1:
+            raise ValueError("--screen needs a share between 0 and 1, e.g. 0.25")
         smoke_test(s, args.bot, axes)
     except (ValueError, OSError, OverrideError) as error:
         parser.error(str(error))
 
     combos = math.prod(len(axis.values) for axis in axes)
     runs = (combos + 1) * len(s.days) * len(modes)
-    print(f"{combos} combinations × {len(s.days)} days × {len(modes)} modes ({runs} backtests) on {args.jobs} workers")
+    if args.screen:
+        kept = max(1, math.ceil(args.screen * combos))
+        runs = len(s.days) * len(modes) + combos + kept * (len(s.days) * len(modes) - 1)
+        print(f"{combos} combinations screened on {s.days[0].name}, the best {kept} then × {len(s.days)} days × {len(modes)} modes "
+              f"({runs} backtests) on {args.jobs} workers")
+    else:
+        print(f"{combos} combinations × {len(s.days)} days × {len(modes)} modes ({runs} backtests) on {args.jobs} workers")
     if s.rivals:
         print(f"each against {', '.join(participant_names(args.bot, s.rivals)[1:])} in the same market")
     start = time.perf_counter()
-    run = run_grid(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.all_products)
+    run = run_grid(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.all_products, args.screen)
     baseline, outcomes = run.baseline, run.outcomes
     print(f"done in {time.perf_counter() - start:.1f} s" + (f"; {run.note}" if run.note else "") + "\n")
 
@@ -974,11 +1086,15 @@ def main(argv: list[str] | None = None) -> int:
     held_out = format_held_out(axes, modes, outcomes, repeated_days(s.days))
     if held_out:
         print("\n" + held_out)
+    if run.screen:
+        print("\n" + format_screen(axes, run.screen, outcomes))
     print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes))
+    if run.screen and len(s.days) >= 2:
+        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days))
     if args.permute > 0:
         start = time.perf_counter()
         copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block,
-                                  run.restricted)
+                                  run.restricted, args.screen)
         products = sorted({p for day in s.days for p in day.products})
         print(f"\n{format_permutations(axes, outcomes, copies, modes[0], args.permute_block, products)}  ({time.perf_counter() - start:.0f} s)")
     failed = [o for o in outcomes.values() if o.first_error]

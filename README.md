@@ -126,6 +126,18 @@ combination runs on them alone and the others' PnL is added from the bot as is, 
 the same as a full run's, faster (Kelp's 64 cells: 14 s against 25 s). `--all-products` runs
 everything.
 
+`--screen SHARE` is successive halving for big grids: every combination runs on the first day
+under the first mode, and only that share of them, the best there, runs on every day and mode. On
+Kelp's 256 cells (`make_edge` × `take_edge` × `clear_edge`, P3 round 1, `--modes all,worse`) it
+took 20 s at 0.25 and 14 s at 0.1, against 48 s, with the same best cells and the same pick. The
+summary says what the screen dropped (the best dropped cell, and failures) and how well the
+screen day ranks the kept cells (Spearman against the other days; a low one means it may have
+dropped good cells). The tests after it see the kept cells only, chosen on a day they include, so
+they understate the selection bias; with two or more days, SPA, StepM and the pick are repeated
+on the days the screen didn't see, which its choice can't bias. Order the days so the first is
+typical. A cell that only does well under a later mode can be dropped, and `nbhd` only counts
+kept neighbours. With `--permute`, each copy is screened the same way.
+
 The highest backtest PnL is usually overfit, so each combination is ranked on four measures:
 
 | Measure | Meaning |

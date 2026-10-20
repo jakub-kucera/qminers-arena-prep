@@ -335,3 +335,6 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - `experiments/selection_rules_sim.py`: each preset's grid tuned on 3 fresh `arena.sim` days, ten times, and scored on 20 other days. The grid's pick lost in 2 of 120 runs, against 10–22 for the rules that gained as much; it is not "never loses", and the docs now say so.
 - **Filed into:** `validation-and-overfitting`; the repo's `IDEAS.md`, `README.md`, `ON_THE_DAY.md`, `arena/grid.py`'s docstring.
 
+## [2026-10-20] query | screening a big grid
+- `arena.grid --screen SHARE`: every cell on the first day under the first mode, then the best share on every day and mode; SPA, StepM and the pick are repeated on the days the screen didn't see.
+- **Filed into:** `validation-and-overfitting`; the repo's `README.md`, `TODO.md`, `arena/grid.py`'s docstring.

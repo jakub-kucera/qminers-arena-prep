@@ -373,3 +373,45 @@ def test_the_grid_gives_the_same_summary_on_one_worker_and_on_several(capsys, tm
     _, serial = run_main(capsys, bot, data_dir, *args, "--jobs", "1")
     _, parallel = run_main(capsys, bot, data_dir, *args, "--jobs", "3")
     assert _summary(serial) == _summary(parallel)
+
+
+def _csv_rows(path):
+    with path.open() as file:
+        return {row["PARAMS.size"]: row for row in csv.DictReader(file)}
+
+
+def test_the_screen_keeps_the_best_share_with_the_full_runs_numbers(capsys, bot, data_dir, tmp_path):
+    args = ["--grid", "PARAMS.size=1..4", "--modes", "all,worse", "--jobs", "1"]
+    code, text = run_main(capsys, bot, data_dir, *args, "--screen", "0.5", "--out", str(tmp_path / "screened.csv"))
+    assert code == 0
+    assert "4 combinations screened on" in text and "the best 2 then × 2 days × 2 modes (14 backtests)" in text
+    assert "screen: all 4 cells on" in text and "the best 2 (50%) kept" in text and "best dropped size=3" in text
+    assert "on the days the screen didn't see" in text
+    run_main(capsys, bot, data_dir, *args, "--out", str(tmp_path / "full.csv"))
+    screened, full = _csv_rows(tmp_path / "screened.csv"), _csv_rows(tmp_path / "full.csv")
+    assert list(screened) == ["1", "2"]  # the bot loses 4 per unit: the smallest sizes are best
+    same = lambda row: {c: v for c, v in row.items() if not c.startswith("nbhd")}  # nbhd only sees the kept neighbours
+    assert all(same(screened[k]) == same(full[k]) for k in screened)
+
+
+def test_screened_puts_failed_cells_last_and_keeps_at_least_one():
+    piece = lambda pnl, errors=0: grid.Piece(pnl, [], [], {}, 0, errors, 0, "")
+    cells = [((0,), (0,)), ((1,), (1,)), ((2,), (2,))]
+    found = {(0,): piece(5.0, errors=1), (1,): piece(1.0), (2,): piece(3.0)}
+    kept, pnl, failed = grid.screened(cells, found, 0.6)
+    assert [index for index, _ in kept] == [(2,), (1,)] and failed == {(0,)} and pnl[(0,)] == 5.0
+    assert len(grid.screened(cells, found, 0.01)[0]) == 1
+
+
+def test_neighbourhood_mean_skips_cells_the_screen_dropped():
+    made = _outcomes([[("d", 1.0)], [("d", 2.0)], [("d", 3.0)]])
+    outcomes = {(0,): made[(0,)], (2,): made[(2,)]}  # (1,) was dropped
+    assert grid.neighborhood_mean(outcomes, (0,), (3,), TradeMatching.ALL) == 1.0
+
+
+def test_the_screen_works_with_the_permutation_test_and_rejects_a_bad_share(capsys, bot, data_dir):
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..4", "--screen", "0.5", "--permute", "2", "--jobs", "1")
+    assert code == 0 and "permutation test: the whole grid on 2 copies" in text
+    for share in ("0", "1", "1.5"):
+        with pytest.raises(SystemExit):
+            run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", "--screen", share)
