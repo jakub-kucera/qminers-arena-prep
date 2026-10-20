@@ -400,6 +400,16 @@ template against each. On P3 round 1 the trap and the near spoof barely cost it;
 ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `sized_mid` is immune
 (`IDEAS.md`, "Adversarial rivals").
 
+## The engine in Rust
+
+`rust/` is a Rust port of the whole engine and one bot, for benchmarking, not for use (`rust/README.md`).
+`uv run python -m experiments.rust_bench` builds it (needs `cargo`). It checks that it records exactly
+what our engine does in 15 configurations, then times both on the same bot (`bots/mm.py` and its
+twin `rust/src/bots/mm.rs`). On P3 round 1, one core, per day: about 150× faster (Kelp only 158 ms
+against 0.9 ms; all three products 208 ms against 1.5 ms). Kelp's 64-cell grid on three days under
+`all` and `worse` took 8.4 s in `arena.grid` against 88 ms. The gain only comes from strategies
+written in Rust: the template would need porting first.
+
 ## Stress
 
 `arena.stress` reruns a bot on perturbed copies of each day: each product's whole book, trades and

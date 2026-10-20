@@ -49,7 +49,7 @@ uv run python -m experiments.sim_regimes                          # the template
 uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls
 uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw
 uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
-uv run python -m experiments.rust_bench                           # one market maker in Python and in Rust (experiments/rust_mm, needs cargo): parity, then time per backtest
+uv run python -m experiments.rust_bench                           # the Rust engine (rust/, needs cargo) against ours: parity in 15 configurations, then speed
 ```
 
 - **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
@@ -137,6 +137,8 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **Overfitting:** each run's PnL is also kept per block of ticks (`block_pnl`, about `BLOCKS` = 16 over the days, never straddling one). `format_overfitting` prints the trial count, `cscv`'s PBO (Bailey et al., sampled to `MAX_SPLITS` halvings) and `deflated_sharpe` of the best cell's gain over the baseline (the bot with only `--set`), with `independent_trials` from the gains' average correlation. Both formulas were checked against the PDFs; `tests/test_grid.py` reproduces the DSR paper's worked example.
 
 **Bot comparison** (`arena/compare.py`): several bot files or `FILE@PATH=VALUE` variants against the first bot as baseline, one pool task per (bot, day, mode). Each bot becomes an `arena.grid.Outcome` under a one-value `Axis("bot")`, so the grid's held-out days, PBO, DSR, SPA, StepM and pick apply unchanged.
+
+**Rust port** (`rust/`, its own Cargo crate, kept apart from the Python code; `rust/README.md`): `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names, for benchmarking. Days are loaded by the Python format plug-ins and exported (`experiments/rust_bench.py`, `export_day`; format in `rust/src/dayfile.rs`). `rust/src/pyrandom.rs` reproduces Python's `random.Random` draw for draw, so seeded runs (fill ratio, arrival shuffle) match. Its one bot, `rust/src/bots/mm.rs`, has a Python twin, `bots/mm.py`. `tests/test_rust.py` (skipped without `cargo`) checks every recorded field against ours: **a change to the engine's rules goes into both**, as does a change to either `mm`. Nothing in `arena/` imports it.
 
 **Analysis** (`arena/analysis.py`):
 - **No pyplot:** charts are `Chart` objects, a `Figure` subclass with `_repr_png_`, so they display in notebooks and save from the CLI without pyplot. Each `Chart` keeps the rc params of the theme it was drawn in.
