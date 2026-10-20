@@ -115,6 +115,12 @@ Choices only the user can make, each with the options, the evidence and a recomm
     - (b) **A field of rivals in one market, in Rust.** Archetypes as parameterised Rust bots (a market maker at each edge is `mm.rs`; add a taker, the sniper and a spoofer). Then a payoff matrix of our settings against field mixes and sizes, or co-evolution of a population. Only matters if Arena teams share one market: unknown (`ON_THE_DAY.md`). The Resin result (edge 1 is the best reply to every rival edge) is the kind of answer it gives.
     - (c) **Score on a bank of simulated days.** Calibrated to the round's download, tuned on some, scored on hundreds of others; the selection-bias question goes away, the simulator's realism becomes the question. Needs `arena.sim` presets calibrated on the day, which is untested on new data.
     - (d) **Port the template's core to Rust** (fair modes, take / clear / make, skew, `make_size`, levels), with parity against `bots/template.py` itself. A prerequisite for using (b) or (c) on our real strategy. Several days; every later template change made twice.
+    - (e) **Port everything to Rust** (asked 2026-10-20): the template (857 lines), the 25 zoo bots (4,570), the rivals, `arena.sim`, and the grid and its statistics. Against it:
+      - The submitted bot must be Python, so every template change is made twice, and on the day that means twice inside a 5-hour round.
+      - A zoo bot rewritten by us is no longer a blind baseline, and some depend on jsonpickle.
+      - The grid's statistics take milliseconds, and the format plug-ins have to be Python for the day.
+      - Porting only the engine speeds the template up by at most 1.7×, because 58% of a template backtest is the template itself.
+      - The parts worth porting are (d) plus the three rivals in `bots/rivals/` (220 lines), with `arena.grid` calling the Rust binary.
   - Recommendation: (a) now, since it attacks the largest measured risk and needs no Rust. Keep (b) ready as a small Rust field of archetypes to run if the playground shows a shared market. Leave (c) and (d) unless (b) proves its worth.
   - Done when: the user has chosen, and each chosen option is its own `TODO.md` entry with a "done when".
 
