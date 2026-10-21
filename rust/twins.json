@@ -15,6 +15,10 @@
     "rust": "rust/src/arena/stats.rs",
     "sha256": "d61e4635033e29208a86379745a9dd34763afbf5b241672c12e01acf9fd3391d"
   },
+  "python/arena/stress.py": {
+    "rust": "rust/src/arena/stress.rs",
+    "sha256": "277e0d03a429abbbfb89bc12c2bef1c530166286290b58ea88973c60659e9c32"
+  },
   "python/bots/mm.py": {
     "kind": "mm",
     "rust": "rust/src/bots/mm.rs",

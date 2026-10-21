@@ -336,16 +336,10 @@ class _Runner:
         local_days: dict[Path, int] = {}
         local_specs: dict[tuple, int] = {}
 
-        def day_index(d: int, restricted: bool, permutation) -> tuple[int, int]:
-            key = (d, restricted, permutation)
-            if key not in self.exported:
-                stem = folder / f"day{len(self.exported)}"
-                if permutation is None:  # a Prosperity day goes as a reference to its CSVs (rust.write_day)
-                    path = rust.write_day(s.days[d], stem, self.subset if restricted else None)
-                else:
-                    day = stress.permute(only(s.days[d], self.subset) if restricted else s.days[d], *permutation)
-                    path = stem.with_suffix(".day")
-                    rust.export_day(day, path)
+        def day_index(d: int, restricted: bool) -> tuple[int, int]:
+            key = (d, restricted)
+            if key not in self.exported:  # a Prosperity day goes as a reference to its CSVs (rust.write_day)
+                path = rust.write_day(s.days[d], folder / f"day{len(self.exported)}", self.subset if restricted else None)
                 self.exported[key] = (path, len(s.days[d].ticks))
             path, ticks = self.exported[key]
             if path not in local_days:
@@ -363,11 +357,12 @@ class _Runner:
 
         batch = []
         for _key, values, d, mode, restricted, permutation in tasks:
-            day, ticks = day_index(d, restricted, permutation)
+            day, ticks = day_index(d, restricted)
             overrides = {**s.overrides, **dict(zip(self.targets, values))}
             bots = [[names[0], spec_index(("bot", repr(values)), lambda: rust.bot_spec(self.bot, overrides))]]
             bots += [[names[k + 1], spec_index(("rival", k), lambda path=path: rust.bot_spec(path, {}, s.requote))] for k, path in enumerate(s.rivals)]
-            batch.append({"day": day, "config": rust.config_json(replace(s.config, trade_matching=mode)), "bots": bots,
+            transform = None if permutation is None else "permuted:{}:{}".format(*permutation)  # Rust makes the copy (rust/src/arena/stress.rs)
+            batch.append({"day": day, "transform": transform, "config": rust.config_json(replace(s.config, trade_matching=mode)), "bots": bots,
                           "blocks": blocks_per_day(len(s.days)), "fine": ticks // FINE_TICKS})
         results = rust.run_batch(paths, specs, batch, self.jobs, folder)
         fields = Piece.__dataclass_fields__

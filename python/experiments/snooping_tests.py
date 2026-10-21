@@ -161,13 +161,14 @@ def main() -> None:
 
         dsr_all = dsr(base_coarse, unique(range(len(cells))), coarse[best])
         dsr_top = dsr(base_coarse, unique(order[:9]), coarse[best])
-        spas = [grid.spa(distinct, q, args.boot) for q in QS]
+        stat = rust if args.engine == "rust" else grid  # the bootstraps in rust/src/arena/stats.rs, the same to the bit
+        spas = [stat.spa(distinct, q, args.boot) for q in QS]
         spa_text = "; ".join(f"{s['l']:.2f} / {s['c']:.2f} / {s['u']:.2f}" for s in spas)
-        steps = grid.stepm(distinct, QS[1], args.boot)
+        steps = stat.stepm(distinct, QS[1], args.boot)
         n, normal = len(distinct[0]), statistics.NormalDist()
-        pvalues = [1 - normal.cdf(n**0.5 * statistics.fmean(g) / w) for g, w in zip(distinct, grid._scales(distinct, QS[1]))]
+        pvalues = [1 - normal.cdf(n**0.5 * statistics.fmean(g) / w) for g, w in zip(distinct, (rust.scales if args.engine == "rust" else grid._scales)(distinct, QS[1]))]
         columns = unique(range(len(cells)))
-        pbo = f"{grid.cscv(columns).pbo:.0%}" if len(columns) > 1 else "-"
+        pbo = f"{stat.cscv(columns).pbo:.0%}" if len(columns) > 1 else "-"
         winners = ", ".join(next(cells[k][0] for k in range(len(cells)) if gains[k] == distinct[j]) for j in steps) or "none"
         print(f"| {name} | {len(cells)} ({len(distinct)} distinct) | {len(base_fine)} | {cells[best][0]} ({totals[best] - base_total:+,.0f}) "
               f"| {pbo} | {fmt(dsr_all)} | {fmt(dsr_top)} | {spa_text} | {len(steps)}: {winners} | {bhy(pvalues)} |")

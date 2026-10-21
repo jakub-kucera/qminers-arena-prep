@@ -472,21 +472,25 @@ def sim_day_file(spec, seed: int) -> Path:
     return _SIM_DAYS[key]
 
 
-def backtest(day: Day | Path, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, fields: tuple[str, ...] | None = None) -> list[DayResult]:
+def backtest(day: Day | Path, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, fields: tuple[str, ...] | None = None,
+             transform: str | None = None) -> list[DayResult]:
     """The (name, bot file, overrides, requote) participants in one market on one day (a Day, or a
     day file from day_file or sim_day_file), each one's DayResult; with `fields` only those are
     filled (e.g. ("pnl", "errors", "breaches")), which reads back much faster. A Day gives the
-    results its market trades."""
+    results its market trades (not with a `transform`, which has Rust perturb or permute the day
+    first, as arena.stress does)."""
     path = day if isinstance(day, Path) else day_file(day)
     folder = _scratch()
     dump = folder / "dump.jsonl"
     args = [str(BINARY), "run", str(path), *_engine_args(config), *_bot_args(bots, folder), "--dump", str(dump)]
     if fields is not None:
         args += ["--fields", ",".join(fields)]
+    if transform is not None:  # rust/src/arena/stress.rs: "trend_up", "vol2:0.5", "permuted:SEED:BLOCK"
+        args += ["--transform", transform]
     out = subprocess.run(args, stdout=subprocess.DEVNULL)
     if out.returncode != 0:
         raise RuntimeError(f"arena-rs run failed (exit {out.returncode}); its message is above")
-    results = read_results(dump.read_text(), None if isinstance(day, Path) else day)
+    results = read_results(dump.read_text(), None if isinstance(day, Path) or transform is not None else day)
     return [results[name] for name, *_ in bots]
 
 
@@ -591,3 +595,20 @@ def snooping(d: list[list[float]], q: float, boot: int, alpha: float | None = No
 
     found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed}})
     return found["spa"], found["stepm"]
+
+
+def spa(d: list[list[float]], q: float, boot: int, seed: int = 0) -> dict[str, float]:
+    """arena.stats.spa (its own studentization and resamples) in rust/src/arena/stats.rs."""
+    return _stats({"spa": {"d": d, "q": q, "boot": boot, "seed": seed}})
+
+
+def stepm(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 1) -> list[int]:
+    """arena.stats.stepm (its own studentization and resamples) in rust/src/arena/stats.rs."""
+    from arena import stats
+
+    return _stats({"stepm": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed}})
+
+
+def scales(d: list[list[float]], q: float) -> list[float]:
+    """arena.stats._scales in rust/src/arena/stats.rs."""
+    return _stats({"scales": {"d": d, "q": q}})

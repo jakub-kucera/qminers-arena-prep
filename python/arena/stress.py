@@ -191,23 +191,15 @@ def _run(task: tuple[int, str | None, float]) -> tuple[str, str | None, dict[str
     return w["days"][k].name, name, pnl, len(result.errors), {p: report.max_drawdown(series) for p, series in result.pnl.items()}
 
 
-def _export(task: tuple[int, str | None, float], path: Path) -> None:
-    k, name, size = task
-    day = _WORKER["days"][k]
-    rust.export_day(day if name is None else perturb(day, name, size), path)
-
-
 def _run_rust(args, s, tasks: list[tuple[int, str | None, float]]) -> list[tuple]:
-    """_run for every task, as one `arena-rs batch`; the perturbed days are made and exported by a pool."""
+    """_run for every task, as one `arena-rs batch`: Rust makes each perturbed day itself (rust/src/arena/stress.rs)."""
     with tempfile.TemporaryDirectory() as folder:
         scratch = Path(folder)
-        paths = [scratch / f"day{k}.day" for k in range(len(tasks))]
-        with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.format, args.data, args.days, args.bot, s.overrides, s.rivals, s.config, s.requote)) as pool:
-            list(pool.map(_export, tasks, paths))
+        paths = [rust.write_day(day, scratch / f"day{k}") for k, day in enumerate(s.days)]
         bots = participants(args.bot, s.overrides, s.rivals, s.requote)
         specs = [rust.bot_spec(path, o, r) for _, path, o, r in bots]
-        batch = [{"day": k, "config": rust.config_json(s.config), "bots": [[n, j] for j, (n, *_) in enumerate(bots)], "blocks": 1, "fine": 1}
-                 for k in range(len(tasks))]
+        batch = [{"day": k, "transform": None if name is None else f"{name}:{size!r}", "config": rust.config_json(s.config),
+                  "bots": [[n, j] for j, (n, *_) in enumerate(bots)], "blocks": 1, "fine": 1} for k, name, size in tasks]
         found = rust.run_batch(paths, specs, batch, args.jobs or os.cpu_count() or 1, scratch)
     return [(s.days[k].name, name, r["products"], r["errors"], r["drawdowns"]) for (k, name, _), r in zip(tasks, found)]
 

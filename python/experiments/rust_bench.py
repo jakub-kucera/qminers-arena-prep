@@ -445,13 +445,19 @@ def stats_cases() -> list[tuple[str, str, dict]]:
         ("SPA and StepM, five planted gains", "snooping", {"d": planted, "q": 0.1, "boot": 1000}),
         ("SPA and StepM, 400 cells, seed 7, alpha 0.1", "snooping", {"d": noise(400, 60, 0.05), "q": 0.2, "boot": 300, "alpha": 0.1, "seed": 7}),
         ("SPA and StepM, whole numbers", "snooping", {"d": whole(20, 50), "q": 0.1, "boot": 200}),
+        ("SPA alone, seed 0, q 0.05", "spa", {"d": planted, "q": 0.05, "boot": 500}),
+        ("SPA alone, seed 3, no gain", "spa", {"d": noise(30, 120), "q": 0.2, "boot": 300, "seed": 3}),
+        ("StepM alone, seed 1 (its default)", "stepm", {"d": planted, "q": 0.1, "boot": 500}),
+        ("StepM alone, seed 5, alpha 0.2", "stepm", {"d": noise(60, 80, 0.05), "q": 0.1, "boot": 300, "alpha": 0.2, "seed": 5}),
+        ("Hansen's scales", "scales", {"d": noise(50, 200), "q": 0.1}),
     ]
 
 
 def _run_stats_case(label: str, name: str, arguments: dict) -> tuple[str, tuple, list[str]]:
     from arena import stats
 
-    ours, theirs = getattr(stats, name)(**arguments), getattr(rust, name)(**arguments)
+    python_name = "_scales" if name == "scales" else name
+    ours, theirs = getattr(stats, python_name)(**arguments), getattr(rust, name)(**arguments)
     found = [] if ours == theirs else [f"{name}: {ours} against {theirs}"]
     return label, (0, 0, 0, 0, 0.0), found
 
@@ -461,6 +467,61 @@ def stats_parity(jobs: int | None = None) -> list[tuple[str, tuple, list[str]]]:
     cases = stats_cases()
     with ProcessPoolExecutor(min(jobs or os.cpu_count() or 1, len(cases))) as pool:
         return list(pool.map(_run_stats_case, *zip(*cases)))
+
+
+def stress_transforms() -> list[tuple[str, str, float | tuple[int, int]]]:
+    """arena.stress's copies of a day, as (label, Rust's transform spec, Python's argument)."""
+    out = [(name, name, 1.0) for name in ("vol2", "trend_up", "trend_down", "shift_up", "shift_down", "spike_up", "spike_down", "no_wall")]
+    out += [("vol2 x0.5", "vol2:0.5", 0.5), ("trend_up x2.5", "trend_up:2.5", 2.5), ("shift_down x0.3", "shift_down:0.3", 0.3)]
+    out += [(f"permuted, seed {seed}, block {block}", f"permuted:{seed}:{block}", (seed, block)) for seed, block in ((0, 1), (7, 1), (3, 100), (11, 1000))]
+    return out
+
+
+def _run_stress_case(label: str, day: Day, path: Path, spec: str, arg, scratch: Path) -> tuple[str, tuple, list[str]]:
+    from arena import stress
+
+    ours = stress.permute(day, *arg) if spec.startswith("permuted") else stress.perturb(day, spec.split(":")[0], arg)
+    folder = scratch / f"stress_{abs(hash((label, spec)))}"
+    folder.mkdir(exist_ok=True)
+    run = subprocess.run([str(BINARY), "day", str(path), "--transform", spec, "--out", str(folder)], capture_output=True, text=True)
+    if run.returncode != 0:
+        return label, (0, 0, 0, 0, 0.0), [f"arena-rs failed: {run.stderr.strip()}"]
+    theirs = rust.read_day(folder / f"{ours.name.replace('/', '_')}.day")
+    found = []
+    if (ours.name, ours.products, len(ours.ticks)) != (theirs.name, theirs.products, len(theirs.ticks)):
+        found.append(f"day {ours.name} {ours.products} {len(ours.ticks)} against {theirs.name} {theirs.products} {len(theirs.ticks)}")
+    for k, (a, b) in enumerate(zip(ours.ticks, theirs.ticks)):
+        if found:
+            break
+        if a.timestamp != b.timestamp or a.books != b.books or list(a.books) != list(b.books):
+            found.append(f"tick {k} books or timestamp")
+        elif {p: v for p, v in a.trades.items() if v} != {p: v for p, v in b.trades.items() if v}:
+            found.append(f"tick {k} trades {a.trades} against {b.trades}")
+        elif a.marks != b.marks:
+            found.append(f"tick {k} marks {a.marks} against {b.marks}")
+    return label, (0, 0, 0, 0, 0.0), found
+
+
+def stress_parity(scratch: Path, days: list[tuple[str, Day]], jobs: int | None = None) -> list[tuple[str, tuple, list[str]]]:
+    """Every stress_transforms copy of each day, made by Python and by Rust (`arena-rs day --transform`)."""
+    cases = []
+    for name, day in days:
+        path = rust.write_day(day, scratch / f"stress_{name.replace(' ', '_')}")
+        cases += [(f"{name}: {label}", day, path, spec, arg, scratch) for label, spec, arg in stress_transforms()]
+    with ProcessPoolExecutor(min(jobs or os.cpu_count() or 1, len(cases))) as pool:
+        return list(pool.map(_run_stress_case, *zip(*cases)))
+
+
+def stress_days(scratch: Path, ticks: int | None = None, real: bool = True) -> list[tuple[str, Day]]:
+    """The days the transforms are checked on: an arena.sim day, a drill day (ALPHA's tick is 5 cents),
+    and P3 round 1 day 0 and P4 round 3 day 0 (many products) whole if `real`."""
+    from arena import sim
+
+    days = [("a simulated day", sim.run(sim.preset_market(ticks=ticks or 10_000), 5).day), ("a drill day", drill_days(scratch, ticks or 2000)[0])]
+    if real:
+        for data, r, d in (("p3", 1, 0), ("p4", 3, 0)):
+            days.append((f"{data.upper()} r{r}d{d}", prosperity.load_day(prosperity.resolve_data_dir(data), r, d)))
+    return days
 
 
 def sim_parity(ticks: int = 2000, jobs: int | None = None, cases=None) -> list[tuple[str, tuple, list[str]]]:
@@ -633,6 +694,10 @@ def main() -> None:
         for day in drill_days(scratch):
             for label, counts, found in parity(day, scratch, drill_cases()):
                 same &= _report(f"{day.name}: {label}", counts, found, 80)
+        print("   python/arena/stress.py against rust/src/arena/stress.rs, each perturbation and permutation of four days:")
+        for label, counts, found in stress_parity(scratch, stress_days(scratch), args.jobs):
+            print(f"   {label:<58} " + ("identical" if not found else f"! {found[0]}"))
+            same &= not found
         print("   python/arena/stats.py against rust/src/arena/stats.rs:")
         for label, counts, found in stats_parity(args.jobs):
             print(f"   {label:<58} " + ("identical" if not found else f"! {found[0]}"))

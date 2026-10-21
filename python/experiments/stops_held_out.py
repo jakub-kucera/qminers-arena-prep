@@ -63,17 +63,19 @@ def load(ref) -> object:
 def run(task):
     """(day ref, perturbation or None, stops on?) -> {product: (PnL, drawdown)}."""
     ref, perturbation, stops_on = task
-    if ref[0] == "sim" and not perturbation and ENGINE[0] == "rust":
-        day, products = rust.sim_day_file(sim.preset_market(), ref[1]), [p.name for p in sim.preset_market().products]
-    elif not perturbation and ENGINE[0] == "rust":  # Rust reads the CSVs itself; turning off a stop of a product the day lacks changes nothing
-        day, products = rust.prosperity_day(*ref), list(stops())
+    if ENGINE[0] == "rust":  # Rust reads (or simulates) the day and perturbs it itself: nothing is loaded here
+        if ref[0] == "sim":
+            day, products = rust.sim_day_file(sim.preset_market(), ref[1]), [p.name for p in sim.preset_market().products]
+        else:  # turning off the stop of a product the day lacks changes nothing
+            day, products = rust.prosperity_day(*ref), list(stops())
+        overrides = {} if stops_on else {f"PARAMS.{p}.stop_loss": None for p in stops() if p in products}
+        (result,) = rust.backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(), ("pnl",), perturbation)
     else:
         day = load(ref)
         if perturbation:
             day = perturb(day, perturbation)
-        products = day.products
-    overrides = {} if stops_on else {f"PARAMS.{p}.stop_loss": None for p in stops() if p in products}
-    (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(), ENGINE[0], fields=("pnl",))
+        overrides = {} if stops_on else {f"PARAMS.{p}.stop_loss": None for p in stops() if p in day.products}
+        (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(), ENGINE[0], fields=("pnl",))
     return task, {p: (s[-1] if s else 0.0, report.max_drawdown(s)) for p, s in result.pnl.items()}
 
 

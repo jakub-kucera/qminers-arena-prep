@@ -83,11 +83,16 @@ pub fn matching(text: &str) -> TradeMatching {
     }
 }
 
+/// The days given, each transformed if --transform asks (arena/stress.rs `transform`: a perturbation, or permuted:SEED:BLOCK).
 pub fn load_days(args: &Args) -> Vec<Day> {
     if args.days.is_empty() {
         fail("no day files given");
     }
-    load_all(&args.days)
+    let days = load_all(&args.days);
+    match args.get("--transform") {
+        Some(spec) => days.iter().map(|d| arena_rs::arena::stress::transform(d, spec).unwrap_or_else(|e| fail(&e))).collect(),
+        None => days,
+    }
 }
 
 /// Day files and references, read on a thread each.

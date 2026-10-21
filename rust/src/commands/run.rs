@@ -1,4 +1,5 @@
-//! `arena-rs run`: the bots in one market on each day (python/arena/rust.py `run_days`, `backtest`).
+//! `arena-rs run`: the bots in one market on each day, each made first by --transform if given
+//! (arena/stress.rs: a perturbation, or permuted:SEED:BLOCK) (python/arena/rust.py `run_days`, `backtest`).
 
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};

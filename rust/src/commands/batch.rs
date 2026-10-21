@@ -1,4 +1,6 @@
-//! `arena-rs batch`: arena.grid's, compare's and stress's backtests on N threads (python/arena/rust.py `run_batch`).
+//! `arena-rs batch`: arena.grid's, compare's and stress's backtests on N threads (python/arena/rust.py
+//! `run_batch`). A task's "transform" (arena/stress.rs) makes its day a perturbed or permuted copy,
+//! each distinct one made once.
 
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -26,6 +28,7 @@ pub fn block_pnl(series: &[f64], blocks: usize) -> Vec<f64> {
 
 pub struct Task {
     day: usize,
+    transform: Option<String>, // arena/stress.rs `transform` of the day, made once per batch
     config: EngineConfig,
     bots: Vec<(String, usize)>, // participant name, index into the batch's specs
     blocks: usize,
@@ -104,12 +107,12 @@ pub fn batch_command(args: &Args) {
     let batch = json::parse(&text).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
     let list = |key: &str| batch.get(key).and_then(Value::as_list).unwrap_or_else(|| fail(&format!("{path}: {key} must be a list")));
     let paths: Vec<String> = list("days").iter().map(|d| d.as_str().unwrap_or_else(|| fail("days are paths")).to_string()).collect();
-    let days = load_all(&paths);
+    let mut days = load_all(&paths);
     let specs: Vec<Spec> = list("bots").iter().map(|b| Spec::read(b).unwrap_or_else(|e| fail(&e))).collect();
     for spec in &specs {
         spec.build().unwrap_or_else(|e| fail(&e)); // refuse settings before running anything
     }
-    let tasks: Vec<Task> = list("tasks")
+    let mut tasks: Vec<Task> = list("tasks")
         .iter()
         .map(|t| {
             let int = |key: &str| t.get(key).and_then(Value::as_i64).unwrap_or_else(|| fail(&format!("a task needs an integer {key}"))) as usize;
@@ -123,10 +126,29 @@ pub fn batch_command(args: &Args) {
                     _ => fail("a task's bots are [name, spec index] pairs"),
                 })
                 .collect();
-            Task { day: int("day"), config: engine_config(t.get("config").unwrap_or(&Value::Null)).unwrap_or_else(|e| fail(&e)), bots, blocks: int("blocks"), fine: int("fine") }
+            let transform = t.get("transform").and_then(Value::as_str).map(str::to_string);
+            Task { day: int("day"), transform, config: engine_config(t.get("config").unwrap_or(&Value::Null)).unwrap_or_else(|e| fail(&e)), bots, blocks: int("blocks"), fine: int("fine") }
         })
         .collect();
 
+    // each distinct (day, transform) made once, on a thread each, and the tasks pointed at it
+    let mut made: Vec<(usize, String)> = Vec::new();
+    for task in tasks.iter_mut() {
+        if let Some(spec) = task.transform.take() {
+            let key = (task.day, spec);
+            let k = made.iter().position(|m| *m == key).unwrap_or_else(|| {
+                made.push(key);
+                made.len() - 1
+            });
+            task.day = days.len() + k;
+        }
+    }
+    let transformed: Vec<Day> = thread::scope(|scope| {
+        let days = &days;
+        let workers: Vec<_> = made.iter().map(|(d, spec)| scope.spawn(move || arena_rs::arena::stress::transform(&days[*d], spec))).collect();
+        workers.into_iter().map(|w| w.join().unwrap().unwrap_or_else(|e| fail(&e))).collect()
+    });
+    days.extend(transformed);
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
     let live = std::io::IsTerminal::is_terminal(&std::io::stderr());

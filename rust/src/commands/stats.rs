@@ -1,4 +1,5 @@
-//! `arena-rs stats`: the grid's statistics (python/arena/rust.py `cscv`, `mean_correlation`, `snooping`).
+//! `arena-rs stats`: the grid's statistics (python/arena/rust.py `cscv`, `mean_correlation`, `snooping`, and
+//! `spa`, `stepm`, `scales` on their own, as experiments/snooping_tests.py calls them).
 
 use super::*;
 use std::fs;
@@ -47,8 +48,38 @@ pub fn stats_command(args: &Args) {
             json::float(&mut out, p[k]);
         }
         let _ = write!(out, "}}, \"stepm\": [{}]}}", winners.iter().map(|k| k.to_string()).collect::<Vec<_>>().join(", "));
+    } else if let Some(v) = input.get("spa") {
+        // spa(d, q, boot, seed): its own studentization and resamples
+        let d = matrix(v.get("d"), "d");
+        let q = float(v, "q");
+        let p = stats::spa(&d, &stats::scales(&d, q), &stats::bootstrap_means(&d, q, int(v, "boot") as usize, int(v, "seed")));
+        out.push('{');
+        for (k, name) in ["l", "c", "u"].iter().enumerate() {
+            if k > 0 {
+                out.push_str(", ");
+            }
+            let _ = write!(out, "\"{name}\": ");
+            json::float(&mut out, p[k]);
+        }
+        out.push('}');
+    } else if let Some(v) = input.get("stepm") {
+        // stepm(d, q, boot, alpha, seed): its own studentization and resamples
+        let d = matrix(v.get("d"), "d");
+        let q = float(v, "q");
+        let winners = stats::stepm(&d, &stats::scales(&d, q), &stats::bootstrap_means(&d, q, int(v, "boot") as usize, int(v, "seed")), float(v, "alpha"));
+        let _ = write!(out, "[{}]", winners.iter().map(|k| k.to_string()).collect::<Vec<_>>().join(", "));
+    } else if let Some(v) = input.get("scales") {
+        let scales = stats::scales(&matrix(v.get("d"), "d"), float(v, "q"));
+        out.push('[');
+        for (k, w) in scales.iter().enumerate() {
+            if k > 0 {
+                out.push_str(", ");
+            }
+            json::float(&mut out, *w);
+        }
+        out.push(']');
     } else {
-        fail("stats: give cscv, correlation or snooping");
+        fail("stats: give cscv, correlation, snooping, spa, stepm or scales");
     }
     println!("{out}");
 }

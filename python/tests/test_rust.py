@@ -352,3 +352,12 @@ def test_a_day_cut_to_some_products_but_not_its_limits_exports(tmp_path):
                                                           marks={p: v for p, v in t.marks.items() if p == "KELP"}) for t in day.ticks])
     bots = [("you", rust.ROOT / "python/bots/template.py", {}, False)]
     assert [r.pnl for r in rust.backtest(cut, bots, EngineConfig())] == [r.pnl for r in cli.backtest(cut, bots, EngineConfig())]
+
+
+@needs_cargo
+def test_the_stress_copies_are_the_same_in_rust(bench, tmp_path):
+    """python/arena/stress.py's perturbations (each, at several sizes) and permute (seeds, block
+    lengths) against rust/src/arena/stress.rs, on a simulated day and a drill day (ALPHA's tick is 5)."""
+    results = bench.stress_parity(tmp_path, bench.stress_days(tmp_path, ticks=1500, real=False))
+    assert {label: found for label, _, found in results} == {label: [] for label, *_ in results}
+    assert len(results) == 2 * len(bench.stress_transforms())

@@ -6,3 +6,4 @@ pub mod formats;
 pub mod model;
 pub mod sim;
 pub mod stats;
+pub mod stress;
