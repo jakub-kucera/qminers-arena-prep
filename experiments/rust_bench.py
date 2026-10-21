@@ -158,6 +158,46 @@ def rival_cases() -> list[tuple[str, EngineConfig, list]]:
     return cases
 
 
+DRILL = ROOT / "bots" / "drill" / "template.py"
+
+
+def drill_days(scratch: Path, ticks: int = 2000) -> list[Day]:
+    """Drill-format days as experiments/format_drill.py makes them: arena.sim's P3 round 1 presets
+    (Kelp, Resin and Squid Ink become ALPHA, BETA and GAMMA, on ticks of 0.05, 0.01 and 0.25),
+    converted, then loaded by the drill plug-in (prices in cents, Day.info's ticks)."""
+    from arena import sim
+    from arena.formats import drill
+
+    spec = sim.preset_market(ticks=ticks)
+    for k, seed in enumerate((1000, 1001)):
+        sim.write_day(sim.run(spec, seed), scratch / "prosperity", 1, k)
+    drill.convert(scratch / "prosperity", 1, scratch / "drill")
+    return drill.load_days(scratch / "drill", ["all"])
+
+
+def drill_cases() -> list[tuple[str, EngineConfig, list]]:
+    """bots/drill/template.py: as committed in every queue model and mode (the format rests; per
+    tick too), against a copy, and each part of STRATEGY in VARIANTS on its products (in ticks, the
+    same numbers as on the Prosperity day they were converted from)."""
+    rename = {"KELP": "ALPHA", "RAINFOREST_RESIN": "BETA", "SQUID_INK": "GAMMA"}
+
+    def drilled(overrides: dict) -> dict:
+        text = json.dumps(overrides)
+        for old, new in rename.items():
+            text = text.replace(old, new)
+        return {k: tuple(v) if isinstance(v, list) else v for k, v in json.loads(text).items()}
+
+    me = lambda o: ("you", DRILL, o, False)
+    resting = EngineConfig(resting=True)
+    cases = [("as committed, resting, back", resting, [me({})]),
+             ("as committed, resting, prob, worse", EngineConfig(resting=True, queue=QueueModel.PROB, trade_matching=WORSE), [me({})]),
+             ("as committed, resting, front, fill ratio 0.7", EngineConfig(resting=True, queue=QueueModel.FRONT, fill_ratio=0.7, seed=8), [me({})]),
+             ("as committed, per tick", EngineConfig(), [me({})]),
+             ("against a copy at make_edge 0, resting", resting, [me({}), ("copy", DRILL, {"PARAMS.ALPHA.make_edge": 0}, False)])]
+    cases += [(f"{label}, resting", resting, [me(drilled(o))]) for label, o in VARIANTS if label != "as committed"]
+    return cases
+
+
 def zoo_twins() -> list[Path]:
     """The zoo bots with a Rust twin."""
     return [ROOT / path for path in rust.twins() if path.startswith("bots/zoo/")]
@@ -206,7 +246,9 @@ def zoo_cases(paths: list[Path] | None = None) -> list[tuple[str, EngineConfig, 
 
 
 def _python_bot(path: Path, overrides: dict, requote: bool):
-    bot = prosperity.load_bot(path, overrides, strict=True)
+    from arena.formats import FORMATS
+
+    bot = FORMATS[rust.format_of(path)].load_bot(path, overrides, strict=True)
     return Requote(bot) if requote else bot
 
 
@@ -373,6 +415,7 @@ def sim_cases(ticks: int = 2000) -> list[tuple]:
         ("the rivals against the template, resting", p3, 9, [template, *[(n, path, {}, False) for n, path in RIVALS.items()]], resting),
         ("the template and every zoo twin, per tick", p3, 10, [template, *zoo], EngineConfig()),
         ("the template and every zoo twin requoted, resting", p3, 10, [template, *[(n, path, o, True) for n, path, o, _ in zoo]], resting),
+        ("the drill template in the market (prices in its unit)", p3, 11, [("drill", DRILL, {"PARAMS.KELP": {"fair": "wall_mid", "make_edge": 1}}, False)], resting),
     ]
 
 
@@ -586,6 +629,10 @@ def main() -> None:
         print("   ... and the template on real days, whole:")
         for label, counts, found in real_parity(scratch):
             same &= _report(label, counts, found, 80)
+        print("   bots/drill/template.py against rust/src/bots/template.rs's drill ADAPTER, on two drill-format days (2,000 ticks):")
+        for day in drill_days(scratch):
+            for label, counts, found in parity(day, scratch, drill_cases()):
+                same &= _report(f"{day.name}: {label}", counts, found, 80)
         print("   arena/stats.py against rust/src/stats.rs:")
         for label, counts, found in stats_parity(args.jobs):
             print(f"   {label:<58} " + ("identical" if not found else f"! {found[0]}"))

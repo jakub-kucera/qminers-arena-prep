@@ -7,7 +7,7 @@ rust/ ports arena/engine.py and some bots, each with its Python twin listed in r
   bot_spec      a twin bot for Rust: its kind, and its Python file's globals after any --set
                 overrides, so the Rust bot reads the same settings (the template's DEFAULTS and
                 PARAMS, a rival's constants)
-  prepare       --engine rust's checks: the Prosperity format, bots with a twin, a built binary
+  prepare       --engine rust's checks: bots with a twin for the format, a built binary
   run_days      `arena-rs run`: participants in one market on each day, on threads, back as Python
                 DayResults (arena.backtest --engine rust)
   run_batch     `arena-rs batch`: many backtests on every core, each returning what arena.grid's
@@ -72,6 +72,17 @@ def _kinds() -> dict[str, str]:
 
 
 @functools.lru_cache(maxsize=None)
+def _formats() -> dict[str, str]:
+    """Per kind: the format its Python twin is written for (default prosperity)."""
+    return {twin["kind"]: twin.get("format", "prosperity") for twin in twins().values() if "kind" in twin}
+
+
+def format_of(path: Path) -> str:
+    """The format plug-in a twinned bot file runs under."""
+    return _formats()[kind_of(path)]
+
+
+@functools.lru_cache(maxsize=None)
 def _reads_settings() -> dict[str, bool]:
     """Per kind: whether the Rust bot reads its settings from the Python file's globals (the zoo's don't)."""
     return {twin["kind"]: twin.get("settings", True) for twin in twins().values() if "kind" in twin}
@@ -121,7 +132,9 @@ def _jsonable(value) -> bool:
 
 @functools.lru_cache(maxsize=None)
 def _bot_file(path: Path) -> BotFile:
-    return BotFile(path, {"datamodel": prosperity.dm}, strict=False)
+    from arena.formats import drill_exchange
+
+    return BotFile(path, {"datamodel": prosperity.dm, "exchange": drill_exchange}, strict=False)
 
 
 def bot_globals(path: Path, overrides: dict[str, object]) -> dict:
@@ -159,7 +172,8 @@ def _name(text: str) -> str:
 
 def export_day(day: Day, path: Path) -> None:
     """Writes the day in rust/src/dayfile.rs's format: products sorted by name plus the day's own
-    order, trader names by first appearance, each tick's books in its dict order."""
+    order and its limits' order, a format's tick sizes and price unit (Day.info), trader names by
+    first appearance, each tick's books in its dict order."""
     products = sorted(day.products)
     index = {p: k for k, p in enumerate(products)}
     names = {"": 0}
@@ -168,8 +182,11 @@ def export_day(day: Day, path: Path) -> None:
             for t in trades:
                 names.setdefault(_name(t.buyer), len(names))
                 names.setdefault(_name(t.seller), len(names))
-    lines = ["arena-day 2", f"name {day.name}", f"products {len(products)}", *(f"{p} {day.limits[p]}" for p in products),
-             "order" + "".join(f" {index[p]}" for p in day.products), f"names {len(names)}", *names, f"ticks {len(day.ticks)}"]
+    info = [(p, meta) for p, meta in day.info.items() if p in index and "tick" in meta]
+    lines = ["arena-day 3", f"name {day.name}", f"products {len(products)}", *(f"{p} {day.limits[p]}" for p in products),
+             "order" + "".join(f" {index[p]}" for p in day.products), "limits" + "".join(f" {index[p]}" for p in day.limits),
+             f"info {len(info)}", *(f"{index[p]} {float(meta['tick'])!r} {float(meta.get('unit', 0.01))!r}" for p, meta in info),
+             f"names {len(names)}", *names, f"ticks {len(day.ticks)}"]
     side = lambda levels: f"{len(levels)}" + "".join(f" {_whole(price)} {volume}" for price, volume in levels)
     for tick in day.ticks:
         trades = [t for p in tick.trades for t in tick.trades[p]]
@@ -184,14 +201,14 @@ def export_day(day: Day, path: Path) -> None:
 
 
 def prepare(format_name: str, bots: list[Path]) -> None:
-    """--engine rust: the Prosperity format, bots with a Rust twin that has been checked against
-    them since they last changed (a warning if not), and a built binary. ValueError if not."""
+    """--engine rust: bots with a Rust twin written for the format (prosperity, or drill for
+    bots/drill/template.py) that has been checked against them since they last changed (a warning
+    if not), and a built binary. ValueError if not."""
     import sys
 
-    if format_name != "prosperity":
-        raise ValueError("--engine rust runs the Prosperity bots' Rust twins: use --format prosperity")
     for path in bots:
-        kind_of(path)
+        if format_of(path) != format_name:
+            raise ValueError(f"{path}'s Rust twin is for --format {format_of(path)}, not {format_name}")
     stale = stale_twins()
     if stale:
         print(f"! the Rust twins of {', '.join(stale)} weren't checked since that file changed: their results may differ "
@@ -273,7 +290,8 @@ def read_day(path: Path, with_books: bool = True) -> Day:
     order, each tick's trades grouped by product in the order they appear, marks as written (an int
     stays an int). Without `with_books` every tick's books are left empty (quicker, for read_results)."""
     lines = iter(Path(path).read_text().splitlines())
-    assert next(lines) == "arena-day 2", f"{path}: not an arena-day 2 file"
+    version = next(lines)
+    assert version in ("arena-day 2", "arena-day 3"), f"{path}: not an arena-day 3 file"
     name = next(lines).removeprefix("name ")
     sorted_products, limits = [], {}
     for _ in range(int(next(lines).split()[1])):
@@ -281,6 +299,12 @@ def read_day(path: Path, with_books: bool = True) -> Day:
         sorted_products.append(product)
         limits[product] = int(limit)
     order = [sorted_products[int(k)] for k in next(lines).split()[1:]]
+    limits_order, info = order, {}
+    if version == "arena-day 3":
+        limits_order = [sorted_products[int(k)] for k in next(lines).split()[1:]]
+        for _ in range(int(next(lines).split()[1])):
+            p, tick, unit = next(lines).split()
+            info[sorted_products[int(p)]] = {"tick": float(tick), "unit": float(unit)}
     names = [next(lines) for _ in range(int(next(lines).split()[1]))]
     ticks = []
     for _ in range(int(next(lines).split()[1])):
@@ -306,7 +330,7 @@ def read_day(path: Path, with_books: bool = True) -> Day:
             _, p, mark = next(lines).split()
             marks[sorted_products[int(p)]] = _number(mark)
         ticks.append(Tick(int(timestamp), books, dict(trades), marks))
-    return Day(name, order, {p: limits[p] for p in order}, ticks)
+    return Day(name, order, {p: limits[p] for p in limits_order}, ticks, info)
 
 
 SERIES = ("positions", "marks", "pnl", "best_bids", "best_asks", "wall_mids")  # per product, one value per tick

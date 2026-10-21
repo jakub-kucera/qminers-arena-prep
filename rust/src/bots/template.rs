@@ -3,6 +3,11 @@
 //! the two equal: tests/test_rust.py checks that both trade the same, and rust/twins.json holds the
 //! hash of the Python file the port was last checked against.
 //!
+//! bots/drill/template.py is the same STRATEGY and EXECUTION behind the drill format's ADAPTER
+//! (`Template::drill`): prices in each product's ticks, converted from and to the format's price
+//! units as its plug-in and ADAPTER do (arena/formats/drill.py), products in the exchange's order,
+//! trades without names, and each product's limit from the exchange.
+//!
 //! The settings come from the Python file itself: arena/rust.py loads it (with any --set overrides)
 //! and passes its DEFAULTS and PARAMS, so `params_for` here merges them as Python's does. Floats are
 //! computed in the same order as Python's, with the same libm calls (`x ** 2` is libm's `pow`, which
@@ -876,7 +881,30 @@ fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], out: &mut
 
 // ------------------------------------------------------------------------------ ADAPTER
 
+/// The drill format's ADAPTER (bots/drill/template.py): what it converts, per product of the day.
+#[derive(Default)]
+struct Drill {
+    tick: Vec<f64>,           // api.tick_size, from Day.info (the plug-in's default 0.01)
+    unit: Vec<f64>,           // the price unit the engine counts in (default 0.01)
+    books: Vec<Option<Book>>, // this tick's books in ticks (read_book), None when empty
+}
+
+impl Drill {
+    /// The api's price of a price in units (`_px`), in ticks (`to_ticks`).
+    fn ticks(&self, k: usize, units: Price) -> Price {
+        round(crate::py::round_to(units as f64 * self.unit[k], 10) / self.tick[k])
+    }
+
+    /// The price an order in ticks is sent at (`to_price`), in the engine's units (`_units`).
+    fn units(&self, k: usize, ticks: Price) -> Price {
+        let units = crate::py::round_to(ticks as f64 * self.tick[k], 10) / self.unit[k];
+        debug_assert!((units - units.round_ties_even()).abs() <= 1e-6, "a whole number of ticks is on the grid");
+        round(units)
+    }
+}
+
 pub struct Template {
+    drill: Option<Drill>,             // the drill format's ADAPTER, else Prosperity's
     settings: Vec<(String, P, bool)>, // PARAMS: product, its merged settings, and whether it depends on another (_depends)
     // Per product of the day, set by begin_day.
     params: Vec<Option<P>>,
@@ -891,6 +919,7 @@ pub struct Template {
     plan_order: Vec<usize>,
     resting: Vec<(i64, u64, Price, i64)>,
     us: Name,
+    symbols: Vec<usize>, // the day's products in its limits' order (the drill's api.symbols())
 }
 
 impl Template {
@@ -912,6 +941,7 @@ impl Template {
             settings.push((product.clone(), p, depends));
         }
         Ok(Template {
+            drill: None,
             settings,
             params: Vec::new(),
             depends: Vec::new(),
@@ -924,7 +954,69 @@ impl Template {
             plan_order: Vec::new(),
             resting: Vec::new(),
             us: Name::MAX,
+            symbols: Vec::new(),
         })
+    }
+}
+
+impl Template {
+    /// bots/drill/template.py: the same settings, behind the drill format's ADAPTER.
+    pub fn drill(globals: &Value) -> Result<Template, String> {
+        Ok(Template { drill: Some(Drill::default()), ..Template::from_globals(globals)? })
+    }
+
+    /// The drill ADAPTER's step: Bot.on_tick.
+    fn drill_step(&mut self, tick: &TickView, positions: &[i64], own_fills: &[Fill], market_trades: &[Vec<MarketTrade>], open_orders: &[OpenOrder], out: &mut Vec<Action>) {
+        let d = self.drill.as_mut().unwrap();
+        for (k, book) in tick.books.iter().enumerate() {
+            d.books[k] = book.as_ref().filter(|b| !b.bids.is_empty() || !b.asks.is_empty()).map(|b| {
+                let side = |levels: &[(Price, i64)]| levels.iter().map(|&(price, volume)| (d.ticks(k, price), volume)).collect();
+                Book { bids: side(&b.bids), asks: side(&b.asks) }
+            });
+        }
+        // read_trades: (buyer, seller, quantity) with no names; read_fills: our fills as (price in ticks, signed quantity)
+        for (k, list) in self.trades.iter_mut().enumerate() {
+            list.clear();
+            list.extend(market_trades[k].iter().map(|t| (0, 0, t.quantity)));
+            self.fills[k].clear();
+        }
+        for f in own_fills {
+            self.fills[f.product].push((d.ticks(f.product, f.price), f.quantity));
+        }
+        // api.symbols() that have a book, those that follow or hedge another last
+        self.order.clear();
+        self.order.extend(self.symbols.iter().copied().filter(|&k| d.books[k].is_some()));
+        let depends = &self.depends;
+        self.order.sort_by_key(|&k| depends[k]);
+        for plan in self.plans.iter_mut() {
+            *plan = None;
+        }
+        self.plan_order.clear();
+        for i in 0..self.order.len() {
+            let product = self.order[i];
+            let Some(p) = self.params[product].as_ref() else { continue };
+            let market = Market {
+                books: &d.books,
+                trades: &self.trades[product],
+                fills: &self.fills[product],
+                timestamp: tick.timestamp,
+                plans: &self.plans,
+                plan_order: &self.plan_order,
+                weights: &self.weights[product],
+            };
+            let plan = trade_product(product, d.books[product].as_ref().unwrap(), positions[product], p, &mut self.memory[product], &market);
+            // read_resting: api.orders(product), oldest first as the engine keeps them
+            let resting: Vec<(u64, Price, i64)> = open_orders.iter().filter(|o| o.product == product).map(|o| (o.id, d.ticks(product, o.price), o.quantity)).collect();
+            let start = out.len();
+            execute(product, &plan, &resting, out);
+            for action in &mut out[start..] {
+                if let Action::Order(order) = action {
+                    order.price = d.units(product, order.price);
+                }
+            }
+            self.plans[product] = Some(plan);
+            self.plan_order.push(product);
+        }
     }
 }
 
@@ -979,9 +1071,24 @@ impl Bot for Template {
         self.trades = vec![Vec::new(); n];
         self.fills = vec![Vec::new(); n];
         self.plans = (0..n).map(|_| None).collect();
+        if let Some(d) = self.drill.as_mut() {
+            // params_for: the limit comes from api.max_position
+            for (k, p) in self.params.iter_mut().enumerate() {
+                if let Some(p) = p {
+                    p.limit = day.limits[k];
+                }
+            }
+            d.tick = day.info.iter().map(|i| i.map_or(0.01, |(tick, _)| tick)).collect();
+            d.unit = day.info.iter().map(|i| i.map_or(0.01, |(_, unit)| unit)).collect();
+            d.books = vec![None; n];
+        }
+        self.symbols = day.limits_order.clone();
     }
 
     fn step(&mut self, tick: &TickView, positions: &[i64], own_fills: &[Fill], market_trades: &[Vec<MarketTrade>], open_orders: &[OpenOrder], out: &mut Vec<Action>) {
+        if self.drill.is_some() {
+            return self.drill_step(tick, positions, own_fills, market_trades, open_orders, out);
+        }
         // read_trades and read_fills: the other traders' trades, then our own fills with their counterparty.
         for (k, list) in self.trades.iter_mut().enumerate() {
             list.clear();

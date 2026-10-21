@@ -778,6 +778,8 @@ pub fn run(spec: &MarketSpec, seed: i64, bots: &mut [(String, &mut dyn Bot)], re
         products: by_name.iter().map(|&k| spec.products[k].name.clone()).collect(),
         limits: by_name.iter().map(|&k| spec.products[k].limit).collect(),
         order: sorted.clone(),
+        limits_order: sorted.clone(),
+        info: vec![None; n],
         ticks: Vec::new(),
         names: names.clone(),
     };

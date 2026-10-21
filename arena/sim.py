@@ -947,13 +947,11 @@ def _rust_days(args, spec: MarketSpec, overrides: dict) -> list[tuple[str, dict[
     from arena import rust
     from arena.cli import participant_names
 
-    if args.format != "prosperity":
-        raise ValueError(f"--engine rust runs the Prosperity format's twins, not --format {args.format}")
     names = participant_names(args.bot, args.rivals)
     bots = [(names[0], args.bot, overrides, False)] + [(name, path, {}, False) for name, path in zip(names[1:], args.rivals)]
     for _, path, o, _ in bots:
         rust.bot_spec(path, o)  # no twin, or --set on a zoo twin: refused before the build
-    rust.build()
+    rust.prepare(args.format, [args.bot, *args.rivals])
     config = EngineConfig(resting=args.resting, queue=args.queue, queue_power=args.queue_power)
     rows = rust.run_sim(spec, args.seed, args.days, bots, config, replay=True, read="results", threads=args.jobs)
     out = []

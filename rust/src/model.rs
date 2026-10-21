@@ -61,6 +61,8 @@ pub struct Day {
     pub products: Vec<String>,
     pub limits: Vec<i64>,
     pub order: Vec<usize>, // the products in the Python day's order (its `products` list)
+    pub limits_order: Vec<usize>, // the products in its `limits` dict's order (a drill bot's api.symbols())
+    pub info: Vec<Option<(f64, f64)>>, // per product, Day.info's (tick, unit), from a format with decimal prices
     pub ticks: Vec<Tick>,
     pub names: Vec<String>,
 }

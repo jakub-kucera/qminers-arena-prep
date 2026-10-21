@@ -266,3 +266,28 @@ def test_the_experiments_backtests_are_the_same_on_either_engine(bench):
     light = cli.backtest(day, bots, config, "rust", fields=("pnl", "errors"))
     assert [r.pnl for r in light] == [r.pnl for r in cli.backtest(day, bots, config)]
     assert light[0].orders == [] and light[0].fills == [] and light[0].positions["KELP"] == []
+
+
+@needs_cargo
+def test_the_drill_template_trades_the_same(bench, tmp_path):
+    """bots/drill/template.py against the Rust template's drill ADAPTER on drill-format days (prices
+    in cents, ticks of 0.05, 0.01 and 0.25): as committed in every queue model, per tick, against a
+    copy, and each part of STRATEGY."""
+    results = [case for day in bench.drill_days(tmp_path, 800) for case in bench.parity(day, tmp_path, bench.drill_cases())]
+    assert {label: found[:1] for label, _, found in results} == {label: [] for label, _, _ in results}
+    assert all(counts[0] > 0 for _, counts, _ in results)
+
+
+@needs_cargo
+def test_the_grid_prints_the_same_on_either_engine_in_the_drill_format(bench, tmp_path, capsys):
+    bench.drill_days(tmp_path, 600)
+    argv = ["bots/drill/template.py", "all", "--format", "drill", "--data", str(tmp_path / "drill"), "--grid", "PARAMS.ALPHA.make_edge=0,1,2",
+            "--modes", "all,worse", "--jobs", "2"]
+    assert _grid_output(capsys, [*argv, "--engine", "rust"]) == _grid_output(capsys, argv)
+
+
+def test_a_twin_runs_only_in_its_own_format():
+    with pytest.raises(ValueError, match="is for --format drill"):
+        rust.prepare("prosperity", [rust.ROOT / "bots/drill/template.py"])
+    with pytest.raises(ValueError, match="is for --format prosperity"):
+        rust.prepare("drill", [rust.ROOT / "bots/template.py"])

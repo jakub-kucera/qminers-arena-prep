@@ -29,6 +29,7 @@ against. `tests/test_rust.py` fails when a Python twin changes until the Rust si
 | `arena/stats.py` | `src/stats.rs` | the grid's statistics whose cost grows with the cells: `cscv` (PBO; every halving, or 4,000 sampled with `random.sample`), `mean_correlation` (the DSR's independent trials), and `snooping` (Hansen's `omega2` and stationary bootstrap, SPA, StepM). `expected_max_sharpe`, `deflated_sharpe` and `standardized` stay Python only, being cheap | 12 cases (`stats_parity`): every halving and sampled ones, ties in the ranks, a constant cell, one cell; correlated and independent cells; no gain, planted gains, 400 cells, whole numbers; and `arena.grid` prints the same on either engine |
 | `bots/mm.py` | `src/bots/mm.rs` | a plain wall-mid market maker, the benchmark's bot | 15 engine configurations (`CONFIGS`) |
 | `bots/template.py` | `src/bots/template.rs` | STRATEGY and EXECUTION function for function, and ADAPTER as the Prosperity plug-in presents a tick to it; the settings come from the Python file's own DEFAULTS and PARAMS | 18 variants, one per part of STRATEGY, alone and in a resting market with a rival; the committed settings in 6 more configurations; 10 real days (P2, P3, P4) under two configurations |
+| `bots/drill/template.py` | `src/bots/template.rs` (`Template::drill`) | the same STRATEGY and EXECUTION behind the drill format's ADAPTER (`drill_step`): prices converted from the format's units to each product's ticks and back as `arena/formats/drill.py` and the ADAPTER do, products in the exchange's order, trades without names, the limit from the exchange. Its days carry `Day.info`'s ticks and unit in the day file | on two drill-format days (`format_drill`'s, prices in cents on ticks of 0.05, 0.01 and 0.25): as committed in each queue model, per tick, against a copy, and the 17 variants of STRATEGY (44 cases); inside `arena.sim`'s market, where it sees prices in its unit |
 | `bots/rivals/sniper.py`, `bots/rivals/spoofer.py`, `bots/rivals/trapper.py` | `src/bots/rivals.rs` | the adversarial `--vs` rivals | 13 cases: against the template and `mm`, resting and per tick, with their constants changed by `--set`, all three at once |
 | the 32 zoo bots, below | `src/bots/zoo/` | translated line by line, never edited on either side; they don't read settings from the file, so `--set` on one is refused | each alone (all, worse, a fill ratio, resting as written, resting requoted) and all of them with the template in one market, per tick and resting, on a simulated day, the same day trending hard up and down, a day with products their prompt never named (where most raise, or trade with limits they made up), and the first day of P2, P3 and P4 round 1: 1,134 cases |
 
@@ -90,7 +91,7 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 - `arena.analysis`, `arena.diagnose`, `arena.stress`'s perturbations, and `arena.report`'s CSVs (written from the results Rust hands back);
 - `experiments/p4_levels.py` (other teams' bots, which have no twins) and `format_drill.py` (three simulated days);
 - `arena.sim`'s specs, presets, `--spec` overrides and regimes, and its command line, which prints from the results Rust hands back;
-- `bots/drill/template.py`, `bots/probe.py`, the zoo's tooling (`bundle.py`, `local.py`), and `experiments/`.
+- `bots/probe.py`, the zoo's tooling (`bundle.py`, `local.py`), and `experiments/`.
 
 `arena/rust.py` is the bridge. It exports days, turns a twin's Python file into its Rust bot's settings (`bot_spec`, with any `--set` overrides), runs `arena-rs run`, `batch`, `sim` and `stats`, and reads what Rust writes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`), so the reports and CSVs work unchanged. A Rust bot has no step timings, so a report from Rust leaves out the "bot time per tick" line (and `experiments/zoo.py` its slowest-tick column).
 
@@ -103,7 +104,7 @@ Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.gr
 | File | What it is |
 |---|---|
 | `src/engine.rs` | the engine (above) |
-| `src/model.rs`, `src/dayfile.rs` | the types, and the exported day format |
+| `src/model.rs`, `src/dayfile.rs` | the types, and the exported day format (version 3: with the limits' order and `Day.info`'s ticks) |
 | `src/sim.rs` | arena.sim's market (above), and its Prosperity CSVs |
 | `src/bots/` | the twins; `mod.rs` builds one by its kind (`rust/twins.json`) from its Python file's globals; `zoo/` holds the zoo's |
 | `src/stats.rs` | the grid's statistics (above) |
@@ -116,8 +117,7 @@ Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.gr
 - **The engine.** Ported: every rule in `arena/engine.py`'s docstring, in the same order of operations. Not ported:
   - order tags (a format's own ids);
   - a bot's exceptions, prints and step timings;
-  - `begin_day`'s per-product info;
-  - fractional prices (the day file holds whole prices, as Prosperity's are);
+  - fractional prices (the day file holds whole prices, as Prosperity's are; a format with decimal prices loads them as whole units, as the drill's does);
   - CPython's own `lgamma`: `binomialvariate` calls the C library's. They differ by a few ulps, which could flip a fill-ratio draw only when its test lands that close to the bound.
 - **The template.** Ported: all of STRATEGY and EXECUTION. Not ported: `STRICT`, and the per-product try/except (a Rust bot can't raise). Settings that the Python would only fail on while running are refused when the bot is built, so its grid cell fails before it starts. That covers an unknown key, an unknown fair method, and a float where an integer is needed (`limit`, `target`, `make_size`, `cpd_block`).
 - **A bot's state across ticks.** The Python bots keep it in `traderData` as JSON. The Rust ones keep the same values in fields, which is equivalent because JSON gives every float back exactly.
@@ -131,7 +131,7 @@ Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.gr
 Python files without a Rust twin need nothing. `arena.grid --engine rust` refuses a bot without a twin, and warns when a twin's hash is stale.
 
 A new twin needs four things:
-- a Rust file under `src/bots/`;
+- a Rust file under `src/bots/` (a new format's template: another adapter in `src/bots/template.rs`, as `Template::drill`);
 - a kind in `src/bots/mod.rs`;
-- a row in `rust/twins.json` and in the table above;
+- a row in `rust/twins.json` (with `"format"` if it isn't Prosperity's) and in the table above;
 - cases in `experiments/rust_bench.py`, run by `tests/test_rust.py`.

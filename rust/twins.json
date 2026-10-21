@@ -5,7 +5,7 @@
   },
   "arena/sim.py": {
     "rust": "rust/src/sim.rs",
-    "sha256": "974e00ffb83ba5d2ec8d3edccafa3055e12a1f02561580114e4bd0cab0d6339e"
+    "sha256": "2dd4afbba11f8a101131d01b899e65ac696f5f973bb7467e0c4c38a1f502b7f8"
   },
   "arena/stats.py": {
     "rust": "rust/src/stats.rs",
@@ -35,6 +35,12 @@
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
     "sha256": "2ae2dace6b4d436c9339bf5e1ca8c61b466a575921ab32efc9d75264b5966fee"
+  },
+  "bots/drill/template.py": {
+    "kind": "drill_template",
+    "format": "drill",
+    "rust": "rust/src/bots/template.rs",
+    "sha256": "198d6e323d92f9946fa4543d94a84edbc7bb18c6c2c5d1c6321df921aa608539"
   },
   "bots/zoo/chatgpt/gpt-5-6-luna_baseline.py": {
     "kind": "zoo/chatgpt/gpt-5-6-luna_baseline",

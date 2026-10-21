@@ -16,6 +16,7 @@ pub fn build(kind: &str, globals: &Value) -> Result<Box<dyn Bot + Send>, String>
     Ok(match kind {
         "mm" => Box::new(mm::MarketMaker::from_globals(globals)?),
         "template" => Box::new(template::Template::from_globals(globals)?),
+        "drill_template" => Box::new(template::Template::drill(globals)?),
         "sniper" => Box::new(rivals::Sniper::from_globals(globals)?),
         "spoofer" => Box::new(rivals::Spoofer::from_globals(globals)?),
         "trapper" => Box::new(rivals::Trapper::from_globals(globals)?),
