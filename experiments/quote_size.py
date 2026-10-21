@@ -23,9 +23,8 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import rust
-from arena.cli import backtest
+from arena.cli import backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
-from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
 DATASETS = {  # name: (data, days, the products the template trades there)
@@ -63,7 +62,7 @@ def run(task: tuple[str, str, str, str]) -> tuple[tuple, dict]:
     dataset, mode, cap, rival = task
     data, days, products = DATASETS[dataset]
     out = {"pnl": defaultdict(float), "days": []}
-    for day in prosperity.load_days(prosperity.resolve_data_dir(data), days):
+    for day in backtest_days(data, days, ENGINE[0]):
         bots = [("template", TEMPLATE, _caps(products, CAPS[cap]), False)]
         if RIVALS[rival]:
             path, same_cap, _ = RIVALS[rival]

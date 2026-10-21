@@ -5,7 +5,7 @@
   },
   "arena/formats/prosperity.py": {
     "rust": "rust/src/prosperity.rs",
-    "sha256": "8324f3e54b992352f076b88908a80e38dd4013ff8443b0def2389ec58a693ddc"
+    "sha256": "117f16d8b9d0fd837016882fbc178d9991c4b6617a1dab594a5d73a15b7eba4f"
   },
   "arena/sim.py": {
     "rust": "rust/src/sim.rs",

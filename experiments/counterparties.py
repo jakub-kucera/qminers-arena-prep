@@ -127,8 +127,14 @@ def choose(moves_by_day: list[dict], half: dict[str, float], rule: str) -> dict[
 ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 
-def _init(datasets, engine="python"):
+_PRODUCTS: dict = {}  # --engine rust: {label: {day name: its products}}, from the main process
+
+
+def _init(datasets, engine="python", products=None):
     ENGINE[0] = engine
+    if products is not None:  # Rust reads each day's CSVs itself (_run): only the products are needed here
+        _PRODUCTS.update(products)
+        return
     for label in datasets:
         data, rnd = DATASETS[label]
         _DAYS[label] = {d.name: d for d in FMT.load_days(FMT.resolve_data_dir(data), [rnd])}
@@ -148,9 +154,13 @@ def _params(products, copy, mode):
 
 def _run(job):
     label, day_name, copy, mode = job
-    day = _DAYS[label][day_name]
+    if ENGINE[0] == "rust":
+        day, products = rust.named_day(DATASETS[label][0], day_name), _PRODUCTS[label][day_name]
+    else:
+        day = _DAYS[label][day_name]
+        products = day.products
     copy = {product: dict(names) for product, names in copy}
-    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": _params(day.products, copy, mode)}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"))
+    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": _params(products, copy, mode)}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"))
     return job, ({p: s[-1] for p, s in result.pnl.items() if s}, len(result.limit_breaches) + len(result.errors))
 
 
@@ -218,7 +228,8 @@ def main(argv):
                     jobs.append((label, n, (), mode))
                     jobs.append((label, n, _freeze(FIXED), mode))
             jobs += [(label, n, _freeze({"KELP": {"Olivia": 1}}), "default") for n in names]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(list(DATASETS), args.engine)) as pool:
+    products = {label: {name: day.products for name, day in days.items()} for label, days in _DAYS.items()} if args.engine == "rust" else None
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(list(DATASETS), args.engine, products)) as pool:
         out = dict(pool.map(_run, set(jobs)))
 
     for label, days in _DAYS.items():

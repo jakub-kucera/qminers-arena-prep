@@ -86,16 +86,26 @@ def jump_stats(day, product: str, jump_min: float) -> dict | None:
     }
 
 
-def _init(data, days, engine="python"):
+_PRODUCTS: dict = {}  # --engine rust: {day name: its products}, from the main process
+
+
+def _init(data, days, engine="python", products=None):
     ENGINE[0] = engine
+    if products is not None:  # Rust reads each day's CSVs itself (_run): only the products are needed here
+        _PRODUCTS.update(products, data=data)
+        return
     _DAYS.update({d.name: d for d in FMT.load_days(FMT.resolve_data_dir(data), days)})
 
 
 def _run(job):
     variant, jump, mode, day_name = job
-    day = _DAYS[day_name]
+    if ENGINE[0] == "rust":
+        day, products = rust.named_day(_PRODUCTS["data"], day_name), _PRODUCTS[day_name]
+    else:
+        day = _DAYS[day_name]
+        products = day.products
     base = {**PLAIN, "make_size": 0} if mode == "resting" else PLAIN
-    params = {p: {**base, **dict(jump)} for p in day.products}
+    params = {p: {**base, **dict(jump)} for p in products}
     (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": params}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return job, (pnl, len(result.limit_breaches) + len(result.errors))
@@ -138,7 +148,8 @@ def main(argv):
     runs = variants()
     jobs = [(label, jump, "default", n) for label, jump in runs for n in names]
     jobs += [(label, jump, mode, n) for label, jump in runs[:2] for mode in ("worse", "resting") for n in names]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.data, args.days, args.engine)) as pool:
+    products = {name: day.products for name, day in _DAYS.items()} if args.engine == "rust" else None
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.data, args.days, args.engine, products)) as pool:
         out = dict(pool.map(_run, jobs))
 
     def totals(label, jump, mode):

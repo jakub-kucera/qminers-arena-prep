@@ -40,7 +40,7 @@ import statistics
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import grid, report, rust
-from arena.cli import backtest
+from arena.cli import backtest, backtest_days
 from arena.engine import EngineConfig
 from arena.formats import prosperity
 
@@ -86,12 +86,12 @@ def run(task: tuple[str, int]) -> tuple[tuple[str, int], list[float], list[float
     overrides, config = base if cell < 0 else cells[cell][1:]
     key = (data, tuple(specs))
     if key not in _DAYS:
-        _DAYS[key] = prosperity.load_days(prosperity.resolve_data_dir(data), specs)
+        _DAYS[key] = backtest_days(data, specs, ENGINE[0])
     days = _DAYS[key]
     fine, coarse, total = [], [], 0.0
     for day in days:
         (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], config, ENGINE[0], fields=("pnl",))
-        series = report.total_pnl(result) or [0.0] * len(day.ticks)
+        series = report.total_pnl(result) or [0.0] * len(result.timestamps)
         fine += grid.block_pnl(series, len(series) // TICKS_PER_BLOCK)
         coarse += grid.block_pnl(series, grid.blocks_per_day(len(days)))
         total += series[-1]

@@ -134,6 +134,18 @@ def participants(bot: Path, overrides: dict[str, object], rivals: list[Path], re
     return [(names[0], bot, overrides, False)] + [(name, path, {}, requote) for name, path in zip(names[1:], rivals)]
 
 
+def backtest_days(data: str, specs: list[str], engine: str = "python") -> list:
+    """The Prosperity days the specs select, for backtests through `backtest` only: Python Days, or
+    with engine "rust" references to their CSVs that Rust reads itself (nothing loaded here)."""
+    from arena.formats import prosperity
+
+    if engine == "rust":
+        from arena import rust
+
+        return rust.prosperity_days(data, specs)
+    return prosperity.load_days(prosperity.resolve_data_dir(data), specs)
+
+
 def backtest(day: Day, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, engine: str = "python", strict: bool = False,
              fields: tuple[str, ...] | None = None) -> list[DayResult]:
     """The (name, bot file, overrides, requote) participants in one market on one day, in the

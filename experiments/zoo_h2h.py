@@ -20,7 +20,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust, sim
-from arena.cli import backtest
+from arena.cli import backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 from experiments.zoo import TEMPLATE, label, zoo_bots
@@ -63,7 +63,7 @@ def add(total: dict, part: dict) -> None:
 def run(task: tuple[str, str | None, str]) -> tuple[tuple[str, str | None, str], list[dict]]:
     """(variant, zoo bot or None for alone, mode) -> per-product stats for the template [and the bot]."""
     variant, rival, mode = task
-    days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
+    days = backtest_days("p3", ["1"], ENGINE[0])
     totals: list[dict] = [{}, {}] if rival else [{}]
     for day in days:
         bots = [("template", TEMPLATE, VARIANTS[variant], False)] + ([("rival", Path(rival), {}, False)] if rival else [])

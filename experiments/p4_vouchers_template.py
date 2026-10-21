@@ -40,13 +40,19 @@ ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 def _init(engine="python"):
     ENGINE[0] = engine
+    if engine == "rust":  # Rust reads each day's CSVs itself (_day): nothing to load here
+        return
     _DAYS.update({d.name: d for d in FMT.load_days(FMT.resolve_data_dir("p4"), DAYS)})
+
+
+def _day(name: str):
+    return rust.named_day("p4", name) if ENGINE[0] == "rust" else _DAYS[name]
 
 
 def _run(job):
     overrides, day_name = job
     bots = [("you", TEMPLATE, {"PARAMS.HYDROGEL_PACK.fair": "fixed", **dict(overrides)}, False)]
-    (result,) = backtest(_DAYS[day_name], bots, EngineConfig(), ENGINE[0], True, ("pnl",))
+    (result,) = backtest(_day(day_name), bots, EngineConfig(), ENGINE[0], True, ("pnl",))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return job, (pnl.get(UNDERLYING, 0.0), sum(v for p, v in pnl.items() if p.startswith("VEV_")))
 

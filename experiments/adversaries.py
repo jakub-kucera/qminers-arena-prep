@@ -19,9 +19,8 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import rust
-from arena.cli import backtest
+from arena.cli import backtest, backtest_days
 from arena.engine import EngineConfig
-from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
 VARIANTS = {
@@ -48,7 +47,7 @@ def _init(engine: str) -> None:
 
 def run(task: tuple[str, str]) -> tuple[tuple[str, str], dict]:
     variant, rival = task
-    days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
+    days = backtest_days("p3", ["1"], ENGINE[0])
     out = {"pnl": defaultdict(float), "rival": 0.0, "vol": 0, "markout": 0.0}
     for day in days:
         bots = [("template", TEMPLATE, VARIANTS[variant], False)]

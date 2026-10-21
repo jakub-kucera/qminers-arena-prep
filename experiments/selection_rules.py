@@ -61,10 +61,25 @@ DEFAULTS = BotFile(Path(TEMPLATE), {"datamodel": prosperity.dm}, {}, False).load
 RULES = ["base", "pnl", "nbhd", "min day", "worse", "both modes", "top-5 mean", "DSR gate", "SPA gate", "SPA+worse"]
 _DAYS: dict = {}
 ENGINE = ["python"]  # set in each worker by _init (--engine)
+_KEPT: dict = {}  # --engine rust: per study, the names of the training and test days days_for keeps
 
 
-def _init(engine: str) -> None:
+def _init(engine: str, kept: dict | None = None) -> None:
     ENGINE[0] = engine
+    _KEPT.update(kept or {})
+
+
+def kept(name: str) -> tuple[str, tuple[list[str], list[str]]]:
+    """The names of the days days_for keeps (it reads their books to drop repeats)."""
+    train, test = days_for(name)
+    return name, ([d.name for d in train], [d.name for d in test])
+
+
+def _rust_days(name: str) -> tuple[list, list]:
+    """days_for's days for Rust, which reads them from their CSVs (only the study's product): no Python load."""
+    data, product = STUDIES[name][0], STUDIES[name][3]
+    day = lambda n: rust.prosperity_day(data, *map(int, n.removeprefix("r").split("d")), [product])
+    return tuple([day(n) for n in names] for names in _KEPT[name])
 
 
 def only(day, product):
@@ -104,13 +119,13 @@ def run(task: tuple[str, int]) -> tuple[tuple[str, int], dict]:
     name, k = task
     product = STUDIES[name][3]
     overrides = {} if k < 0 else cells(name)[k]
-    train, test = days_for(name)
+    train, test = _rust_days(name) if ENGINE[0] == "rust" else days_for(name)
     out = {"train": {m: [] for m in MODES}, "test": {m: [] for m in MODES}, "fine": [], "coarse": []}
     for part, days in (("train", train), ("test", test)):
         for day in days:
             for mode in MODES:
                 (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(trade_matching=mode), ENGINE[0], fields=("pnl",))
-                series = result.pnl.get(product) or [0.0] * len(day.ticks)
+                series = result.pnl.get(product) or [0.0] * len(result.timestamps)
                 out[part][mode].append(series[-1])
                 if part == "train" and mode is TradeMatching.ALL:
                     out["fine"] += grid.block_pnl(series, len(series) // grid.FINE_TICKS)
@@ -190,7 +205,11 @@ def main() -> None:
     if args.engine == "rust":
         rust.build()
     tasks = [(name, k) for name in STUDIES for k in range(-1, len(cells(name)))]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
+    days = {}
+    if args.engine == "rust":  # each study's days loaded once, here, to find the repeats; the workers load nothing
+        with ProcessPoolExecutor(args.jobs) as pool:
+            days = dict(pool.map(kept, STUDIES))
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, days)) as pool:
         done = dict(pool.map(run, tasks, chunksize=1))
     for baseline in ("committed", "defaults"):
         totals = {rule: {m: 0.0 for m in MODES} for rule in RULES}

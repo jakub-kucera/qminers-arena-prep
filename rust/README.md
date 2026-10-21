@@ -97,7 +97,7 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 
 `arena/rust.py` is the bridge. It exports days, turns a twin's Python file into its Rust bot's settings (`bot_spec`, with any `--set` overrides), runs `arena-rs run`, `batch`, `sim` and `stats`, and reads what Rust writes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`), so the reports and CSVs work unchanged. A Rust bot has no step timings, so a report from Rust leaves out the "bot time per tick" line (and `experiments/zoo.py` its slowest-tick column).
 
-Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`, `arena.stress`, `arena.sim`, and the experiments, which go through `arena.cli.backtest` (one market on one day on either engine; `fields` limits what is read back, `arena.rust.sim_day_file` has Rust write a simulated day straight to a file).
+Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`, `arena.stress`, `arena.sim`, and the experiments, which go through `arena.cli.backtest` (one market on one day on either engine; `fields` limits what is read back, `arena.rust.sim_day_file` has Rust write a simulated day straight to a file, and `arena.rust.prosperity_day` a Prosperity day read from its CSVs, so a worker loads nothing in Python).
 
 **Only in Rust**: the day-file reader (`src/dayfile.rs`, for days `arena/rust.py` exports after the plug-ins have loaded them: simulated, perturbed, permuted and drill days), the thread pools of `arena-rs run`, `batch`, `sim` and `grid` (and the days loaded on a thread each), SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
 

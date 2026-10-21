@@ -118,8 +118,11 @@ def smile(coef: tuple[float, float, float], m: float) -> float:
     return a * m * m + b * m + c
 
 
+KEEP = [UNDERLYING, *(f"{PREFIX}{k}" for k in STRIKES)]  # the products the trading part keeps
+
+
 def _only_options(day):
-    keep = {UNDERLYING} | {f"{PREFIX}{k}" for k in STRIKES}
+    keep = set(KEEP)
     ticks = [replace(t, books={p: b for p, b in t.books.items() if p in keep}, trades={p: x for p, x in t.trades.items() if p in keep},
                      marks={p: x for p, x in t.marks.items() if p in keep}) for t in day.ticks]
     return replace(day, products=[p for p in day.products if p in keep], ticks=ticks)
@@ -157,9 +160,13 @@ def _init(engine: str) -> None:
 
 def backtest(job: tuple[str, str | None, str, tuple]) -> tuple[tuple, dict]:
     day_name, variant, mode, coef = job
-    (day,) = [d for d in load() if d.name == day_name]
+    if ENGINE[0] == "rust":  # Rust reads the day's CSVs itself, keeping the options: nothing to load here
+        r, d = day_name.removeprefix("r").split("d")
+        day = rust.prosperity_day("p3", int(r), int(d), KEEP)
+    else:
+        (day,) = [_only_options(d) for d in load() if d.name == day_name]
     bots = [("you", TEMPLATE, overrides(variant, coef, days_to_expiry(day_name)), False)]
-    (result,) = run_backtest(_only_options(day), bots, MODES[mode], ENGINE[0], fields=("pnl", "errors", "breaches"))
+    (result,) = run_backtest(day, bots, MODES[mode], ENGINE[0], fields=("pnl", "errors", "breaches"))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return (day_name, variant, mode), {"rock": pnl.get(UNDERLYING, 0.0), "options": sum(v for p, v in pnl.items() if p != UNDERLYING),
                                        "errors": len(result.errors), "breaches": len(result.limit_breaches)}

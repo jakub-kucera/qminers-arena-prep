@@ -186,7 +186,7 @@ def export_day(day: Day, path: Path) -> None:
                 names.setdefault(_name(t.seller), len(names))
     info = [(p, meta) for p, meta in day.info.items() if p in index and "tick" in meta]
     lines = ["arena-day 3", f"name {day.name}", f"products {len(products)}", *(f"{p} {day.limits[p]}" for p in products),
-             "order" + "".join(f" {index[p]}" for p in day.products), "limits" + "".join(f" {index[p]}" for p in day.limits),
+             "order" + "".join(f" {index[p]}" for p in day.products), "limits" + "".join(f" {index[p]}" for p in day.limits if p in index),
              f"info {len(info)}", *(f"{index[p]} {float(meta['tick'])!r} {float(meta.get('unit', 0.01))!r}" for p, meta in info),
              f"names {len(names)}", *names, f"ticks {len(day.ticks)}"]
     side = lambda levels: f"{len(levels)}" + "".join(f" {_whole(price)} {volume}" for price, volume in levels)
@@ -420,6 +420,40 @@ def _forget(key: int) -> None:
     path = _EXPORTED.pop(key, None)
     if path is not None:
         path.unlink(missing_ok=True)
+
+
+_REFERENCES: dict[tuple, Path] = {}
+
+
+def prosperity_day(data: str | Path, round_num: int, day_num: int, only: list[str] | None = None) -> Path:
+    """A Prosperity day for Rust that Rust reads from its CSVs itself, with nothing loaded in Python
+    (prosperity.reference_to), once per process, into a day file the later runs read: for a worker
+    that only backtests on it. `data` is
+    a folder or an alias (p2, p3, p4); the results' days are named as the plug-in names them, r{round}d{day}."""
+    key = (str(data), round_num, day_num, tuple(only) if only is not None else None)
+    if key not in _REFERENCES:
+        # Rust reads the CSVs once and writes the day file it reads several times faster (`arena-rs day`)
+        folder = _scratch() / f"ref{next(_COUNT)}"
+        folder.mkdir()
+        reference = folder / "day.json"
+        reference.write_text(json.dumps(prosperity.reference_to(prosperity.resolve_data_dir(str(data)), round_num, day_num, only)))
+        out = subprocess.run([str(BINARY), "day", str(reference), "--out", str(folder)], stdout=subprocess.DEVNULL)
+        if out.returncode != 0:
+            raise RuntimeError(f"arena-rs day failed (exit {out.returncode}); its message is above")
+        _REFERENCES[key] = folder / f"r{round_num}d{day_num}.day"
+    return _REFERENCES[key]
+
+
+def named_day(data: str | Path, name: str, only: list[str] | None = None) -> Path:
+    """prosperity_day for a day named as the plug-in names it (r{round}d{day}, e.g. r1d-2)."""
+    round_num, day_num = name.removeprefix("r").split("d")
+    return prosperity_day(data, int(round_num), int(day_num), only)
+
+
+def prosperity_days(data: str | Path, specs: list[str], only: list[str] | None = None) -> list[Path]:
+    """prosperity_day for each day the specs select (ROUND or ROUND-DAY, as load_days takes them)."""
+    directory = prosperity.resolve_data_dir(str(data))
+    return [prosperity_day(data, r, d, only) for r, d in prosperity.parse_day_specs(specs, directory)]
 
 
 def sim_day_file(spec, seed: int) -> Path:

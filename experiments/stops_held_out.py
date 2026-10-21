@@ -65,6 +65,8 @@ def run(task):
     ref, perturbation, stops_on = task
     if ref[0] == "sim" and not perturbation and ENGINE[0] == "rust":
         day, products = rust.sim_day_file(sim.preset_market(), ref[1]), [p.name for p in sim.preset_market().products]
+    elif not perturbation and ENGINE[0] == "rust":  # Rust reads the CSVs itself; turning off a stop of a product the day lacks changes nothing
+        day, products = rust.prosperity_day(*ref), list(stops())
     else:
         day = load(ref)
         if perturbation:

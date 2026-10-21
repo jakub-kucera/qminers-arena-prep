@@ -46,7 +46,13 @@ ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 def _init(engine="python"):
     ENGINE[0] = engine
+    if engine == "rust":  # Rust reads each day's CSVs itself (_day): nothing to load here
+        return
     _DAYS.update({d.name: d for d in FMT.load_days(FMT.resolve_data_dir("p4"), DAYS)})
+
+
+def _day(name: str):
+    return rust.named_day("p4", name) if ENGINE[0] == "rust" else _DAYS[name]
 
 
 def _run(job):
@@ -54,7 +60,7 @@ def _run(job):
     other = next(p for p in GRIDS if p != product)
     chosen = {f"PARAMS.{product}.{k}": v for k, v in CHOSEN[product].items()}
     full = {f"PARAMS.{other}.fair": "fixed", **chosen, **{f"PARAMS.{product}.{k}": v for k, v in overrides}}
-    (result,) = backtest(_DAYS[day_name], [("you", TEMPLATE, full, False)], EngineConfig(), ENGINE[0], True, ("pnl",))
+    (result,) = backtest(_day(day_name), [("you", TEMPLATE, full, False)], EngineConfig(), ENGINE[0], True, ("pnl",))
     return job, result.pnl[product][-1] if result.pnl.get(product) else 0.0
 
 

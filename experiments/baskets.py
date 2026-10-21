@@ -60,6 +60,8 @@ ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 def _init(engine="python"):
     ENGINE[0] = engine
+    if engine == "rust":  # the workers' Rust reads each day's CSVs itself (_run): nothing to load
+        return
     for name, d in DATASETS.items():
         _DAYS[name] = {day.name: day for day in FMT.load_days(FMT.resolve_data_dir(d["data"]), d["days"])}
 
@@ -106,7 +108,8 @@ def overrides(d, setting) -> dict:
 def _run(job):
     name, setting, day_name = job
     d = DATASETS[name]
-    (result,) = backtest(_DAYS[name][day_name], [("you", TEMPLATE, overrides(d, _thaw(setting)), False)], EngineConfig(), ENGINE[0], True, ("pnl", "errors", "breaches"))
+    day = rust.named_day(d["data"], day_name) if ENGINE[0] == "rust" else _DAYS[name][day_name]
+    (result,) = backtest(day, [("you", TEMPLATE, overrides(d, _thaw(setting)), False)], EngineConfig(), ENGINE[0], True, ("pnl", "errors", "breaches"))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     baskets = sum(pnl.get(b, 0.0) for b in d["baskets"])
     legs = sum(pnl.get(leg, 0.0) for leg in d["legs"])

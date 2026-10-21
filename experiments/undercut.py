@@ -22,9 +22,8 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import rust
-from arena.cli import backtest
+from arena.cli import backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
-from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
 DATASETS = {  # name: (data, days, the products the template trades there)
@@ -60,7 +59,7 @@ def run(task: tuple[str, str, str, str]) -> tuple[tuple, dict]:
     dataset, mode, ours, rival = task
     data, days, products = DATASETS[dataset]
     out = {p: {"pnl": 0.0, "rival": 0.0, "passive": 0, "rival passive": 0, "days": []} for p in products}
-    for day in prosperity.load_days(prosperity.resolve_data_dir(data), days):
+    for day in backtest_days(data, days, ENGINE[0]):
         bots = [("template", TEMPLATE, _overrides(products, OURS[ours]), False)]
         if RIVALS[rival] != "none":
             bots.append(("rival", TEMPLATE, _overrides(products, RIVALS[rival]), False))
@@ -112,7 +111,7 @@ def resin_war(pair: tuple[int, int | None]) -> tuple[tuple, tuple[float, float]]
     ours, rival = pair
     key = "PARAMS.RAINFOREST_RESIN.make_edge"
     totals = [0.0, 0.0]
-    for day in prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"]):
+    for day in backtest_days("p3", ["1"], ENGINE[0]):
         bots = [("template", TEMPLATE, {key: ours}, False)] + ([("rival", TEMPLATE, {key: rival}, False)] if rival is not None else [])
         for k, result in enumerate(backtest(day, bots, EngineConfig(resting=True), ENGINE[0], fields=("pnl",))):
             totals[k] += result.pnl["RAINFOREST_RESIN"][-1]

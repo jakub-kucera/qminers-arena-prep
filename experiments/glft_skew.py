@@ -28,7 +28,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import backtest as run_backtest
+from arena.cli import backtest as run_backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 
@@ -93,7 +93,7 @@ def backtest(job: tuple[str, float | None, str]) -> tuple[tuple, float]:
     product, skew, mode = job
     overrides = {} if skew is None else {f"PARAMS.{product}.skew": skew}
     pnl = 0.0
-    for day in _days(product):
+    for day in backtest_days(*PRODUCTS[product], ENGINE[0]):
         (result,) = run_backtest(day, [("you", TEMPLATE, overrides, False)], MODES[mode], ENGINE[0], fields=("pnl",))
         pnl += result.pnl[product][-1] if result.pnl.get(product) else 0.0
     return job, pnl

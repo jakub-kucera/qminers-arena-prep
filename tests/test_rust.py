@@ -331,3 +331,16 @@ def test_rust_reads_every_prosperity_day_as_the_plug_in_does(bench, tmp_path):
         for r, d in prosperity.list_days(directory)[::4]:
             day = prosperity.load_day(directory, r, d)
             assert _same_day(_rust_day(tmp_path, day), day), (data, r, d)
+
+
+@needs_cargo
+def test_a_day_cut_to_some_products_but_not_its_limits_exports(tmp_path):
+    """experiments/p3_smile.py keeps a day's options and drops the rest, leaving `limits` whole."""
+    from arena import cli
+    from arena.engine import EngineConfig
+
+    day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN"], ticks=300), 2).day
+    cut = replace(day, products=["KELP"], ticks=[replace(t, books={"KELP": t.books["KELP"]}, trades={p: v for p, v in t.trades.items() if p == "KELP"},
+                                                          marks={p: v for p, v in t.marks.items() if p == "KELP"}) for t in day.ticks])
+    bots = [("you", rust.ROOT / "bots/template.py", {}, False)]
+    assert [r.pnl for r in rust.backtest(cut, bots, EngineConfig())] == [r.pnl for r in cli.backtest(cut, bots, EngineConfig())]

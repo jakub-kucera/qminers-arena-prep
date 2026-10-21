@@ -20,7 +20,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust, sim
-from arena.cli import backtest
+from arena.cli import backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 
@@ -64,7 +64,7 @@ def total(result) -> float:
 
 
 def score(path: Path) -> dict:
-    days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
+    days = backtest_days("p3", ["1"], ENGINE[0])
     row = {"bot": label(path), "errors": 0, "breaches": 0, "slowest_ms": 0.0, "by_product": {}}
     for mode in (TradeMatching.ALL, TradeMatching.WORSE):
         pnl = 0.0
@@ -91,7 +91,7 @@ def score(path: Path) -> dict:
 
 
 def field(local: bool) -> dict[str, float]:
-    days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
+    days = backtest_days("p3", ["1"], ENGINE[0])
     paths = [TEMPLATE, *(p for p in zoo_bots() if local or not is_local(p))]
     totals = dict.fromkeys(map(label, paths), 0.0)
     for day in days:
