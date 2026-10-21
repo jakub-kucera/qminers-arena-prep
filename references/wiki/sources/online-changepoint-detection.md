@@ -29,7 +29,7 @@ A 7-page paper giving an exact online algorithm for the probability that the dat
 ## In our notation
 - **The regime guard (B1):** feed it each tick's wall-mid change. Use a zero-mean Gaussian model with an unknown variance for a volatility regime, or a Gaussian with an unknown mean for a drift or level shift. When `P(r_t < k)` passes a threshold, the template drops its `level`/`jump` bets and falls back to plain market making.
 - **Das's recentring:** the same detector says when to reset the value distribution.
-- **Built 2026-10-17** (`changepoint_level` in `bots/template.py`; our derivation, not the paper's):
+- **Built 2026-10-17** (`changepoint_level` in `python/bots/template.py`; our derivation, not the paper's):
   - The observations are block means of the wall mid, and the model is a level with a known variance, not the Gaussian–gamma model, so no Student-t predictive is needed. Each block mean is transformed so that, for a product that returns to its level at a known rate, it is an independent noisy observation of the level.
   - The first run starts at the configured level with a narrow prior, so a level from earlier days is trusted until the evidence moves it. New runs start at the latest block mean with a wide one.
   - **It detects well, but acting on it didn't pay** on Prosperity-like data (`IDEAS.md`, "A changepoint detector on the level").

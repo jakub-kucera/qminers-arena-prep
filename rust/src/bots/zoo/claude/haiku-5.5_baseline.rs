@@ -1,4 +1,4 @@
-//! bots/zoo/claude/haiku-5.5_baseline.py
+//! python/bots/zoo/claude/haiku-5.5_baseline.py
 
 use super::{best_ask, best_bid, ids, order};
 use crate::arena::engine::TickView;

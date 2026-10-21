@@ -24,11 +24,11 @@ A market maker in a book with a **tick-valued spread**: the spread is a Markov c
 - **Fills are Cox processes per state**, independent of the order's size.
 
 ## In our notation
-| Paper | Ours (`bots/template.py`) |
+| Paper | Ours (`python/bots/template.py`) |
 |---|---|
-| `Bb+` / `Ba−` | `make` quotes at `best_bid + 1` / `best_ask − 1` when `make_edge` allows (`bots/template.py:700-705`) |
-| keep `Bb`, improve `Ba−` when long | a `skew` of about one tick: the shift moves the bid back to the best and the ask one more tick in (`bots/template.py:707-708`) *(inferred from the code)* |
-| market order past a threshold | `clear` (`bots/template.py:668`) and `take` |
+| `Bb+` / `Ba−` | `make` quotes at `best_bid + 1` / `best_ask − 1` when `make_edge` allows (`python/bots/template.py:700-705`) |
+| keep `Bb`, improve `Ba−` when long | a `skew` of about one tick: the shift moves the bid back to the best and the ask one more tick in (`python/bots/template.py:707-708`) *(inferred from the code)* |
+| market order past a threshold | `clear` (`python/bots/template.py:668`) and `take` |
 | `λ_i(q)` per (quote choice, spread) | computable from `_orders.csv` and `_fills.csv` with eqs. 10–11 |
 
 ## Traps

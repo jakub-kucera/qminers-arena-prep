@@ -23,7 +23,7 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
   - Why: it decides the bot interface, data format and limits (`ON_THE_DAY.md`, "First hour"). Note that the
     "mock round in the week of 26 Oct" in `TODO.md` is **our own rehearsal**; we do not know that the
     organisers offer one.
-  - Done when: the files are saved and the loader work (`arena/formats/qminers.py`, `ON_THE_DAY.md`) has what it needs, or the
+  - Done when: the files are saved and the loader work (`python/arena/formats/qminers.py`, `ON_THE_DAY.md`) has what it needs, or the
     item is ticked as "nothing available before the event".
 - [x] **Material from earlier Qminers Quant Hackathons**, if a teammate or friend took part (2022 or 2024 problem
   statement, stub class, evaluation code). Save in `references/qminers-hackathon-older/`.
@@ -40,7 +40,7 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
 
 - [ ] **Zoo bots from Gemini and ChatGPT** (`TODO.md`, "(a, part 2)"). The agent can't reach other providers' models.
   - What: Gemini 4 and an older Gemini, and ChatGPT models current and older (GPT-4o, o3, GPT-4.1, ...), each on the `baseline` prompt; the strongest of each on all four prompts.
-  - How: `bots/zoo/README.md`, "Running a model cleanly". Save each reply unchanged in `bots/zoo/gemini/` or `bots/zoo/chatgpt/`, add a row to the README's table.
+  - How: `python/bots/zoo/README.md`, "Running a model cleanly". Save each reply unchanged in `python/bots/zoo/gemini/` or `python/bots/zoo/chatgpt/`, add a row to the README's table.
   - Done when: the files are saved; the agent then runs `uv run python -m experiments.zoo` and records the results.
 
 ## B. Free web pages the agent cannot read exactly

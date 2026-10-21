@@ -20,7 +20,7 @@ A game-theoretic dealer market: N market makers set spreads around a known price
 - **Price priority is the competitive case.** A real book, and our `--vs`, are winner-takes-all at a price. With discrete ticks, [Han](algorithmic-cooperation-mm.md) found Q-learners could still hold spreads above the competitive one ([contradictions](../contradictions.md), row on learned collusion).
 
 ## In our notation
-The three rules map to `--vs` set-ups only partly: our engine is winner-takes-all by price; at one price the recorded volume goes first, then the bots' orders in a seeded random arrival order each tick (`arena/engine.py`), with no constant-share mode.
+The three rules map to `--vs` set-ups only partly: our engine is winner-takes-all by price; at one price the recorded volume goes first, then the bots' orders in a seeded random arrival order each tick (`python/arena/engine.py`), with no constant-share mode.
 
 ## Traps
 - None found.

@@ -7,14 +7,16 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 
 | Path | What it is |
 |---|---|
-| `arena/` | Backtesting engine; the `diagnose`, `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `arena/formats/` |
-| `bots/template.py` | Single-file market maker to copy for each round |
-| `bots/probe.py` | The first-hour probe bot: runs the probes in `ON_THE_DAY.md` and prints what it finds |
-| `bots/drill/template.py` | The template with its ADAPTER rewritten for the drill format, the worked example of the format swap |
-| `notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, PnL split, market-trade impact, grid heatmaps |
+| `python/arena/` | Backtesting engine; the `diagnose`, `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `python/arena/formats/` |
+| `python/bots/template.py` | Single-file market maker to copy for each round |
+| `python/bots/probe.py` | The first-hour probe bot: runs the probes in `ON_THE_DAY.md` and prints what it finds |
+| `python/bots/drill/template.py` | The template with its ADAPTER rewritten for the drill format, the worked example of the format swap |
+| `python/notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, PnL split, market-trade impact, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |
-| `tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
+| `python/tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
+| `python/experiments/` | One-off studies whose results are in `IDEAS.md` |
+| `rust/` | The Rust twins of the engine, the simulator, the grid's statistics and the bots, laid out as `python/` is (`rust/src/arena/engine.rs` for `python/arena/engine.py`); see [rust/README.md](rust/README.md) |
 | [`ON_THE_DAY.md`](ON_THE_DAY.md) | What to find out about the real Arena at the event, and what each answer changes here |
 | [`TODO.md`](TODO.md) | Prep work left before the event |
 
@@ -22,9 +24,9 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 
 ```sh
 references/clone.sh   # reference repos + Prosperity data (~2 GB)
-uv sync               # the engine needs only the standard library; dev adds pytest, pandas, matplotlib
+uv sync               # installs python/ as the project (editable), so `python -m arena...` runs from here; the engine needs only the standard library, dev adds pytest, pandas, matplotlib
 uv run pytest
-uv run --group analysis jupyter lab notebooks/analysis.ipynb   # optional: Jupyter
+uv run --group analysis jupyter lab python/notebooks/analysis.ipynb   # optional: Jupyter
 ```
 
 ## Diagnose the data
@@ -55,11 +57,11 @@ The notes under the table name the regime. [Reading the data on day one](referen
 ## Backtest
 
 ```sh
-uv run python -m arena.backtest bots/template.py 1                  # Prosperity 3 round 1, every day
-uv run python -m arena.backtest bots/template.py 1-0 --data p2      # Prosperity 2 round 1, day 0
-uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2
-uv run python -m arena.backtest bots/template.py 1 --out results/   # per-day CSVs for arena.analysis
-uv run python -m arena.backtest bots/template.py 1 --vs bots/template.py   # against a copy of itself
+uv run python -m arena.backtest python/bots/template.py 1                  # Prosperity 3 round 1, every day
+uv run python -m arena.backtest python/bots/template.py 1-0 --data p2      # Prosperity 2 round 1, day 0
+uv run python -m arena.backtest python/bots/template.py 1 --set PARAMS.KELP.make_edge=2
+uv run python -m arena.backtest python/bots/template.py 1 --out results/   # per-day CSVs for arena.analysis
+uv run python -m arena.backtest python/bots/template.py 1 --vs python/bots/template.py   # against a copy of itself
 ```
 
 ```
@@ -108,7 +110,7 @@ sixth. Under `worse` and `none`, fills don't depend on the queue, so the two mod
 ## Grid search
 
 ```sh
-uv run python -m arena.grid bots/template.py 1 \
+uv run python -m arena.grid python/bots/template.py 1 \
     --grid PARAMS.KELP.make_edge=0..3 --grid PARAMS.KELP.take_edge=0..2 \
     --modes all,worse --out results/grid.csv
 ```
@@ -186,7 +188,7 @@ held out 859,139 against 1,001,084 for the best combination (-14%); 2 different 
 ```
 
 This only covers the gridded values. A setting the bot takes from the data itself, such as a
-level from the days' mean, needs its own held-out test (`experiments/p4_level_template.py` does
+level from the days' mean, needs its own held-out test (`python/experiments/p4_level_template.py` does
 both). Days whose data repeats are flagged, product by product, since holding one out still trains on its
 copy. Prosperity reuses days across rounds: P4's round 4 days 1–2 are round 3's, and P3's round 3
 days 0–1 are round 2's for every product round 2 had. It reuses them across editions too, under a new
@@ -220,9 +222,9 @@ Then two bootstrap tests, on each cell's gain over the bot as is per block of 10
 - **StepM** (Romano and Wolf's step-down test): every cell that beats the bot as is, with the
   chance of naming even one false cell held at 5%. Each is then checked under the other `--modes`.
 - **pick**: StepM's best cell that beats the bot as is under every mode, else the bot as is. Ten
-  ways of choosing a cell were scored on unseen days. On Prosperity's (`experiments/selection_rules.py`)
+  ways of choosing a cell were scored on unseen days. On Prosperity's (`python/experiments/selection_rules.py`)
   it was the only one that never lost money under either fill mode. On fresh simulated days
-  (`experiments/selection_rules_sim.py`) it lost in 2 of 120 runs, where the rules that gained as
+  (`python/experiments/selection_rules_sim.py`) it lost in 2 of 120 runs, where the rules that gained as
   much lost in 10 to 22. From the template's defaults it found most of the gain the best cell on
   those days had.
 
@@ -264,9 +266,9 @@ if every combination failed.
 them, against one baseline, with the same checks:
 
 ```sh
-uv run python -m arena.compare bots/template.py 1 --bot bots/zoo/claude/*.py --modes all,worse
-uv run python -m arena.compare bots/template.py 1 --bot bots/mine.py "bots/template.py@PARAMS.KELP.make_edge=1@PARAMS.KELP.take_edge=2"
-uv run python -m arena.compare bots/template.py 1 2 --data p4 --resting --bot bots/a.py bots/b.py --vs bots/rivals/sniper.py --out results/compare.csv
+uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/zoo/claude/*.py --modes all,worse
+uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/mine.py "python/bots/template.py@PARAMS.KELP.make_edge=1@PARAMS.KELP.take_edge=2"
+uv run python -m arena.compare python/bots/template.py 1 2 --data p4 --resting --bot python/bots/a.py python/bots/b.py --vs python/bots/rivals/sniper.py --out results/compare.csv
 ```
 
 - **The baseline** is the first bot, the bot as is. `--set` applies to it alone.
@@ -282,7 +284,7 @@ uv run python -m arena.compare bots/template.py 1 2 --data p4 --resting --bot bo
 ## Charts and fill statistics
 
 ```sh
-uv run python -m arena.backtest bots/template.py 1 --out results/run
+uv run python -m arena.backtest python/bots/template.py 1 --out results/run
 uv run python -m arena.analysis results/run                              # every day in the folder
 uv run python -m arena.analysis results/run r1d0 --start 300000 --end 330000
 uv run python -m arena.analysis results/run --reference wall_mid            # measure fills against the wall mid
@@ -290,7 +292,7 @@ uv run python -m arena.analysis --grid results/grid.csv                  # heatm
 ```
 
 This saves PNGs to `plots/` next to the input (`--dark` for a dark theme) and prints four tables per day, plus the market-trade table pooled over all days.
-The notebook does the same steps interactively, through the same functions in `arena/analysis.py`.
+The notebook does the same steps interactively, through the same functions in `python/arena/analysis.py`.
 
 - **PnL:** total and per product over the day.
 - **Product:** price (the mark, and the wall mid dashed) with the book spread and your fills, then position against the limit, then PnL. Blue ▲ marks buys and orange ▼ marks sells; solid means you took liquidity, hollow means a resting quote was filled. In a short window (≤ 1,500 ticks) your quotes are drawn too.
@@ -304,8 +306,8 @@ The notebook does the same steps interactively, through the same functions in `a
 ## Validate before submitting
 
 ```sh
-uv run python -m arena.validate bots/template.py 1
-uv run python -m arena.validate bots/my_bot.py 1 --allow numpy --time-limit-ms 900
+uv run python -m arena.validate python/bots/template.py 1
+uv run python -m arena.validate python/bots/my_bot.py 1 --allow numpy --time-limit-ms 900
 ```
 
 It fails (exit code 1) on:
@@ -322,7 +324,7 @@ It warns about:
 
 ## How the engine works
 
-`arena/engine.py` replays a day tick by tick, using the rules from IMC Prosperity:
+`python/arena/engine.py` replays a day tick by tick, using the rules from IMC Prosperity:
 
 1. The bot sees the book and returns orders.
 2. If a product's orders could breach its position limit (all buys, or all sells, filling), every order for that product is cancelled.
@@ -334,7 +336,7 @@ Positions are valued at each tick's mid price.
 
 The fills matched jmerle's `prosperity3bt` 0.12.0 exactly in 15 comparisons: 5 days, with all
 three trade-matching modes on each. Those days include round 5, with all 15 products and books
-that are sometimes empty on one side. `tests/test_parity.py` pins 6 of them: round 1 day 0 and
+that are sometimes empty on one side. `python/tests/test_parity.py` pins 6 of them: round 1 day 0 and
 round 5 day 2, in each mode.
 
 ### Resting mode
@@ -402,7 +404,7 @@ under `worse` fills when trading alone. Against one copy of the baseline it lose
 under `worse`). Its quotes at fair get crossed by the next snapshot, and the rival picks them
 off: the rival's `wall_mid` treats your large quote as the market maker's level. Against the teams' own P4 bots the same trap cost the template 374k on Osmium in one round, and `fair: sized_mid` turned that into +17k (`IDEAS.md`).
 
-**Adversarial rivals** (`bots/rivals/`, for `--resting`): `trapper.py` baits with a large order
+**Adversarial rivals** (`python/bots/rivals/`, for `--resting`): `trapper.py` baits with a large order
 one tick inside the best and sells into whoever steps in front of it (Harris); `spoofer.py` rests
 a large order `OFFSET` ticks behind the best and takes what that mispricing brings; `sniper.py`
 takes any order left through its fair. `uv run python -m experiments.adversaries` runs the
@@ -412,7 +414,7 @@ ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `s
 
 ## The engine in Rust
 
-`rust/` is a Rust port of the engine, `arena.sim`'s market, the template, the rivals, every zoo bot and `bots/mm.py`, each with its Python file as a twin that must trade the
+`rust/` is a Rust port of the engine, `arena.sim`'s market, the template, the rivals, every zoo bot and `python/bots/mm.py`, each with its Python file as a twin that must trade the
 same (`rust/README.md` has the table of what is in Python, in Rust, and in both). `uv run python -m experiments.rust_bench` builds it
 (needs `cargo`), then checks every recorded field against our engine:
 - 15 engine configurations with `mm`;
@@ -428,7 +430,7 @@ Then it times both. On P3 round 1, one core, per day, the template as committed 
 Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`,
 `arena.stress`, `arena.sim` and the experiments. Each prints and writes what the Python engine does (a
 Rust bot has no step timings, so a report leaves out the bot-timing line). The Rust bots take their settings from the Python file, so `--set` reaches both. `rust/twins.json` records the hash of each Python
-twin as last checked, and `tests/test_rust.py` fails when one changes until `uv run python -m experiments.rust_bench --parity-only
+twin as last checked, and `python/tests/test_rust.py` fails when one changes until `uv run python -m experiments.rust_bench --parity-only
 --record` has checked the pair again. The submitted bot stays a Python file.
 
 ## Stress
@@ -440,8 +442,8 @@ the middle fifth. Each is sized in the product's median spread and moves prices 
 (what a loss stop must leave room for) and its worst single day.
 
 ```sh
-uv run python -m arena.stress bots/template.py 1                 # P3 round 1, every perturbation
-uv run python -m arena.stress bots/template.py 1 2 3 4 --data p4 --only trend_up,trend_down --size 2
+uv run python -m arena.stress python/bots/template.py 1                 # P3 round 1, every perturbation
+uv run python -m arena.stress python/bots/template.py 1 2 3 4 --data p4 --only trend_up,trend_down --size 2
 ```
 
 On P4 rounds 1–4 a trend up turns the template's 2.27M into −0.32M: the level bets and the vouchers
@@ -468,10 +470,10 @@ day. Unlike `arena.stress`'s moved recordings, the market reacts to it.
 
 ```sh
 uv run python -m arena.sim generate data/sim --days 5            # Prosperity layout, plus limits.json and the fundamental
-uv run python -m arena.backtest bots/template.py 1 --data data/sim
-uv run python -m arena.sim run bots/template.py --days 5        # the bot in the market, against replaying the same days
-uv run python -m arena.sim run bots/template.py --spec KELP.maker.skew=0.05 --resting
-uv run python -m arena.sim run bots/template.py --products KELP,RAINFOREST_RESIN,HYDROGEL_PACK --regime trend_up
+uv run python -m arena.backtest python/bots/template.py 1 --data data/sim
+uv run python -m arena.sim run python/bots/template.py --days 5        # the bot in the market, against replaying the same days
+uv run python -m arena.sim run python/bots/template.py --spec KELP.maker.skew=0.05 --resting
+uv run python -m arena.sim run python/bots/template.py --products KELP,RAINFOREST_RESIN,HYDROGEL_PACK --regime trend_up
 ```
 
 `--spec PATH=VALUE` changes any preset field, e.g. `KELP.fundamental.sd=0.3` or `KELP.limit_traders.rate=2`.
@@ -491,7 +493,7 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
 
 ## The bot template
 
-`bots/template.py` is one file in five sections:
+`python/bots/template.py` is one file in five sections:
 
 - **PARAMS:** per-product settings. Products not listed aren't traded. Keys missing from a product's entry come from `DEFAULTS`.
 - **STRATEGY:** format-agnostic. Each product goes through four steps:
@@ -512,10 +514,10 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
 
 ## The LLM zoo
 
-`bots/zoo/` holds bots that language models wrote from a Prosperity-style spec alone: the
+`python/bots/zoo/` holds bots that language models wrote from a Prosperity-style spec alone: the
 baseline an agent-using team starts from, and rivals for `--vs`. `uv run python -m
 experiments.zoo` scores each one alone, against the template, inside `arena.sim` and all
-together. `bots/zoo/README.md` explains how to add bots from other providers (Gemini,
+together. `python/bots/zoo/README.md` explains how to add bots from other providers (Gemini,
 ChatGPT, ...) cleanly. On P3 round 1, the best Claude-written market makers come close to the template
 alone on Kelp and Resin and beat it head to head, all of it on Squid Ink, which the template
 doesn't trade. `uv run python -m experiments.zoo_h2h` splits each pairing by product and fill
@@ -523,9 +525,9 @@ mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head"
 
 ## On the day: adapting to the real format
 
-1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground. `bots/probe.py` runs most of the probes in one run: rewrite its ADAPTER like the template's, and read its `PROBE` lines (`uv run python -m arena.backtest bots/probe.py 1 --print --no-strict` shows what our engine answers).
-2. **Write `arena/formats/qminers.py`**, using `drill.py` as the model, and register it in `arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
-3. **Update the bot:** rewrite its imports, PARAMS and ADAPTER section, and leave DEFAULTS, STRATEGY and EXECUTION alone. `bots/drill/template.py` is the worked example: it is the template with only those parts rewritten for the drill API, and on the same simulated days it makes the same PnL as the template, to the cent (`tests/test_drill.py`).
+1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground. `python/bots/probe.py` runs most of the probes in one run: rewrite its ADAPTER like the template's, and read its `PROBE` lines (`uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict` shows what our engine answers).
+2. **Write `python/arena/formats/qminers.py`**, using `drill.py` as the model, and register it in `python/arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
+3. **Update the bot:** rewrite its imports, PARAMS and ADAPTER section, and leave DEFAULTS, STRATEGY and EXECUTION alone. `python/bots/drill/template.py` is the worked example: it is the template with only those parts rewritten for the drill API, and on the same simulated days it makes the same PnL as the template, to the cent (`python/tests/test_drill.py`).
 4. **Validate** with `--format qminers`, their time limit, and `--allow` for their libraries.
 
 Practise it: `uv run python -m experiments.format_drill <folder>` makes drill data from simulated days, then any tool runs with `--format drill --data <folder>/drill`.

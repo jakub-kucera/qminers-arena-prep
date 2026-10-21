@@ -15,7 +15,7 @@ literature_raw/
 results/
 data/
 
-# Rust build output (experiments/rust_mm)
+# Rust build output (rust/target)
 target/
 
 # Python

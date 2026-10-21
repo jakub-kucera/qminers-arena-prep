@@ -28,18 +28,18 @@ A 16-page paper that improves on White's (2000) Reality Check (RC), the bootstra
 
 ## Assumptions against the Arena
 - **Stationarity and mixing of `d_t`.** Our gains per block of 100 ticks are autocorrelated within a day and change between days. The stationary bootstrap handles the first; day-level changes break the assumption. *(Inferred.)* The leave-one-day-out check in `arena.grid` covers what the bootstrap can't.
-- **n and m.** The paper's simulations use n = 200–1,000 and m = 100–1,000 (`superior-predictive-ability.md:303` (p. 9)). One Prosperity day cut into blocks of 100 ticks gives n = 100, so three days give 300 *(checked: `experiments/snooping_tests.py`)*, inside that range. With the grid's own 16 blocks it would be far too short.
+- **n and m.** The paper's simulations use n = 200–1,000 and m = 100–1,000 (`superior-predictive-ability.md:303` (p. 9)). One Prosperity day cut into blocks of 100 ticks gives n = 100, so three days give 300 *(checked: `python/experiments/snooping_tests.py`)*, inside that range. With the grid's own 16 blocks it would be far too short.
 - **The benchmark is the bot as is**, which matches the question we ask of a grid. A grid without a sensible baseline (all cells new) has no benchmark; the test then needs one chosen in advance.
 - **Fixed parameters.** Hansen's framework excludes parameters re-estimated recursively (`superior-predictive-ability.md:23` (p. 2)). A cell's parameters are fixed for the day, so this holds; a bot that fits itself on the day's data is a different case.
 
 ## In our notation
 | Paper | Ours |
 |---|---|
-| benchmark `δ_0` | the bot as is (`--set` only), `arena/grid.py` `run_grid`'s baseline |
+| benchmark `δ_0` | the bot as is (`--set` only), `python/arena/grid.py` `run_grid`'s baseline |
 | alternative k, m | a distinct grid cell, the number of distinct cells |
-| `d_{k,t}` | the cell's PnL minus the bot's in block t (`arena/grid.py:100`, `FINE_TICKS`; filled in `_run_piece`) |
-| `q` | 1 / mean bootstrap block length, in blocks (`SPA_Q` in `arena/grid.py`, 0.1) |
-| `T^SPA`, `p̂_SPA` | `spa()` in `arena/stats.py:146-165` |
+| `d_{k,t}` | the cell's PnL minus the bot's in block t (`python/arena/grid.py:100`, `FINE_TICKS`; filled in `_run_piece`) |
+| `q` | 1 / mean bootstrap block length, in blocks (`SPA_Q` in `python/arena/grid.py`, 0.1) |
+| `T^SPA`, `p̂_SPA` | `spa()` in `python/arena/stats.py:146-165` |
 
 ## Traps
 - **Typo in the paper itself:** the stationary bootstrap's recursion prints `⌈n·u_{b,1}⌉` for a fresh draw at t ≥ 2 (p. 7, the page image has it too); the text says the t-th element is then "chosen uniformly on {1, …, n}", which needs `u_{b,t}`. Our code follows the text.

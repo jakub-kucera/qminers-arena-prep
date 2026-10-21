@@ -1,4 +1,4 @@
-//! bots/zoo/claude/opus-5.5_momentum.py
+//! python/bots/zoo/claude/opus-5.5_momentum.py
 
 use super::py;
 use super::{ask_wall_high, best_ask, best_bid, bid_wall_low, lookup, order};

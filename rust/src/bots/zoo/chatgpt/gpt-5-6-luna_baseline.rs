@@ -1,4 +1,4 @@
-//! bots/zoo/chatgpt/gpt-5-6-luna_baseline.py
+//! python/bots/zoo/chatgpt/gpt-5-6-luna_baseline.py
 
 use super::py;
 use super::{best_ask, best_bid, lookup, order};

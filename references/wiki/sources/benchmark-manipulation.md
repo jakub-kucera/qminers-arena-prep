@@ -19,7 +19,7 @@ A trader with outside holdings valued at a transaction-based benchmark (a VWAP) 
 - **If the Arena marks positions at an average over a closing window** (AlgoTrade did) *(inferred)*: a bot holding inventory can move its own mark by trading in that window, and so can a rival or an organiser bot. Find out how the close is settled (`ON_THE_DAY.md`, "How is PnL scored?") before the last round; treat a one-sided run of market orders in the window as a tell, and don't rely on doing it ourselves, since the organisers verify solutions.
 
 ## In our notation
-The closing window's VWAP of the data's trades against the last mid; our PnL is marked per tick (`arena/engine.py`).
+The closing window's VWAP of the data's trades against the last mid; our PnL is marked per tick (`python/arena/engine.py`).
 
 ## Traps
 - None found.

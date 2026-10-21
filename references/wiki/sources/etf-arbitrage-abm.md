@@ -25,7 +25,7 @@ An agent-based market with an ETF and its two underlying symbols, background tra
 | Paper | Ours |
 |---|---|
 | ETF − index deviation | the basket's spread to its legs' weighted wall mids |
-| threshold ε | `level_band` around `level` (`bots/template.py`, the `basket` branch) |
+| threshold ε | `level_band` around `level` (`python/bots/template.py`, the `basket` branch) |
 | impact agent's crash | a scripted run of market sells; the harder-round stress harness's shock |
 
 ## Traps

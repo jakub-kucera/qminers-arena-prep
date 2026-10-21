@@ -1,4 +1,4 @@
-//! bots/zoo/other/gemma4-26b_market_maker_2.py
+//! python/bots/zoo/other/gemma4-26b_market_maker_2.py
 
 use super::py;
 use super::{best_ask, best_bid, ids, order};

@@ -1,10 +1,10 @@
-//! arena/sim.py's agent-based market, ported function for function (the Python names are kept, so
+//! python/arena/sim.py's agent-based market, ported function for function (the Python names are kept, so
 //! each piece can be read next to its original; the rules are in that module's docstring). Every
 //! agent draws from its own `random.Random`, seeded and drawn exactly as in Python, so a seed gives
 //! the same day to the bit: the same books, trades and fundamental, and with bots in it the same
 //! fills, orders, cancels, breaches, races and errors.
 //!
-//! The spec comes from Python (`dataclasses.asdict` of a MarketSpec, written by arena/rust.py), so
+//! The spec comes from Python (`dataclasses.asdict` of a MarketSpec, written by python/arena/rust.py), so
 //! presets, `--spec` overrides and regimes stay in Python. Prices are whole ticks, as in Python.
 
 use std::collections::{BTreeMap, HashMap};

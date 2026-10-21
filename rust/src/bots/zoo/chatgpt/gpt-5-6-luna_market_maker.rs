@@ -1,4 +1,4 @@
-//! bots/zoo/chatgpt/gpt-5-6-luna_market_maker.py
+//! python/bots/zoo/chatgpt/gpt-5-6-luna_market_maker.py
 
 use super::{best_ask, best_bid, lookup, order};
 use crate::arena::engine::TickView;

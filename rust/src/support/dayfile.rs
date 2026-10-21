@@ -1,4 +1,4 @@
-//! Reads a Day exported by experiments/rust_bench.py (`export_day`): the format plug-ins stay in
+//! Reads a Day exported by python/experiments/rust_bench.py (`export_day`): the format plug-ins stay in
 //! Python, and this is the engine's input, after them. Plain text, whitespace-separated:
 //!
 //! ```text

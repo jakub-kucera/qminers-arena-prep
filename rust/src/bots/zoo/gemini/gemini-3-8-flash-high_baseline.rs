@@ -1,4 +1,4 @@
-//! bots/zoo/gemini/gemini-3-8-flash-high_baseline.py
+//! python/bots/zoo/gemini/gemini-3-8-flash-high_baseline.py
 
 use super::{lookup, order};
 use crate::arena::engine::TickView;

@@ -25,7 +25,7 @@ Nothing to compare.
 `CLAUDE.md` "Known gaps": no conversions. The Arena's product list is unknown; build this only if the Technical Rules introduce another venue or island.
 
 ## How to test it here
-Not testable until the engine supports conversions. Cost of building: new order type, observation fields and fee handling in `arena/engine.py` and the Prosperity format.
+Not testable until the engine supports conversions. Cost of building: new order type, observation fields and fee handling in `python/arena/engine.py` and the Prosperity format.
 
 ## Sources
 [Linear Utility](../sources/prosperity2-linear-utility.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Animals](../sources/prosperity3-alpha-animals.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md), [UChicago](../sources/uchicago-trading-2026.md), [jmerle P3 backtester](../sources/prosperity3-backtester-jmerle.md). [Negative Eevee](../sources/algotrade2026-negative-eevee.md).

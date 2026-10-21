@@ -139,13 +139,13 @@ This page replaced the one built on a 47-page excerpt (preface to section 2.1.4)
 ## In our notation
 | Book | Ours |
 |---|---|
-| trade sign `ε_t` | +1 for a market trade at or above book `t`'s best ask, −1 at or below the best bid (`arena/analysis.py` `trade_impact`) |
+| trade sign `ε_t` | +1 for a market trade at or above book `t`'s best ask, −1 at or below the best bid (`python/arena/analysis.py` `trade_impact`) |
 | response `R(ℓ)`, `R∞` | `trade_impact`'s move at `h` ticks (not market-order time) against the mark; `h = 50` as `R∞` |
 | sign correlation `C(ℓ)` | the correlation of consecutive classified trade signs; not in `arena.analysis` yet |
 | spread `s`, tick `ϑ` | `best_ask − best_bid` in `_timeline.csv`; 1 price unit |
 | fee or rebate `ϖ` | 0 in Prosperity |
 | fill indicator `θ` | whether our quote filled |
-| price skew (shift both quotes) | `skew` in `bots/template.py` |
+| price skew (shift both quotes) | `skew` in `python/bots/template.py` |
 | size skew `υ₀·max(1 + κψε, 0)` (eq. 17.4) | not in the template; `make_size` is symmetric |
 | queue imbalance `I` (eq. 7.1) | Gould & Bonart's `I`; `ρ = 2I − 1` ([book imbalance](../concepts/book-imbalance-and-micro-price.md)) |
 | imbalance-weighted reference `p₊(I)·a + p₋(I)·b` | a micro-price-like fair value |

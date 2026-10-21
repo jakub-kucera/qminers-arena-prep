@@ -1,9 +1,9 @@
-//! arena/formats/prosperity.py's `load_day`, so a Prosperity day needn't be exported: the prices
+//! python/arena/formats/prosperity.py's `load_day`, so a Prosperity day needn't be exported: the prices
 //! and trades CSVs read as the Python reads them, to the same Day (books in each timestamp's row
 //! order, levels sorted, prices and volumes truncated from floats, a P4 empty book's 0.0 mid no
 //! mark, ticks only at timestamps with a price row). The limits come from Python (its LIMITS table
 //! and the data's limits.json), in a day reference: {"format": "prosperity", "dir", "round", "day",
-//! "limits": {product: limit}, "only": [products] or null} (arena/rust.py `day_file`), `only`
+//! "limits": {product: limit}, "only": [products] or null} (python/arena/rust.py `day_file`), `only`
 //! keeping those products' books, trades and marks as arena.grid's `only` does.
 
 use std::collections::BTreeMap;

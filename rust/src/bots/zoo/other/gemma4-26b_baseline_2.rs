@@ -1,4 +1,4 @@
-//! bots/zoo/other/gemma4-26b_baseline_2.py
+//! python/bots/zoo/other/gemma4-26b_baseline_2.py
 //!
 //! It reads state.order_depths[symbol] for all three P3 round 1 products without checking, so a
 //! day without one of them raises KeyError every tick (no orders, traderData kept).

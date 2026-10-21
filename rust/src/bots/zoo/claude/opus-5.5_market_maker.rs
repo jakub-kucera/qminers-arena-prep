@@ -1,4 +1,4 @@
-//! bots/zoo/claude/opus-5.5_market_maker.py
+//! python/bots/zoo/claude/opus-5.5_market_maker.py
 
 use super::{asks_asc, ask_wall_high, best_ask, best_bid, bid_wall_low, bids_desc, lookup, order};
 use crate::arena::engine::TickView;

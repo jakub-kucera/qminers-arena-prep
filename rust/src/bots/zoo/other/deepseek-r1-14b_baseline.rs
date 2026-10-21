@@ -1,4 +1,4 @@
-//! bots/zoo/other/deepseek-r1-14b_baseline.py
+//! python/bots/zoo/other/deepseek-r1-14b_baseline.py
 //!
 //! It never imports `Order`, so the first tick it decides to trade raises NameError: no orders
 //! reach the engine, and traderData keeps its last value (the bot re-reads it every tick).

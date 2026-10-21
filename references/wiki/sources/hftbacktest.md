@@ -19,7 +19,7 @@ The reference open-source market-making backtester with queue-position and laten
 - `examples/` notebooks (cite by name): `Probability Queue Models`, `Queue-Based Market Making in Large Tick Size Assets`, `GLFT Market Making Model and Grid Trading`, `Making Multiple Markets` (Guéant's model across assets), `Market Making with Alpha - Order Book Imbalance` (its author raised the queue parameter from 2 to 3 for 2025, i.e. fills got harder), `... - APT`, `... - Basis`.
 
 ## What carries over
-The queue-model family for the `--queue back|prob|front` TODO; the fill-condition list as a cross-check on `arena/engine.py`; worked GLFT examples.
+The queue-model family for the `--queue back|prob|front` TODO; the fill-condition list as a cross-check on `python/arena/engine.py`; worked GLFT examples.
 
 ## Traps
 Event-driven with latency; do not try to run it on tick snapshots.

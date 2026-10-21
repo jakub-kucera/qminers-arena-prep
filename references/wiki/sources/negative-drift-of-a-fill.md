@@ -18,7 +18,7 @@ A short argument, in a three-outcome tick model and in a market simulation on 10
 
 ## Assumptions against the Arena
 - A one-tick spread, where any move against the order fills it. With 2–21-tick spreads, a move of a tick need not reach a resting quote *(inferred)*.
-- **Our `--resting` mode already has the adverse-fill rule:** a resting order fills when the next snapshot crosses it (`Fill.source == "cross"`, `arena/engine.py` module docstring) *(checked: the docstring)*. In the default mode orders live one tick, so the issue reduces to which tick's trades they meet.
+- **Our `--resting` mode already has the adverse-fill rule:** a resting order fills when the next snapshot crosses it (`Fill.source == "cross"`, `python/arena/engine.py` module docstring) *(checked: the docstring)*. In the default mode orders live one tick, so the issue reduces to which tick's trades they meet.
 
 ## In our notation
 `E[d | fill]` is the fill's markout at one tick in `arena.analysis`, measured against the arrival mid. The paper's prediction for us: markouts after passive fills should be negative on average where spreads are one tick.

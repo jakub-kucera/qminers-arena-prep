@@ -39,7 +39,7 @@ An empirical paper (30 pp.) that asks one narrow question: does the imbalance be
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `nᵇ(b(t), t)`, `nᵃ(a(t), t)` | `book.bids[0][1]`, `book.asks[0][1]` (volumes positive in `bots/template.py` and `arena/model.py`); `bid_volume_1`, `ask_volume_1` in the CSVs (ask volumes are positive there too) |
+| `nᵇ(b(t), t)`, `nᵃ(a(t), t)` | `book.bids[0][1]`, `book.asks[0][1]` (volumes positive in `python/bots/template.py` and `python/arena/model.py`); `bid_volume_1`, `ask_volume_1` in the CSVs (ask volumes are positive there too) |
 | `I` | the `ρ` of Cartea et al. 2018 ([order-book-signals](order-book-signals.md)); Stoikov's `I` is `(1 + ρ)/2` |
 | mid change times `T` | ticks where `mid_price` differs from the previous tick's |
 

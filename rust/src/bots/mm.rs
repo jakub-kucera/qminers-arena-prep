@@ -1,4 +1,4 @@
-//! bots/mm.py in Rust: keep the two equal, experiments/rust_bench.py checks that they trade the same.
+//! python/bots/mm.py in Rust: keep the two equal, python/experiments/rust_bench.py checks that they trade the same.
 //!
 //! A plain market maker on each of its products, in order. Fair is the wall mid. It takes (IOC)
 //! every level at least `take_edge` through fair, then quotes the rest of its room one tick inside
@@ -30,7 +30,7 @@ impl MarketMaker {
         MarketMaker { params, limit: LIMIT, ids: Vec::new() }
     }
 
-    /// From bots/mm.py's globals: PARAMS ({product: {make_edge, take_edge, hold}}) and LIMIT.
+    /// From python/bots/mm.py's globals: PARAMS ({product: {make_edge, take_edge, hold}}) and LIMIT.
     pub fn from_globals(globals: &Value) -> Result<Self, String> {
         let products = globals.get("PARAMS").and_then(Value::as_object).ok_or("mm: PARAMS must be a dict")?;
         let params = products

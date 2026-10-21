@@ -46,11 +46,11 @@ status: read | partly-read | mapped | unread    # source pages only
 
 ## Rules
 
-1. **Cite with a machine-checkable reference.** Write a backticked path and a line: `` `prosperity4-baguette-fromage/README.md:350` `` or a range `` `…/Phase1.py:368-439` ``. On a source page the path may be relative to its `repo`. Paths of our own files (`bots/template.py:389`) also work. `lint.py` checks that the file exists and the line is in range. Do not cite notebooks by line; name the function or cell.
+1. **Cite with a machine-checkable reference.** Write a backticked path and a line: `` `prosperity4-baguette-fromage/README.md:350` `` or a range `` `…/Phase1.py:368-439` ``. On a source page the path may be relative to its `repo`. Paths of our own files (`python/bots/template.py:389`) also work. `lint.py` checks that the file exists and the line is in range. Do not cite notebooks by line; name the function or cell.
 2. **Say who claims what.** Mark every number as *their claim* (from a README), *checked* (and how: ran it, grepped it, read the line), or *inferred* (and why). A team's rank or PnL is always their claim unless a source says otherwise.
 3. **Say what was not read.** A source page's `Read depth` lists what was read, mapped (only `grep`/headings) and unread. An unread part is never summarised.
 4. **Flag conflicts, don't pick silently.** When two sources disagree, add a row to `contradictions.md`, link it from both concept pages, and say what test would settle it.
-5. **Link to our code.** A concept page names the file in this repo that implements or should implement the idea (`bots/template.py`, `arena/engine.py`) and the `TODO.md` item if one exists.
+5. **Link to our code.** A concept page names the file in this repo that implements or should implement the idea (`python/bots/template.py`, `python/arena/engine.py`) and the `TODO.md` item if one exists.
 6. **No third-party code in the wiki, no secrets.** Describe an algorithm in words and formulas; third-party team repos have no licence (see `sources/` for each). Never copy shared credentials, even public ones from a README.
 7. **Plain relative markdown links.** No wiki-link syntax, so the pages render on GitHub.
 8. **File good answers back.** If a question needed a synthesis the wiki lacked, write it into a concept page (or extend one) and log it.

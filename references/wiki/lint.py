@@ -8,7 +8,7 @@ followed by its PDF page, `(p. N)` or `(p. N, checked)`, and N must agree with t
 formula needs `checked` or `unchecked` on one of its literature citations (a heuristic; `Traps` sections, which
 quote OCR slips, are exempt), and an `unchecked` citation under "What it means for our code" is an error.
 Citations into a clone that is not present (references/clone.sh not run) are reported as skipped, not as errors.
-A cited range into our own Python code (bots/, arena/, experiments/) must start a definition: a `def`, `class`,
+A cited range into our own Python code (python/bots/, python/arena/, python/experiments/) must start a definition: a `def`, `class`,
 decorator, assignment, annotated field or dict entry. These files change, and a range that starts mid-function,
 in a docstring or at an import has usually been left behind by an edit (a warning).
 
@@ -43,7 +43,7 @@ MATCH_MISSES = {
 SPAN = re.compile(r"`([^`]+)`")
 RELATION = re.compile(r"[=≈∝≤≥<>]")
 LETTER = re.compile(r"[A-Za-zα-ωΑ-Ω]")
-OWN_CODE = tuple(ROOT / folder for folder in ("bots", "arena", "experiments"))
+OWN_CODE = tuple(ROOT / "python" / folder for folder in ("bots", "arena", "experiments"))
 # def, class, a decorator, an assignment, an annotated field (`bids: tuple = ()`) or a dict entry (`"skew": 0.0,`)
 DEFINITION = re.compile(r"""\s*(?:(?:async\s+)?def\b|class\b|@|[A-Za-z_][\w.]*\s*(?::[^=]+)?=[^=]|[A-Za-z_]\w*\s*:|["'][^"']+["']\s*:)""")
 LOG_ENTRY = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|restructure|search) \| .+")

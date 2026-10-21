@@ -1,4 +1,4 @@
-//! arena/engine.py's `run_market`, ported function for function (the Python names are kept, so
+//! python/arena/engine.py's `run_market`, ported function for function (the Python names are kept, so
 //! each piece can be read next to its original). The rules are in that module's docstring: the
 //! default mode (orders live one tick), resting mode with the back / prob / front queue models,
 //! the fill ratio's seeded liquidity draws, and several bots in one market with their arrival

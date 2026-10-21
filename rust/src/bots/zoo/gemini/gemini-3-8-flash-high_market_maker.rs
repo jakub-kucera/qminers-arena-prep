@@ -1,4 +1,4 @@
-//! bots/zoo/gemini/gemini-3-8-flash-high_market_maker.py
+//! python/bots/zoo/gemini/gemini-3-8-flash-high_market_maker.py
 
 use super::py;
 use super::{lookup, order};

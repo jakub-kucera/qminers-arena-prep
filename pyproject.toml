@@ -16,6 +16,16 @@ dev = [
     "pytest>=8",
 ]
 
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+# The Python code is under python/ (rust/ holds its Rust twins): an editable install puts python/ on
+# the path, so `uv run python -m arena.backtest ...` works from the repository's root.
+[tool.uv.build-backend]
+module-root = "python"
+module-name = "arena"
+
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
+testpaths = ["python/tests"]
+pythonpath = ["python"]

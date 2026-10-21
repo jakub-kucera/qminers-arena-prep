@@ -9,7 +9,7 @@ updated: 2026-10-10
 # jmerle's Prosperity 3 backtester (MIT)
 
 ## What it is
-`pip install prosperity3bt`; `prosperity3bt <trader.py> <round>[-<day>] [--vis] [--merge-pnl] [--match-trades all|worse|none] [--data DIR] [--print]`. Output is a log in the official submission format, readable by [the visualizer](prosperity3-visualizer-jmerle.md). **Our engine matches it fill for fill** (`tests/test_parity.py`); the Prosperity 2 backtester has the same layout ([page](prosperity2-backtester-jmerle.md)), the Prosperity 4 one is a fork ([page](prosperity4-backtester.md)).
+`pip install prosperity3bt`; `prosperity3bt <trader.py> <round>[-<day>] [--vis] [--merge-pnl] [--match-trades all|worse|none] [--data DIR] [--print]`. Output is a log in the official submission format, readable by [the visualizer](prosperity3-visualizer-jmerle.md). **Our engine matches it fill for fill** (`python/tests/test_parity.py`); the Prosperity 2 backtester has the same layout ([page](prosperity2-backtester-jmerle.md)), the Prosperity 4 one is a fork ([page](prosperity4-backtester.md)).
 
 ## Layout and code map (`prosperity3bt/`, 1,327 lines)
 - `runner.py` (380): `prepare_state` `prosperity3bt/runner.py:30`, `type_check_orders` `prosperity3bt/runner.py:65`, **`enforce_limits`** `prosperity3bt/runner.py:123` (cancel all of a product's orders if the totals could breach), **`match_buy_order`** `prosperity3bt/runner.py:145` and **`match_sell_order`** `prosperity3bt/runner.py:201` (book first, then market trades at the order's own price), `match_orders` `prosperity3bt/runner.py:270`, `run_backtest` `prosperity3bt/runner.py:310`.

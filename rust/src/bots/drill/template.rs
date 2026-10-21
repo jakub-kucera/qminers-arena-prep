@@ -1,4 +1,4 @@
-//! python/bots/drill/template.py in Rust: the template's STRATEGY and EXECUTION (bots/template.rs,
+//! python/bots/drill/template.py in Rust: the template's STRATEGY and EXECUTION (python/bots/template.rs,
 //! whose child module this is) behind the drill format's ADAPTER: prices in each product's ticks,
 //! converted from and to the format's price units as its plug-in and ADAPTER do
 //! (python/arena/formats/drill.py), products in the exchange's order, trades without names, and
@@ -6,7 +6,7 @@
 
 use super::*;
 
-/// The drill format's ADAPTER (bots/drill/template.py): what it converts, per product of the day.
+/// The drill format's ADAPTER (python/bots/drill/template.py): what it converts, per product of the day.
 #[derive(Default)]
 pub(super) struct Drill {
     pub(super) tick: Vec<f64>,           // api.tick_size, from Day.info (the plug-in's default 0.01)
@@ -29,7 +29,7 @@ impl Drill {
 }
 
 impl Template {
-    /// bots/drill/template.py: the same settings, behind the drill format's ADAPTER.
+    /// python/bots/drill/template.py: the same settings, behind the drill format's ADAPTER.
     pub fn drill(globals: &Value) -> Result<Template, String> {
         Ok(Template { drill: Some(Drill::default()), ..Template::from_globals(globals)? })
     }

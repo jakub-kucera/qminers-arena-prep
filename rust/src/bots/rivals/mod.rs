@@ -1,5 +1,5 @@
 //! python/bots/rivals/ in Rust: the sniper, the spoofer and the trapper, each in the file named as
-//! its Python twin, and here what they share. Keep each equal to its Python file: tests/test_rust.py checks that both trade the
+//! its Python twin, and here what they share. Keep each equal to its Python file: python/tests/test_rust.py checks that both trade the
 //! same, and rust/twins.json holds the hash each port was last checked against. Their constants
 //! (LIMITS, DEFAULT_LIMIT, EDGE, SPOOF, OFFSET, PERIOD, BAIT, COOLDOWN) come from the Python file's
 //! globals, so `--set` reaches them.

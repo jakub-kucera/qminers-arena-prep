@@ -38,7 +38,7 @@ A 42-page probability paper: fluid limits (law-of-large-numbers), diffusion limi
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `Z(t)` | the volume ahead of a resting order in `arena/engine.py`'s resting mode |
+| `Z(t)` | the volume ahead of a resting order in `python/arena/engine.py`'s resting mode |
 | `V̄²` (market orders at our level) | trades at our price in the trade files |
 | `V̄³·Υ(Z/Q)` | the part of a visible level's shrinkage, net of trades, credited as "ahead of us"; zero today |
 | `τ^z` | expected time to fill a resting quote |

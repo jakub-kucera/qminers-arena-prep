@@ -19,7 +19,7 @@ Avellaneda–Stoikov's market maker (Poisson fills `A·e^{−κδ}`, exponential
 - **Status:** numerical (two schemes that agree, plus an equilibrium check); "the proof remains open" (`mean-reverting-reference-price.md:456` (p. 12)).
 
 ## Assumptions against the Arena
-- **Fills depend only on the distance from the reference price**, not on where the book is. With a fixed quote around μ and the market away from μ, the model still fills the far side at a reduced rate; in Prosperity, an order behind the touch does not fill at all. *Checked on P4 rounds 1–2, Osmium, 6 days* (`uv run python -m arena.grid bots/template.py 1 2 --data p4 --set PARAMS.ASH_COATED_OSMIUM.fixed_fair=10000 --grid PARAMS.ASH_COATED_OSMIUM.fair=fixed,wall_mid --grid PARAMS.ASH_COATED_OSMIUM.skew=0,1,2,4,8 --modes all,worse`, 2026-10-13): Osmium makes 113.8k with `wall_mid` and no skew, 99.2k with a fixed 10,000 and no skew (−13%). Skew lowers both, monotonically (`wall_mid`: 113.3k at 1, 110.0k at 2, 93.4k at 8; under `worse` fills, 108.7k at 1). So the *no skew* half of the prediction holds on Prosperity data and the *ignore the price* half does not. Recorded in `IDEAS.md`.
+- **Fills depend only on the distance from the reference price**, not on where the book is. With a fixed quote around μ and the market away from μ, the model still fills the far side at a reduced rate; in Prosperity, an order behind the touch does not fill at all. *Checked on P4 rounds 1–2, Osmium, 6 days* (`uv run python -m arena.grid python/bots/template.py 1 2 --data p4 --set PARAMS.ASH_COATED_OSMIUM.fixed_fair=10000 --grid PARAMS.ASH_COATED_OSMIUM.fair=fixed,wall_mid --grid PARAMS.ASH_COATED_OSMIUM.skew=0,1,2,4,8 --modes all,worse`, 2026-10-13): Osmium makes 113.8k with `wall_mid` and no skew, 99.2k with a fixed 10,000 and no skew (−13%). Skew lowers both, monotonically (`wall_mid`: 113.3k at 1, 110.0k at 2, 93.4k at 8; under `worse` fills, 108.7k at 1). So the *no skew* half of the prediction holds on Prosperity data and the *ignore the price* half does not. Recorded in `IDEAS.md`.
 - **No hard limit in the analysis**, which the split-step scheme only imposes for numerics.
 - **The level is known.** On Prosperity data some levels hold across days and some drift ([trading toward a level](../../../IDEAS.md)).
 - **How many cycles a day?** P4 Osmium's wall mid reverts to a level over about 1,000 ticks (`arena.diagnose 1 --data p4`, *checked*), so a 10,000-tick day is about ten cycles: the intermediate regime, where the paper says to ignore price moves and skew a little with inventory.
@@ -29,7 +29,7 @@ Avellaneda–Stoikov's market maker (Poisson fills `A·e^{−κδ}`, exponential
 |---|---|
 | `μ` | a fixed fair (`fair: "fixed"`, `fixed_fair`), or the template's `level` |
 | constant quotes `μ ± (1/γ)·log(1 + γ/κ)` | `fair: "fixed"` with `make_edge = (1/γ)·log(1 + γ/κ)` and `skew` 0 |
-| skew `γσ²/(2α)` per unit | `skew = γσ²/(2α) × limit` (`bots/template.py:46`) |
+| skew `γσ²/(2α)` per unit | `skew = γσ²/(2α) × limit` (`python/bots/template.py:46`) |
 | tracking quotes near the end | `fair: "wall_mid"` |
 
 ## Traps

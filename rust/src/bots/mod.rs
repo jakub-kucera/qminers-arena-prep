@@ -1,5 +1,5 @@
-//! Bots written in Rust. Each one has a Python twin under bots/ that must trade the same; the
-//! registry of twins is rust/twins.json, and arena/rust.py passes each bot its Python file's
+//! Bots written in Rust. Each one has a Python twin under python/bots/ that must trade the same; the
+//! registry of twins is rust/twins.json, and python/arena/rust.py passes each bot its Python file's
 //! globals (as JSON) so `--set` overrides reach it.
 
 pub mod mm;

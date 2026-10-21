@@ -1,4 +1,4 @@
-//! bots/zoo/other/deepseek-r1-14b_market_maker_2.py
+//! python/bots/zoo/other/deepseek-r1-14b_market_maker_2.py
 
 use super::{best_ask, best_bid, order};
 use crate::arena::engine::TickView;

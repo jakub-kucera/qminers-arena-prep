@@ -13,7 +13,7 @@ A **live** event: 10 simulated exchanges, 25 instruments, bots on a team VM talk
 
 ## Layout and code map
 - `.firecrawl/`: a copy of the official documents (`algotrade-participant-guide.md` 454 lines, `algotrade-api.md` 875, `algotrade-bots.md` 156, network/SSH guide). The reference bots use a `Strategy` base class with `on_market_data` (`.firecrawl/algotrade-bots.md:39-45`).
-- `bots/` (16 bot files plus `archive/` and `cpp/`), `tools/` (replay scorers that fill only against visible top-of-book depth), `scripts/`, `tests/` (18 files), `dashboard/`, `market_data/` (40 recorded CSVs, top-3 book), `analysis/`, `edge_research/`, `docs/` (a 1,457-line VM runbook; skip).
+- `python/bots/` (16 bot files plus `archive/` and `cpp/`), `tools/` (replay scorers that fill only against visible top-of-book depth), `scripts/`, `python/tests/` (18 files), `dashboard/`, `market_data/` (40 recorded CSVs, top-3 book), `analysis/`, `edge_research/`, `docs/` (a 1,457-line VM runbook; skip).
 
 ## What carries over
 - `analysis/mm_analysis.md` reverse-engineers the built-in market maker from recorded books: it stacks 1–5 lots of 50 shares at the inner five levels, so cumulative top-3 sizes of 50/100/150 are its fingerprint (`analysis/mm_analysis.md:19-36`). Method worth copying: identify the bot's signature before inventing a fair value.

@@ -177,7 +177,7 @@ impl Fields {
     }
 }
 
-/// One participant's DayResult as a JSON line (arena/rust.py `read_dump`): every field the parity
+/// One participant's DayResult as a JSON line (python/arena/rust.py `read_dump`): every field the parity
 /// check compares (those not in `fields` written empty), products and trader names by name, and
 /// the day's products in its own order, their limits, and the timestamps.
 pub fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names: &[String], fields: &Fields) {

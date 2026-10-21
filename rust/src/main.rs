@@ -2,11 +2,11 @@
 //!
 //!   arena-rs run DAY... [ENGINE] --bot NAME=SPEC.json... [--dump FILE] [--fields LIST] [--threads N]
 //!       the bots in one market on each day, the days on N threads; a SPEC is {"kind", "globals",
-//!       "requote"} (arena/rust.py writes them from the Python twin's file); --dump writes each
-//!       participant's DayResult, a JSON line each, day by day (arena/rust.py `run_days`), with only
+//!       "requote"} (python/arena/rust.py writes them from the Python twin's file); --dump writes each
+//!       participant's DayResult, a JSON line each, day by day (python/arena/rust.py `run_days`), with only
 //!       the --fields listed (e.g. pnl,errors,breaches) if given
 //!   arena-rs batch TASKS.json [--threads N]
-//!       arena.grid's backtests (arena/rust.py `run_batch`): a JSON line per task on stdout, in order,
+//!       arena.grid's backtests (python/arena/rust.py `run_batch`): a JSON line per task on stdout, in order,
 //!       with what grid.Piece holds
 //!   arena-rs sim SPEC.json [--market-seed S] [--days D] [--threads N] [--bot NAME=SPEC.json]... [--resting] [--queue ...]
 //!                [--replay] [--out DIR] [--csv DIR --round R]

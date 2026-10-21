@@ -100,7 +100,7 @@ Lessons:
 
 ### `prosperity3-alpha-animals/`
 - `trader.py` (1,800 lines) + `datamodel.py`: a complete single-file submission covering every product.
-- `notebooks/`: basket spreads, volatility smile, a Kalman filter, and `counterparty_edge.ipynb`.
+- `python/notebooks/`: basket spreads, volatility smile, a Kalman filter, and `counterparty_edge.ipynb`.
 - `data/`: Prosperity 3 data for rounds 1–5.
 
 Lessons:
@@ -184,7 +184,7 @@ See [How these relate](#how-these-relate-to-the-arena) for what it shows about h
 Read `README.md` (the post-mortem, 10 minutes) and `COMPETITION_README.md` (the organisers' rules, in Czech). The points for the Arena are on `wiki/sources/qminers-hackathon-2024.md`. The model code is NBA-specific and unread. The user's own team repo for 2025 (`jakub-kucera/QQH-2025`, private) has a copy of this repo on its `kuca-ai-merge-2024` branch; its other branches are the organisers' 2025 files and the team's betting models.
 
 ### `hftbacktest/`
-- **Our `--resting` queue model is hftbacktest's `RiskAdverseQueueModel`.** Compare `hftbacktest/hftbacktest/src/backtest/models/queue.rs` with the module docstring of `arena/engine.py`. Both do the same two things: a trade at the price reduces the volume ahead, and when the visible level shrinks below the volume ahead, the front is clipped to the new level size (`front = min(front, level)`). Their docs call this the most conservative model for fills.
+- **Our `--resting` queue model is hftbacktest's `RiskAdverseQueueModel`.** Compare `hftbacktest/hftbacktest/src/backtest/models/queue.rs` with the module docstring of `python/arena/engine.py`. Both do the same two things: a trade at the price reduces the volume ahead, and when the visible level shrinks below the volume ahead, the front is clipped to the new level size (`front = min(front, level)`). Their docs call this the most conservative model for fills.
 - Their less conservative `ProbQueueModel` is the principled middle between our rule and the "front of the queue" option in `TODO.md`. When the level shrinks (after trades are subtracted), a share `prob` of the decrease is taken to be *behind* you and the rest ahead. `queue.rs` offers several `prob` functions: `f(back) / (f(back) + f(front))` with `f(x) = x**n` or `log(1 + x)`, `f(back) / f(back + front)`, and `1 - (front / (front + back))**n` (`PowerProbQueueFunc3`). The last is the family that fits Databento's order-by-order evidence; `log(1 + x)` blames the back more than uniform only while you are nearer the back, so it is not the realistic middle it was taken for (`wiki/sources/rigtorp-queue-position.md`, `wiki/sources/databento-queue-position.md`). `examples/Probability Queue Models.ipynb` compares them.
 - `examples/` has tutorial notebooks worth skimming for ideas: GLFT market making (the paper is in `literature_md/`), order-book-imbalance as an alpha, queue-based quoting for large ticks, and the effect of order latency.
 - We don't use it as a backtester. It replays event streams (depth changes and trades), while our data is one snapshot per tick, so we only borrow its ideas.
@@ -229,7 +229,7 @@ references/clone.sh --update   # move every repo to its newest commit and rewrit
 
 Each repo is pinned to a commit in `clone.sh`. The wiki's `path:line` citations, the Prosperity
 data, the parity test and the results in `IDEAS.md` were made on those commits, so every machine
-must be on them; `tests/test_references.py` fails for a clone that isn't. `--update` is a
+must be on them; `python/tests/test_references.py` fails for a clone that isn't. `--update` is a
 deliberate step: it prints each repo it moves, old and new commit. Then run
 `python3 references/wiki/lint.py` and `uv run pytest`, re-check the citations into any repo that
 moved (the lint only checks that a cited line exists), and commit `clone.sh`.

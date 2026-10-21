@@ -28,7 +28,7 @@ Code (`FrankfurtHedgehogs_polished.py`):
 | `881-925` | `Trader.run`: product → trader dict, each in `try/except: pass`; one JSON `print` per tick |
 
 ## What carries over
-- Resin and Kelp are the take / clear / make pattern around `wall_mid` that `bots/template.py` already has.
+- Resin and Kelp are the take / clear / make pattern around `wall_mid` that `python/bots/template.py` already has.
 - Keep a running mean in `traderData` as `[mean, n]` (`FrankfurtHedgehogs_polished.py:444-450`).
 - Their reading of the simulator: orders live one tick, the order of play within a tick (`README.md:173`), PnL marked to the market maker's mid (`README.md:882`).
 

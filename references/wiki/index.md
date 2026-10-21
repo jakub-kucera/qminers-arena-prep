@@ -41,7 +41,7 @@ Team write-ups and code:
 - [prosperity4-du-trading](sources/prosperity4-du-trading.md): P4 10th; wide fills, snap-back rule; README ≠ code.
 - [prosperity4-ryan-challman](sources/prosperity4-ryan-challman.md): P4 57th; validation discipline and rollbacks.
 - [prosperity4-alpha-search](sources/prosperity4-alpha-search.md): P4; README only; multiple testing, PnL decomposition.
-- [prosperity2-linear-utility](sources/prosperity2-linear-utility.md): P2 2nd; ancestor of `bots/template.py`.
+- [prosperity2-linear-utility](sources/prosperity2-linear-utility.md): P2 2nd; ancestor of `python/bots/template.py`.
 - [prosperity3-alpha-animals](sources/prosperity3-alpha-animals.md): P3 9th; conversions, copy-trading; state on `self`.
 More team write-ups and code (added 2026-10-11; the first four are read from saved README snapshots in `references/online-snapshots/`):
 - [prosperity4-leo-hawking-review](sources/prosperity4-leo-hawking-review.md): human-plus-AI workflow, round 0 probe (no queue), the limits of agent consensus.

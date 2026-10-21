@@ -2,7 +2,7 @@
 name = "arena_rs"
 version = "0.1.0"
 edition = "2021"
-description = "A Rust port of arena/engine.py and one bot, for benchmarking against the Python engine (see README.md)"
+description = "The Rust twins of python/: the engine, arena.sim's market, the grid's statistics, the Prosperity loader and the bots, laid out as python/ is (see README.md)"
 publish = false
 
 [dependencies]

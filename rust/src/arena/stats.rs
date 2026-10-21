@@ -1,4 +1,4 @@
-//! arena/stats.py's statistics whose cost grows with a grid's cells, ported function for function
+//! python/arena/stats.py's statistics whose cost grows with a grid's cells, ported function for function
 //! and to the bit: `cscv` (Bailey et al.'s PBO), `mean_correlation` (the DSR's independent
 //! trials) and `snooping` (Hansen's SPA and Romano and Wolf's StepM on one stationary bootstrap).
 //! The formulas are cited in the Python. What makes them exact: CPython's `math.fsum` (behind

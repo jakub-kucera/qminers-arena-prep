@@ -16,7 +16,7 @@ The source of the hosted visualizer (`jmerle.github.io/imc-prosperity-3-visualiz
 - `src/pages/visualizer/` holds the panels (24 files); `src/models.ts` the types.
 
 ## What carries over
-If our engine should write a visualizer-compatible log (it writes CSVs today, `arena/report.py`), this file is the specification.
+If our engine should write a visualizer-compatible log (it writes CSVs today, `python/arena/report.py`), this file is the specification.
 
 ## Traps
 Needs the trader to print the `Logger` format; a trader without it shows prices and PnL only.

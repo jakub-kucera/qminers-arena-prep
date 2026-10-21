@@ -23,7 +23,7 @@ A two-page blog post by Erik Rigtorp on estimating where your order sits in a FI
 - **Event time.** The rule runs once per book update. With one snapshot per tick, several cancels and adds at a level net out into one change, so the estimate sees less than an event feed would *(inferred)*.
 
 ## In our notation
-| Rigtorp | Ours (`arena/engine.py`, resting mode) |
+| Rigtorp | Ours (`python/arena/engine.py`, resting mode) |
 |---|---|
 | `V̂` (volume ahead) | the order's queue-ahead volume |
 | `Q − S − V̂` (volume behind) | the visible level minus the volume ahead (our orders are not in the recorded book) |

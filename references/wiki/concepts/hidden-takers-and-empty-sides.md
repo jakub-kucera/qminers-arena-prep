@@ -26,7 +26,7 @@ In Prosperity 4 round 1, one side of the book was empty on ~8% of ticks, and a b
 Not about the effect; only about its persistence (present in R1/R2, gone in later phases).
 
 ## What it means for our code
-`bots/template.py` has no rule for an empty side. Our engine matches unfilled orders against the tick's recorded market trades at the order's own price (`--match-trades`), so whether a far quote would fill in a replay depends on a trade existing in the data at that price. That has not been tested.
+`python/bots/template.py` has no rule for an empty side. Our engine matches unfilled orders against the tick's recorded market trades at the order's own price (`--match-trades`), so whether a far quote would fill in a replay depends on a trade existing in the data at that price. That has not been tested.
 
 ## How to test it here
 Needs `--data p4` (`TODO.md`). Then: run Baguette Fromage's round 1 idea (quote ±98 from the last wall mid when a side is empty) on Prosperity 4 round 1 and see whether the engine produces fills. On the day: count empty sides and extreme-price trades in the Arena's public data before assuming any of this exists (`ON_THE_DAY.md`).

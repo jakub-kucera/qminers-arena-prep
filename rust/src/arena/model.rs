@@ -1,4 +1,4 @@
-//! arena/model.py's types. Products are indices into `Day::products`, which is sorted by name (the
+//! python/arena/model.py's types. Products are indices into `Day::products`, which is sorted by name (the
 //! order the Python engine sorts them in wherever order matters); trader names are indices into
 //! `Day::names`, 0 being the empty name.
 

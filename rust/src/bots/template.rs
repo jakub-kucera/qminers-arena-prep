@@ -1,14 +1,14 @@
-//! bots/template.py in Rust: its STRATEGY and EXECUTION, function for function with the Python
+//! python/bots/template.py in Rust: its STRATEGY and EXECUTION, function for function with the Python
 //! names, and its ADAPTER as the Prosperity format plug-in presents the engine's tick to it. Keep
-//! the two equal: tests/test_rust.py checks that both trade the same, and rust/twins.json holds the
+//! the two equal: python/tests/test_rust.py checks that both trade the same, and rust/twins.json holds the
 //! hash of the Python file the port was last checked against.
 //!
-//! bots/drill/template.py is the same STRATEGY and EXECUTION behind the drill format's ADAPTER
+//! python/bots/drill/template.py is the same STRATEGY and EXECUTION behind the drill format's ADAPTER
 //! (`Template::drill`): prices in each product's ticks, converted from and to the format's price
-//! units as its plug-in and ADAPTER do (arena/formats/drill.py), products in the exchange's order,
+//! units as its plug-in and ADAPTER do (python/arena/formats/drill.py), products in the exchange's order,
 //! trades without names, and each product's limit from the exchange.
 //!
-//! The settings come from the Python file itself: arena/rust.py loads it (with any --set overrides)
+//! The settings come from the Python file itself: python/arena/rust.py loads it (with any --set overrides)
 //! and passes its DEFAULTS and PARAMS, so `params_for` here merges them as Python's does. Floats are
 //! computed in the same order as Python's, with the same libm calls (`x ** 2` is libm's `pow`, which
 //! on macOS isn't always `x * x`; NormalDist's cdf is libm's `erf`), so the PnL matches to the bit.
@@ -905,7 +905,7 @@ pub struct Template {
 }
 
 impl Template {
-    /// From the Python file's globals (arena/rust.py `bot_globals`): DEFAULTS and PARAMS.
+    /// From the Python file's globals (python/arena/rust.py `bot_globals`): DEFAULTS and PARAMS.
     pub fn from_globals(globals: &Value) -> Result<Template, String> {
         let defaults = globals.get("DEFAULTS").and_then(Value::as_object).ok_or("the template's DEFAULTS must be a dict")?.to_vec();
         let params = globals.get("PARAMS").and_then(Value::as_object).ok_or("the template's PARAMS must be a dict")?;

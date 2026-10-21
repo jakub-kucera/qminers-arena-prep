@@ -26,7 +26,7 @@ A market maker that **learns its half-spread and its off-centring while trading*
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `ψ` | `make_edge` (`bots/template.py:45`) |
+| `ψ` | `make_edge` (`python/bots/template.py:45`) |
 | `θ` | the template's quote shift (`skew × q / limit`); here it follows the price, not inventory |
 | `ΔT` | how long a quote lives: one tick in the default engine mode |
 | the update | would live in STRATEGY, with its state in `traderData` |

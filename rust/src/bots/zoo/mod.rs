@@ -1,7 +1,7 @@
-//! bots/zoo/ in Rust: one twin per LLM-written bot, translated line by line (the Python files are
+//! python/bots/zoo/ in Rust: one twin per LLM-written bot, translated line by line (the Python files are
 //! never edited, so each twin is a translation the parity check holds to its original). They
 //! don't read settings from the Python file (rust/twins.json marks them "settings": false, and
-//! arena/rust.py refuses `--set` on them): a zoo bot is run as written.
+//! python/arena/rust.py refuses `--set` on them): a zoo bot is run as written.
 //!
 //! What the Prosperity format hands a bot, as these twins read it: `state.order_depths` in the
 //! tick's order (`TickView::order`), each with `buy_orders` (the book's bids, best first) and

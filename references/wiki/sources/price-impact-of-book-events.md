@@ -32,7 +32,7 @@ A 26-page empirical paper on one month (April 2010) of TAQ Level-1 data for 50 r
 
 ## Assumptions against the Arena
 - **The regression is contemporaneous, not predictive.** `ΔP_k` and `OFI_k` cover the same interval, and the paper never tests whether OFI predicts the *next* interval. It notes that autocorrelations at 10 seconds are small and vanish quickly (`price-impact-of-book-events.md:154` (p. 7)). So OFI explains moves; on this evidence it is not a signal to trade on. Any use as a forecast must be tested here first.
-- **What does carry over is the impact of our own taking.** Taking `x` units at the best level is an OFI of `x`, so the stylised model says the mid moves about `x/(2D)` ticks. With Prosperity's thin books, a take that clears a level moves the mid by construction. That matters for size decisions in `take` and when unwinding (`bots/template.py`).
+- **What does carry over is the impact of our own taking.** Taking `x` units at the best level is an OFI of `x`, so the stylised model says the mid moves about `x/(2D)` ticks. With Prosperity's thin books, a take that clears a level moves the mid by construction. That matters for size decisions in `take` and when unwinding (`python/bots/template.py`).
 - **Snapshot data.** Prosperity gives one book snapshot per tick, so `e_n` between consecutive ticks lumps all the events in between, which is what the paper does with 10-second TAQ data.
 - **Depth is a bot's quote size** in Prosperity, so `AD` is mostly constant per product, and the depth-scaling result has little to work with.
 

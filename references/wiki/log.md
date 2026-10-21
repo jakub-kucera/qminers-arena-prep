@@ -127,7 +127,7 @@ Ran the template in one market with DU's `round2.py`, Baguette Fromage's `Phase1
 ## [2026-10-13] query | size skew (Bouchaud et al. eq. 17.4) tested
 The template gains `size_skew`: inventory control through quote size, as in eq. 17.4.
 - **Result:** gridded against `skew` on P3 round 1 (Kelp, Resin, also under `--resting`) and P4 rounds 1–2 (Osmium, Pepper Root), it never beat 0. Price `skew` cost more. Both fit the diagnosis that Prosperity's flow is uninformed. Recorded in `IDEAS.md` and `market-making-and-inventory-skew`.
-- **Citations moved:** the new `DEFAULTS` line and `make` docstring shifted `bots/template.py`. Its citations in 19 wiki pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:216-248`).
+- **Citations moved:** the new `DEFAULTS` line and `make` docstring shifted `python/bots/template.py`. Its citations in 19 wiki pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:216-248`).
 
 ## [2026-10-13] query | the wall-mid definitions compared
 Settled contradictions row 2 for Prosperity data and closed the `TODO.md` item.
@@ -138,22 +138,22 @@ Settled contradictions row 2 for Prosperity data and closed the `TODO.md` item.
 - **Filed into:**
   - the wiki: `fair-value-and-wall-mid` (a per-day table), `shared-market-and-adversaries`, `reading-the-data-on-day-one`, contradictions row 2;
   - the repo: `IDEAS.md`, `ON_THE_DAY.md`, `README.md`, `CLAUDE.md`.
-- **Citations moved:** template line citations re-mapped again (`make` is now `bots/template.py:216-248`).
+- **Citations moved:** template line citations re-mapped again (`make` is now `python/bots/template.py:216-248`).
 
 ## [2026-10-13] query | P4 levels and vouchers measured
-Measured what the teams' P4 round 3–4 money is made of, with two committed scripts (`experiments/p4_levels.py`, `experiments/p4_vouchers.py`) on the four distinct days.
+Measured what the teams' P4 round 3–4 money is made of, with two committed scripts (`python/experiments/p4_levels.py`, `python/experiments/p4_vouchers.py`) on the four distinct days.
 - **Levels:** Hydrogel's and Velvetfruit's daily means agree within 13 and 16 across days. Replacing Baguette Fromage's and DU's hard-coded levels with the other days' mean keeps 90% of their PnL; the day's running mean keeps 55–57%.
 - **Vouchers:** implied vol is flat within each day, each voucher sits within about half a spread of Black–Scholes at one vol, and the teams' voucher PnL is delta × Velvetfruit's move. Contradictions row 6 settled for P4; the options page's link to it said row 5 and is fixed.
 - **Filed into:** `drift-and-regime-change`, `options-and-vouchers`, `reading-the-data-on-day-one`, contradictions row 6; the repo's `IDEAS.md` (two tested rows; the untested spot-level row removed, the options row narrowed to smile trading on P3).
 
 ## [2026-10-13] query | a level mode in the template
-`bots/template.py` gains `level_target` and `estimate_level`: for a product that returns to a level, the target is the full limit against a move of `level_band`, held until the other band. The level is a number from earlier days, the day's running mean (`"day"`), or a blend (`level_weight`).
-- **Result** (`experiments/p4_level_template.py`, nested leave-one-day-out on P4 rounds 3–4): 215k over four days on Hydrogel and Velvetfruit, against 286k in-sample and 147k with the day's own mean. Blending did not help.
+`python/bots/template.py` gains `level_target` and `estimate_level`: for a product that returns to a level, the target is the full limit against a move of `level_band`, held until the other band. The level is a number from earlier days, the day's running mean (`"day"`), or a blend (`level_weight`).
+- **Result** (`python/experiments/p4_level_template.py`, nested leave-one-day-out on P4 rounds 3–4): 215k over four days on Hydrogel and Velvetfruit, against 286k in-sample and 147k with the day's own mean. Blending did not help.
 - **Filed into:** `drift-and-regime-change` ("What it means for our code"), `reading-the-data-on-day-one` (the reverts-to-a-level row); the repo's `IDEAS.md`, `README.md`, `CLAUDE.md`, `ON_THE_DAY.md`, `TODO.md`.
 
 ## [2026-10-13] query | options follow their underlying in the template
-`bots/template.py` gains a cross-product hook and a mode for options. `Trader.run` trades followed products first and passes their plans. A product with `follow` and `strike` holds the underlying's target as a share of its own limit (`follow_target`). Black–Scholes is in total variance, so delta comes from the option's own price without an expiry date.
-- **Result** (`experiments/p4_vouchers_template.py`, nested leave-one-day-out on P4 rounds 3–4): Velvetfruit with VEV_4000–5500 following makes 768k over four days, the vouchers 661k of it; in-sample 1,001k. The cost-per-delta gate never helped.
+`python/bots/template.py` gains a cross-product hook and a mode for options. `Trader.run` trades followed products first and passes their plans. A product with `follow` and `strike` holds the underlying's target as a share of its own limit (`follow_target`). Black–Scholes is in total variance, so delta comes from the option's own price without an expiry date.
+- **Result** (`python/experiments/p4_vouchers_template.py`, nested leave-one-day-out on P4 rounds 3–4): Velvetfruit with VEV_4000–5500 following makes 768k over four days, the vouchers 661k of it; in-sample 1,001k. The cost-per-delta gate never helped.
 - **Filed into:** `options-and-vouchers` ("What it means for our code"); the repo's `IDEAS.md` (the voucher row and a note under the benchmark), `README.md`, `CLAUDE.md`, `ON_THE_DAY.md` ("Products"), `TODO.md`.
 - **Citations moved:** template line citations re-mapped with a diff of the old and new file.
 
@@ -163,8 +163,8 @@ Measured what the teams' P4 round 3–4 money is made of, with two committed scr
 - **Filed into:** `validation-and-overfitting` ("What it means for our code"); the repo's `README.md`, `CLAUDE.md` and `TODO.md` (the grid item, CSCV still to build).
 
 ## [2026-10-13] query | baskets in the template
-`bots/template.py` gains a `basket` mode: a basket's spread against its legs, traded with the level settings, with optional hedging legs. The cross-product hook becomes `Market`, which holds every book and this tick's plans.
-- **Result** (`experiments/baskets.py`, nested leave-one-day-out): 83k on P3 round 2 and 281k on P2 round 3 over three days, against 20k for plain market making. Hedging lost. Baskets only take, because their resting quotes were picked off under `--resting`. Market making on the legs (Roses, Chocolate) lost up to 1.5M under `--resting`, so the legs are left out.
+`python/bots/template.py` gains a `basket` mode: a basket's spread against its legs, traded with the level settings, with optional hedging legs. The cross-product hook becomes `Market`, which holds every book and this tick's plans.
+- **Result** (`python/experiments/baskets.py`, nested leave-one-day-out): 83k on P3 round 2 and 281k on P2 round 3 over three days, against 20k for plain market making. Hedging lost. Baskets only take, because their resting quotes were picked off under `--resting`. Market making on the legs (Roses, Chocolate) lost up to 1.5M under `--resting`, so the legs are left out.
 - **Filed into:** `baskets-and-fixed-sums` ("What it means for our code", "How to test it here"); the repo's `IDEAS.md` (two tested rows; the band row narrowed), `README.md`, `CLAUDE.md`, `ON_THE_DAY.md` ("Products"), `TODO.md` (multi-product item done).
 
 ## [2026-10-13] query | a jump measure in arena.diagnose
@@ -181,23 +181,23 @@ P3 round 3 treated as a first download, following `ON_THE_DAY.md`: diagnose, the
 ## [2026-10-13] lint | fixes from the code review
 Five fixes from the code review (`TODO.md`, "From the code review"): the template's error handler, `level_exit` past the level, baskets pricing legs from untouched books, `make` keeping the bid below the ask, and `--resting` no longer filling from the same orders twice.
 - **Numbers moved:** `baskets-and-fixed-sums` (held out 71k / 294k, was 83k / 281k) and `drift-and-regime-change` (210k held out, 152k with the day's mean, was 215k / 147k), both from re-running the experiments after the `level_exit` fix.
-- **Citations moved:** the template's line citations in 20 pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:420-458`). Contradictions rows 12 and 16 cited `bots/template.py:475-507` (`execute` and the ADAPTER) for the quoting rule; they now cite `make`.
+- **Citations moved:** the template's line citations in 20 pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:420-458`). Contradictions rows 12 and 16 cited `python/bots/template.py:475-507` (`execute` and the ADAPTER) for the quoting rule; they now cite `make`.
 
 ## [2026-10-13] lint | citation ranges into our own code
-`lint.py` now warns when a cited range into `bots/`, `arena/` or `experiments/` doesn't start a definition (a `def`, `class`, decorator, assignment, annotated field or dict entry): such a range has usually been left behind by an edit, and the old check only asked whether the line exists.
-- **Caught on its first run, and fixed:** `book-imbalance-and-micro-price` cited `arena/analysis.py:189-215` for the markouts (now `206-233`); `informed-counterparties` cited `arena/model.py:27-35`, inside `Book.wall_mid`, for `MarketTrade` (now `39-48`); `reading-the-data-on-day-one` cited `arena/diagnose.py:50-68`, starting at an import, for the thresholds (now `52-73`, twice).
+`lint.py` now warns when a cited range into `python/bots/`, `python/arena/` or `python/experiments/` doesn't start a definition (a `def`, `class`, decorator, assignment, annotated field or dict entry): such a range has usually been left behind by an edit, and the old check only asked whether the line exists.
+- **Caught on its first run, and fixed:** `book-imbalance-and-micro-price` cited `python/arena/analysis.py:189-215` for the markouts (now `206-233`); `informed-counterparties` cited `python/arena/model.py:27-35`, inside `Book.wall_mid`, for `MarketTrade` (now `39-48`); `reading-the-data-on-day-one` cited `python/arena/diagnose.py:50-68`, starting at an import, for the thresholds (now `52-73`, twice).
 - **Also:** `book-imbalance-and-micro-price` listed three `fair` methods; it now lists all five.
 
 ## [2026-10-13] query | do the round-number jumps generalise?
-`experiments/p4_jumps.py` and the template's new `jump` mode. The Robots' 309–509k in the benchmark is one product-day (ROBOT_DISHES, P4 round 5 day 4); both teams' rules reproduce in the template; with a reversal gate measured on the day, the mode runs on all 50 round 5 products with no losing day (+501k in-sample), and no other P2–P4 round shows the effect. Updated [jumps](concepts/jumps-and-snap-back.md) and the DU and Baguette Fromage source pages; results in `IDEAS.md`.
-- **Citations moved:** the new `DEFAULTS` lines, the `jump` branch of `trade_product` and `jump_target` shifted `bots/template.py`; its citations in 19 wiki pages were re-mapped with a diff of the old and new file.
+`python/experiments/p4_jumps.py` and the template's new `jump` mode. The Robots' 309–509k in the benchmark is one product-day (ROBOT_DISHES, P4 round 5 day 4); both teams' rules reproduce in the template; with a reversal gate measured on the day, the mode runs on all 50 round 5 products with no losing day (+501k in-sample), and no other P2–P4 round shows the effect. Updated [jumps](concepts/jumps-and-snap-back.md) and the DU and Baguette Fromage source pages; results in `IDEAS.md`.
+- **Citations moved:** the new `DEFAULTS` lines, the `jump` branch of `trade_product` and `jump_target` shifted `python/bots/template.py`; its citations in 19 wiki pages were re-mapped with a diff of the old and new file.
 
 ## [2026-10-13] ingest | Qminers Quant Hackathon 2024
 `qminers-hackathon-2024/` (AdamBobocky/qminers-24, the 1st-place team's repo, pinned in `clone.sh`), found by the user as `last_year_challenge/` on a branch of their private 2025 repo. New source page [qminers-hackathon-2024](sources/qminers-hackathon-2024.md). Updated [submission-and-scoring-mechanics](concepts/submission-and-scoring-mechanics.md) (Qminers' format over two years, the evaluator reused), [risk-and-protecting-a-lead](concepts/risk-and-protecting-a-lead.md) (risk chosen for the chance of winning; halving risk while ahead) and [probing-the-environment](concepts/probing-the-environment.md) (scrambled finals data, the leaderboard as information). The rest of the user's 2025 branches are the organisers' 2025 files, already covered, and the team's own betting models: not ingested.
 
 ## [2026-10-13] query | is any named trader worth following?
-`experiments/counterparties.py` and the template's new `copy` mode. On P3 round 5 Olivia is right on all 19 trades and copying her pays on Croissants and Squid Ink out of sample (+54k); no P4 Mark is worth following, which settles [contradictions](contradictions.md) row 3 for P4. Choosing names by mean move loses out of sample; choosing by hit rate finds only Olivia. Updated [informed counterparties](concepts/informed-counterparties.md); results in `IDEAS.md`.
-- **Citations moved:** the new `DEFAULTS` lines, `Market.trades`, `copy_target` and `read_trades` shifted `bots/template.py`; its citations were re-mapped with a diff of the old and new file.
+`python/experiments/counterparties.py` and the template's new `copy` mode. On P3 round 5 Olivia is right on all 19 trades and copying her pays on Croissants and Squid Ink out of sample (+54k); no P4 Mark is worth following, which settles [contradictions](contradictions.md) row 3 for P4. Choosing names by mean move loses out of sample; choosing by hit rate finds only Olivia. Updated [informed counterparties](concepts/informed-counterparties.md); results in `IDEAS.md`.
+- **Citations moved:** the new `DEFAULTS` lines, `Market.trades`, `copy_target` and `read_trades` shifted `python/bots/template.py`; its citations were re-mapped with a diff of the old and new file.
 
 ## [2026-10-13] restructure | Avellaneda–Stoikov: the published version replaces the preprint
 The user saved the published paper (Quantitative Finance 8(3), 2008); the 2006 preprint moved to `literature_raw/superseded/`. Rebuilt [hft-in-a-limit-order-book](sources/hft-in-a-limit-order-book.md) from it, every formula checked on the page images. **Settled:** the spread is `γσ²(T − t) + (2/γ)·ln(1 + γ/k)` (eq. 30), as GLFT's footnote and Hummingbot have it. **Found:** the preprint's infinite-horizon `r̄^a` and `r̄^b` were swapped (checked on both PDFs), and its simulation tables differ (the wiki had quoted them). Re-pointed the citation in [optimal-quoting-models](concepts/optimal-quoting-models.md) and settled its "which spread" question; [dealing-with-inventory-risk](sources/dealing-with-inventory-risk.md)'s open point closed. OCR traps: eqs. 6–7, 13, 14, 19 and the solution of 28 (listed on the source page).
@@ -250,81 +250,81 @@ From the spoofing and harder-round triage tables, fetched or split out by the ag
 Saved by the user: [spoofing-traders-empirical](sources/spoofing-traders-empirical.md) (the 53-page manuscript) and [accidental-pump-and-dump](sources/accidental-pump-and-dump.md). The Korea Exchange criterion is now cited first-hand in [harder-rounds](concepts/harder-rounds.md) (D3), [hidden-takers-and-empty-sides](concepts/hidden-takers-and-empty-sides.md), [optimal-spoofing](sources/optimal-spoofing.md) and [manipulation-detection-evasion](sources/manipulation-detection-evasion.md). New points in D3: the thresholds need each product's own baseline, a persistence check alone misses long-lived spoofs, and keep side totals out of `fair`. Byrd's population and its "more followers, more exploitable" result went into D2.
 
 ## [2026-10-14] ingest | two ICAIF 2026 preprints
-Downloaded by the agent from arXiv (found by the comment-field query in `references/SEARCH_LOG.md`): [hawkes-structured-mm](sources/hawkes-structured-mm.md) and [lob-irreversibility](sources/lob-irreversibility.md). Before writing the first, `experiments/trade_clustering.py` checked whether Prosperity's market trades cluster. They don't (ratios 0.90–1.04 on P3 and P4 round 1), so the idea is `dropped here` in `IDEAS.md`. Updated [optimal-quoting-models](concepts/optimal-quoting-models.md) (and removed a stale duplicate of its Sources line) and [harder-rounds](concepts/harder-rounds.md) (A1's realism check).
+Downloaded by the agent from arXiv (found by the comment-field query in `references/SEARCH_LOG.md`): [hawkes-structured-mm](sources/hawkes-structured-mm.md) and [lob-irreversibility](sources/lob-irreversibility.md). Before writing the first, `python/experiments/trade_clustering.py` checked whether Prosperity's market trades cluster. They don't (ratios 0.90–1.04 on P3 and P4 round 1), so the idea is `dropped here` in `IDEAS.md`. Updated [optimal-quoting-models](concepts/optimal-quoting-models.md) (and removed a stale duplicate of its Sources line) and [harder-rounds](concepts/harder-rounds.md) (A1's realism check).
 
 ## [2026-10-15] restructure | the day generator is built
-`arena/sim.py` implements A1 of [harder-rounds](concepts/harder-rounds.md) from the spec on [pymarketsim](sources/pymarketsim.md), [spoofing-abm](sources/spoofing-abm.md) and [abides-simulator](sources/abides-simulator.md) (seeding), calibrated with [lob-simulation-realism](sources/lob-simulation-realism.md)'s idea of an acceptance test through `arena.diagnose`. First result in `IDEAS.md`: replay `--match-trades all` overstates the template in a reactive market, and `worse` is close.
+`python/arena/sim.py` implements A1 of [harder-rounds](concepts/harder-rounds.md) from the spec on [pymarketsim](sources/pymarketsim.md), [spoofing-abm](sources/spoofing-abm.md) and [abides-simulator](sources/abides-simulator.md) (seeding), calibrated with [lob-simulation-realism](sources/lob-simulation-realism.md)'s idea of an acceptance test through `arena.diagnose`. First result in `IDEAS.md`: replay `--match-trades all` overstates the template in a reactive market, and `worse` is close.
 
 ## [2026-10-15] restructure | the LLM zoo
-`bots/zoo/` implements D2 of [harder-rounds](concepts/harder-rounds.md), with archetype prompts after [llm-agents-market-simulation](sources/llm-agents-market-simulation.md). Six Claude bots; results in `IDEAS.md`. Other providers' bots are a manual item.
+`python/bots/zoo/` implements D2 of [harder-rounds](concepts/harder-rounds.md), with archetype prompts after [llm-agents-market-simulation](sources/llm-agents-market-simulation.md). Six Claude bots; results in `IDEAS.md`. Other providers' bots are a manual item.
 
 ## [2026-10-15] restructure | the stress harness and the template's protection
-`arena/stress.py` implements B1's harness in [harder-rounds](concepts/harder-rounds.md); the template gains a loss stop and guards. The volatility guard is a stand-in for [online-changepoint-detection](sources/online-changepoint-detection.md)'s detector, not that algorithm.
-- **Citations moved:** the template's line citations in 32 pages were re-mapped with a diff of the old and new file (`make` is now `bots/template.py:565-603`).
+`python/arena/stress.py` implements B1's harness in [harder-rounds](concepts/harder-rounds.md); the template gains a loss stop and guards. The volatility guard is a stand-in for [online-changepoint-detection](sources/online-changepoint-detection.md)'s detector, not that algorithm.
+- **Citations moved:** the template's line citations in 32 pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:565-603`).
 
 ## [2026-10-15] restructure | Kelp's make_edge 0.5 in the template
 The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `worse` fills, not on the Arena; `IDEAS.md`, "Why the zoo beat the template head to head"). Five comment lines went in above it.
-- **Citations moved:** 40 of the template's line citations re-mapped with a diff of the old and new file, range ends included (`make` is now `bots/template.py:570-634`).
+- **Citations moved:** 40 of the template's line citations re-mapped with a diff of the old and new file, range ends included (`make` is now `python/bots/template.py:570-634`).
 
 ## [2026-10-15] restructure | queue models in the engine
 [queue-position-and-fills](concepts/queue-position-and-fills.md): `--queue back|prob|front` now exists; "What it means for our code" records the `arena.sim` check (`front` within 5% for a quote that joins the walls, `prob` blind to re-posting at the same size).
 
 ## [2026-10-15] restructure | adversarial rivals measured
-[shared-market-and-adversaries](concepts/shared-market-and-adversaries.md): the trapper, spoofer and sniper now exist (`bots/rivals/`), with their cost to the template on P3 round 1; "How to test it here" points to `experiments/adversaries.py`. The template's `fixed_guard` now reads the sized mid; 35 of its line citations re-mapped (range ends included).
+[shared-market-and-adversaries](concepts/shared-market-and-adversaries.md): the trapper, spoofer and sniper now exist (`python/bots/rivals/`), with their cost to the template on P3 round 1; "How to test it here" points to `python/experiments/adversaries.py`. The template's `fixed_guard` now reads the sized mid; 35 of its line citations re-mapped (range ends included).
 
 ## [2026-10-15] query | book imbalance and the micro-price on Prosperity data
-[book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md): new section "Tested here" (`experiments/imbalance.py`, the template's `weighted_mid` and `imbalance`): `ρ` predicts the plain mid's noise, not the wall mid; dropped here. [contradictions](contradictions.md) row 11 notes the result. Template citations re-mapped after the edit.
+[book-imbalance-and-micro-price](concepts/book-imbalance-and-micro-price.md): new section "Tested here" (`python/experiments/imbalance.py`, the template's `weighted_mid` and `imbalance`): `ρ` predicts the plain mid's noise, not the wall mid; dropped here. [contradictions](contradictions.md) row 11 notes the result. Template citations re-mapped after the edit.
 
 ## [2026-10-17] query | regime changes in a market that reacts, and a changepoint detector
 `arena.sim` gains `--regime`, a mid-day shift or trend sized in each product's spread, and a Hydrogel-like preset. The template gains `changepoint_level` (Adams & MacKay, on block means of a level product), off by default.
-- **Results** (`experiments/sim_regimes.py`; `arena.stress` on P4 rounds 3–4):
+- **Results** (`python/experiments/sim_regimes.py`; `arena.stress` on P4 rounds 3–4):
   - `fixed_guard` holds Resin in the reacting market.
   - Hydrogel's level bet loses most on a trend, and its loss stop rarely fires.
   - The detector finds shifts and trends, but neither re-estimating the level nor dropping the bet wins on balance: dropping costs 17% of P4's plain days.
 - **Filed into:** `harder-rounds` (B1), `online-changepoint-detection` ("In our notation"); the repo's `IDEAS.md` (two rows), `TODO.md`, `ON_THE_DAY.md`, `CLAUDE.md`.
 
 ## [2026-10-17] lint | pages that said the flatten and the probe bot were still to do
-`risk-and-protecting-a-lead`, `harder-rounds` (C5), `optimal-quoting-models` and `probing-the-environment` still described `flatten_from` and `bots/probe.py` as deferred items in `TODO.md`. Updated: both are built, with their results.
+`risk-and-protecting-a-lead`, `harder-rounds` (C5), `optimal-quoting-models` and `probing-the-environment` still described `flatten_from` and `python/bots/probe.py` as deferred items in `TODO.md`. Updated: both are built, with their results.
 
 ## [2026-10-18] lint | template citations after Kelp moved to `sized_mid`
-Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted every line from 113 down by two. Re-mapped the citations in 28 pages (each cited line checked against the old file). `shared-market-and-adversaries` describes Kelp on `wall_mid` under the far spoofer; that is the result that moved it.
+Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shifted every line from 113 down by two. Re-mapped the citations in 28 pages (each cited line checked against the old file). `shared-market-and-adversaries` describes Kelp on `wall_mid` under the far spoofer; that is the result that moved it.
 
 ## [2026-10-18] query | two more `arena.sim` presets: jumps that snap back, one-sided takers
 - `ROBOT_DISHES` copies P4 round 5's jumping day; `KELP_FLOW` copies P3 round 1 Kelp's taker flow, which turned out to be 35% buys by count, not persistent signs (`C(1)` 0.04 net of the imbalance).
 - **Filed into:** `jumps-and-snap-back` ("What it means for our code"), `market-making-and-inventory-skew` (the `C(1)` measurement); the repo's `IDEAS.md` (two rows), `TODO.md` (the presets item, Kelp's long drift, the mock round's data), `CLAUDE.md`, `README.md`.
 
 ## [2026-10-18] query | when is a quote worth posting; GLFT's skew measured
-- `experiments/quote_markouts.py`: the template's passive fills, valued against the wall mid by the state when quoted. No state has a negative total on Prosperity data; the adverse moves are 0.5 a unit at most, against edges of 0.6–7.4.
-- `experiments/glft_skew.py`: `σ`, `A`, `k` per product and GLFT's skew. The exponential fill model fits poorly, and every `γ` costs PnL.
+- `python/experiments/quote_markouts.py`: the template's passive fills, valued against the wall mid by the state when quoted. No state has a negative total on Prosperity data; the adverse moves are 0.5 a unit at most, against edges of 0.6–7.4.
+- `python/experiments/glft_skew.py`: `σ`, `A`, `k` per product and GLFT's skew. The exponential fill model fits poorly, and every `γ` costs PnL.
 - Checked jmerle's claim that P3's Resin is P2's Amethysts: the same books on all three days (`submission-and-scoring-mechanics`).
 - **Filed into:** the repo's `IDEAS.md` (three rows moved from "Not yet tested"), `README.md` (reused days), `ON_THE_DAY.md` (probe 18).
 
 ## [2026-10-18] query | a rival that undercuts the template
-- `experiments/undercut.py`: the template against a copy at `make_edge` 0, per tick and with `--resting`. Per tick it costs what any copy costs; with resting orders it wins Resin's whole passive flow from `make_edge` 2, and 1 is the best reply. Two copies of Pepper Root's drift bet fight over it.
+- `python/experiments/undercut.py`: the template against a copy at `make_edge` 0, per tick and with `--resting`. Per tick it costs what any copy costs; with resting orders it wins Resin's whole passive flow from `make_edge` 2, and 1 is the best reply. Two copies of Pepper Root's drift bet fight over it.
 - **Filed into:** `shared-market-and-adversaries` (the Wang et al. bullet); the repo's `IDEAS.md` (the row moved from "Not yet tested"), `TODO.md` (a decision on Resin's edge), `ON_THE_DAY.md` (orders that rest).
 
 ## [2026-10-18] query | quote size against rivals; template citations re-mapped
-- `experiments/quote_size.py`: capping the template's quote never binds alone, but saves Pepper Root's drift bet from a rival with the same view (213k → 430k against a copy). Pepper Root now quotes 10 at most.
-- `bots/template.py` gained three comment and parameter lines at 136–141: every citation at line 139 or later moved by 3 (28 pages).
+- `python/experiments/quote_size.py`: capping the template's quote never binds alone, but saves Pepper Root's drift bet from a rival with the same view (213k → 430k against a copy). Pepper Root now quotes 10 at most.
+- `python/bots/template.py` gained three comment and parameter lines at 136–141: every citation at line 139 or later moved by 3 (28 pages).
 - **Filed into:** `shared-market-and-adversaries`; the repo's `IDEAS.md`, `ON_THE_DAY.md` ("Before the first submission").
 
 ## [2026-10-18] query | PBO and the deflated Sharpe ratio built into arena.grid
-- `arena/grid.py` now prints the trials, CSCV's PBO and the DSR of the best cell's gain over the bot as is; the detector checks and five real grids are on `validation-and-overfitting`.
+- `python/arena/grid.py` now prints the trials, CSCV's PBO and the DSR of the best cell's gain over the bot as is; the detector checks and five real grids are on `validation-and-overfitting`.
 - **Filed into:** `validation-and-overfitting` ("What it means for our code", "How to test it here"); the repo's `README.md` ("Grid search"), `TODO.md` (item ticked), `ON_THE_DAY.md` ("Evaluation data"), `IDEAS.md` ("A slow fair on Osmium").
 
 ## [2026-10-18] query | trading P3's volcanic vouchers off a smile
-- `experiments/p3_smile.py`: the smile from held-out days, the residual's fast part, and the template's new `smile` fair. Take-only on two strikes made 529k over five days, every day positive; a flat vol does as well; the delta hedge halves it; quotes lose when orders rest.
-- `bots/template.py` gained the `smile` parameters and `smile_fair` (37 lines); every citation re-mapped by a line diff (28 pages).
+- `python/experiments/p3_smile.py`: the smile from held-out days, the residual's fast part, and the template's new `smile` fair. Take-only on two strikes made 529k over five days, every day positive; a flat vol does as well; the delta hedge halves it; quotes lose when orders rest.
+- `python/bots/template.py` gained the `smile` parameters and `smile_fair` (37 lines); every citation re-mapped by a line diff (28 pages).
 - **Filed into:** `options-and-vouchers` ("What it means for our code", "How to test it here"), `contradictions` row 6; the repo's `IDEAS.md` (row moved from "Not yet tested"), `TODO.md`, `ON_THE_DAY.md` ("Products").
 
 ## [2026-10-19] ingest | overfitting, second pass: SPA, StepM, haircuts, the reusable holdout, optimal trading rules
 - **Documents:** `superior-predictive-ability` (Hansen 2005), `stepwise-multiple-testing` (Romano & Wolf 2003), `backtesting-haircut` (Harvey & Liu 2015), `reusable-holdout` (Dwork et al. 2015), `optimal-trading-rules` (Carr & López de Prado 2014). White 2000, López de Prado's book chapters, Arian et al. 2024, Masters and Politis–Romano are in `MANUAL_TODO.md` (G).
-- **Measured:** `experiments/snooping_tests.py`. The DSR fails Kelp's best `make_edge` × `take_edge` cell (0.76) where SPA (p 0.00) and StepM (three cells) pass it. Held out, the gain is real under `all` but reverses under `worse`. Five null grids gave no false positive.
+- **Measured:** `python/experiments/snooping_tests.py`. The DSR fails Kelp's best `make_edge` × `take_edge` cell (0.76) where SPA (p 0.00) and StepM (three cells) pass it. Held out, the gain is real under `all` but reverses under `worse`. Five null grids gave no false positive.
 - **Filed into:** `validation-and-overfitting` (theory, "What it means for our code"), `contradictions` row 18; the repo's `IDEAS.md` ("Bootstrap tests of the best cell"), `TODO.md` (research item, "SPA and StepM in `arena.grid`", the rewrite decision), `MANUAL_TODO.md` (G).
 - **Traps found:** Hansen's stationary-bootstrap recursion prints `u_{b,1}` for `u_{b,t}` (typo in the paper itself); Marker dropped decimal points in Hansen's tables, moved Holm's `j ≤ i` from the max to the min, and lost all inline math in Carr & López de Prado's Section 4.
 
 ## [2026-10-19] query | SPA and StepM built into arena.grid; selection rules on unseen days
-- `arena/grid.py` prints SPA, StepM, each StepM cell under the other modes, and a pick. `experiments/selection_rules.py` scores ten selection rules on unseen days; SPA + `worse` was the only one never to lose. `experiments/snooping_tests.py` gained PBO and BHY columns and ten null grids: null PBO averages 46.5%, so neighbouring blocks don't leak.
+- `python/arena/grid.py` prints SPA, StepM, each StepM cell under the other modes, and a pick. `python/experiments/selection_rules.py` scores ten selection rules on unseen days; SPA + `worse` was the only one never to lose. `python/experiments/snooping_tests.py` gained PBO and BHY columns and ten null grids: null PBO averages 46.5%, so neighbouring blocks don't leak.
 - **Filed into:** `validation-and-overfitting` ("What it means for our code"), the source pages' code maps (`superior-predictive-ability`, `stepwise-multiple-testing`); the repo's `IDEAS.md`, `TODO.md`, `ON_THE_DAY.md` ("Evaluation data"), `README.md` ("Grid search"), `CLAUDE.md`.
 
 ## [2026-10-19] query | a permutation test of the whole search
@@ -332,12 +332,12 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 - **Filed into:** `validation-and-overfitting` ("What it means for our code"); the repo's `IDEAS.md`, `TODO.md`, `MANUAL_TODO.md` (G), `README.md`, `CLAUDE.md`.
 
 ## [2026-10-19] query | the selection rules on simulated days
-- `experiments/selection_rules_sim.py`: each preset's grid tuned on 3 fresh `arena.sim` days, ten times, and scored on 20 other days. The grid's pick lost in 2 of 120 runs, against 10–22 for the rules that gained as much; it is not "never loses", and the docs now say so.
-- **Filed into:** `validation-and-overfitting`; the repo's `IDEAS.md`, `README.md`, `ON_THE_DAY.md`, `arena/grid.py`'s docstring.
+- `python/experiments/selection_rules_sim.py`: each preset's grid tuned on 3 fresh `arena.sim` days, ten times, and scored on 20 other days. The grid's pick lost in 2 of 120 runs, against 10–22 for the rules that gained as much; it is not "never loses", and the docs now say so.
+- **Filed into:** `validation-and-overfitting`; the repo's `IDEAS.md`, `README.md`, `ON_THE_DAY.md`, `python/arena/grid.py`'s docstring.
 
 ## [2026-10-20] query | screening a big grid
 - `arena.grid --screen SHARE`: every cell on the first day under the first mode, then the best share on every day and mode; SPA, StepM and the pick are repeated on the days the screen didn't see.
-- **Filed into:** `validation-and-overfitting`; the repo's `README.md`, `TODO.md`, `arena/grid.py`'s docstring.
+- **Filed into:** `validation-and-overfitting`; the repo's `README.md`, `TODO.md`, `python/arena/grid.py`'s docstring.
 
 ## [2026-10-21] lint | arena.grid's lines moved
 - `arena.grid --engine rust` added code above the bootstrap tests: the citations of `omega2`, `spa`, `stepm`, `format_snooping` and `FINE_TICKS` re-mapped (`stepwise-multiple-testing`, `superior-predictive-ability`, `validation-and-overfitting`).
@@ -345,8 +345,8 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 ## [2026-10-21] lint | arena.sim's lines moved
 - `arena.sim --engine rust` added a line to the module docstring: the citations of the KELP_FLOW and ROBOT_DISHES presets re-mapped (`market-making-and-inventory-skew`, `jumps-and-snap-back`).
 
-## [2026-10-21] lint | the grid's statistics moved to arena/stats.py
-- `cscv`, the DSR's helpers, `omega2`, `bootstrap_means`, `spa` and `stepm` moved from `arena/grid.py` to `arena/stats.py` (twinned in `rust/src/stats.rs`; `arena.grid` still exports the names): the citations of `omega2`, `spa` and `stepm` now point there, and `format_snooping`'s moved up (`stepwise-multiple-testing`, `superior-predictive-ability`, `validation-and-overfitting`).
+## [2026-10-21] lint | the grid's statistics moved to python/arena/stats.py
+- `cscv`, the DSR's helpers, `omega2`, `bootstrap_means`, `spa` and `stepm` moved from `python/arena/grid.py` to `python/arena/stats.py` (twinned in `rust/src/stats.rs`; `arena.grid` still exports the names): the citations of `omega2`, `spa` and `stepm` now point there, and `format_snooping`'s moved up (`stepwise-multiple-testing`, `superior-predictive-ability`, `validation-and-overfitting`).
 
 ## [2026-10-21] lint | arena.grid's lines moved
 - `arena.grid --engine rust` hands Prosperity days to Rust as references to their CSVs: the citation of `format_snooping` re-mapped (`validation-and-overfitting`).

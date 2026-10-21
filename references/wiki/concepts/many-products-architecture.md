@@ -25,7 +25,7 @@ Round 5 had 50 products with a limit of 10 each. The teams that kept control did
 Aggregating by averaging targets (Baguette Fromage) versus exclusive ownership (Alpha Search): averaging lets a weak signal dilute a strong one; ownership leaves capacity unused. Not tested.
 
 ## What it means for our code
-`bots/template.py` already has a per-product `Plan` that keeps all orders inside the room under the limit, a `Trader.run` with a try/except per product swallowed unless `STRICT`, and `arena.validate`. It lacks intents, shared state across products and a global tick-volume cap.
+`python/bots/template.py` already has a per-product `Plan` that keeps all orders inside the room under the limit, a `Trader.run` with a try/except per product swallowed unless `STRICT`, and `arena.validate`. It lacks intents, shared state across products and a global tick-volume cap.
 
 ## How to test it here
 Port a toy two-strategy product (a market maker plus a target-position strategy) onto the template and check with `arena.validate` and the parity-pinned engine that no limit breaches appear. A tick-volume cap is a one-line experiment.

@@ -72,11 +72,11 @@ The standard textbook on stochastic-control trading strategies (360 PDF pages). 
 ## In our notation
 | Book | Ours |
 |---|---|
-| `δ±` (depth from the mid) | the quote's distance from `fair`: `make_edge` plus `skew` shift (`bots/template.py:683-726`) |
+| `δ±` (depth from the mid) | the quote's distance from `fair`: `make_edge` plus `skew` shift (`python/bots/template.py:683-726`) |
 | `λ±`, `κ±` | rate of fills on each side and its decay with distance; from `_orders.csv` / `_fills.csv` |
 | `q̲, q̄` | `-limit`, `limit` |
 | `φ` (running penalty), `α` (liquidation cost) | no parameter; the linear `skew` approximates the effect of `φ` |
-| `ε±` (mid jump after a market order) | markout of fills at 1 tick (`arena/analysis.py:189`) |
+| `ε±` (mid jump after a market order) | markout of fills at 1 tick (`python/arena/analysis.py:189`) |
 | co-integration factor `ε_t` | the basket spread, e.g. basket − Σ weights × components |
 
 ## Traps

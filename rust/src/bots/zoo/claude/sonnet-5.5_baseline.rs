@@ -1,4 +1,4 @@
-//! bots/zoo/claude/sonnet-5.5_baseline.py
+//! python/bots/zoo/claude/sonnet-5.5_baseline.py
 
 use super::py;
 use super::{lookup, order};

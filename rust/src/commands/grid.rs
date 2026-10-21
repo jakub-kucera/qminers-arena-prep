@@ -1,4 +1,4 @@
-//! `arena-rs grid`: bots/mm.rs's make × take grid, for timing (experiments/rust_bench.py).
+//! `arena-rs grid`: python/bots/mm.rs's make × take grid, for timing (python/experiments/rust_bench.py).
 
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
