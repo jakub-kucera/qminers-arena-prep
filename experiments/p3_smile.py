@@ -1,6 +1,6 @@
 """Is there a volatility smile to trade? P3's volcanic vouchers, by held-out days.
 
-usage (from the repo root): uv run python -m experiments.p3_smile [--window N]
+usage (from the repo root): uv run python -m experiments.p3_smile [--window N] [--engine rust]
 
 The five distinct days with the vouchers: P3 round 3 days 0-2, round 4 day 3 and round 5 day 4
 (round 4 days 1-2 and round 5 days 2-3 repeat them; arena.grid.repeated_days). Time to expiry is
@@ -34,7 +34,9 @@ import statistics as st
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
-from arena.engine import EngineConfig, TradeMatching, run_day
+from arena import rust
+from arena.cli import backtest as run_backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 from experiments.p4_vouchers import bs_call, implied_vol
 
@@ -146,19 +148,26 @@ def overrides(variant: str | None, coef: tuple[float, float, float], expiry: int
     return out
 
 
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
+
+
 def backtest(job: tuple[str, str | None, str, tuple]) -> tuple[tuple, dict]:
     day_name, variant, mode, coef = job
     (day,) = [d for d in load() if d.name == day_name]
-    bot = FMT.load_bot(TEMPLATE, overrides(variant, coef, days_to_expiry(day_name)), False)
-    result = run_day(_only_options(day), bot, MODES[mode])
+    bots = [("you", TEMPLATE, overrides(variant, coef, days_to_expiry(day_name)), False)]
+    (result,) = run_backtest(_only_options(day), bots, MODES[mode], ENGINE[0], fields=("pnl", "errors", "breaches"))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return (day_name, variant, mode), {"rock": pnl.get(UNDERLYING, 0.0), "options": sum(v for p, v in pnl.items() if p != UNDERLYING),
                                        "errors": len(result.errors), "breaches": len(result.limit_breaches)}
 
 
-def trade(held: dict) -> None:
+def trade(held: dict, engine: str = "python") -> None:
     jobs = [(d, v, m, held[d]) for d in held for v in (None, *VARIANTS) for m in MODES]
-    with ProcessPoolExecutor() as pool:
+    with ProcessPoolExecutor(initializer=_init, initargs=(engine,)) as pool:
         results = dict(pool.map(backtest, jobs))
     names = list(held)
     print("\n3. Trading it: rock + vouchers PnL in thousands per day (rock / vouchers in the total column), under all; worse and --resting in the last columns\n")
@@ -187,7 +196,10 @@ def trade(held: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.p3_smile")
     parser.add_argument("--window", type=int, default=20, help="EMA ticks for the residual's slow part (default 20)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     by_day = {day.name: points(day) for day in load()}
     alpha = 2 / (args.window + 1)
 
@@ -218,7 +230,7 @@ def main() -> None:
             alive = sum(1 for r in series if r["v"] is not None)
             print(f"| {name} | {product.removeprefix(PREFIX)} | {alive:,} | {st.fmean(residual):+.2f} | {st.pstdev(residual):.2f} | "
                   f"{st.pstdev(fast):.2f} | {lag1:.2f} | {st.fmean(r['half_spread'] for r in series):.2f} |")
-    trade(held)
+    trade(held, args.engine)
 
 
 if __name__ == "__main__":

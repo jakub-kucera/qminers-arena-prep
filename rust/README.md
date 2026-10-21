@@ -30,7 +30,7 @@ against. `tests/test_rust.py` fails when a Python twin changes until the Rust si
 | `bots/mm.py` | `src/bots/mm.rs` | a plain wall-mid market maker, the benchmark's bot | 15 engine configurations (`CONFIGS`) |
 | `bots/template.py` | `src/bots/template.rs` | STRATEGY and EXECUTION function for function, and ADAPTER as the Prosperity plug-in presents a tick to it; the settings come from the Python file's own DEFAULTS and PARAMS | 18 variants, one per part of STRATEGY, alone and in a resting market with a rival; the committed settings in 6 more configurations; 10 real days (P2, P3, P4) under two configurations |
 | `bots/rivals/sniper.py`, `bots/rivals/spoofer.py`, `bots/rivals/trapper.py` | `src/bots/rivals.rs` | the adversarial `--vs` rivals | 13 cases: against the template and `mm`, resting and per tick, with their constants changed by `--set`, all three at once |
-| the 32 zoo bots, below | `src/bots/zoo/` | translated line by line, never edited on either side; they don't read settings from the file, so `--set` on one is refused | each alone (all, worse, a fill ratio, resting as written, resting requoted) and all of them with the template in one market, per tick and resting, on a simulated day, the same day trending hard up and down, and P3 round 1 day 0: 648 cases |
+| the 32 zoo bots, below | `src/bots/zoo/` | translated line by line, never edited on either side; they don't read settings from the file, so `--set` on one is refused | each alone (all, worse, a fill ratio, resting as written, resting requoted) and all of them with the template in one market, per tick and resting, on a simulated day, the same day trending hard up and down, a day with products their prompt never named (where most raise, or trade with limits they made up), and the first day of P2, P3 and P4 round 1: 1,134 cases |
 
 The zoo's twins, one row per Python file (several small bots share a Rust file, one struct each):
 
@@ -80,17 +80,21 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 | `math.erf`, `x ** 2`, `math.exp`, `math.log` | libm's `erf`, `pow`, `exp`, `log` | CPython calls the C library for these, so the Rust does too. On macOS `pow(x, 2)` isn't always `x * x`. |
 | `math.fsum`, `statistics.fmean`, `random.sample` | `fsum`, `fmean`, `sample` in `src/stats.rs` | Shewchuk's partials as `mathmodule.c` has them; `sample`'s two branches as `Lib/random.py` |
 | `sum()` of floats, and of ints and floats mixed; `round(x, n)`, `//`, `max`/`min`; numpy's `mean`, `std` | `src/py.rs` | CPython 3.12's `sum` is compensated (Neumaier), not a plain loop, and adds ints after the first float uncompensated; numpy's sums are pairwise from 0.0. Each checked against the real thing on random inputs, and `cargo test` holds CPython's vectors |
-| an exception in `Trader.run` | `Bot::failed` | the twin reports the exception's type, and the engine drops the tick's orders and records it, as `_call_bot` does. The twin keeps what the Python keeps: traderData as last returned, the instance's changes up to the error |
+| an exception in `Trader.run` | `Bot::failed` | the twin reports the traceback's last line, word for word (`KeyError: 'SQUID_INK'`, `ValueError: min() iterable argument is empty`, NameError's "Did you mean"), and the engine drops the tick's orders and records it, as `_call_bot` does. The twin keeps what the Python keeps: traderData as last returned, the instance's changes up to the error |
+| what an experiment reads from a bot's traderData | `Bot::memory` | the template's: which products' loss stop fired (`experiments/sim_regimes.py`) |
 
 **Only in Python**:
 - the format plug-ins (`arena/formats/`), which load the data;
-- `arena.backtest` and `arena.validate`;
+- `arena.validate`, which checks the Python file itself;
 - everything in `arena.grid` but the backtests and the heavy statistics: the axes, screening, the permutation test's shuffles (`arena.stress.permute`, 0.09 s a day), held-out days, and the DSR's own formula;
-- `arena.compare`, `arena.analysis`, `arena.diagnose`, `arena.stress`, and `arena.report`'s CSVs;
+- `arena.analysis`, `arena.diagnose`, `arena.stress`'s perturbations, and `arena.report`'s CSVs (written from the results Rust hands back);
+- `experiments/p4_levels.py` (other teams' bots, which have no twins) and `format_drill.py` (three simulated days);
 - `arena.sim`'s specs, presets, `--spec` overrides and regimes, and its command line, which prints from the results Rust hands back;
 - `bots/drill/template.py`, `bots/probe.py`, the zoo's tooling (`bundle.py`, `local.py`), and `experiments/`.
 
-`arena/rust.py` is the bridge. It exports days, turns a twin's Python file into its Rust bot's settings (`bot_spec`, with any `--set` overrides), runs `arena-rs batch` and `arena-rs sim`, and reads what Rust writes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`), so the reports and CSVs work unchanged. A Rust bot has no step timings, so a report from Rust leaves out the "bot time per tick" line.
+`arena/rust.py` is the bridge. It exports days, turns a twin's Python file into its Rust bot's settings (`bot_spec`, with any `--set` overrides), runs `arena-rs run`, `batch`, `sim` and `stats`, and reads what Rust writes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`), so the reports and CSVs work unchanged. A Rust bot has no step timings, so a report from Rust leaves out the "bot time per tick" line (and `experiments/zoo.py` its slowest-tick column).
+
+Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`, `arena.stress`, `arena.sim`, and the experiments, which go through `arena.cli.backtest` (one market on one day on either engine; `fields` limits what is read back, `arena.rust.sim_day_file` has Rust write a simulated day straight to a file).
 
 **Only in Rust**: the day-file reader (`src/dayfile.rs`, for days `arena/rust.py` exports after the plug-ins have loaded them), the thread pool of `arena-rs batch` and `grid`, SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
 

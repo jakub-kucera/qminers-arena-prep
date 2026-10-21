@@ -165,11 +165,15 @@ def zoo_twins() -> list[Path]:
 
 def zoo_days(ticks: int = 2000) -> list[tuple[str, Day]]:
     """The days the zoo twins are checked on: arena.sim's three P3 round 1 products as they are, and
-    trending hard up and down (arena.stress, 60 spreads over the day), where the trend followers trade."""
+    trending hard up and down (arena.stress, 60 spreads over the day), where the trend followers trade;
+    and a day with Kelp and two products the zoo's prompt never named (most of them raise on it, or
+    trade it with limits they made up)."""
     from arena import sim, stress
 
     day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN", "SQUID_INK"]), 5).day
-    days = [("a simulated day", day), ("trending up", stress.perturb(day, "trend_up", 60)), ("trending down", stress.perturb(day, "trend_down", 60))]
+    other = sim.run(sim.preset_market(["KELP", "ROBOT_DISHES", "HYDROGEL_PACK"]), 6).day
+    days = [("a simulated day", day), ("trending up", stress.perturb(day, "trend_up", 60)), ("trending down", stress.perturb(day, "trend_down", 60)),
+            ("other products", other)]
     return [(label, replace(d, ticks=d.ticks[:ticks])) for label, d in days]
 
 
@@ -207,8 +211,8 @@ def _python_bot(path: Path, overrides: dict, requote: bool):
 
 
 def _error(text: str) -> str:
-    """A bot's exception by its type (a Rust twin reports only that); the engine's own errors whole."""
-    return text.strip().splitlines()[-1].split(":")[0] if text.startswith("Traceback") else text
+    """A bot's exception as its traceback's last line (a Rust twin reports that line); the engine's own errors whole."""
+    return text.strip().splitlines()[-1] if text.startswith("Traceback") else text
 
 
 def python_view(result) -> dict:
@@ -575,9 +579,9 @@ def main() -> None:
         print("   bots/rivals/ against rust/src/bots/rivals.rs, on the same day:")
         for label, counts, found in parity(sim_day(), scratch, rival_cases()):
             same &= _report(label, counts, found)
-        print("   bots/zoo/ against rust/src/bots/zoo/, on arena.sim days (2,000 ticks) and P3 round 1 day 0, whole:")
-        day = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1-0"])[0]
-        for label, counts, found in zoo_parity(scratch, [*zoo_days(), ("P3 r1d0", day)]):
+        print("   bots/zoo/ against rust/src/bots/zoo/, on arena.sim days (2,000 ticks) and the first day of P2, P3 and P4 round 1, whole:")
+        real = [(f"{data.upper()} {day.name}", day) for data in ("p2", "p3", "p4") for day in prosperity.load_days(prosperity.resolve_data_dir(data), ["1"])[:1]]
+        for label, counts, found in zoo_parity(scratch, [*zoo_days(), *real]):
             same &= _report(label, counts, found, 90)
         print("   ... and the template on real days, whole:")
         for label, counts, found in real_parity(scratch):

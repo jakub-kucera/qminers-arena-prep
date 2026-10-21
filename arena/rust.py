@@ -31,9 +31,11 @@ from __future__ import annotations
 import dataclasses
 import functools
 import hashlib
+import itertools
 import json
 import shutil
 import subprocess
+import weakref
 from collections import defaultdict
 from dataclasses import fields
 from pathlib import Path
@@ -323,17 +325,17 @@ def read_dump(text: str) -> dict[str, dict]:
     return out
 
 
-def read_results(text: str, day: Day) -> dict[str, DayResult]:
-    """A dump as Python DayResults on `day` (the day Rust ran on, as Python loaded it): what our
-    engine records, except step timings and output sizes (a Rust bot has neither) and errors,
-    which name only the exception's type."""
+def read_results(text: str, day: Day | None = None) -> dict[str, DayResult]:
+    """A dump as Python DayResults: what our engine records, except step timings and output sizes
+    (a Rust bot has neither); the fields left out of the dump (--fields) are empty. The market
+    trades come from `day`, the day Rust ran on as Python holds it, if given (else none)."""
     out = {}
-    timestamps = [t.timestamp for t in day.ticks]
-    market_trades = [(t.timestamp, trade) for t in day.ticks for trades in t.trades.values() for trade in trades]
+    market_trades = [(t.timestamp, trade) for t in day.ticks for trades in t.trades.values() for trade in trades] if day is not None else []
     for name, r in read_dump(text).items():
-        result = DayResult(day.name, list(day.products), dict(day.limits), list(timestamps))
+        products = r["products"]
+        result = DayResult(r["day"], list(products), dict(zip(products, r["limits"])), r["timestamps"])
         for field in SERIES:
-            setattr(result, field, {p: r["series"][p][field] for p in day.products})
+            setattr(result, field, {p: r["series"][p][field] for p in products})
         result.market_trades = list(market_trades)
         result.orders = [(ts, OpenOrder(i, product, price, quantity, placed)) for ts, i, product, price, quantity, placed in r["orders"]]
         result.cancels = r["cancels"]
@@ -343,6 +345,75 @@ def read_results(text: str, day: Day) -> dict[str, DayResult]:
         result.races = r["races"]
         out[name] = result
     return out
+
+
+# ---------------------------------------------------------------------------- one backtest at a time (the experiments)
+
+_SCRATCH: list = []  # this process's folder for exported days, made on first use
+_EXPORTED: dict[int, Path] = {}  # id(day) -> its file, while the day lives
+_SIM_DAYS: dict[tuple, Path] = {}
+_COUNT = itertools.count()  # names this process's day files
+
+
+def _scratch() -> Path:
+    if not _SCRATCH:
+        import atexit
+        import tempfile
+
+        folder = tempfile.TemporaryDirectory()
+        atexit.register(folder.cleanup)
+        _SCRATCH.append(folder)
+    return Path(_SCRATCH[0].name)
+
+
+def day_file(day: Day) -> Path:
+    """The day exported for Rust, once per process and day: the entry and its file go when the day does."""
+    if id(day) not in _EXPORTED:
+        path = _scratch() / f"day{next(_COUNT)}.day"
+        export_day(day, path)
+        _EXPORTED[id(day)] = path
+        weakref.finalize(day, _forget, id(day))
+    return _EXPORTED[id(day)]
+
+
+def _forget(key: int) -> None:
+    path = _EXPORTED.pop(key, None)
+    if path is not None:
+        path.unlink(missing_ok=True)
+
+
+def sim_day_file(spec, seed: int) -> Path:
+    """arena.sim's recording of the spec and seed (no bots), written by Rust straight to a day file,
+    once per process: what `day_file(arena.sim.run(spec, seed).day)` holds, without the Python run."""
+    key = (json.dumps(spec_json(spec), sort_keys=True), seed)
+    if key not in _SIM_DAYS:
+        folder = _scratch() / f"sim{len(_SIM_DAYS)}"
+        folder.mkdir()
+        path = folder / "spec.json"
+        path.write_text(key[0])
+        out = subprocess.run([str(BINARY), "sim", str(path), "--market-seed", str(seed), "--out", str(folder)], stdout=subprocess.DEVNULL)
+        if out.returncode != 0:
+            raise RuntimeError(f"arena-rs sim failed (exit {out.returncode}); its message is above")
+        _SIM_DAYS[key] = folder / f"sim{seed}.day"
+    return _SIM_DAYS[key]
+
+
+def backtest(day: Day | Path, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, fields: tuple[str, ...] | None = None) -> list[DayResult]:
+    """The (name, bot file, overrides, requote) participants in one market on one day (a Day, or a
+    day file from day_file or sim_day_file), each one's DayResult; with `fields` only those are
+    filled (e.g. ("pnl", "errors", "breaches")), which reads back much faster. A Day gives the
+    results its market trades."""
+    path = day if isinstance(day, Path) else day_file(day)
+    folder = _scratch()
+    dump = folder / "dump.jsonl"
+    args = [str(BINARY), "run", str(path), *_engine_args(config), *_bot_args(bots, folder), "--dump", str(dump)]
+    if fields is not None:
+        args += ["--fields", ",".join(fields)]
+    out = subprocess.run(args, stdout=subprocess.DEVNULL)
+    if out.returncode != 0:
+        raise RuntimeError(f"arena-rs run failed (exit {out.returncode}); its message is above")
+    results = read_results(dump.read_text(), None if isinstance(day, Path) else day)
+    return [results[name] for name, *_ in bots]
 
 
 # ---------------------------------------------------------------------------- arena.sim

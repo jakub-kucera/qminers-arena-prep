@@ -425,7 +425,9 @@ same (`rust/README.md` has the table of what is in Python, in Rust, and in both)
 Then it times both. On P3 round 1, one core, per day, the template as committed takes 577 ms in Python and 4.5 ms in Rust (129×);
 `mm` takes 208 ms against 1.5 ms; the template and the whole zoo in one market take 27.5 s against 0.34 s; an `arena.sim` day with the template in it, 977 ms against 29 ms.
 
-The Rust bots take their settings from the Python file, so `--set` reaches both. `rust/twins.json` records the hash of each Python
+Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`,
+`arena.stress`, `arena.sim` and the experiments. Each prints and writes what the Python engine does (a
+Rust bot has no step timings, so a report leaves out the bot-timing line). The Rust bots take their settings from the Python file, so `--set` reaches both. `rust/twins.json` records the hash of each Python
 twin as last checked, and `tests/test_rust.py` fails when one changes until `uv run python -m experiments.rust_bench --parity-only
 --record` has checked the pair again. The submitted bot stays a Python file.
 

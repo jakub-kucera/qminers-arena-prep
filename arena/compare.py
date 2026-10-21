@@ -3,6 +3,7 @@
     uv run python -m arena.compare bots/template.py 1 --bot bots/zoo/claude/*.py --modes all,worse
     uv run python -m arena.compare bots/template.py 1 --bot bots/mine.py "bots/template.py@PARAMS.KELP.make_edge=1"
     uv run python -m arena.compare bots/template.py 1 2 --data p4 --resting --bot bots/a.py bots/b.py --vs bots/rivals/sniper.py
+    uv run python -m arena.compare bots/template.py 1 --bot bots/zoo/*/*.py --engine rust     # the same, on rust/ (bots with a Rust twin)
 
 The first bot is the baseline, the bot as is (`--set` applies to it alone). Each `--bot` is a
 file, or a variant of one: FILE@PATH=VALUE@PATH=VALUE sets globals as `--set` does, and a leading
@@ -23,15 +24,16 @@ import argparse
 import csv
 import os
 import sys
+import tempfile
 import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from arena import grid, report
+from arena import grid, report, rust
 from arena.botfile import OverrideError, parse_override
-from arena.cli import Setup, add_common_arguments, add_rival_argument, run_with_rivals, setup
+from arena.cli import Setup, add_common_arguments, add_engine_argument, add_rival_argument, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
 from arena.formats import FORMATS
 
@@ -119,6 +121,26 @@ def _run(k: int, candidate: Candidate, day_index: int, mode: TradeMatching) -> t
     return k, day_index, mode, summary, ""
 
 
+def _run_rust(s: Setup, candidates: list[Candidate], tasks: list[tuple], jobs: int) -> dict:
+    """The tasks as one `arena-rs batch` on `jobs` threads, each summary as _run returns it."""
+    with tempfile.TemporaryDirectory() as folder:
+        scratch = Path(folder)
+        paths = []
+        for d, day in enumerate(s.days):
+            paths.append(scratch / f"day{d}.day")
+            rust.export_day(day, paths[-1])
+        specs = [rust.bot_spec(c.path, c.overrides) for c in candidates] + [rust.bot_spec(r, {}, s.requote) for r in s.rivals]
+        batch = []
+        for k, c, d, m in tasks:
+            names = participant_names(c.path, s.rivals)
+            bots = [[names[0], k]] + [[name, len(candidates) + j] for j, name in enumerate(names[1:])]
+            batch.append({"day": d, "config": rust.config_json(replace(s.config, trade_matching=m)), "bots": bots,
+                          "blocks": grid.blocks_per_day(len(s.days)), "fine": len(s.days[d].ticks) // grid.FINE_TICKS})
+        results = rust.run_batch(paths, specs, batch, jobs, scratch)
+    keys = ("pnl", "fine", "products", "fills", "errors", "breaches", "first_error")
+    return {(k, d, m): ({"coarse": r["blocks"]} | {key: r[key] for key in keys}, "") for (k, _, d, m), r in zip(tasks, results)}
+
+
 def run_compare(s: Setup, candidates: list[Candidate], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str,
                 day_specs: list[str]) -> dict[int, grid.Outcome]:
     """Every candidate on every day under every mode; outcome k is candidates[k] (0 is the baseline)."""
@@ -126,7 +148,9 @@ def run_compare(s: Setup, candidates: list[Candidate], modes: list[TradeMatching
     init_args = (format_name, data_arg, day_specs, s.rivals, s.config, s.requote)
     found = {}
     progress = grid._Progress(len(tasks))
-    if jobs <= 1:
+    if s.engine == "rust":
+        found = _run_rust(s, candidates, tasks, jobs)
+    elif jobs <= 1:
         _init_worker(*init_args, days=s.days)
         for task in tasks:
             k, d, m, summary, error = _run(*task)
@@ -254,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m arena.compare", description="Compare bots against a baseline, with robustness checks.")
     add_common_arguments(parser)
     add_rival_argument(parser)
+    add_engine_argument(parser)
     parser.add_argument("--bot", dest="bots", action="extend", nargs="+", required=True, metavar="[NAME:]FILE[@PATH=VALUE...]",
                         help="a bot to compare with the baseline, or a variant FILE@PATH=VALUE@..., optionally named NAME:...; repeatable, and takes several")
     parser.add_argument("--modes", help="comma-separated trade-matching modes, e.g. all,worse; the first is the main one (default: --match-trades)")
@@ -269,7 +294,11 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--modes lists a mode twice")
         base = Candidate(args.bot, s.overrides, default_label(args.bot, s.overrides))
         candidates = labelled([base, *(parse_candidate(text) for text in args.bots)])
-    except (ValueError, OSError, OverrideError) as error:
+        if s.engine == "rust":
+            rust.prepare(args.format, [*{c.path for c in candidates}, *s.rivals])
+            for c in candidates:
+                rust.bot_spec(c.path, c.overrides)  # --set or @ settings on a zoo twin: refused
+    except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))
 
     runs = len(candidates) * len(s.days) * len(modes)
@@ -295,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     held_out = grid.format_held_out(axes, modes, {(k,): o for k, o in outcomes.items()}, grid.repeated_days(s.days))
     if held_out:
         print("\n" + held_out)
-    print("\n" + grid.format_overfitting(outcomes[0], keyed, modes, len(s.days), axes))
+    print("\n" + grid.format_overfitting(outcomes[0], keyed, modes, len(s.days), axes, s.engine))
     if args.out:
         write_csv(args.out, candidates, modes, outcomes)
         print(f"\nall bots written to {args.out}")

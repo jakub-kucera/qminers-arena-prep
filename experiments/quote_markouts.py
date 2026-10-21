@@ -1,6 +1,6 @@
 """When is a quote worth posting? The template's passive fills, valued against the wall mid by state.
 
-usage (from the repo root): uv run python -m experiments.quote_markouts [--jobs N] [--horizon H]
+usage (from the repo root): uv run python -m experiments.quote_markouts [--jobs N] [--horizon H] [--engine rust]
 
 For every passive fill of the template as committed (a market trade at our price, or a resting
 order crossed by the next snapshot), its value per unit at horizon h, against the wall mid:
@@ -37,7 +37,9 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena.engine import EngineConfig, TradeMatching, run_day
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 
 FMT = FORMATS["prosperity"]
@@ -63,12 +65,19 @@ def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bo
     }
 
 
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
+
+
 def run(job: tuple[str, str, str]) -> list[dict]:
     """One dataset, mode and day: a row per passive fill unit-weighted by its volume."""
     dataset, mode, day_name = job
     data, days = DATASETS[dataset]
     (day,) = [d for d in FMT.load_days(FMT.resolve_data_dir(data), days) if d.name == day_name]
-    result = run_day(day, FMT.load_bot(TEMPLATE, {}, False), MODES[mode])
+    (result,) = backtest(day, [("you", TEMPLATE, {}, False)], MODES[mode], ENGINE[0], fields=("fills",))
     index = {tick.timestamp: i for i, tick in enumerate(day.ticks)}
     walls = {p: [] for p in day.products}
     for tick in day.ticks:
@@ -136,12 +145,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.quote_markouts")
     parser.add_argument("--jobs", type=int, default=None)
     parser.add_argument("--horizon", type=int, default=20, choices=HORIZONS, help="the horizon of the total and of the day test (default 20)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     jobs = []
     for dataset, (data, days) in DATASETS.items():
         for day in FMT.load_days(FMT.resolve_data_dir(data), days):
             jobs += [(dataset, mode, day.name) for mode in MODES]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         rows = [row for part in pool.map(run, jobs) for row in part]
     header = (f"  {'data':<8} {'mode':<8} {'product':<22} {'state':<9} {'fills':>7} {'units':>8}  {'edge':>6}  "
               + "  ".join(f"{'move' + str(h):>6}" for h in HORIZONS) + f"  {'total':>6}  sign of the total per day")

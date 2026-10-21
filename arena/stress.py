@@ -3,6 +3,7 @@
     uv run python -m arena.stress bots/template.py 1                        # P3 round 1, every perturbation
     uv run python -m arena.stress bots/template.py 1 2 --data p4 --only shift_up,shift_down
     uv run python -m arena.stress bots/template.py 1 --size 2 --resting --set PARAMS.KELP.stop_loss=2000
+    uv run python -m arena.stress bots/template.py 1 2 3 --data p4 --engine rust              # the same, on rust/ (bots with a Rust twin)
 
 The Arena's private run may not look like the download: Qminers' 2024 final switched regime, and
 a fixed anchor or a level set from the download breaks when the price moves away for good
@@ -34,15 +35,18 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import random
 import statistics
 import sys
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
+from pathlib import Path
 
-from arena import report
+from arena import report, rust
 from arena.botfile import OverrideError
-from arena.cli import add_common_arguments, add_rival_argument, run_with_rivals, setup
+from arena.cli import add_common_arguments, add_engine_argument, add_rival_argument, participants, run_with_rivals, setup
 from arena.formats import FORMATS
 from arena.model import Book, Day, Tick
 
@@ -187,10 +191,32 @@ def _run(task: tuple[int, str | None, float]) -> tuple[str, str | None, dict[str
     return w["days"][k].name, name, pnl, len(result.errors), {p: report.max_drawdown(series) for p, series in result.pnl.items()}
 
 
+def _export(task: tuple[int, str | None, float], path: Path) -> None:
+    k, name, size = task
+    day = _WORKER["days"][k]
+    rust.export_day(day if name is None else perturb(day, name, size), path)
+
+
+def _run_rust(args, s, tasks: list[tuple[int, str | None, float]]) -> list[tuple]:
+    """_run for every task, as one `arena-rs batch`; the perturbed days are made and exported by a pool."""
+    with tempfile.TemporaryDirectory() as folder:
+        scratch = Path(folder)
+        paths = [scratch / f"day{k}.day" for k in range(len(tasks))]
+        with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.format, args.data, args.days, args.bot, s.overrides, s.rivals, s.config, s.requote)) as pool:
+            list(pool.map(_export, tasks, paths))
+        bots = participants(args.bot, s.overrides, s.rivals, s.requote)
+        specs = [rust.bot_spec(path, o, r) for _, path, o, r in bots]
+        batch = [{"day": k, "config": rust.config_json(s.config), "bots": [[n, j] for j, (n, *_) in enumerate(bots)], "blocks": 1, "fine": 1}
+                 for k in range(len(tasks))]
+        found = rust.run_batch(paths, specs, batch, args.jobs or os.cpu_count() or 1, scratch)
+    return [(s.days[k].name, name, r["products"], r["errors"], r["drawdowns"]) for (k, name, _), r in zip(tasks, found)]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m arena.stress", description="Rerun a bot on perturbed days.")
     add_common_arguments(parser)
     add_rival_argument(parser)
+    add_engine_argument(parser)
     parser.add_argument("--only", help=f"comma-separated perturbations (default: all of {', '.join(PERTURBATIONS)})")
     parser.add_argument("--size", type=float, default=1.0, help="scale every perturbation (default: 1)")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
@@ -201,12 +227,18 @@ def main(argv: list[str] | None = None) -> int:
         s.format.load_bot(args.bot, s.overrides, strict=True)
         for name in names:
             perturb(Day("check", [], {}, []), name)
-    except (ValueError, OSError, OverrideError) as error:
+        if s.engine == "rust":
+            rust.prepare(args.format, [args.bot, *s.rivals])
+            rust.bot_spec(args.bot, s.overrides)
+    except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))
 
     tasks = [(k, name, args.size) for k in range(len(s.days)) for name in [None, *names]]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.format, args.data, args.days, args.bot, s.overrides, s.rivals, s.config, s.requote)) as pool:
-        runs = list(pool.map(_run, tasks))
+    if s.engine == "rust":
+        runs = _run_rust(args, s, tasks)
+    else:
+        with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.format, args.data, args.days, args.bot, s.overrides, s.rivals, s.config, s.requote)) as pool:
+            runs = list(pool.map(_run, tasks))
 
     products = sorted({p for _, _, pnl, _, _ in runs for p, v in pnl.items() if v})
     columns = ["plain", *names]

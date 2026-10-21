@@ -46,7 +46,7 @@ impl crate::engine::Bot for Bot {
             if let (Some(ma), Some(mid)) = (ma, mid) {
                 let wants = (mid > ma && position < 50 && ba.is_some()) || (mid < ma && position > -50 && bb.is_some());
                 if wants {
-                    self.error = Some("NameError".into()); // Order(...) with Order undefined
+                    self.error = Some("NameError: name 'Order' is not defined. Did you mean: 'orders'?".into()); // Order(...) with Order undefined
                     return;
                 }
             }

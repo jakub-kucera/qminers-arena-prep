@@ -1,6 +1,6 @@
 """The template's `skew` from GLFT's closed form, per product, against the committed setting.
 
-usage (from the repo root): uv run python -m experiments.glft_skew [--jobs N]
+usage (from the repo root): uv run python -m experiments.glft_skew [--jobs N] [--engine rust]
 
 Guéant, Lehalle & Fernandez-Tapia's stationary quotes shift by c2 per unit of inventory, with
 c2 = sqrt(sigma^2 gamma / (2 k A) x (1 + gamma/k)^(1 + k/gamma))
@@ -27,11 +27,18 @@ import statistics as st
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena.engine import EngineConfig, TradeMatching, run_day
+from arena import rust
+from arena.cli import backtest as run_backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 
 FMT = FORMATS["prosperity"]
 TEMPLATE = Path("bots/template.py")
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 PRODUCTS = {  # product: (data, days)
     "AMETHYSTS": ("p2", ["1"]),
     "STARFRUIT": ("p2", ["1"]),
@@ -87,7 +94,7 @@ def backtest(job: tuple[str, float | None, str]) -> tuple[tuple, float]:
     overrides = {} if skew is None else {f"PARAMS.{product}.skew": skew}
     pnl = 0.0
     for day in _days(product):
-        result = run_day(day, FMT.load_bot(TEMPLATE, overrides, False), MODES[mode])
+        (result,) = run_backtest(day, [("you", TEMPLATE, overrides, False)], MODES[mode], ENGINE[0], fields=("pnl",))
         pnl += result.pnl[product][-1] if result.pnl.get(product) else 0.0
     return job, pnl
 
@@ -95,8 +102,11 @@ def backtest(job: tuple[str, float | None, str]) -> tuple[tuple, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.glft_skew")
     parser.add_argument("--jobs", type=int, default=None)
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
-    with ProcessPoolExecutor(args.jobs) as pool:
+    if args.engine == "rust":
+        rust.build()
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         fits = dict(zip(PRODUCTS, pool.map(measure, PRODUCTS)))
         limits = {p: FMT.LIMITS[p] for p in PRODUCTS}
         skews = {p: {g: c2(f["sigma"], f["A"], f["k"], g) * limits[p] for g in GAMMAS} for p, f in fits.items()}

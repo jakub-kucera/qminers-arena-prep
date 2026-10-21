@@ -1,6 +1,6 @@
 """Do the template's loss stops hold on days they weren't sized on?
 
-usage (from the repo root): uv run python -m experiments.stops_held_out [--jobs N]
+usage (from the repo root): uv run python -m experiments.stops_held_out [--jobs N] [--engine rust]
 
 Every `stop_loss` in bots/template.py is about 3× the product's largest plain-day drawdown on the
 days it was then tested on (IDEAS.md, "A loss stop per product"), so "never fires on a plain day"
@@ -28,9 +28,10 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena import report, sim
+from arena import report, rust, sim
 from arena.botfile import BotFile
-from arena.engine import EngineConfig, run_day
+from arena.cli import backtest
+from arena.engine import EngineConfig
 from arena.formats import prosperity
 from arena.grid import SMOKE_TEST_TICKS
 from arena.stress import PERTURBATIONS, perturb
@@ -40,6 +41,11 @@ SEEDS = range(10)
 HELD_OUT_PRODUCTS = ("KELP", "RAINFOREST_RESIN")
 SIZED_ON = [("p3", [1]), ("p4", [1, 2]), ("p4", [3, 4])]  # each group's distinct days, for leave one day out
 RULE = 3  # stop = RULE × the largest plain-day drawdown
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 
 
 def stops() -> dict[str, float]:
@@ -57,11 +63,15 @@ def load(ref) -> object:
 def run(task):
     """(day ref, perturbation or None, stops on?) -> {product: (PnL, drawdown)}."""
     ref, perturbation, stops_on = task
-    day = load(ref)
-    if perturbation:
-        day = perturb(day, perturbation)
-    overrides = {} if stops_on else {f"PARAMS.{p}.stop_loss": None for p in stops() if p in day.products}
-    result = run_day(day, prosperity.load_bot(TEMPLATE, overrides, strict=False), EngineConfig())
+    if ref[0] == "sim" and not perturbation and ENGINE[0] == "rust":
+        day, products = rust.sim_day_file(sim.preset_market(), ref[1]), [p.name for p in sim.preset_market().products]
+    else:
+        day = load(ref)
+        if perturbation:
+            day = perturb(day, perturbation)
+        products = day.products
+    overrides = {} if stops_on else {f"PARAMS.{p}.stop_loss": None for p in stops() if p in products}
+    (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(), ENGINE[0], fields=("pnl",))
     return task, {p: (s[-1] if s else 0.0, report.max_drawdown(s)) for p, s in result.pnl.items()}
 
 
@@ -88,7 +98,10 @@ def distinct_days(alias: str, rounds: list[int], exclude: set[str] = frozenset()
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.stops_held_out")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     limits = stops()
 
     p3 = prosperity.resolve_data_dir("p3")
@@ -100,7 +113,7 @@ def main() -> None:
     tasks = [(ref, None, on) for ref in held_out + generated for on in (True, False)]
     tasks += [(ref, name, True) for ref in held_out + generated for name in PERTURBATIONS]
     tasks += [(ref, None, False) for refs in groups.values() for ref in refs]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = dict(pool.map(run, list(dict.fromkeys(tasks))))
 
     print("1-2. Off the sizing days. Stop fires: plain days where PnL with the stop differs from PnL without it.\n")

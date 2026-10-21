@@ -1,6 +1,6 @@
 """Following named traders: whose trades tell where the price goes, and the template's copy mode.
 
-usage (from the repo root): uv run python -m experiments.counterparties [--jobs N]
+usage (from the repo root): uv run python -m experiments.counterparties [--jobs N] [--engine rust]
 
 The trade files of P3 round 5 and P4 round 4 name each trade's buyer and seller. The bot sees a
 tick's trades on the next tick (arena/engine.py), so every move here is measured from the wall
@@ -37,7 +37,9 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena.engine import EngineConfig, TradeMatching, run_day
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 from arena.formats.prosperity import LIMITS
 
@@ -122,7 +124,11 @@ def choose(moves_by_day: list[dict], half: dict[str, float], rule: str) -> dict[
     return dict(chosen)
 
 
-def _init(datasets):
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(datasets, engine="python"):
+    ENGINE[0] = engine
     for label in datasets:
         data, rnd = DATASETS[label]
         _DAYS[label] = {d.name: d for d in FMT.load_days(FMT.resolve_data_dir(data), [rnd])}
@@ -144,7 +150,7 @@ def _run(job):
     label, day_name, copy, mode = job
     day = _DAYS[label][day_name]
     copy = {product: dict(names) for product, names in copy}
-    result = run_day(day, FMT.load_bot(TEMPLATE, {"PARAMS": _params(day.products, copy, mode)}, True), MODES[mode])
+    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": _params(day.products, copy, mode)}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"))
     return job, ({p: s[-1] for p, s in result.pnl.items() if s}, len(result.limit_breaches) + len(result.errors))
 
 
@@ -173,7 +179,10 @@ def _freeze(copy):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
+    if args.engine == "rust":
+        rust.build()
     _init(DATASETS)
 
     jobs, folds = [], {}
@@ -209,7 +218,7 @@ def main(argv):
                     jobs.append((label, n, (), mode))
                     jobs.append((label, n, _freeze(FIXED), mode))
             jobs += [(label, n, _freeze({"KELP": {"Olivia": 1}}), "default") for n in names]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(list(DATASETS),)) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(list(DATASETS), args.engine)) as pool:
         out = dict(pool.map(_run, set(jobs)))
 
     for label, days in _DAYS.items():

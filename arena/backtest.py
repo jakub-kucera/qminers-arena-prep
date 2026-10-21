@@ -4,6 +4,7 @@
     uv run python -m arena.backtest bots/template.py 1-0 --data p2  # Prosperity 2 data
     uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
     uv run python -m arena.backtest bots/template.py 1 --vs bots/template.py   # against a copy of itself
+    uv run python -m arena.backtest bots/template.py 1 --engine rust            # the same results, on rust/ (bots with a Rust twin)
 """
 
 from __future__ import annotations
@@ -13,15 +14,16 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-from arena import report
+from arena import report, rust
 from arena.botfile import OverrideError
-from arena.cli import add_common_arguments, add_rival_argument, participant_names, run_with_rivals, setup
+from arena.cli import add_common_arguments, add_engine_argument, add_rival_argument, participant_names, participants, run_with_rivals, setup
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m arena.backtest", description="Backtest a bot file on recorded data.")
     add_common_arguments(parser)
     add_rival_argument(parser)
+    add_engine_argument(parser)
     parser.add_argument("--out", type=Path, help="write <day>_timeline.csv, _fills.csv and _orders.csv to this folder")
     parser.add_argument("--print", action="store_true", help="show the bot's prints")
     parser.add_argument(
@@ -36,14 +38,20 @@ def main(argv: list[str] | None = None) -> int:
         s.format.load_bot(args.bot, s.overrides, strict=True)  # fail fast on a bad path or --set
         for rival in s.rivals:
             s.format.load_bot(rival, {}, strict=True)
-    except (ValueError, OSError, OverrideError) as error:
+        if s.engine == "rust":
+            rust.prepare(args.format, [args.bot, *s.rivals])
+            ran = rust.run_days(s.days, participants(args.bot, s.overrides, s.rivals, s.requote), s.config, threads=len(s.days))
+    except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))
 
     config = replace(s.config, capture_output=not args.print)
     names = participant_names(args.bot, s.rivals)
     results, rival_results = [], []
-    for day in s.days:
-        result, *rivals = run_with_rivals(s.format, day, args.bot, s.overrides, s.rivals, config, strict=not args.no_strict, requote=s.requote)
+    for k, day in enumerate(s.days):
+        if s.engine == "rust":
+            result, *rivals = ran[k]
+        else:
+            result, *rivals = run_with_rivals(s.format, day, args.bot, s.overrides, s.rivals, config, strict=not args.no_strict, requote=s.requote)
         results.append(result)
         rival_results.append(rivals)
         print(report.format_day(result))

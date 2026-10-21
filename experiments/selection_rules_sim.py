@@ -1,6 +1,6 @@
 """The selection rules of experiments/selection_rules.py on simulated days, where fresh days are unlimited.
 
-usage (from the repo root): uv run python -m experiments.selection_rules_sim [--jobs N] [--reps R]
+usage (from the repo root): uv run python -m experiments.selection_rules_sim [--jobs N] [--reps R] [--engine rust]
 
 The rules were compared on eight Prosperity studies with 1-6 test days each, and the grid's pick
 (SPA, then StepM, then every mode) was chosen from that table, so its record there is in-sample.
@@ -25,9 +25,9 @@ import itertools
 import statistics
 from concurrent.futures import ProcessPoolExecutor
 
-from arena import grid, sim
-from arena.engine import EngineConfig, TradeMatching, run_day
-from arena.formats import prosperity
+from arena import grid, rust, sim
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from experiments.selection_rules import MODES, RULES, TEMPLATE, default_cell, pick
 
 TRAIN_DAYS, TEST_DAYS, REPS = 3, 20, 10
@@ -37,6 +37,11 @@ PRODUCTS = {  # preset: {parameter: values}; each grid holds the committed and t
     "HYDROGEL_PACK": {"level_band": [15, 20, 35, 50], "clear_edge": [0, 2, 5, 10, 15]},
 }
 _DAYS: dict = {}
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 
 
 def train_seeds(rep: int) -> list[int]:
@@ -47,6 +52,8 @@ TEST_SEEDS = [900_000 + i for i in range(TEST_DAYS)]
 
 
 def day(product: str, seed: int):
+    if ENGINE[0] == "rust":
+        return rust.sim_day_file(sim.preset_market([product]), seed)
     if (product, seed) not in _DAYS:
         _DAYS[(product, seed)] = sim.run(sim.preset_market([product]), seed).day
     return _DAYS[(product, seed)]
@@ -66,8 +73,8 @@ def run(task: tuple[str, int, int | None]) -> tuple[tuple, dict]:
     for seed in seeds:
         d = day(product, seed)
         for mode in MODES:
-            result = run_day(d, prosperity.load_bot(TEMPLATE, overrides, strict=False), EngineConfig(trade_matching=mode))
-            series = result.pnl.get(product) or [0.0] * len(d.ticks)
+            (result,) = backtest(d, [("you", TEMPLATE, overrides, False)], EngineConfig(trade_matching=mode), ENGINE[0], fields=("pnl",))
+            series = result.pnl.get(product) or [0.0] * len(result.timestamps)
             out[mode].append(series[-1])
             if rep is not None and mode is TradeMatching.ALL:
                 out["fine"] += grid.block_pnl(series, len(series) // grid.FINE_TICKS)
@@ -79,9 +86,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.selection_rules_sim")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     parser.add_argument("--reps", type=int, default=REPS, help=f"repetitions with fresh training days (default: {REPS})")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the days and backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     tasks = [(p, k, rep) for p in PRODUCTS for k in range(-1, len(cells(p))) for rep in [None, *range(args.reps)]]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         done = dict(pool.map(run, tasks, chunksize=1))
 
     print(f"Each grid tuned on {TRAIN_DAYS} simulated days, {args.reps} times with fresh seeds, and scored on the same {TEST_DAYS} other days.")

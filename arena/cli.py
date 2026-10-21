@@ -1,4 +1,4 @@
-"""Command-line options shared by arena.backtest, arena.validate and arena.grid."""
+"""Command-line options shared by arena.backtest, arena.validate, arena.grid, arena.compare and arena.stress."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class Setup:
     overrides: dict[str, object]
     rivals: list[Path] = field(default_factory=list)  # bots trading in the same market (--vs)
     requote: bool = False  # the rivals cancel all their resting orders every tick (--requote)
-    engine: str = "python"  # arena.grid --engine: "rust" runs the backtests on rust/ (arena/rust.py)
+    engine: str = "python"  # --engine: "rust" runs the backtests on rust/ (arena/rust.py)
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -97,6 +97,12 @@ def add_rival_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_engine_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--engine", choices=["python", "rust"], default="python",
+                        help="run the backtests on our engine, or on its Rust port (rust/: needs cargo, and bots with a Rust twin, "
+                        "rust/twins.json), with the same results about 100 times faster (default: python)")
+
+
 def setup(args: argparse.Namespace) -> Setup:
     fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
@@ -120,6 +126,28 @@ def participant_names(bot: Path, rivals: list[Path]) -> list[str]:
         seen[path.stem] += 1
         names.append(path.stem if seen[path.stem] == 1 else f"{path.stem}#{seen[path.stem]}")
     return names
+
+
+def participants(bot: Path, overrides: dict[str, object], rivals: list[Path], requote: bool = False) -> list[tuple[str, Path, dict, bool]]:
+    """(name, file, overrides, requote) for the bot and its rivals, as arena/rust.py takes them."""
+    names = participant_names(bot, rivals)
+    return [(names[0], bot, overrides, False)] + [(name, path, {}, requote) for name, path in zip(names[1:], rivals)]
+
+
+def backtest(day: Day, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, engine: str = "python", strict: bool = False,
+             fields: tuple[str, ...] | None = None) -> list[DayResult]:
+    """The (name, bot file, overrides, requote) participants in one market on one day, in the
+    Prosperity format, on either engine: each one's DayResult. With engine "rust" the day may be a
+    day file (arena.rust.sim_day_file), `fields` limits what is read back, and `strict` is moot
+    (a Rust twin can't raise from a bug)."""
+    if engine == "rust":
+        from arena import rust
+
+        return rust.backtest(day, bots, config, fields)
+    from arena.formats import prosperity
+
+    loaded = [(name, prosperity.load_bot(path, overrides, strict)) for name, path, overrides, _ in bots]
+    return run_market(day, [(name, Requote(bot) if requote else bot) for (name, bot), (*_, requote) in zip(loaded, bots)], config)
 
 
 def run_with_rivals(

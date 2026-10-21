@@ -30,7 +30,8 @@ impl crate::engine::Bot for Bot {
     fn step(&mut self, tick: &TickView, positions: &[i64], _: &[Fill], _: &[Vec<MarketTrade>], _: &[OpenOrder], out: &mut Vec<Action>) {
         let books: Option<Vec<usize>> = self.ids.iter().map(|id| id.filter(|&k| tick.books[k].is_some())).collect();
         let Some(symbols) = books else {
-            self.error = Some("KeyError".into());
+            let missing = self.ids.iter().position(|id| id.filter(|&k| tick.books[k].is_some()).is_none()).unwrap();
+            self.error = Some(format!("KeyError: '{}'", SYMBOLS[missing]));
             return;
         };
         for (k, &symbol) in symbols.iter().enumerate() {

@@ -1,6 +1,6 @@
 """Fading jumps that snap back: where they are in the data, and the template's jump mode on every product.
 
-usage (from the repo root): uv run python -m experiments.p4_jumps [--jobs N] [--data p4] [--days 5] [--jump-min 50]
+usage (from the repo root): uv run python -m experiments.p4_jumps [--jobs N] [--data p4] [--days 5] [--jump-min 50] [--engine rust]
 
 In P4 round 5 some products' wall mids sat on multiples of 100 and moved in steps of 100 that
 mostly went straight back (references/wiki/concepts/jumps-and-snap-back.md). The teams' Robots
@@ -31,7 +31,9 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena.engine import EngineConfig, TradeMatching, run_day
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 from experiments.p4_vouchers import series
 
@@ -52,6 +54,7 @@ MODES = {
     "resting": EngineConfig(resting=True),
 }
 _DAYS = {}
+ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 
 def jump_stats(day, product: str, jump_min: float) -> dict | None:
@@ -83,7 +86,8 @@ def jump_stats(day, product: str, jump_min: float) -> dict | None:
     }
 
 
-def _init(data, days):
+def _init(data, days, engine="python"):
+    ENGINE[0] = engine
     _DAYS.update({d.name: d for d in FMT.load_days(FMT.resolve_data_dir(data), days)})
 
 
@@ -92,7 +96,7 @@ def _run(job):
     day = _DAYS[day_name]
     base = {**PLAIN, "make_size": 0} if mode == "resting" else PLAIN
     params = {p: {**base, **dict(jump)} for p in day.products}
-    result = run_day(day, FMT.load_bot(TEMPLATE, {"PARAMS": params}, True), MODES[mode])
+    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": params}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return job, (pnl, len(result.limit_breaches) + len(result.errors))
 
@@ -111,7 +115,10 @@ def main(argv):
     parser.add_argument("--data", default="p4")
     parser.add_argument("--days", nargs="+", default=["5"])
     parser.add_argument("--jump-min", type=float, default=DEFAULT_JUMP["jump_min"])
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
+    if args.engine == "rust":
+        rust.build()
     _init(args.data, args.days)
     names = list(_DAYS)
 
@@ -131,7 +138,7 @@ def main(argv):
     runs = variants()
     jobs = [(label, jump, "default", n) for label, jump in runs for n in names]
     jobs += [(label, jump, mode, n) for label, jump in runs[:2] for mode in ("worse", "resting") for n in names]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.data, args.days)) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.data, args.days, args.engine)) as pool:
         out = dict(pool.map(_run, jobs))
 
     def totals(label, jump, mode):

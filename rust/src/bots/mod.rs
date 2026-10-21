@@ -51,6 +51,10 @@ impl Bot for Requote {
         self.inner.product_name(product)
     }
 
+    fn memory(&self, day: &Day) -> Option<String> {
+        self.inner.memory(day)
+    }
+
     fn step(&mut self, tick: &TickView, positions: &[i64], own_fills: &[Fill], market_trades: &[Vec<MarketTrade>], open_orders: &[OpenOrder], out: &mut Vec<Action>) {
         self.actions.clear();
         self.inner.step(tick, positions, own_fills, market_trades, &[], &mut self.actions);

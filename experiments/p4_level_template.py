@@ -1,6 +1,6 @@
 """The template's level mode on P4 Hydrogel and Velvetfruit, scored on days it wasn't tuned on.
 
-usage (from the repo root): uv run python -m experiments.p4_level_template [--jobs N]
+usage (from the repo root): uv run python -m experiments.p4_level_template [--jobs N] [--engine rust]
 
 Two tests on the four distinct days of P4 rounds 3-4, one product at a time (the other is
 switched off), default engine mode:
@@ -21,7 +21,9 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena.engine import EngineConfig, run_day
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig
 from arena.formats import FORMATS
 from experiments.p4_levels import day_means
 from experiments.p4_vouchers import DAYS
@@ -39,9 +41,11 @@ CHOSEN = {
 }
 WEIGHTS = [None, 1_000, 5_000, 20_000]  # level_weight with the other days' mean as the level
 _DAYS = {}
+ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 
-def _init():
+def _init(engine="python"):
+    ENGINE[0] = engine
     _DAYS.update({d.name: d for d in FMT.load_days(FMT.resolve_data_dir("p4"), DAYS)})
 
 
@@ -50,7 +54,7 @@ def _run(job):
     other = next(p for p in GRIDS if p != product)
     chosen = {f"PARAMS.{product}.{k}": v for k, v in CHOSEN[product].items()}
     full = {f"PARAMS.{other}.fair": "fixed", **chosen, **{f"PARAMS.{product}.{k}": v for k, v in overrides}}
-    result = run_day(_DAYS[day_name], FMT.load_bot(TEMPLATE, full, True), EngineConfig())
+    (result,) = backtest(_DAYS[day_name], [("you", TEMPLATE, full, False)], EngineConfig(), ENGINE[0], True, ("pnl",))
     return job, result.pnl[product][-1] if result.pnl.get(product) else 0.0
 
 
@@ -62,7 +66,10 @@ def _name(spec):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
+    if args.engine == "rust":
+        rust.build()
     names = [_name(s) for s in DAYS]
     means = day_means(FMT.load_days(FMT.resolve_data_dir("p4"), DAYS))
     loo = {p: {d: st.mean(means[o][p] for o in names if o != d) for d in names} for p in GRIDS}
@@ -79,7 +86,7 @@ def main(argv):
                 jobs.append((product, (("level", loo[product][test]), ("level_weight", weight)), test))
             jobs.append((product, (("level", "day"),), test))
         jobs += [(product, (), day) for day in names]  # CHOSEN as is
-    with ProcessPoolExecutor(args.jobs, initializer=_init) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         pnl = dict(pool.map(_run, jobs, chunksize=4))
 
     for product, grid in GRIDS.items():

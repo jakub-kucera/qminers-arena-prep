@@ -1,6 +1,6 @@
 """What adversarial rivals cost the template: a trapper, a spoofer and a sniper (bots/rivals/).
 
-usage (from the repo root): uv run python -m experiments.adversaries [--jobs N]
+usage (from the repo root): uv run python -m experiments.adversaries [--jobs N] [--engine rust]
 
 P3 round 1, all three days, --resting (the rivals' orders are only visible to other bots when
 orders rest), --match-trades all. Each template variant (VARIANTS) alone and in one market with
@@ -18,7 +18,9 @@ import argparse
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
-from arena.engine import EngineConfig, run_market
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig
 from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
@@ -37,6 +39,11 @@ RIVALS = {
     "sniper": ("bots/rivals/sniper.py", {}),
 }
 MARKOUT = 50
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 
 
 def run(task: tuple[str, str]) -> tuple[tuple[str, str], dict]:
@@ -44,11 +51,11 @@ def run(task: tuple[str, str]) -> tuple[tuple[str, str], dict]:
     days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
     out = {"pnl": defaultdict(float), "rival": 0.0, "vol": 0, "markout": 0.0}
     for day in days:
-        bots = [("template", prosperity.load_bot(TEMPLATE, VARIANTS[variant], strict=False))]
+        bots = [("template", TEMPLATE, VARIANTS[variant], False)]
         if RIVALS[rival]:
             path, overrides = RIVALS[rival]
-            bots.append(("rival", prosperity.load_bot(path, overrides, strict=False)))
-        results = run_market(day, bots, EngineConfig(resting=True))
+            bots.append(("rival", path, overrides, False))
+        results = backtest(day, bots, EngineConfig(resting=True), ENGINE[0], fields=("pnl", "fills", "wall_mids"))
         mine = results[0]
         for product, series in mine.pnl.items():
             out["pnl"][product] += series[-1] if series else 0.0
@@ -69,9 +76,12 @@ def run(task: tuple[str, str]) -> tuple[tuple[str, str], dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.adversaries")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     tasks = [(v, r) for v in VARIANTS for r in RIVALS]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = dict(pool.map(run, tasks))
     print(f"P3 round 1, all three days, --resting, all. PnL in thousands; 'vs rival' is the template's fills with the rival,")
     print(f"in units, and their value {MARKOUT} ticks later.\n")

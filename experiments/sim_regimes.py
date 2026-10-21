@@ -1,6 +1,6 @@
 """The template inside arena.sim when the regime changes mid-day: do its stops and guards hold?
 
-usage (from the repo root): uv run python -m experiments.sim_regimes [--days 10] [--jobs N]
+usage (from the repo root): uv run python -m experiments.sim_regimes [--days 10] [--jobs N] [--engine rust]
 
 The market is the Kelp, Resin and Hydrogel presets (the template's PARAMS trade all three as they
 are), for seeds 0 to days-1, plain and under each `arena.sim` regime (`with_regime`: from mid-day
@@ -29,7 +29,8 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena import sim
+from arena import rust, sim
+from arena.engine import EngineConfig
 from arena.formats import prosperity
 
 TEMPLATE = Path("bots/template.py")
@@ -56,12 +57,23 @@ VARIANTS = {
 }
 
 
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
+
+
 def _run(job):
     regime, variant, seed = job
     overrides, resting = VARIANTS[variant]
     spec = sim.preset_market(PRODUCTS)
     if regime != "plain":
         spec = sim.with_regime(spec, regime)
+    if ENGINE[0] == "rust":
+        (row,) = rust.run_sim(spec, seed, 1, [("template", TEMPLATE, dict(overrides), False)], EngineConfig(resting=resting))
+        totals = row["bots"]["template"]
+        return job, {p: (totals["products"][p], bool(totals["memory"].get(p, {}).get("stopped"))) for p in PRODUCTS}, totals["errors"]
     bot = prosperity.load_bot(TEMPLATE, dict(overrides), strict=True)
     result = sim.run(spec, seed, [("template", bot)], resting=resting).results[0]
     memory = json.loads(bot._trader_data or "{}")
@@ -72,9 +84,12 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--days", type=int, default=10)
     parser.add_argument("--jobs", type=int, default=None)
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
+    if args.engine == "rust":
+        rust.build()
     jobs = [(r, v, s) for r in REGIMES for v in VARIANTS for s in range(args.days)]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = list(pool.map(_run, jobs))
     errors = sum(e for _, _, e in results)
     table = defaultdict(lambda: defaultdict(list))  # (regime, variant) -> product -> [(pnl, stopped)]

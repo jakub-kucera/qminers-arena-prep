@@ -932,6 +932,21 @@ impl Template {
 const US: &str = "SUBMISSION";
 
 impl Bot for Template {
+    fn memory(&self, day: &Day) -> Option<String> {
+        let mut out = String::from("{");
+        for (k, memory) in self.memory.iter().enumerate() {
+            if memory.stopped {
+                if out.len() > 1 {
+                    out.push_str(", ");
+                }
+                crate::json::string(&mut out, &day.products[k]);
+                out.push_str(": {\"stopped\": true}");
+            }
+        }
+        out.push('}');
+        Some(out)
+    }
+
     fn begin_day(&mut self, day: &Day, names: &[String]) {
         let n = day.products.len();
         self.params = vec![None; n];

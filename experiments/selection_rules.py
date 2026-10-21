@@ -1,6 +1,6 @@
 """Which way of picking a grid cell holds up on days the grid never saw?
 
-usage (from the repo root): uv run python -m experiments.selection_rules [--jobs N]
+usage (from the repo root): uv run python -m experiments.selection_rules [--jobs N] [--engine rust]
 
 Each study grids two of one product's parameters on a training round, picks a cell by each RULE
 from the training days alone, and scores the pick on the product's later days that repeat no
@@ -40,9 +40,10 @@ from dataclasses import replace
 
 from pathlib import Path
 
-from arena import grid
+from arena import grid, rust
 from arena.botfile import BotFile
-from arena.engine import EngineConfig, TradeMatching, run_day
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
@@ -59,6 +60,11 @@ for _name in list(STUDIES):  # the same grids the other way round: train on the 
 DEFAULTS = BotFile(Path(TEMPLATE), {"datamodel": prosperity.dm}, {}, False).load().DEFAULTS
 RULES = ["base", "pnl", "nbhd", "min day", "worse", "both modes", "top-5 mean", "DSR gate", "SPA gate", "SPA+worse"]
 _DAYS: dict = {}
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 
 
 def only(day, product):
@@ -103,7 +109,7 @@ def run(task: tuple[str, int]) -> tuple[tuple[str, int], dict]:
     for part, days in (("train", train), ("test", test)):
         for day in days:
             for mode in MODES:
-                result = run_day(day, prosperity.load_bot(TEMPLATE, overrides, strict=False), EngineConfig(trade_matching=mode))
+                (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(trade_matching=mode), ENGINE[0], fields=("pnl",))
                 series = result.pnl.get(product) or [0.0] * len(day.ticks)
                 out[part][mode].append(series[-1])
                 if part == "train" and mode is TradeMatching.ALL:
@@ -179,9 +185,12 @@ def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.selection_rules")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     tasks = [(name, k) for name in STUDIES for k in range(-1, len(cells(name)))]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         done = dict(pool.map(run, tasks, chunksize=1))
     for baseline in ("committed", "defaults"):
         totals = {rule: {m: 0.0 for m in MODES} for rule in RULES}

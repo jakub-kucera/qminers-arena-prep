@@ -1,6 +1,6 @@
 """Using less than the full position limit: the template's quote size, alone and against rivals.
 
-usage (from the repo root): uv run python -m experiments.quote_size [--jobs N]
+usage (from the repo root): uv run python -m experiments.quote_size [--jobs N] [--engine rust]
 
 `make_size` None quotes all the room under the limit on each side: at a long target of 80, Pepper
 Root offered its whole position and 80 more one tick above fair (it quotes 10 at most since
@@ -22,7 +22,9 @@ import argparse
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
-from arena.engine import EngineConfig, TradeMatching, run_market
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
@@ -46,6 +48,13 @@ RIVALS = {  # name: (file, whether the rival takes our cap, the modes it runs in
 }
 
 
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
+
+
 def _caps(products: list[str], cap: int | None) -> dict:
     return {f"PARAMS.{p}.make_size": cap for p in products}
 
@@ -55,12 +64,12 @@ def run(task: tuple[str, str, str, str]) -> tuple[tuple, dict]:
     data, days, products = DATASETS[dataset]
     out = {"pnl": defaultdict(float), "days": []}
     for day in prosperity.load_days(prosperity.resolve_data_dir(data), days):
-        bots = [("template", prosperity.load_bot(TEMPLATE, _caps(products, CAPS[cap]), strict=False))]
+        bots = [("template", TEMPLATE, _caps(products, CAPS[cap]), False)]
         if RIVALS[rival]:
             path, same_cap, _ = RIVALS[rival]
             overrides = _caps(products, CAPS[cap]) if same_cap else {"OFFSET": 10} if "spoofer" in rival else {}
-            bots.append(("rival", prosperity.load_bot(path, overrides, strict=False)))
-        mine = run_market(day, bots, MODES[mode])[0]
+            bots.append(("rival", path, overrides, False))
+        mine = backtest(day, bots, MODES[mode], ENGINE[0], fields=("pnl",))[0]
         for p in products:
             out["pnl"][p] += mine.pnl[p][-1] if mine.pnl.get(p) else 0.0
         out["days"].append(sum(mine.pnl[p][-1] for p in products if mine.pnl.get(p)))
@@ -70,10 +79,13 @@ def run(task: tuple[str, str, str, str]) -> tuple[tuple, dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.quote_size")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     tasks = [(d, m, c, r) for d in DATASETS for m in MODES for c in CAPS for r in RIVALS
              if RIVALS[r] is None or m in RIVALS[r][2]]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = dict(pool.map(run, tasks))
     print("Our PnL in thousands over the dataset's days, per product, and our worst day (all products).\n")
     for d, (_, _, products) in DATASETS.items():

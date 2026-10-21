@@ -1,13 +1,22 @@
 //! The four phi4 bots (bots/zoo/other/phi4-14b_*.py), each a struct here. They index products and
 //! book sides without checking, so a missing product or an empty side raises (KeyError,
-//! ValueError): the engine then drops the tick's orders, and the state kept is what the Python
-//! keeps, the instance's own changes up to the error, then the last traderData read over them.
+//! ValueError, with Python's own message): the engine then drops the tick's orders, and the state
+//! kept is what the Python keeps, the instance's own changes up to the error, then the last
+//! traderData read over them.
 
 use super::{best_ask, best_bid, ids, lookup, order};
 use crate::engine::TickView;
 use crate::model::{Action, Book, Day, Fill, MarketTrade, OpenOrder};
 
 const SYMBOLS: [&str; 3] = ["RAINFOREST_RESIN", "KELP", "SQUID_INK"];
+const MISSING: [&str; 3] = ["KeyError: 'RAINFOREST_RESIN'", "KeyError: 'KELP'", "KeyError: 'SQUID_INK'"];
+const MIN_EMPTY: &str = "ValueError: min() iterable argument is empty";
+const MAX_EMPTY: &str = "ValueError: max() iterable argument is empty";
+
+/// Python's `KeyError` message for a missing dict key that is a product name.
+fn key_error(name: &str) -> String {
+    format!("KeyError: '{name}'")
+}
 
 fn lowest_bid(book: &Book) -> Option<i64> {
     book.bids.iter().map(|l| l.0).min()
@@ -36,13 +45,13 @@ pub struct Baseline {
 
 impl Baseline {
     fn run(&mut self, tick: &TickView, out: &mut Vec<Action>) -> Result<(), &'static str> {
-        let book = |k: usize| self.ids[k].and_then(|p| tick.books[p].as_ref().map(|b| (p, b))).ok_or("KeyError");
+        let book = |k: usize| self.ids[k].and_then(|p| tick.books[p].as_ref().map(|b| (p, b))).ok_or(MISSING[k]);
         // Resin: its position is read from self.state, always 0, so it bids 10 at the lowest bid.
         let (resin, b) = book(0)?;
-        order(out, resin, lowest_bid(b).ok_or("ValueError")?, 10);
+        order(out, resin, lowest_bid(b).ok_or(MIN_EMPTY)?, 10);
         for (k, threshold) in [(1, None), (2, Some(5.0))] {
             let (product, b) = book(k)?;
-            let (ask, bid) = (best_ask(b).ok_or("ValueError")?, best_bid(b).ok_or("ValueError")?);
+            let (ask, bid) = (best_ask(b).ok_or(MIN_EMPTY)?, best_bid(b).ok_or(MAX_EMPTY)?);
             // "mid_price": the best ask's (negative) volume plus the best bid's volume
             let mid = -b.asks.iter().find(|l| l.0 == ask).unwrap().1 + b.bids.iter().find(|l| l.0 == bid).unwrap().1;
             let last = if k == 1 { &mut self.state.kelp_last_prices } else { &mut self.state.squid_ink_last_prices };
@@ -99,15 +108,16 @@ struct Data {
 #[derive(Default)]
 pub struct Baseline2 {
     which: Vec<Option<usize>>,
+    products: Vec<String>,
     data: Data,
     saved: Option<Data>,
     error: Option<String>,
 }
 
 impl Baseline2 {
-    fn run(&mut self, tick: &TickView, own_fills: &[Fill], out: &mut Vec<Action>) -> Result<(), &'static str> {
+    fn run(&mut self, tick: &TickView, own_fills: &[Fill], out: &mut Vec<Action>) -> Result<(), String> {
         for f in own_fills {
-            let k = self.which[f.product].ok_or("KeyError")?;
+            let k = self.which[f.product].ok_or_else(|| key_error(&self.products[f.product]))?;
             self.data.positions[k] += f.quantity.abs();
         }
         for &product in tick.order {
@@ -118,13 +128,13 @@ impl Baseline2 {
                 Some(0) => {
                     let current = self.data.positions[0];
                     if current < 10 {
-                        orders.push((lowest_bid(book).ok_or("ValueError")?, (10 - current).min(50)));
+                        orders.push((lowest_bid(book).ok_or(MIN_EMPTY)?, (10 - current).min(50)));
                     } else if current > 10 {
-                        orders.push((highest_ask(book).ok_or("ValueError")?, -(current - 10).min(50)));
+                        orders.push((highest_ask(book).ok_or(MAX_EMPTY)?, -(current - 10).min(50)));
                     }
                 }
                 Some(1) => {
-                    let (ask, bid) = (best_ask(book).ok_or("ValueError")?, best_bid(book).ok_or("ValueError")?);
+                    let (ask, bid) = (best_ask(book).ok_or(MIN_EMPTY)?, best_bid(book).ok_or(MAX_EMPTY)?);
                     let mid = super::py::floordiv(ask + bid, 2);
                     let sell = *self.data.sell_prices[1].get_or_insert(mid);
                     let buy = *self.data.buy_prices[1].get_or_insert(mid);
@@ -167,6 +177,7 @@ impl Baseline2 {
 impl crate::engine::Bot for Baseline2 {
     fn begin_day(&mut self, day: &Day, _names: &[String]) {
         self.which = lookup(day, &SYMBOLS);
+        self.products = day.products.clone();
         self.data = Data::default();
         self.saved = None;
     }
@@ -181,7 +192,7 @@ impl crate::engine::Bot for Baseline2 {
         }
         match self.run(tick, own_fills, out) {
             Ok(()) => self.saved = Some(self.data.clone()),
-            Err(e) => self.error = Some(e.into()),
+            Err(e) => self.error = Some(e),
         }
     }
 }
@@ -192,6 +203,8 @@ impl crate::engine::Bot for Baseline2 {
 pub struct MarketMaker {
     fair_values: Vec<Option<f64>>, // the instance's, kept through errors
     saved_keys: Vec<bool>,         // the products in the last traderData's fair_values
+    which: Vec<Option<usize>>,     // position_limits holds only SYMBOLS
+    products: Vec<String>,
     error: Option<String>,
 }
 
@@ -199,6 +212,8 @@ impl crate::engine::Bot for MarketMaker {
     fn begin_day(&mut self, day: &Day, _names: &[String]) {
         self.fair_values = vec![None; day.products.len()];
         self.saved_keys = vec![false; day.products.len()];
+        self.which = lookup(day, &SYMBOLS);
+        self.products = day.products.clone();
     }
 
     fn failed(&mut self) -> Option<String> {
@@ -208,14 +223,19 @@ impl crate::engine::Bot for MarketMaker {
     fn step(&mut self, tick: &TickView, positions: &[i64], _: &[Fill], _: &[Vec<MarketTrade>], _: &[OpenOrder], out: &mut Vec<Action>) {
         for &product in tick.order {
             let book = tick.books[product].as_ref().unwrap();
+            // (min(order_depth.sell_orders) + max(order_depth.buy_orders)) / 2: the min first
             let (Some(ask), Some(bid)) = (best_ask(book), best_bid(book)) else {
-                self.error = Some("ValueError".into());
+                self.error = Some(if best_ask(book).is_none() { MIN_EMPTY } else { MAX_EMPTY }.into());
                 return;
             };
             let mid = (ask + bid) as f64 / 2.0;
             self.fair_values[product] = Some(if self.saved_keys[product] { (self.fair_values[product].unwrap() + mid) / 2.0 } else { mid });
         }
         for &product in tick.order {
+            if self.which[product].is_none() {
+                self.error = Some(key_error(&self.products[product])); // self.position_limits[product]
+                return;
+            }
             let inventory = positions[product].abs();
             let fair = self.fair_values[product].unwrap().trunc() as i64;
             let (max_bid, max_ask) = (50 - inventory, 50 - (50 - inventory));
@@ -242,6 +262,7 @@ struct Data2 {
 #[derive(Default)]
 pub struct MarketMaker2 {
     which: Vec<Option<usize>>,
+    products: Vec<String>,
     data: Data2,
     saved: Option<Data2>,
     error: Option<String>,
@@ -250,15 +271,15 @@ pub struct MarketMaker2 {
 const FAIR: [i64; 3] = [10000, 2030, 1969];
 
 impl MarketMaker2 {
-    fn run(&mut self, tick: &TickView, own_fills: &[Fill], out: &mut Vec<Action>) -> Result<(), &'static str> {
+    fn run(&mut self, tick: &TickView, own_fills: &[Fill], out: &mut Vec<Action>) -> Result<(), String> {
         for &product in tick.order {
             self.data.inventory[product].get_or_insert(0);
         }
         for f in own_fills {
-            *self.data.inventory[f.product].as_mut().ok_or("KeyError")? += f.quantity.abs();
+            *self.data.inventory[f.product].as_mut().ok_or_else(|| key_error(&self.products[f.product]))? += f.quantity.abs();
         }
         for &product in tick.order {
-            let fair_value = FAIR[self.which[product].ok_or("KeyError")?];
+            let fair_value = FAIR[self.which[product].ok_or_else(|| key_error(&self.products[product]))?];
             let inventory = self.data.inventory[product].unwrap();
             let (mut bid_price, mut ask_price) = (fair_value - 1, fair_value + 1);
             let (mut bid_quantity, mut ask_quantity) = (10, 10);
@@ -289,6 +310,7 @@ impl MarketMaker2 {
 impl crate::engine::Bot for MarketMaker2 {
     fn begin_day(&mut self, day: &Day, _names: &[String]) {
         self.which = lookup(day, &SYMBOLS);
+        self.products = day.products.clone();
         self.data = Data2 { inventory: vec![None; day.products.len()] };
         self.saved = None;
     }
@@ -303,7 +325,7 @@ impl crate::engine::Bot for MarketMaker2 {
         }
         match self.run(tick, own_fills, out) {
             Ok(()) => self.saved = Some(self.data.clone()),
-            Err(e) => self.error = Some(e.into()),
+            Err(e) => self.error = Some(e),
         }
     }
 }

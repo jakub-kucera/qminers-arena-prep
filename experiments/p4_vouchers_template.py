@@ -1,6 +1,6 @@
 """The template's Velvetfruit level bet with its vouchers following, scored on days it wasn't tuned on.
 
-usage (from the repo root): uv run python -m experiments.p4_vouchers_template [--jobs N]
+usage (from the repo root): uv run python -m experiments.p4_vouchers_template [--jobs N] [--engine rust]
 
 Velvetfruit trades its level mode, and VEV_4000-VEV_5500 follow its target (`follow_target`),
 on the four distinct days of P4 rounds 3-4 (Hydrogel switched off), default engine mode.
@@ -19,7 +19,9 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena.engine import EngineConfig, run_day
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig
 from arena.formats import FORMATS
 from experiments.p4_levels import day_means
 from experiments.p4_vouchers import DAYS
@@ -33,16 +35,18 @@ GRID = {
     "DEFAULTS.max_cost_per_delta": [5, 12, 20],
 }
 _DAYS = {}
+ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 
-def _init():
+def _init(engine="python"):
+    ENGINE[0] = engine
     _DAYS.update({d.name: d for d in FMT.load_days(FMT.resolve_data_dir("p4"), DAYS)})
 
 
 def _run(job):
     overrides, day_name = job
-    bot = FMT.load_bot(TEMPLATE, {"PARAMS.HYDROGEL_PACK.fair": "fixed", **dict(overrides)}, True)
-    result = run_day(_DAYS[day_name], bot, EngineConfig())
+    bots = [("you", TEMPLATE, {"PARAMS.HYDROGEL_PACK.fair": "fixed", **dict(overrides)}, False)]
+    (result,) = backtest(_DAYS[day_name], bots, EngineConfig(), ENGINE[0], True, ("pnl",))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return job, (pnl.get(UNDERLYING, 0.0), sum(v for p, v in pnl.items() if p.startswith("VEV_")))
 
@@ -55,7 +59,10 @@ def _name(spec):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
+    if args.engine == "rust":
+        rust.build()
     names = [_name(s) for s in DAYS]
     means = day_means(FMT.load_days(FMT.resolve_data_dir("p4"), DAYS))
     loo = {d: st.mean(means[o][UNDERLYING] for o in names if o != d) for d in names}
@@ -67,7 +74,7 @@ def main(argv):
             jobs += [(((level, loo[test]), *zip(GRID, values)), day) for day in names]
         jobs += [(((level, loo[test]),), test), (((level, "day"),), test)]
     jobs += [((), day) for day in names]
-    with ProcessPoolExecutor(args.jobs, initializer=_init) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         pnl = dict(pool.map(_run, jobs, chunksize=4))
 
     def total(job):

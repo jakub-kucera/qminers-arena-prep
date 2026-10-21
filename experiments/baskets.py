@@ -1,6 +1,6 @@
 """Trading a basket's spread with the template, scored on days it wasn't tuned on.
 
-usage (from the repo root): uv run python -m experiments.baskets [--jobs N]
+usage (from the repo root): uv run python -m experiments.baskets [--jobs N] [--engine rust]
 
 Datasets: P3 round 2 (PICNIC_BASKET1 = 6 Croissants + 3 Jams + 1 Djembes, PICNIC_BASKET2 =
 4 Croissants + 2 Jams) and P2 round 3 (GIFT_BASKET = 4 Chocolate + 6 Strawberries + 1 Roses),
@@ -28,7 +28,9 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena.engine import EngineConfig, run_day
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig
 from arena.formats import FORMATS
 
 FMT = FORMATS["prosperity"]
@@ -53,9 +55,11 @@ DATASETS = {
 }
 GRID = {"k": [0.5, 0.75, 1.0, 1.5, 2.0], "level_exit": [None, 0], "hedge_ratio": [0.0, 0.5, 1.0]}
 _DAYS: dict = {}
+ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 
-def _init():
+def _init(engine="python"):
+    ENGINE[0] = engine
     for name, d in DATASETS.items():
         _DAYS[name] = {day.name: day for day in FMT.load_days(FMT.resolve_data_dir(d["data"]), d["days"])}
 
@@ -102,7 +106,7 @@ def overrides(d, setting) -> dict:
 def _run(job):
     name, setting, day_name = job
     d = DATASETS[name]
-    result = run_day(_DAYS[name][day_name], FMT.load_bot(TEMPLATE, overrides(d, _thaw(setting)), True), EngineConfig())
+    (result,) = backtest(_DAYS[name][day_name], [("you", TEMPLATE, overrides(d, _thaw(setting)), False)], EngineConfig(), ENGINE[0], True, ("pnl", "errors", "breaches"))
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     baskets = sum(pnl.get(b, 0.0) for b in d["baskets"])
     legs = sum(pnl.get(leg, 0.0) for leg in d["legs"])
@@ -127,7 +131,10 @@ def _thaw(setting):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
+    if args.engine == "rust":
+        rust.build()
     _init()
     stats, jobs, folds = {}, [], {}
     for name, d in DATASETS.items():
@@ -148,7 +155,7 @@ def main(argv):
                 if fold != "all":
                     jobs.append((name, _freeze(("day", sds, *values)), fold))
         jobs += [(name, None, day) for day in names]
-    with ProcessPoolExecutor(args.jobs, initializer=_init) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         pnl = dict(pool.map(_run, jobs, chunksize=4))
 
     for name, d in DATASETS.items():

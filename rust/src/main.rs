@@ -1,9 +1,10 @@
 //! arena-rs: the Rust engine and bots on exported days (see README.md).
 //!
-//!   arena-rs run DAY... [ENGINE] --bot NAME=SPEC.json... [--dump FILE] [--threads N]
+//!   arena-rs run DAY... [ENGINE] --bot NAME=SPEC.json... [--dump FILE] [--fields LIST] [--threads N]
 //!       the bots in one market on each day, the days on N threads; a SPEC is {"kind", "globals",
 //!       "requote"} (arena/rust.py writes them from the Python twin's file); --dump writes each
-//!       participant's full DayResult, a JSON line each, day by day (arena/rust.py `run_days`)
+//!       participant's DayResult, a JSON line each, day by day (arena/rust.py `run_days`), with only
+//!       the --fields listed (e.g. pnl,errors,breaches) if given
 //!   arena-rs batch TASKS.json [--threads N]
 //!       arena.grid's backtests (arena/rust.py `run_batch`): a JSON line per task on stdout, in order,
 //!       with what grid.Piece holds
@@ -182,6 +183,7 @@ fn run_command(args: &Args) {
         spec.build().unwrap_or_else(|e| fail(&e)); // refuse settings before running anything
     }
     let threads: usize = args.get("--threads").unwrap_or("1").parse().unwrap_or_else(|_| fail("--threads needs an integer"));
+    let fields = Fields::of(args);
     let days = load_days(args);
     let next = AtomicUsize::new(0);
     let found: Vec<Vec<(usize, String, String)>> = thread::scope(|scope| {
@@ -202,7 +204,7 @@ fn run_command(args: &Args) {
                         for ((name, _), result) in specs.iter().zip(&results) {
                             let total: f64 = result.pnl.iter().filter_map(|s| s.last()).sum();
                             let _ = writeln!(lines, "{} {}: pnl {:.1}, {} fills", day.name, name, total, result.fills.len());
-                            dump(&mut text, day, name, result, &names);
+                            dump(&mut text, day, name, result, &names, &fields);
                         }
                         mine.push((k, lines, text));
                     }
@@ -235,9 +237,35 @@ fn bots_names<T>(day: &Day, specs: &[(String, T)]) -> Vec<String> {
     names
 }
 
+/// The fields `dump` writes: every one, or the --fields list (the rest are written empty).
+#[derive(Clone)]
+struct Fields(Option<Vec<String>>);
+
+impl Fields {
+    fn of(args: &Args) -> Fields {
+        const KNOWN: [&str; 12] = ["fills", "orders", "cancels", "errors", "breaches", "races", "positions", "marks", "pnl", "best_bids", "best_asks", "wall_mids"];
+        Fields(args.get("--fields").map(|text| {
+            let wanted: Vec<String> = text.split(',').map(str::to_string).collect();
+            if let Some(bad) = wanted.iter().find(|f| !KNOWN.contains(&f.as_str())) {
+                fail(&format!("unknown field {bad} (fields: {})", KNOWN.join(", ")));
+            }
+            wanted
+        }))
+    }
+
+    fn all() -> Fields {
+        Fields(None)
+    }
+
+    fn has(&self, field: &str) -> bool {
+        self.0.as_ref().is_none_or(|f| f.iter().any(|x| x == field))
+    }
+}
+
 /// One participant's DayResult as a JSON line (arena/rust.py `read_dump`): every field the parity
-/// check compares, products and trader names by name.
-fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names: &[String]) {
+/// check compares (those not in `fields` written empty), products and trader names by name, and
+/// the day's products in its own order, their limits, and the timestamps.
+fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names: &[String], fields: &Fields) {
     let name = |id: u32| names[id as usize].as_str();
     let product = |p: usize| day.products[p].as_str();
     let list = |out: &mut String, n: usize, item: &mut dyn FnMut(&mut String, usize)| {
@@ -250,12 +278,23 @@ fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names: &[
         }
         out.push(']');
     };
+    let count = |field: &str, n: usize| if fields.has(field) { n } else { 0 };
     out.push_str("{\"participant\": ");
     json::string(out, participant);
     out.push_str(", \"day\": ");
     json::string(out, &day.name);
+    out.push_str(", \"products\": ");
+    list(out, day.order.len(), &mut |out, k| json::string(out, product(day.order[k])));
+    out.push_str(", \"limits\": ");
+    list(out, day.order.len(), &mut |out, k| {
+        let _ = write!(out, "{}", day.limits[day.order[k]]);
+    });
+    out.push_str(", \"timestamps\": ");
+    list(out, r.timestamps.len(), &mut |out, k| {
+        let _ = write!(out, "{}", r.timestamps[k]);
+    });
     out.push_str(", \"fills\": ");
-    list(out, r.fills.len(), &mut |out, k| {
+    list(out, count("fills", r.fills.len()), &mut |out, k| {
         let f = &r.fills[k];
         let _ = write!(out, "[{}, ", f.timestamp);
         json::string(out, product(f.product));
@@ -264,26 +303,26 @@ fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names: &[
         out.push(']');
     });
     out.push_str(", \"orders\": ");
-    list(out, r.orders.len(), &mut |out, k| {
+    list(out, count("orders", r.orders.len()), &mut |out, k| {
         let (ts, o) = &r.orders[k];
         let _ = write!(out, "[{ts}, {}, ", o.id);
         json::string(out, product(o.product));
         let _ = write!(out, ", {}, {}, {}]", o.price, o.quantity, o.timestamp);
     });
     out.push_str(", \"cancels\": ");
-    list(out, r.cancels.len(), &mut |out, k| {
+    list(out, count("cancels", r.cancels.len()), &mut |out, k| {
         let _ = write!(out, "[{}, {}]", r.cancels[k].0, r.cancels[k].1);
     });
     for (label, items) in [("breaches", &r.limit_breaches), ("races", &r.races)] {
         let _ = write!(out, ", \"{label}\": ");
-        list(out, items.len(), &mut |out, k| {
+        list(out, count(label, items.len()), &mut |out, k| {
             let _ = write!(out, "[{}, ", items[k].0);
             json::string(out, product(items[k].1));
             out.push(']');
         });
     }
     out.push_str(", \"errors\": ");
-    list(out, r.errors.len(), &mut |out, k| {
+    list(out, count("errors", r.errors.len()), &mut |out, k| {
         let _ = write!(out, "[{}, ", r.errors[k].0);
         json::string(out, &r.errors[k].1);
         out.push(']');
@@ -295,16 +334,16 @@ fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names: &[
         }
         json::string(out, product);
         out.push_str(": {\"positions\": ");
-        list(out, r.positions[p].len(), &mut |out, k| {
+        list(out, count("positions", r.positions[p].len()), &mut |out, k| {
             let _ = write!(out, "{}", r.positions[p][k]);
         });
         for (label, values) in [("marks", &r.marks[p]), ("pnl", &r.pnl[p])] {
             let _ = write!(out, ", \"{label}\": ");
-            list(out, values.len(), &mut |out, k| json::float(out, values[k]));
+            list(out, count(label, values.len()), &mut |out, k| json::float(out, values[k]));
         }
         for (label, values) in [("best_bids", &r.best_bids[p]), ("best_asks", &r.best_asks[p])] {
             let _ = write!(out, ", \"{label}\": ");
-            list(out, values.len(), &mut |out, k| match values[k] {
+            list(out, count(label, values.len()), &mut |out, k| match values[k] {
                 Some(v) => {
                     let _ = write!(out, "{v}");
                 }
@@ -312,7 +351,7 @@ fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names: &[
             });
         }
         out.push_str(", \"wall_mids\": ");
-        list(out, r.wall_mids[p].len(), &mut |out, k| match r.wall_mids[p][k] {
+        list(out, count("wall_mids", r.wall_mids[p].len()), &mut |out, k| match r.wall_mids[p][k] {
             Some(v) => json::float(out, v),
             None => out.push_str("null"),
         });
@@ -569,9 +608,9 @@ fn batch_command(args: &Args) {
 /// One simulated day for `sim`: the market with the bots, the replays, and the files asked for.
 /// Each participant's totals, by name: its PnL (summed over products as Python's `sum` does), each
 /// product's in the day's order, its fills, errors (and the first), breaches and races.
-fn summary(out: &mut String, day: &Day, specs: &[(String, Spec)], results: &[DayResult]) {
+fn summary(out: &mut String, day: &Day, specs: &[(String, Spec)], results: &[DayResult], bots: &[Box<dyn Bot + Send>]) {
     out.push('{');
-    for (j, ((name, _), r)) in specs.iter().zip(results).enumerate() {
+    for (j, (((name, _), r), bot)) in specs.iter().zip(results).zip(bots).enumerate() {
         if j > 0 {
             out.push_str(", ");
         }
@@ -589,6 +628,8 @@ fn summary(out: &mut String, day: &Day, specs: &[(String, Spec)], results: &[Day
         }
         let _ = write!(out, "}}, \"fills\": {}, \"errors\": {}, \"breaches\": {}, \"races\": {}, \"first_error\": ", r.fills.len(), r.errors.len(), r.limit_breaches.len(), r.races.len());
         json::string(out, r.errors.first().map_or("", |(_, e)| e.as_str()));
+        out.push_str(", \"memory\": ");
+        out.push_str(bot.memory(day).as_deref().unwrap_or("null"));
         out.push('}');
     }
     out.push('}');
@@ -602,7 +643,7 @@ fn sim_day(args: &Args, spec: &sim::MarketSpec, specs: &[(String, Spec)], seed: 
     let names = inside.day.names.clone();
     let trades: usize = inside.day.ticks.iter().map(|t| t.trades.iter().map(Vec::len).sum::<usize>()).sum();
     let mut line = format!("{{\"seed\": {seed}, \"day\": {k}, \"trades\": {trades}, \"bots\": ");
-    summary(&mut line, &inside.day, specs, &inside.results);
+    summary(&mut line, &inside.day, specs, &inside.results, &built);
     let out = args.get("--out").map(|dir| format!("{dir}/{}", inside.day.name));
     let write = |path: String, text: String| fs::write(&path, text).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
     if let Some(stem) = &out {
@@ -615,7 +656,7 @@ fn sim_day(args: &Args, spec: &sim::MarketSpec, specs: &[(String, Spec)], seed: 
         if !specs.is_empty() {
             let mut text = String::new();
             for ((name, _), result) in specs.iter().zip(&inside.results) {
-                dump(&mut text, &inside.day, name, result, &names);
+                dump(&mut text, &inside.day, name, result, &names, &Fields::all());
             }
             write(format!("{stem}.dump"), text);
         }
@@ -633,11 +674,11 @@ fn sim_day(args: &Args, spec: &sim::MarketSpec, specs: &[(String, Spec)], seed: 
                 line.push_str(", ");
             }
             let _ = write!(line, "\"{mode}\": ");
-            summary(&mut line, &recording.day, specs, &results);
+            summary(&mut line, &recording.day, specs, &results, &built);
             if let Some(stem) = &out {
                 let mut text = String::new();
                 for ((name, _), result) in specs.iter().zip(&results) {
-                    dump(&mut text, &recording.day, name, result, &bots_names(&recording.day, specs));
+                    dump(&mut text, &recording.day, name, result, &bots_names(&recording.day, specs), &Fields::all());
                 }
                 write(format!("{stem}.replay.{mode}.dump"), text);
             }

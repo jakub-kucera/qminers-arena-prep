@@ -1,6 +1,6 @@
 """Scores every bot in bots/zoo/ against the template.
 
-usage (from the repo root): uv run python -m experiments.zoo [--jobs N] [--local]
+usage (from the repo root): uv run python -m experiments.zoo [--jobs N] [--local] [--engine rust]
 
 Each zoo bot, and the template, on P3 round 1 (all three days, the data SPEC.md describes):
   - alone, per tick, under --match-trades all and worse;
@@ -19,13 +19,19 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena import sim
-from arena.engine import EngineConfig, TradeMatching, run_market
+from arena import rust, sim
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 
 ZOO = Path("bots/zoo")
 TEMPLATE = Path("bots/template.py")
 SEEDS = (0, 1, 2)
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 
 
 def zoo_bots() -> list[Path]:
@@ -40,8 +46,17 @@ def label(path: Path) -> str:
     return "template" if path == TEMPLATE else f"{path.parent.name}/{path.stem}"
 
 
-def load(path: Path):
-    return prosperity.load_bot(path, {}, strict=False)
+def run(day, paths_by_name: list[tuple[str, Path]], config: EngineConfig = EngineConfig()):
+    """The bots in one market, on the engine --engine chose (each with its file's own settings)."""
+    return backtest(day, [(name, path, {}, False) for name, path in paths_by_name], config, ENGINE[0], fields=("pnl", "errors", "breaches"))
+
+
+def in_sim(path: Path) -> float:
+    """The bot's PnL inside arena.sim's market over SEEDS."""
+    spec = sim.preset_market()
+    if ENGINE[0] == "rust":
+        return sum(row["bots"]["bot"]["pnl"] for row in rust.run_sim(spec, SEEDS[0], len(SEEDS), [("bot", path, {}, False)]))
+    return sum(total(sim.run(spec, seed, [("bot", prosperity.load_bot(path, {}, strict=False))]).results[0]) for seed in SEEDS)
 
 
 def total(result) -> float:
@@ -54,12 +69,12 @@ def score(path: Path) -> dict:
     for mode in (TradeMatching.ALL, TradeMatching.WORSE):
         pnl = 0.0
         for day in days:
-            (result,) = run_market(day, [("bot", load(path))], EngineConfig(trade_matching=mode))
+            (result,) = run(day, [("bot", path)], EngineConfig(trade_matching=mode))
             pnl += total(result)
             if mode is TradeMatching.ALL:
                 row["errors"] += len(result.errors)
                 row["breaches"] += len(result.limit_breaches)
-                row["slowest_ms"] = max(row["slowest_ms"], 1000 * max(result.step_seconds, default=0))
+                row["slowest_ms"] = max(row["slowest_ms"], 1000 * max(result.step_seconds, default=0)) if ENGINE[0] == "python" else None
                 for product, series in result.pnl.items():
                     row["by_product"][product] = row["by_product"].get(product, 0.0) + (series[-1] if series else 0.0)
                 if result.errors and "first_error" not in row:
@@ -68,11 +83,10 @@ def score(path: Path) -> dict:
     if path != TEMPLATE:
         mine = theirs = 0.0
         for day in days:
-            template, bot = run_market(day, [("template", load(TEMPLATE)), ("bot", load(path))])
+            template, bot = run(day, [("template", TEMPLATE), ("bot", path)])
             mine, theirs = mine + total(template), theirs + total(bot)
         row["vs_template"], row["template_vs"] = theirs, mine
-    spec = sim.preset_market()
-    row["sim"] = sum(total(sim.run(spec, seed, [("bot", load(path))]).results[0]) for seed in SEEDS)
+    row["sim"] = in_sim(path)
     return row
 
 
@@ -81,7 +95,7 @@ def field(local: bool) -> dict[str, float]:
     paths = [TEMPLATE, *(p for p in zoo_bots() if local or not is_local(p))]
     totals = dict.fromkeys(map(label, paths), 0.0)
     for day in days:
-        results = run_market(day, [(label(p), load(p)) for p in paths])
+        results = run(day, [(label(p), p) for p in paths])
         for path, result in zip(paths, results):
             totals[label(path)] += total(result)
     return totals
@@ -91,9 +105,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.zoo")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     parser.add_argument("--local", action="store_true", help="put the local models' bots in the field too")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python",
+                        help="run the backtests in rust/ (the same results; the slowest-tick column is the Python bot's, so it's blank)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     paths = [TEMPLATE, *zoo_bots()]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         rows = list(pool.map(score, paths))
         crowd = pool.submit(field, args.local).result()
 
@@ -104,9 +122,10 @@ def main() -> None:
     for row in rows:
         vs = f"{row['vs_template'] / 1000:.1f} / {row['template_vs'] / 1000:.1f}" if "vs_template" in row else "-"
         in_field = f"{crowd[row['bot']] / 1000:.1f}" if row["bot"] in crowd else "-"
+        slowest = "-" if row["slowest_ms"] is None else f"{row['slowest_ms']:.1f} ms"
         print(
             f"| {row['bot']} | {row['all'] / 1000:.1f} | {row['worse'] / 1000:.1f} | {vs} | {row['sim'] / 1000:.1f}"
-            f" | {in_field} | {row['errors']} | {row['breaches']} | {row['slowest_ms']:.1f} ms |"
+            f" | {in_field} | {row['errors']} | {row['breaches']} | {slowest} |"
         )
     print("\nAlone under `all`, by product (thousands):")
     for row in rows:

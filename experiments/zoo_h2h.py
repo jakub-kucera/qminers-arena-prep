@@ -1,6 +1,6 @@
 """Why the zoo's market makers beat the template head to head, per product.
 
-usage (from the repo root): uv run python -m experiments.zoo_h2h [--jobs N]
+usage (from the repo root): uv run python -m experiments.zoo_h2h [--jobs N] [--engine rust]
 
 Three versions of the template (VARIANTS: as committed, with Squid Ink traded, and tuned for
 `worse` fills), each on P3 round 1 (all three days) under --match-trades all and worse:
@@ -19,8 +19,9 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from arena import sim
-from arena.engine import EngineConfig, TradeMatching, run_market
+from arena import rust, sim
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 from experiments.zoo import TEMPLATE, label, zoo_bots
 
@@ -32,6 +33,11 @@ VARIANTS = {
 }
 MODES = (TradeMatching.ALL, TradeMatching.WORSE)
 SEEDS = range(5)
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 
 
 def per_product(result) -> dict[str, dict[str, float]]:
@@ -60,10 +66,9 @@ def run(task: tuple[str, str | None, str]) -> tuple[tuple[str, str | None, str],
     days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
     totals: list[dict] = [{}, {}] if rival else [{}]
     for day in days:
-        bots = [("template", prosperity.load_bot(TEMPLATE, VARIANTS[variant], strict=False))]
-        if rival:
-            bots.append(("rival", prosperity.load_bot(rival, {}, strict=False)))
-        for total, result in zip(totals, run_market(day, bots, EngineConfig(trade_matching=TradeMatching(mode)))):
+        bots = [("template", TEMPLATE, VARIANTS[variant], False)] + ([("rival", Path(rival), {}, False)] if rival else [])
+        results = backtest(day, bots, EngineConfig(trade_matching=TradeMatching(mode)), ENGINE[0], fields=("pnl", "fills", "wall_mids"))
+        for total, result in zip(totals, results):
             add(total, per_product(result))
     return task, totals
 
@@ -71,6 +76,11 @@ def run(task: tuple[str, str | None, str]) -> tuple[tuple[str, str | None, str],
 def in_sim(variant: str) -> tuple[str, dict[str, float]]:
     spec = sim.preset_market()
     pnl: dict[str, float] = defaultdict(float)
+    if ENGINE[0] == "rust":
+        for row in rust.run_sim(spec, SEEDS[0], len(SEEDS), [("template", TEMPLATE, VARIANTS[variant], False)]):
+            for product, value in row["bots"]["template"]["products"].items():
+                pnl[product] += value
+        return variant, pnl
     for seed in SEEDS:
         bot = prosperity.load_bot(TEMPLATE, VARIANTS[variant], strict=False)
         for product, series in sim.run(spec, seed, [("template", bot)]).results[0].pnl.items():
@@ -85,10 +95,13 @@ def k(x: float) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.zoo_h2h")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     rivals = [str(p) for p in zoo_bots()]
     tasks = [(v, r, m.value) for v in VARIANTS for r in [None, *rivals] for m in MODES]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = dict(pool.map(run, tasks))
         sims = dict(pool.map(in_sim, VARIANTS))
     products = sorted({p for stats in results.values() for s in stats for p in s})

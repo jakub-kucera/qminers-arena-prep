@@ -15,7 +15,7 @@ the day (see "Formats" below).
 ```sh
 references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
 uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
-uv run pytest                       # all tests (~65 s; tests/test_rust.py's parity checks are most of it)
+uv run pytest                       # all tests (~80 s; tests/test_rust.py's parity checks are most of it)
 uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
 uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
@@ -23,6 +23,7 @@ uv run python -m arena.backtest bots/template.py 1                # Prosperity 3
 uv run python -m arena.backtest bots/template.py 1-0 --data p2    # Prosperity 2, round 1 day 0
 uv run python -m arena.backtest bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
 uv run python -m arena.backtest bots/template.py 1 --resting --vs bots/template.py   # orders rest; a rival copy shares the market
+uv run python -m arena.backtest bots/template.py 1 --engine rust   # the same report and CSVs, on rust/ (compare, stress, sim and the experiments take it too)
 uv run python -m arena.validate bots/template.py 1                # pre-submission checks, exit 1 on FAIL
 uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
 uv run python -m arena.grid bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --grid PARAMS.KELP.take_edge=0..7 --modes all,worse --screen 0.25   # big grids: screen on the first day, the best quarter on all
@@ -145,12 +146,13 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 **Bot comparison** (`arena/compare.py`): several bot files or `FILE@PATH=VALUE` variants against the first bot as baseline, one pool task per (bot, day, mode). Each bot becomes an `arena.grid.Outcome` under a one-value `Axis("bot")`, so the grid's held-out days, PBO, DSR, SPA, StepM and pick apply unchanged.
 
 **Rust port** (`rust/`, its own Cargo crate, kept apart from the Python code; `rust/README.md` has the table of what is in Python, Rust and both):
-- **Twins:** `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names, `rust/src/sim.rs` the market of `arena/sim.py`, and `rust/src/stats.rs` the heavy statistics of `arena/stats.py`. `rust/src/bots/` ports `bots/template.py` (all of STRATEGY and EXECUTION, and ADAPTER as the Prosperity plug-in presents a tick), `bots/rivals/`, `bots/mm.py` and every zoo bot (`rust/src/bots/zoo/`, with exceptions reproduced by `Bot::failed`). `rust/src/py.rs` holds Python's arithmetic where it isn't IEEE's (`sum`, `round`, numpy's `mean`/`std`).
+- **Twins:** `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names, `rust/src/sim.rs` the market of `arena/sim.py`, and `rust/src/stats.rs` the heavy statistics of `arena/stats.py`. `rust/src/bots/` ports `bots/template.py` (all of STRATEGY and EXECUTION, and ADAPTER as the Prosperity plug-in presents a tick), `bots/rivals/`, `bots/mm.py` and every zoo bot (`rust/src/bots/zoo/`, with exceptions reproduced by `Bot::failed`, message and all). `rust/src/py.rs` holds Python's arithmetic where it isn't IEEE's (`sum`, `round`, numpy's `mean`/`std`).
 - **`rust/twins.json`** lists each pair with the hash of the Python file as last checked. `tests/test_rust.py` fails when one changes. **A change to a twin's Python file goes into its Rust file too**, then `experiments.rust_bench --parity-only --record` compares every recorded field in every case and records the new hash.
 - **The bridge** (`arena/rust.py`):
   - days are loaded by the Python format plug-ins and exported (`export_day`; format in `rust/src/dayfile.rs`, products sorted by name plus the Python order, since order ids depend on it);
   - a Rust bot reads its settings from its Python file's upper-case globals after `--set` (`bot_spec`);
-  - what Rust writes comes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`; results as JSON lines), so the reports work unchanged.
+  - what Rust writes comes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`; results as JSON lines), so the reports work unchanged;
+  - every tool that runs our bots takes `--engine rust` (`arena.cli.add_engine_argument`); the experiments run each backtest through `arena.cli.backtest(day, participants, config, engine, fields=...)`, setting the engine in their workers with an `_init`.
 - **Exact floats:** `rust/src/pyrandom.rs` reproduces Python's `random.Random` draw for draw (`gauss` included), and the template calls libm's `erf`, `exp`, `log` and `pow` as CPython does (`x ** 2` is `pow`, not `x * x`), so the PnL matches to the bit.
 - `tests/test_rust.py` is skipped without `cargo`, except the hash check.
 

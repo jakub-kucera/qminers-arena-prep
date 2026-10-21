@@ -92,13 +92,14 @@ def test_a_zoo_twin_refuses_settings():
 
 @needs_cargo
 def test_the_zoo_twins_trade_the_same(bench, tmp_path):
-    """Every zoo bot alone in five configurations and all of them in one market, on a simulated day
-    and the same day trending hard up and down (where the trend followers trade)."""
+    """Every zoo bot alone in five configurations and all of them in one market, on a simulated day,
+    the same day trending hard up and down (where the trend followers trade), and a day with
+    products the zoo's prompt never named (where most of them raise)."""
     results = bench.zoo_parity(tmp_path, bench.zoo_days(1000))
     assert {label: found[:1] for label, _, found in results} == {label: [] for label, _, _ in results}
-    assert len(results) == 3 * (5 * len(bench.zoo_twins()) + 2)
+    assert len(results) == 4 * (5 * len(bench.zoo_twins()) + 2)
     momentum = [counts[0] for label, counts, _ in results if "opus-5.5_momentum.py, all" in label]
-    assert momentum[0] == 0 and min(momentum[1:]) > 0  # flat on the calm day, trading on the trends
+    assert momentum[0] == 0 and min(momentum[1:3]) > 0  # flat on the calm day, trading on the trends
 
 
 @needs_cargo
@@ -214,3 +215,54 @@ def test_the_grid_statistics_are_the_same_in_rust(bench):
     with StepM (no gain, planted gains, many cells) against rust/src/stats.rs."""
     results = bench.stats_parity()
     assert {label: found for label, _, found in results} == {label: [] for label, *_ in bench.stats_cases()}
+
+
+def _sim_data(tmp_path, days=2, ticks=800):
+    for k in range(days):
+        day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN"]), 20 + k)
+        sim.write_day(replace(day, day=replace(day.day, ticks=day.day.ticks[:ticks])), tmp_path / "data", 1, k)
+    return str(tmp_path / "data")
+
+
+def _printed(capsys, main, argv) -> str:
+    main(argv)
+    out = capsys.readouterr().out
+    return "\n".join(line for line in out.splitlines() if "bot time per tick" not in line and not line.startswith(("done in", "CSVs written")))
+
+
+@needs_cargo
+def test_backtest_compare_and_stress_print_the_same_on_either_engine(tmp_path, capsys):
+    from arena import backtest, compare, stress
+
+    data = _sim_data(tmp_path)
+    argv = ["bots/template.py", "1", "--data", data, "--vs", "bots/rivals/trapper.py", "--resting"]
+    ours = _printed(capsys, backtest.main, [*argv, "--out", str(tmp_path / "python")])
+    assert _printed(capsys, backtest.main, [*argv, "--engine", "rust", "--out", str(tmp_path / "rust")]) == ours
+    for path in (tmp_path / "python").iterdir():
+        assert (tmp_path / "rust" / path.name).read_text() == path.read_text(), path.name
+    argv = ["bots/template.py", "1", "--data", data, "--modes", "all,worse", "--jobs", "2",
+            "--bot", "bots/zoo/claude/opus-5.5_market_maker.py", "bots/zoo/other/deepseek-r1-14b_baseline.py", "bots/template.py@PARAMS.KELP.make_edge=1"]
+    ours = _printed(capsys, compare.main, argv)
+    assert _printed(capsys, compare.main, [*argv, "--engine", "rust"]) == ours
+    assert "NameError: name 'Order' is not defined" in ours  # a bot that raises reads the same
+    argv = ["bots/template.py", "1", "--data", data, "--only", "trend_up,no_wall", "--vs", "bots/rivals/spoofer.py", "--resting", "--jobs", "2"]
+    assert _printed(capsys, stress.main, [*argv, "--engine", "rust"]) == _printed(capsys, stress.main, argv)
+
+
+@needs_cargo
+def test_the_experiments_backtests_are_the_same_on_either_engine(bench):
+    """arena.cli.backtest, which the experiments run through: the same results on both engines, in
+    full and with only some fields read back, and on a simulated day Rust wrote to a file itself."""
+    from arena import cli
+    from arena.engine import EngineConfig
+
+    spec = sim.preset_market(["KELP", "RAINFOREST_RESIN"], ticks=600)
+    day = sim.run(spec, 3).day
+    bots = [("you", bench.TEMPLATE, {"PARAMS.KELP.make_edge": 1}, False), ("rival", bench.RIVALS["sniper"], {}, True)]
+    config = EngineConfig(resting=True)
+    ours = [bench.python_view(r) for r in cli.backtest(day, bots, config)]
+    assert [bench.python_view(r) for r in cli.backtest(day, bots, config, "rust")] == ours
+    assert [bench.python_view(r) for r in cli.backtest(rust.sim_day_file(spec, 3), bots, config, "rust")] == [{**v, "market_trades": 0} for v in ours]
+    light = cli.backtest(day, bots, config, "rust", fields=("pnl", "errors"))
+    assert [r.pnl for r in light] == [r.pnl for r in cli.backtest(day, bots, config)]
+    assert light[0].orders == [] and light[0].fills == [] and light[0].positions["KELP"] == []

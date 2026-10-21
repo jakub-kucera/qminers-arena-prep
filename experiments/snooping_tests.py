@@ -1,7 +1,7 @@
 """Does the best grid cell beat the bot as is? Hansen's SPA test and Romano and Wolf's StepM next to
 arena.grid's deflated Sharpe ratio, on the same grids.
 
-usage (from the repo root): uv run python -m experiments.snooping_tests [--jobs N] [--boot B]
+usage (from the repo root): uv run python -m experiments.snooping_tests [--jobs N] [--boot B] [--engine rust]
 
 Hansen (literature_md/superior-predictive-ability/) argues that White's Reality Check, which takes
 its critical value as if every alternative were exactly as good as the benchmark, loses power when
@@ -39,8 +39,9 @@ import argparse
 import statistics
 from concurrent.futures import ProcessPoolExecutor
 
-from arena import grid, report
-from arena.engine import EngineConfig, run_day
+from arena import grid, report, rust
+from arena.cli import backtest
+from arena.engine import EngineConfig
 from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
@@ -71,6 +72,11 @@ def _grids() -> dict:
 
 GRIDS = _grids()
 _DAYS: dict = {}
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
 
 
 def run(task: tuple[str, int]) -> tuple[tuple[str, int], list[float], list[float], float]:
@@ -84,7 +90,7 @@ def run(task: tuple[str, int]) -> tuple[tuple[str, int], list[float], list[float
     days = _DAYS[key]
     fine, coarse, total = [], [], 0.0
     for day in days:
-        result = run_day(day, prosperity.load_bot(TEMPLATE, overrides, strict=False), config)
+        (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], config, ENGINE[0], fields=("pnl",))
         series = report.total_pnl(result) or [0.0] * len(day.ticks)
         fine += grid.block_pnl(series, len(series) // TICKS_PER_BLOCK)
         coarse += grid.block_pnl(series, grid.blocks_per_day(len(days)))
@@ -126,9 +132,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.snooping_tests")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     parser.add_argument("--boot", type=int, default=2000, help="bootstrap resamples (default: 2000)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     tasks = [(name, cell) for name, (_, _, _, cells) in GRIDS.items() for cell in range(-1, len(cells))]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = {task: rest for task, *rest in pool.map(run, tasks, chunksize=1)}
 
     def fmt(x):

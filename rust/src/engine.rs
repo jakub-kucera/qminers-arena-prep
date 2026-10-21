@@ -67,6 +67,11 @@ pub trait Bot {
     fn product_name(&self, _product: usize) -> Option<String> {
         None
     }
+    /// What an experiment reads from its Python twin's traderData at the end of a day, as JSON
+    /// (the template: {product: {"stopped": true}} for each product whose loss stop fired).
+    fn memory(&self, _day: &Day) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Default, Debug)]

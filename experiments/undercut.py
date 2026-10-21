@@ -1,6 +1,6 @@
 """What a rival that undercuts us costs the template, and whether undercutting back wins it back.
 
-usage (from the repo root): uv run python -m experiments.undercut [--jobs N]
+usage (from the repo root): uv run python -m experiments.undercut [--jobs N] [--engine rust]
 
 Wang et al. (references/wiki/sources/marl-competition-no-collusion.md): a market maker trained to
 cut its rival's PnL quoted tighter and took 84% of the flow. The simplest such rival is a copy of
@@ -21,7 +21,9 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ProcessPoolExecutor
 
-from arena.engine import EngineConfig, TradeMatching, run_market
+from arena import rust
+from arena.cli import backtest
+from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 
 TEMPLATE = "bots/template.py"
@@ -39,6 +41,13 @@ RIVALS = {"alone": "none", "template copy": None, "undercutter": 0}
 EDGES = (2, 1, 0)
 
 
+ENGINE = ["python"]  # set in each worker by _init (--engine)
+
+
+def _init(engine: str) -> None:
+    ENGINE[0] = engine
+
+
 def _overrides(products: list[str], edge: int | None) -> dict:
     return {} if edge is None else {f"PARAMS.{p}.make_edge": edge for p in products}
 
@@ -52,10 +61,10 @@ def run(task: tuple[str, str, str, str]) -> tuple[tuple, dict]:
     data, days, products = DATASETS[dataset]
     out = {p: {"pnl": 0.0, "rival": 0.0, "passive": 0, "rival passive": 0, "days": []} for p in products}
     for day in prosperity.load_days(prosperity.resolve_data_dir(data), days):
-        bots = [("template", prosperity.load_bot(TEMPLATE, _overrides(products, OURS[ours]), strict=False))]
+        bots = [("template", TEMPLATE, _overrides(products, OURS[ours]), False)]
         if RIVALS[rival] != "none":
-            bots.append(("rival", prosperity.load_bot(TEMPLATE, _overrides(products, RIVALS[rival]), strict=False)))
-        results = run_market(day, bots, MODES[mode])
+            bots.append(("rival", TEMPLATE, _overrides(products, RIVALS[rival]), False))
+        results = backtest(day, bots, MODES[mode], ENGINE[0], fields=("pnl", "fills"))
         for p in products:
             o = out[p]
             pnl = results[0].pnl[p][-1] if results[0].pnl.get(p) else 0.0
@@ -71,10 +80,13 @@ def run(task: tuple[str, str, str, str]) -> tuple[tuple, dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.undercut")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
     args = parser.parse_args()
+    if args.engine == "rust":
+        rust.build()
     tasks = [(d, m, o, r) for d in DATASETS for m in MODES for o in OURS for r in RIVALS]
     pairs = [(o, r) for o in EDGES for r in (None, *EDGES)]
-    with ProcessPoolExecutor(args.jobs) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = dict(pool.map(run, tasks))
         resin = dict(pool.map(resin_war, pairs))
     print("PnL in thousands over the dataset's days, per product; 'share' is our share of the two bots' passive fill")
@@ -101,10 +113,8 @@ def resin_war(pair: tuple[int, int | None]) -> tuple[tuple, tuple[float, float]]
     key = "PARAMS.RAINFOREST_RESIN.make_edge"
     totals = [0.0, 0.0]
     for day in prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"]):
-        bots = [("template", prosperity.load_bot(TEMPLATE, {key: ours}, strict=False))]
-        if rival is not None:
-            bots.append(("rival", prosperity.load_bot(TEMPLATE, {key: rival}, strict=False)))
-        for k, result in enumerate(run_market(day, bots, EngineConfig(resting=True))):
+        bots = [("template", TEMPLATE, {key: ours}, False)] + ([("rival", TEMPLATE, {key: rival}, False)] if rival is not None else [])
+        for k, result in enumerate(backtest(day, bots, EngineConfig(resting=True), ENGINE[0], fields=("pnl",))):
             totals[k] += result.pnl["RAINFOREST_RESIN"][-1]
     return pair, tuple(totals)
 
