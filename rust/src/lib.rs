@@ -10,3 +10,4 @@ pub mod py;
 pub mod pyrandom;
 mod sha512;
 pub mod sim;
+pub mod stats;

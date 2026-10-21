@@ -2,7 +2,7 @@
 
 A Rust port of `arena/engine.py`, `arena/sim.py`'s market and every bot we run, kept apart from the
 Python code. It gives the same results as the Python, to the bit, about 100–200 times faster.
-`arena.grid --engine rust` runs its backtests here and `arena.sim --engine rust` its market;
+`arena.grid --engine rust` runs its backtests and statistics here and `arena.sim --engine rust` its market;
 loading data, the statistics and the reports stay Python. The submitted bot is still a Python file: a Rust bot is a twin for searching, never for
 submitting.
 
@@ -26,6 +26,7 @@ against. `tests/test_rust.py` fails when a Python twin changes until the Rust si
 |---|---|---|---|
 | `arena/engine.py` | `src/engine.rs` | `run_market` / `run_day` function for function (`_take` is `take`, ...): both modes, the three queue models, the fill ratio, several bots in one market, every per-tick record of a `DayResult` | every field a `DayResult` records, under every engine configuration, by all the bots below |
 | `arena/sim.py` | `src/sim.rs` | the market: the book, the fundamental (reversion, jumps and their bursts, regimes), the five agent kinds drawing from their own seeded `random.Random`s, bots trading inside it in both modes. The specs, presets, `--spec` and regimes stay in Python, which passes the spec as JSON; the Prosperity CSVs of `generate` are written by both | the recording (books, trades and their order, marks, ints kept apart from floats), the fundamental, and every bot's DayResult in the market and in its replays: every preset, both modes, two regimes, agents shown by name, the maker among the takers with skew, the rivals, and all 32 zoo bots racing (13 cases); `arena.sim run` and `generate` print and write the same, byte for byte |
+| `arena/stats.py` | `src/stats.rs` | the grid's statistics whose cost grows with the cells: `cscv` (PBO; every halving, or 4,000 sampled with `random.sample`), `mean_correlation` (the DSR's independent trials), and `snooping` (Hansen's `omega2` and stationary bootstrap, SPA, StepM). `expected_max_sharpe`, `deflated_sharpe` and `standardized` stay Python only, being cheap | 12 cases (`stats_parity`): every halving and sampled ones, ties in the ranks, a constant cell, one cell; correlated and independent cells; no gain, planted gains, 400 cells, whole numbers; and `arena.grid` prints the same on either engine |
 | `bots/mm.py` | `src/bots/mm.rs` | a plain wall-mid market maker, the benchmark's bot | 15 engine configurations (`CONFIGS`) |
 | `bots/template.py` | `src/bots/template.rs` | STRATEGY and EXECUTION function for function, and ADAPTER as the Prosperity plug-in presents a tick to it; the settings come from the Python file's own DEFAULTS and PARAMS | 18 variants, one per part of STRATEGY, alone and in a resting market with a rival; the committed settings in 6 more configurations; 10 real days (P2, P3, P4) under two configurations |
 | `bots/rivals/sniper.py`, `bots/rivals/spoofer.py`, `bots/rivals/trapper.py` | `src/bots/rivals.rs` | the adversarial `--vs` rivals | 13 cases: against the template and `mm`, resting and per tick, with their constants changed by `--set`, all three at once |
@@ -77,13 +78,14 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 | `arena.cli.Requote` | `Requote` in `src/bots/mod.rs` | `--requote` for rivals |
 | `arena.grid.block_pnl`, `report.total_pnl`, `product_stats` | `block_pnl`, `piece` in `src/main.rs` | what a grid task returns (`arena-rs batch`) |
 | `math.erf`, `x ** 2`, `math.exp`, `math.log` | libm's `erf`, `pow`, `exp`, `log` | CPython calls the C library for these, so the Rust does too. On macOS `pow(x, 2)` isn't always `x * x`. |
+| `math.fsum`, `statistics.fmean`, `random.sample` | `fsum`, `fmean`, `sample` in `src/stats.rs` | Shewchuk's partials as `mathmodule.c` has them; `sample`'s two branches as `Lib/random.py` |
 | `sum()` of floats, and of ints and floats mixed; `round(x, n)`, `//`, `max`/`min`; numpy's `mean`, `std` | `src/py.rs` | CPython 3.12's `sum` is compensated (Neumaier), not a plain loop, and adds ints after the first float uncompensated; numpy's sums are pairwise from 0.0. Each checked against the real thing on random inputs, and `cargo test` holds CPython's vectors |
 | an exception in `Trader.run` | `Bot::failed` | the twin reports the exception's type, and the engine drops the tick's orders and records it, as `_call_bot` does. The twin keeps what the Python keeps: traderData as last returned, the instance's changes up to the error |
 
 **Only in Python**:
 - the format plug-ins (`arena/formats/`), which load the data;
 - `arena.backtest` and `arena.validate`;
-- everything in `arena.grid` but the backtests: the axes, screening, the permutation test's shuffles (`arena.stress.permute`), and the statistics (held-out days, PBO, DSR, SPA, StepM);
+- everything in `arena.grid` but the backtests and the heavy statistics: the axes, screening, the permutation test's shuffles (`arena.stress.permute`, 0.09 s a day), held-out days, and the DSR's own formula;
 - `arena.compare`, `arena.analysis`, `arena.diagnose`, `arena.stress`, and `arena.report`'s CSVs;
 - `arena.sim`'s specs, presets, `--spec` overrides and regimes, and its command line, which prints from the results Rust hands back;
 - `bots/drill/template.py`, `bots/probe.py`, the zoo's tooling (`bundle.py`, `local.py`), and `experiments/`.
@@ -100,9 +102,10 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 | `src/model.rs`, `src/dayfile.rs` | the types, and the exported day format |
 | `src/sim.rs` | arena.sim's market (above), and its Prosperity CSVs |
 | `src/bots/` | the twins; `mod.rs` builds one by its kind (`rust/twins.json`) from its Python file's globals; `zoo/` holds the zoo's |
+| `src/stats.rs` | the grid's statistics (above) |
 | `src/py.rs` | Python's arithmetic where it isn't IEEE's plain operations |
 | `src/pyrandom.rs`, `src/sha512.rs`, `src/json.rs` | Python's random numbers, its string seeding, and the settings' format |
-| `src/main.rs` | `arena-rs run` (one market; `--dump` writes every recorded field, a JSON line per participant), `batch` (arena.grid's backtests on N threads), `sim` (arena.sim's market on N seeds at once, its replays and files), `grid` (`mm`'s make × take grid, for timing) |
+| `src/main.rs` | `arena-rs run` (one market; `--dump` writes every recorded field, a JSON line per participant), `batch` (arena.grid's backtests on N threads), `sim` (arena.sim's market on N seeds at once, its replays and files), `stats` (the grid's statistics), `grid` (`mm`'s make × take grid, for timing) |
 
 ## What is and isn't ported
 

@@ -7,6 +7,10 @@
     "rust": "rust/src/sim.rs",
     "sha256": "974e00ffb83ba5d2ec8d3edccafa3055e12a1f02561580114e4bd0cab0d6339e"
   },
+  "arena/stats.py": {
+    "rust": "rust/src/stats.rs",
+    "sha256": "cbe14b3226f304877cb897cecd3637feeb6474ab78753b8fb32c87b14a71539a"
+  },
   "bots/mm.py": {
     "kind": "mm",
     "rust": "rust/src/bots/mm.rs",

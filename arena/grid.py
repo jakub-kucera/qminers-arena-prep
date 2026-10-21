@@ -75,18 +75,20 @@ import csv
 import itertools
 import math
 import os
-import random
 import statistics
 import sys
 import tempfile
 import time
 from collections.abc import Callable
-from operator import itemgetter, mul
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from arena import report, rust, stress
+from arena.stats import (  # the statistics live in arena/stats.py (twinned in rust/src/stats.rs); these names stay importable from here
+    ALPHA, EULER_GAMMA, MAX_SPLITS, Cscv, _scales, bootstrap_means, cscv, deflated_sharpe, expected_max_sharpe, independent_trials,
+    mean_correlation, omega2, snooping, spa, standardized, stepm,
+)
 from arena.botfile import OverrideError, parse_value
 from arena.cli import Setup, add_common_arguments, add_rival_argument, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
@@ -95,12 +97,9 @@ from arena.model import Day
 
 SMOKE_TEST_TICKS = 200
 BLOCKS = 16  # CSCV's S over all the days: Bailey et al. call 16 reasonable (p. 21-22)
-MAX_SPLITS = 4000  # halvings of the blocks to score; sampled (seeded) when there are more
-EULER_GAMMA = 0.5772156649015329
 FINE_TICKS = 100  # ticks per block for SPA and StepM: about 100 blocks a day
 SPA_Q = 0.1  # stationary bootstrap: a new block starts with probability q, so blocks average 1/q
 BOOTSTRAP = 1000  # resamples; Romano and Wolf recommend at least 1,000 (p. 15)
-ALPHA = 0.05  # StepM's familywise error
 MIN_FINE_BLOCKS = 20  # fewer and the bootstrap tests are skipped
 
 
@@ -369,7 +368,8 @@ class _Runner:
             batch.append({"day": day, "config": rust.config_json(replace(s.config, trade_matching=mode)), "bots": bots,
                           "blocks": blocks_per_day(len(s.days)), "fine": ticks // FINE_TICKS})
         results = rust.run_batch(paths, specs, batch, self.jobs, folder)
-        return {key: Piece(**found) for (key, *_), found in zip(tasks, results)}
+        fields = Piece.__dataclass_fields__
+        return {key: Piece(**{k: v for k, v in found.items() if k in fields}) for (key, *_), found in zip(tasks, results)}
 
     def run(self, tasks: list[tuple]) -> dict:
         """tasks: (key, values, day index, mode, restricted, permutation) -> {key: Piece}."""
@@ -752,11 +752,12 @@ def without_first_day(outcome: Outcome, days: list[Day]) -> Outcome:
                    fine_pnl={m: fine[cut:] for m, fine in outcome.fine_pnl.items()})
 
 
-def format_unseen(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: list[Day]) -> str:
+def format_unseen(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: list[Day],
+                  engine: str = "python") -> str:
     """SPA, StepM and the pick on the days the screen didn't see: the screen's choice can't bias them."""
     trimmed = {index: without_first_day(o, days) for index, o in outcomes.items()}
     head = f"on the days the screen didn't see ({', '.join(d.name for d in days[1:])}), so free of its choice:"
-    return head + "\n" + format_snooping(axes, without_first_day(baseline, days), trimmed, modes, None)
+    return head + "\n" + format_snooping(axes, without_first_day(baseline, days), trimmed, modes, None, engine)
 
 
 # ---------------------------------------------------------------------------- overfitting
@@ -780,162 +781,11 @@ def block_pnl(series: list[float], blocks: int) -> list[float]:
     return out
 
 
-@dataclass(frozen=True)
-class Cscv:
-    pbo: float  # share of halvings where the in-sample best is at or below the out-of-sample median
-    loss: float  # share of halvings where it loses money out of sample
-    rank: float  # its mean relative rank w out of sample: near 1 the top, 0.5 the median
-    splits: int  # halvings scored
-    of: int  # halvings there are
-
-
-def cscv(columns: list[list[float]], max_splits: int = MAX_SPLITS, seed: int = 0) -> Cscv:
-    """Bailey et al.'s combinatorially symmetric cross-validation (Algorithm 2.3, p. 11-12).
-
-    `columns` holds each cell's PnL per block, the blocks in the same order for every cell. Each
-    halving of the blocks is a training half and a test half; the cell with the best training PnL
-    gets its test rank r in 1..N (higher is better, ties averaged), w = r / (N + 1), and the
-    halving counts as overfit when the logit ln(w / (1 - w)) <= 0.
-    """
-    n, s = len(columns), len(columns[0])
-    of = math.comb(s, s // 2)
-    if of <= max_splits:
-        halvings = list(itertools.combinations(range(s), s // 2))
-    else:
-        rng, seen = random.Random(seed), set()
-        while len(seen) < max_splits:
-            seen.add(tuple(sorted(rng.sample(range(s), s // 2))))
-        halvings = sorted(seen)
-    totals = [sum(column) for column in columns]
-    overfit = losses = 0
-    ranks = []
-    for train in halvings:
-        inside = [sum(column[i] for i in train) for column in columns]
-        outside = [total - x for total, x in zip(totals, inside)]
-        best = max(range(n), key=inside.__getitem__)
-        mine = outside[best]
-        rank = sum(1 for v in outside if v < mine) + (sum(1 for v in outside if v == mine) + 1) / 2
-        w = rank / (n + 1)
-        overfit += math.log(w / (1 - w)) <= 0
-        losses += mine < 0
-        ranks.append(w)
-    return Cscv(overfit / len(halvings), losses / len(halvings), statistics.fmean(ranks), len(halvings), of)
-
-
-def expected_max_sharpe(variance: float, trials: float) -> float:
-    """SR0, the best Sharpe ratio expected from `trials` independent cells with no edge whose Sharpe
-    ratios have this variance (Bailey and Lopez de Prado, eq. 1-2, p. 7-9). 0 below two trials."""
-    if trials < 2:
-        return 0.0
-    z = statistics.NormalDist().inv_cdf
-    return math.sqrt(variance) * ((1 - EULER_GAMMA) * z(1 - 1 / trials) + EULER_GAMMA * z(1 - 1 / (trials * math.e)))
-
-
-def deflated_sharpe(sharpe: float, sharpe0: float, periods: int, skew: float, kurtosis: float) -> float | None:
-    """DSR = Z[(SR - SR0) sqrt(T - 1) / sqrt(1 - skew SR + (kurtosis - 1) / 4 SR^2)] (eq. 2, p. 8-9);
-    kurtosis is not excess (3 for a normal). None when the root's argument isn't positive."""
-    spread = 1 - skew * sharpe + (kurtosis - 1) / 4 * sharpe**2
-    if spread <= 0 or periods < 2:
-        return None
-    return statistics.NormalDist().cdf((sharpe - sharpe0) * math.sqrt(periods - 1) / math.sqrt(spread))
-
-
-def independent_trials(columns: list[list[float]]) -> float:
-    """N^ = rho + (1 - rho) M, rho the average pairwise correlation of the M cells' block PnL (eq. 9,
-    p. 14-15). Cells with a constant PnL per block have no correlation and are left out of rho."""
-    m = len(columns)
-    scaled = []
-    for column in columns:
-        sd = statistics.pstdev(column)
-        if sd > 0:
-            mean = statistics.fmean(column)
-            scaled.append([(x - mean) / sd for x in column])
-    pairs = [(a, b) for i, a in enumerate(scaled) for b in scaled[i + 1 :]]
-    if not pairs:
-        return float(m)
-    rho = statistics.fmean(sum(x * y for x, y in zip(a, b)) / len(a) for a, b in pairs)
-    return rho + (1 - rho) * m
-
-
-def omega2(d: list[float], q: float) -> float:
-    """Hansen's variance of sqrt(n) times the mean under the stationary bootstrap (p. 8):
-    gamma_0 + 2 sum_i kappa(n, i) gamma_i, kappa(n, i) = (n-i)/n (1-q)^i + i/n (1-q)^(n-i)."""
-    n, mean = len(d), statistics.fmean(d)
-    c = [x - mean for x in d]
-    total = sum(map(mul, c, c)) / n
-    for i in range(1, n):
-        kappa = (n - i) / n * (1 - q) ** i + i / n * (1 - q) ** (n - i)
-        if kappa < 1e-12:
-            continue
-        total += 2 * kappa * sum(map(mul, c, itertools.islice(c, i, None))) / n
-    return total
-
-
-def bootstrap_means(d: list[list[float]], q: float, boot: int, seed: int) -> list[list[float]]:
-    """Each resample's mean of every column, by Politis and Romano's stationary bootstrap (Hansen,
-    p. 7): with probability q the next index is drawn afresh, else it follows the last, wrapping."""
-    n, rng, out = len(d[0]), random.Random(seed), []
-    for _ in range(boot):
-        idx, t = [], rng.randrange(n)
-        for _ in range(n):
-            idx.append(t)
-            t = rng.randrange(n) if rng.random() < q else (t + 1) % n
-        pick = itemgetter(*idx)
-        out.append([sum(pick(column)) / n for column in d])
-    return out
-
-
-def _scales(d: list[list[float]], q: float) -> list[float]:
-    return [math.sqrt(max(omega2(c, q), 1e-12)) for c in d]
-
-
-def spa(d: list[list[float]], q: float, boot: int, seed: int = 0, *, omegas=None, draws=None) -> dict[str, float]:
-    """Hansen's SPA p-values for H0: no column of gains has a positive mean (p. 4 and 7-8). The
-    bootstrap is recentred at mu_l = min(mean, 0), at mu_c (only means clearly below 0 kept, the
-    consistent one) and at mu_u = 0 (the studentized Reality Check)."""
-    n = len(d[0])
-    means = [statistics.fmean(c) for c in d]
-    omegas = omegas or _scales(d, q)
-    t = max(0.0, max(math.sqrt(n) * m / w for m, w in zip(means, omegas)))
-    loglog = math.sqrt(2 * math.log(math.log(n)))
-    shifts = {
-        "l": [max(0.0, m) for m in means],
-        "c": [m if m >= -w / math.sqrt(n) * loglog else 0.0 for m, w in zip(means, omegas)],
-        "u": means,
-    }
-    draws = draws or bootstrap_means(d, q, boot, seed)
-    out = {}
-    for name, shift in shifts.items():
-        above = sum(max(0.0, max(math.sqrt(n) * (x - s) / w for x, s, w in zip(draw, shift, omegas))) > t for draw in draws)
-        out[name] = above / len(draws)
-    return out
-
-
-def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 1, *, omegas=None, draws=None) -> list[int]:
-    """Romano and Wolf's studentized step-down (Algorithms 4.1-4.2, p. 14-15): the columns whose
-    mean gain is significantly positive, the familywise error held at alpha. Studentized by
-    Hansen's omega, fixed across resamples (ours; the paper recomputes it in each)."""
-    n = len(d[0])
-    means = [statistics.fmean(c) for c in d]
-    omegas = omegas or _scales(d, q)
-    z = [math.sqrt(n) * m / w for m, w in zip(means, omegas)]
-    draws = draws or bootstrap_means(d, q, boot, seed)
-    centred = [[math.sqrt(n) * (x - m) / w for x, m, w in zip(draw, means, omegas)] for draw in draws]
-    active, rejected = set(range(len(d))), []
-    while active:
-        maxima = sorted(max(draw[k] for k in active) for draw in centred)
-        c = maxima[min(len(maxima) - 1, math.ceil((1 - alpha) * len(maxima)) - 1)]
-        newly = [k for k in active if z[k] > c]
-        if not newly:
-            break
-        rejected += newly
-        active -= set(newly)
-    return sorted(rejected)
-
-
-def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], dsr: float | None) -> str:
+def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], dsr: float | None,
+                    engine: str = "python") -> str:
     """SPA and StepM on each distinct cell's gain over the bot as is, per block of FINE_TICKS ticks,
-    under the first mode; StepM's cells are then checked against the bot as is under the others."""
+    under the first mode; StepM's cells are then checked against the bot as is under the others.
+    With engine "rust" the bootstrap runs in rust/src/stats.rs, the same to the bit."""
     mode = modes[0]
     base = baseline.fine_pnl.get(mode, [])
     cells: dict[tuple, tuple[list[float], list[Outcome]]] = {}
@@ -950,10 +800,7 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
         return f"  SPA, StepM: skipped (needs a working bot as is, a cell that differs from it, and {MIN_FINE_BLOCKS}+ blocks of {FINE_TICKS} ticks)"
     groups = list(cells.values())
     d = [gain for gain, _ in groups]
-    omegas = _scales(d, SPA_Q)
-    draws = bootstrap_means(d, SPA_Q, BOOTSTRAP, seed=0)
-    p = spa(d, SPA_Q, BOOTSTRAP, omegas=omegas, draws=draws)
-    winners = stepm(d, SPA_Q, BOOTSTRAP, omegas=omegas, draws=draws)
+    p, winners = (rust.snooping if engine == "rust" else snooping)(d, SPA_Q, BOOTSTRAP)
     lines = [
         f"  SPA on pnl({mode}) gains over the bot as is, {len(base)} blocks of {FINE_TICKS} ticks, {len(d)} distinct cells, "
         f"bootstrap blocks of {round(FINE_TICKS / SPA_Q):,} ticks on average, {BOOTSTRAP:,} resamples:",
@@ -992,7 +839,8 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
     return "\n".join(lines)
 
 
-def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: int, axes: list[Axis] | None = None) -> str:
+def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: int, axes: list[Axis] | None = None,
+                       engine: str = "python") -> str:
     mode = modes[0]
     usable = [o for _, o in sorted(outcomes.items()) if not o.failed]
     columns = list({tuple(round(v, 6) for v in o.block_pnl[mode]): o.block_pnl[mode] for o in usable}.values())
@@ -1001,9 +849,9 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     if len(columns) < 2 or blocks < 2 or any(len(c) != blocks for c in columns):
         lines.append("  fewer than two distinct cells, or days too short to cut into blocks: no PBO or DSR")
         if axes is not None:
-            lines.append(format_snooping(axes, baseline, outcomes, modes, None))
+            lines.append(format_snooping(axes, baseline, outcomes, modes, None, engine))
         return "\n".join(lines)
-    result = cscv(columns)
+    result = (rust.cscv if engine == "rust" else cscv)(columns)
     sampled = f"{result.splits:,} of {result.of:,}" if result.splits < result.of else f"all {result.of:,}"
     coarse = " (under 10: coarse ranks)" if len(columns) < 10 else ""
     lines.append(f"  CSCV on pnl({mode}) in {blocks} blocks ({blocks // days} a day), {len(columns)} distinct cells{coarse}, {sampled} halvings:")
@@ -1012,7 +860,7 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     gains = [[x - b for x, b in zip(c, base)] for c in columns] if len(base) == blocks else []
     best = [x - b for x, b in zip(max(usable, key=lambda o: o.pnl(mode)).block_pnl[mode], base)] if gains else []
     sharpes = [statistics.fmean(g) / statistics.stdev(g) for g in gains if statistics.stdev(g) > 0]
-    trials = independent_trials(gains) if gains else 0.0
+    trials = independent_trials(gains, rust.mean_correlation if engine == "rust" else None) if gains else 0.0
     dsr = None
     if best and not any(best):
         lines.append("  the best cell is the bot as is: no gain to deflate")
@@ -1031,7 +879,7 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     if result.pbo >= 0.5:
         lines.append("! PBO >= 50%: the best cell in one half of the blocks is as likely as not to be below the median in the other")
     if axes is not None:
-        lines.append(format_snooping(axes, baseline, outcomes, modes, dsr))
+        lines.append(format_snooping(axes, baseline, outcomes, modes, dsr, engine))
     return "\n".join(lines)
 
 
@@ -1102,8 +950,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--permute-block", type=int, default=1, metavar="TICKS",
                         help="shuffle the ticks in runs of this many, keeping the order inside a run (default: 1)")
     parser.add_argument("--engine", choices=["python", "rust"], default="python",
-                        help="run the backtests on our engine, or on its Rust port (rust/: needs cargo, and a bot with a Rust twin, "
-                        "rust/twins.json), with the same results about 100 times faster (default: python)")
+                        help="run the backtests and the statistics in Python, or on the Rust port (rust/: needs cargo, and a bot with a Rust "
+                        "twin, rust/twins.json), with the same results about 100 times faster (default: python)")
     parser.add_argument("--screen", type=float, metavar="SHARE",
                         help="successive halving: run every combination on the first day under the first mode, then only this share "
                         "of them, the best there, on every day and mode (e.g. 0.25)")
@@ -1119,7 +967,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.screen is not None and not 0 < args.screen < 1:
             raise ValueError("--screen needs a share between 0 and 1, e.g. 0.25")
         if s.engine == "rust":
-            _check_rust(s, args.bot, args.format)
+            rust.prepare(args.format, [args.bot, *s.rivals])
         smoke_test(s, args.bot, axes)
     except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))
@@ -1147,9 +995,9 @@ def main(argv: list[str] | None = None) -> int:
         print("\n" + held_out)
     if run.screen:
         print("\n" + format_screen(axes, run.screen, outcomes))
-    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes))
+    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes, s.engine))
     if run.screen and len(s.days) >= 2:
-        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days))
+        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days, s.engine))
     if args.permute > 0:
         start = time.perf_counter()
         copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block,
@@ -1163,20 +1011,6 @@ def main(argv: list[str] | None = None) -> int:
         write_csv(args.out, axes, modes, outcomes)
         print(f"\nall combinations written to {args.out}")
     return 1 if all(outcome.failed for outcome in outcomes.values()) else 0
-
-
-def _check_rust(s: Setup, bot: Path, format_name: str) -> None:
-    """--engine rust: the Prosperity format, bots with a Rust twin that has been checked against
-    them since they last changed, and a built binary."""
-    if format_name != "prosperity":
-        raise ValueError("--engine rust runs the Prosperity bots' Rust twins: use --format prosperity")
-    for path in [bot, *s.rivals]:
-        rust.kind_of(path)
-    stale = rust.stale_twins()
-    if stale:
-        print(f"! the Rust twins of {', '.join(stale)} weren't checked since that file changed: their results may differ "
-              "(uv run python -m experiments.rust_bench --parity-only --record)", file=sys.stderr)
-    rust.build()
 
 
 def _check(axes: list[Axis], modes: list[TradeMatching], s: Setup, sort: str) -> None:

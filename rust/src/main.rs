@@ -1,9 +1,9 @@
 //! arena-rs: the Rust engine and bots on exported days (see README.md).
 //!
-//!   arena-rs run DAY... [ENGINE] --bot NAME=SPEC.json... [--dump FILE]
-//!       the bots in one market on each day; a SPEC is {"kind", "globals", "requote"} (arena/rust.py
-//!       writes them from the Python twin's file); --dump writes each participant's full DayResult
-//!       for the parity check (experiments/rust_bench.py)
+//!   arena-rs run DAY... [ENGINE] --bot NAME=SPEC.json... [--dump FILE] [--threads N]
+//!       the bots in one market on each day, the days on N threads; a SPEC is {"kind", "globals",
+//!       "requote"} (arena/rust.py writes them from the Python twin's file); --dump writes each
+//!       participant's full DayResult, a JSON line each, day by day (arena/rust.py `run_days`)
 //!   arena-rs batch TASKS.json [--threads N]
 //!       arena.grid's backtests (arena/rust.py `run_batch`): a JSON line per task on stdout, in order,
 //!       with what grid.Piece holds
@@ -14,6 +14,9 @@
 //!       fundamentals and the bots' results (.dump); --replay also runs the bots on the day without them
 //!       (.recording.day) under each trade matching (.replay.<mode>.dump); --csv writes the Prosperity layout (arena.sim
 //!       generate). A JSON line per day on stdout: each bot's totals in the market and in each replay
+//!   arena-rs stats IN.json
+//!       arena.grid's statistics (src/stats.rs) on what IN.json holds: {"cscv": {columns, max_splits, seed}},
+//!       {"correlation": {scaled}} or {"snooping": {d, q, boot, alpha, seed}}; the answer as JSON on stdout
 //!   arena-rs grid DAY... [ENGINE] --make LIST --take LIST [--modes all,worse] [--threads N] [--repeat R]
 //!       the market maker (--hold: keeping quotes) on every (day, mode, make_edge, take_edge), one backtest per task on N
 //!       threads, R times over for timing: a CSV row per backtest, the timing on stderr
@@ -30,7 +33,7 @@ use arena_rs::bots::{self, Requote};
 use arena_rs::engine::{run_day, run_market, Bot, DayResult, EngineConfig, QueueModel, TradeMatching};
 use arena_rs::json::{self, Value};
 use arena_rs::model::Day;
-use arena_rs::{dayfile, sim};
+use arena_rs::{dayfile, sim, stats};
 
 struct Args {
     days: Vec<String>,
@@ -121,6 +124,7 @@ fn main() {
         "grid" => grid_command(&args),
         "batch" => batch_command(&args),
         "sim" => sim_command(&args),
+        "stats" => stats_command(&args),
         other => fail(&format!("unknown command {other}")),
     }
 }
@@ -174,16 +178,46 @@ fn run_command(args: &Args) {
     if specs.is_empty() {
         fail("no --bot given");
     }
+    for (_, spec) in &specs {
+        spec.build().unwrap_or_else(|e| fail(&e)); // refuse settings before running anything
+    }
+    let threads: usize = args.get("--threads").unwrap_or("1").parse().unwrap_or_else(|_| fail("--threads needs an integer"));
+    let days = load_days(args);
+    let next = AtomicUsize::new(0);
+    let found: Vec<Vec<(usize, String, String)>> = thread::scope(|scope| {
+        let workers: Vec<_> = (0..threads.clamp(1, days.len()))
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut mine = Vec::new();
+                    loop {
+                        let k = next.fetch_add(1, Ordering::Relaxed);
+                        if k >= days.len() {
+                            break;
+                        }
+                        let day = &days[k];
+                        let mut built = build_all(&specs);
+                        let results = run_market(day, &mut participants(&specs, &mut built), &config);
+                        let names = bots_names(day, &specs);
+                        let (mut lines, mut text) = (String::new(), String::new());
+                        for ((name, _), result) in specs.iter().zip(&results) {
+                            let total: f64 = result.pnl.iter().filter_map(|s| s.last()).sum();
+                            let _ = writeln!(lines, "{} {}: pnl {:.1}, {} fills", day.name, name, total, result.fills.len());
+                            dump(&mut text, day, name, result, &names);
+                        }
+                        mine.push((k, lines, text));
+                    }
+                    mine
+                })
+            })
+            .collect();
+        workers.into_iter().map(|w| w.join().unwrap()).collect()
+    });
+    let mut ordered: Vec<(usize, String, String)> = found.into_iter().flatten().collect();
+    ordered.sort_by_key(|(k, _, _)| *k);
     let mut out = String::new();
-    for day in load_days(args) {
-        let mut built = build_all(&specs);
-        let results = run_market(&day, &mut participants(&specs, &mut built), &config);
-        let names = bots_names(&day, &specs);
-        for ((name, _), result) in specs.iter().zip(&results) {
-            let total: f64 = result.pnl.iter().filter_map(|s| s.last()).sum();
-            println!("{} {}: pnl {:.1}, {} fills", day.name, name, total, result.fills.len());
-            dump(&mut out, &day, name, result, &names);
-        }
+    for (_, lines, text) in ordered {
+        print!("{lines}");
+        out.push_str(&text);
     }
     if let Some(path) = args.get("--dump") {
         fs::write(path, out).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
@@ -393,10 +427,23 @@ struct Task {
     fine: usize,
 }
 
-/// grid._run_piece's Piece for the first participant, as a JSON line.
-fn piece(day: &Day, r: &DayResult, blocks: usize, fine: usize) -> String {
+/// report.max_drawdown: the largest fall from a running peak.
+fn max_drawdown(series: &[f64]) -> f64 {
+    let (mut peak, mut drawdown) = (f64::NEG_INFINITY, 0.0);
+    for &value in series {
+        peak = arena_rs::py::max(peak, value);
+        drawdown = arena_rs::py::max(drawdown, peak - value);
+    }
+    drawdown
+}
+
+/// grid._run_piece's Piece for the first participant, as a JSON line, plus each product's max
+/// drawdown (arena.stress) and the other participants' totals.
+fn piece(day: &Day, results: &[DayResult], blocks: usize, fine: usize) -> String {
+    let r = &results[0];
     let ticks = day.ticks.len();
-    let series: Vec<f64> = if day.order.is_empty() { vec![0.0; ticks] } else { (0..ticks).map(|t| day.order.iter().fold(0.0, |s, &p| s + r.pnl[p][t])).collect() };
+    // report.total_pnl: per tick, Python's sum() over the products in the day's order (compensated, not a plain loop)
+    let series: Vec<f64> = if day.order.is_empty() { vec![0.0; ticks] } else { (0..ticks).map(|t| arena_rs::py::sum(day.order.iter().map(|&p| r.pnl[p][t]))).collect() };
     let mut out = String::from("{\"pnl\": ");
     json::float(&mut out, series.last().copied().unwrap_or(0.0));
     for (key, list) in [("blocks", block_pnl(&series, blocks)), ("fine", block_pnl(&series, fine))] {
@@ -409,18 +456,39 @@ fn piece(day: &Day, r: &DayResult, blocks: usize, fine: usize) -> String {
         }
         out.push(']');
     }
-    out.push_str(", \"products\": {");
-    for (k, &p) in day.order.iter().enumerate() {
+    for (key, value) in [("products", &(|p: usize| r.pnl[p].last().copied().unwrap_or(0.0)) as &dyn Fn(usize) -> f64), ("drawdowns", &|p: usize| max_drawdown(&r.pnl[p]))] {
+        let _ = write!(out, ", \"{key}\": {{");
+        for (k, &p) in day.order.iter().enumerate() {
+            if k > 0 {
+                out.push_str(", ");
+            }
+            json::string(&mut out, &day.products[p]);
+            out.push_str(": ");
+            json::float(&mut out, value(p));
+        }
+        out.push('}');
+    }
+    let _ = write!(out, ", \"fills\": {}, \"errors\": {}, \"breaches\": {}, \"races\": {}, \"first_error\": ", r.fills.len(), r.errors.len(), r.limit_breaches.len(), r.races.len());
+    json::string(&mut out, r.errors.first().map_or("", |(_, e)| e.as_str()));
+    out.push_str(", \"others\": [");
+    for (k, other) in results[1..].iter().enumerate() {
         if k > 0 {
             out.push_str(", ");
         }
-        json::string(&mut out, &day.products[p]);
-        out.push_str(": ");
-        json::float(&mut out, r.pnl[p].last().copied().unwrap_or(0.0));
+        out.push_str("{\"pnl\": ");
+        json::float(&mut out, arena_rs::py::sum(day.order.iter().map(|&p| other.pnl[p].last().copied().unwrap_or(0.0))));
+        out.push_str(", \"products\": {");
+        for (j, &p) in day.order.iter().enumerate() {
+            if j > 0 {
+                out.push_str(", ");
+            }
+            json::string(&mut out, &day.products[p]);
+            out.push_str(": ");
+            json::float(&mut out, other.pnl[p].last().copied().unwrap_or(0.0));
+        }
+        let _ = write!(out, "}}, \"fills\": {}, \"errors\": {}, \"breaches\": {}, \"races\": {}}}", other.fills.len(), other.errors.len(), other.limit_breaches.len(), other.races.len());
     }
-    let _ = write!(out, "}}, \"fills\": {}, \"errors\": {}, \"breaches\": {}, \"first_error\": ", r.fills.len(), r.errors.len(), r.limit_breaches.len());
-    json::string(&mut out, r.errors.first().map_or("", |(_, e)| e.as_str()));
-    out.push('}');
+    out.push_str("]}");
     out
 }
 
@@ -472,7 +540,7 @@ fn batch_command(args: &Args) {
                         let mut built: Vec<Box<dyn Bot + Send>> = task.bots.iter().map(|(_, s)| specs[*s].build().unwrap()).collect();
                         let mut bots: Vec<(String, &mut dyn Bot)> = task.bots.iter().map(|(n, _)| n.clone()).zip(built.iter_mut().map(|b| b.as_mut() as &mut dyn Bot)).collect();
                         let results = run_market(day, &mut bots, &task.config);
-                        mine.push((k, piece(day, &results[0], task.blocks, task.fine)));
+                        mine.push((k, piece(day, &results, task.blocks, task.fine)));
                         let n = done.fetch_add(1, Ordering::Relaxed) + 1;
                         if live && (n % 64 == 0 || n == tasks.len()) {
                             eprint!("\r  {n}/{} backtests", tasks.len());
@@ -620,4 +688,51 @@ fn sim_command(args: &Args) {
     for line in lines {
         println!("{line}");
     }
+}
+
+fn matrix(value: Option<&Value>, key: &str) -> Vec<Vec<f64>> {
+    let rows = value.and_then(Value::as_list).unwrap_or_else(|| fail(&format!("stats: {key} must be a list of lists")));
+    rows.iter()
+        .map(|row| row.as_list().unwrap_or_else(|| fail(&format!("stats: {key} must be a list of lists"))).iter().map(|v| v.as_f64().unwrap_or_else(|| fail("stats: numbers only"))).collect())
+        .collect()
+}
+
+fn stats_command(args: &Args) {
+    let path = args.days.first().unwrap_or_else(|| fail("stats needs an IN.json"));
+    let text = fs::read_to_string(path).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
+    let input = json::parse(&text).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
+    let int = |v: &Value, key: &str| v.get(key).and_then(Value::as_i64).unwrap_or_else(|| fail(&format!("stats: {key} must be an integer")));
+    let float = |v: &Value, key: &str| v.get(key).and_then(Value::as_f64).unwrap_or_else(|| fail(&format!("stats: {key} must be a number")));
+    let mut out = String::new();
+    if let Some(v) = input.get("cscv") {
+        let columns = matrix(v.get("columns"), "columns");
+        let r = stats::cscv(&columns, int(v, "max_splits") as usize, int(v, "seed"));
+        out.push_str("{\"pbo\": ");
+        json::float(&mut out, r.pbo);
+        out.push_str(", \"loss\": ");
+        json::float(&mut out, r.loss);
+        out.push_str(", \"rank\": ");
+        json::float(&mut out, r.rank);
+        let _ = write!(out, ", \"splits\": {}, \"of\": {}}}", r.splits, r.of);
+    } else if let Some(v) = input.get("correlation") {
+        match stats::mean_correlation(&matrix(v.get("scaled"), "scaled")) {
+            Some(rho) => json::float(&mut out, rho),
+            None => out.push_str("null"),
+        }
+    } else if let Some(v) = input.get("snooping") {
+        let d = matrix(v.get("d"), "d");
+        let (p, winners) = stats::snooping(&d, float(v, "q"), int(v, "boot") as usize, float(v, "alpha"), int(v, "seed"));
+        out.push_str("{\"spa\": {");
+        for (k, name) in ["l", "c", "u"].iter().enumerate() {
+            if k > 0 {
+                out.push_str(", ");
+            }
+            let _ = write!(out, "\"{name}\": ");
+            json::float(&mut out, p[k]);
+        }
+        let _ = write!(out, "}}, \"stepm\": [{}]}}", winners.iter().map(|k| k.to_string()).collect::<Vec<_>>().join(", "));
+    } else {
+        fail("stats: give cscv, correlation or snooping");
+    }
+    println!("{out}");
 }

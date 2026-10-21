@@ -7,10 +7,16 @@ rust/ ports arena/engine.py and some bots, each with its Python twin listed in r
   bot_spec      a twin bot for Rust: its kind, and its Python file's globals after any --set
                 overrides, so the Rust bot reads the same settings (the template's DEFAULTS and
                 PARAMS, a rival's constants)
+  prepare       --engine rust's checks: the Prosperity format, bots with a twin, a built binary
+  run_days      `arena-rs run`: participants in one market on each day, on threads, back as Python
+                DayResults (arena.backtest --engine rust)
   run_batch     `arena-rs batch`: many backtests on every core, each returning what arena.grid's
-                Piece holds (arena.grid --engine rust)
+                Piece holds (arena.grid, arena.compare, arena.stress --engine rust)
   run_sim       `arena-rs sim`: arena.sim's market (rust/src/sim.rs) on a range of seeds, with twin
                 bots in it, read back as arena.sim.SimDay (arena.sim --engine rust)
+  cscv, mean_correlation, snooping
+                arena/stats.py's statistics that grow with a grid's cells, in rust/src/stats.rs
+                (arena.grid --engine rust): the same results to the bit
   read_day, read_results
                 a day and DayResults as Rust wrote them, back as Python's own types, so the reports
                 and CSVs work unchanged
@@ -172,13 +178,59 @@ def export_day(day: Day, path: Path) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
+# ---------------------------------------------------------------------------- runs
+
+
+def prepare(format_name: str, bots: list[Path]) -> None:
+    """--engine rust: the Prosperity format, bots with a Rust twin that has been checked against
+    them since they last changed (a warning if not), and a built binary. ValueError if not."""
+    import sys
+
+    if format_name != "prosperity":
+        raise ValueError("--engine rust runs the Prosperity bots' Rust twins: use --format prosperity")
+    for path in bots:
+        kind_of(path)
+    stale = stale_twins()
+    if stale:
+        print(f"! the Rust twins of {', '.join(stale)} weren't checked since that file changed: their results may differ "
+              "(uv run python -m experiments.rust_bench --parity-only --record)", file=sys.stderr)
+    build()
+
+
+def run_days(days: list[Day], bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, threads: int = 1) -> list[list[DayResult]]:
+    """`arena-rs run`: the (name, bot file, overrides, requote) participants in one market on each
+    day, the days on `threads` threads; per day, each participant's DayResult (read_results)."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as folder:
+        scratch = Path(folder)
+        paths = []
+        for k, day in enumerate(days):
+            paths.append(scratch / f"day{k}.day")
+            export_day(day, paths[-1])
+        dump = scratch / "dump.jsonl"
+        out = subprocess.run([str(BINARY), "run", *map(str, paths), *_engine_args(config), *_bot_args(bots, scratch), "--dump", str(dump),
+                              "--threads", str(threads)], stdout=subprocess.DEVNULL)
+        if out.returncode != 0:
+            raise RuntimeError(f"arena-rs run failed (exit {out.returncode}); its message is above")
+        lines = dump.read_text().splitlines()
+    n = len(bots)
+    found = []
+    for k, day in enumerate(days):
+        results = read_results("\n".join(lines[k * n:(k + 1) * n]), day)
+        found.append([results[name] for name, *_ in bots])
+    return found
+
+
 # ---------------------------------------------------------------------------- batches
 
 
 def run_batch(day_paths: list[Path], specs: list[dict], tasks: list[dict], threads: int, scratch: Path) -> list[dict]:
     """`arena-rs batch`: each task {day, config, bots: [[name, spec index], ...], blocks, fine} on
     `threads` threads, returning per task the first participant's {pnl, blocks, fine, products,
-    fills, errors, breaches, first_error}, in task order."""
+    drawdowns, fills, errors, breaches, races, first_error} (as arena.grid's Piece, plus each
+    product's report.max_drawdown) and "others", the other participants' {pnl, products, fills,
+    errors, breaches, races}, in task order."""
     path = scratch / "batch.json"
     path.write_text(json.dumps({"days": [str(p) for p in day_paths], "bots": specs, "tasks": tasks}))
     out = subprocess.run([str(BINARY), "batch", str(path), "--threads", str(threads)], stdout=subprocess.PIPE, text=True)
@@ -358,3 +410,39 @@ def run_sim(spec, seed: int, days: int = 1, bots: list[tuple[str, Path, dict, bo
                     results = read_results(Path(f"{stem}.replay.{mode}.dump").read_text(), recording)
                     row["replay_results"][mode] = [results[name] for name, *_ in bots]
         return found
+
+
+# ---------------------------------------------------------------------------- arena.stats
+
+
+def _stats(request: dict):
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "stats.json"
+        path.write_text(json.dumps(request))
+        out = subprocess.run([str(BINARY), "stats", str(path)], stdout=subprocess.PIPE, text=True)
+    if out.returncode != 0:
+        raise RuntimeError(f"arena-rs stats failed (exit {out.returncode}); its message is above")
+    return json.loads(out.stdout)
+
+
+def cscv(columns: list[list[float]], max_splits: int | None = None, seed: int = 0):
+    """arena.stats.cscv in rust/src/stats.rs."""
+    from arena import stats
+
+    found = _stats({"cscv": {"columns": columns, "max_splits": stats.MAX_SPLITS if max_splits is None else max_splits, "seed": seed}})
+    return stats.Cscv(found["pbo"], found["loss"], found["rank"], found["splits"], found["of"])
+
+
+def mean_correlation(scaled: list[list[float]]) -> float | None:
+    """arena.stats.mean_correlation in rust/src/stats.rs."""
+    return _stats({"correlation": {"scaled": scaled}})
+
+
+def snooping(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 0) -> tuple[dict[str, float], list[int]]:
+    """arena.stats.snooping in rust/src/stats.rs."""
+    from arena import stats
+
+    found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed}})
+    return found["spa"], found["stepm"]

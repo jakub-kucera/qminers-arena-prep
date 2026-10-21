@@ -143,7 +143,7 @@ def test_the_grid_prints_the_same_on_either_engine(bench, tmp_path, capsys):
     theirs = _grid_output(capsys, [*argv, "--engine", "rust", "--out", str(tmp_path / "rust.csv")])
     assert theirs == ours
     assert (tmp_path / "rust.csv").read_text() == (tmp_path / "python.csv").read_text()
-    assert "permutation test" in ours and "screened" in ours
+    assert "permutation test" in ours and "screened" in ours and "SPA on pnl" in ours and "CSCV on pnl" in ours
 
 
 def test_the_grid_refuses_a_bot_without_a_rust_twin(tmp_path, capsys):
@@ -206,3 +206,11 @@ def test_arena_sim_refuses_a_bot_without_a_rust_twin(capsys):
     with pytest.raises(SystemExit):
         arena_sim.main(["run", "bots/probe.py", "--days", "1", "--ticks", "100", "--engine", "rust"])
     assert "has no Rust twin" in capsys.readouterr().err
+
+
+@needs_cargo
+def test_the_grid_statistics_are_the_same_in_rust(bench):
+    """arena/stats.py's CSCV (every halving, sampled ones, tied ranks), the trials' correlation, and SPA
+    with StepM (no gain, planted gains, many cells) against rust/src/stats.rs."""
+    results = bench.stats_parity()
+    assert {label: found for label, _, found in results} == {label: [] for label, *_ in bench.stats_cases()}

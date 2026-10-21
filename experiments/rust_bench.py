@@ -372,6 +372,50 @@ def sim_cases(ticks: int = 2000) -> list[tuple]:
     ]
 
 
+def stats_cases() -> list[tuple[str, str, dict]]:
+    """arena/stats.py's heavy statistics on inputs that exercise them: (label, function, arguments).
+    CSCV with every halving and with sampled ones, ties in the ranks, a constant cell, one cell;
+    the correlation of standardized cells; SPA and StepM with no gain, with planted gains, and with
+    many cells."""
+    import random
+
+    from arena import stats
+
+    r = random.Random(42)
+    noise = lambda n, s, mu=0.0: [[r.gauss(mu, 1) for _ in range(s)] for _ in range(n)]
+    whole = lambda n, s: [[float(r.randint(-3, 3)) for _ in range(s)] for _ in range(n)]
+    planted = noise(40, 300) + noise(5, 300, 0.3)
+    return [
+        ("cscv, 8 blocks: every halving", "cscv", {"columns": noise(30, 8)}),
+        ("cscv, 18 blocks: 4,000 sampled halvings", "cscv", {"columns": noise(200, 18)}),
+        ("cscv, 16 blocks, 500 sampled, seed 3", "cscv", {"columns": noise(50, 16, 0.1), "max_splits": 500, "seed": 3}),
+        ("cscv, whole numbers: tied ranks", "cscv", {"columns": whole(60, 12)}),
+        ("cscv, a constant cell and two cells", "cscv", {"columns": [[1.0] * 10, [r.gauss(0, 1) for _ in range(10)]]}),
+        ("correlation of 300 cells", "mean_correlation", {"scaled": stats.standardized(noise(300, 18))}),
+        ("correlation of correlated cells", "mean_correlation", {"scaled": stats.standardized([[x + r.gauss(0, 0.3) for x in base] for base in noise(1, 18) for _ in range(50)])}),
+        ("correlation of one cell", "mean_correlation", {"scaled": stats.standardized(noise(1, 18))}),
+        ("SPA and StepM, no gain", "snooping", {"d": noise(30, 120), "q": 0.1, "boot": 500}),
+        ("SPA and StepM, five planted gains", "snooping", {"d": planted, "q": 0.1, "boot": 1000}),
+        ("SPA and StepM, 400 cells, seed 7, alpha 0.1", "snooping", {"d": noise(400, 60, 0.05), "q": 0.2, "boot": 300, "alpha": 0.1, "seed": 7}),
+        ("SPA and StepM, whole numbers", "snooping", {"d": whole(20, 50), "q": 0.1, "boot": 200}),
+    ]
+
+
+def _run_stats_case(label: str, name: str, arguments: dict) -> tuple[str, tuple, list[str]]:
+    from arena import stats
+
+    ours, theirs = getattr(stats, name)(**arguments), getattr(rust, name)(**arguments)
+    found = [] if ours == theirs else [f"{name}: {ours} against {theirs}"]
+    return label, (0, 0, 0, 0, 0.0), found
+
+
+def stats_parity(jobs: int | None = None) -> list[tuple[str, tuple, list[str]]]:
+    """stats_cases in both, on `jobs` processes."""
+    cases = stats_cases()
+    with ProcessPoolExecutor(min(jobs or os.cpu_count() or 1, len(cases))) as pool:
+        return list(pool.map(_run_stats_case, *zip(*cases)))
+
+
 def sim_parity(ticks: int = 2000, jobs: int | None = None, cases=None) -> list[tuple[str, tuple, list[str]]]:
     """sim_cases in both, on `jobs` processes."""
     cases = sim_cases(ticks) if cases is None else cases
@@ -538,6 +582,10 @@ def main() -> None:
         print("   ... and the template on real days, whole:")
         for label, counts, found in real_parity(scratch):
             same &= _report(label, counts, found, 80)
+        print("   arena/stats.py against rust/src/stats.rs:")
+        for label, counts, found in stats_parity(args.jobs):
+            print(f"   {label:<58} " + ("identical" if not found else f"! {found[0]}"))
+            same &= not found
         print("   arena/sim.py against rust/src/sim.rs, the market with twins in it and their replays (2,000 ticks):")
         for label, counts, found in sim_parity(2000, args.jobs):
             same &= _report(label, counts, found, 80)
