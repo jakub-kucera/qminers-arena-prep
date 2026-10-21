@@ -476,7 +476,7 @@ uv run python -m arena.sim run bots/template.py --products KELP,RAINFOREST_RESIN
 
 `--spec PATH=VALUE` changes any preset field, e.g. `KELP.fundamental.sd=0.3` or `KELP.limit_traders.rate=2`.
 `run` prints each product's PnL in the market next to replaying the same seed's recording, without the bot, in each `--match-trades` mode. Both commands run one day per worker (`--jobs`, default all cores). `run --format` loads the bots through another format, such as `drill`.
-`--engine rust` runs the market in `rust/src/sim.rs` (bots with a Rust twin): the same days and output, without the bot-timing line.
+`--engine rust` runs the market in `rust/src/arena/sim.rs` (bots with a Rust twin): the same days and output, without the bot-timing line.
 The recording and the run share every random draw, so the gap is the market's reaction to the bot.
 
 The template over seeds 0–4 (`IDEAS.md`, "Replay against a market that reacts"):

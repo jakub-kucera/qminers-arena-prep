@@ -6,7 +6,7 @@
     uv run python -m arena.sim run bots/template.py --spec KELP.maker.skew=0.05 --resting
     uv run python -m arena.sim run bots/template.py --products KELP,HYDROGEL_PACK --regime trend_up
     uv run python -m arena.sim run bots/drill/template.py --format drill --set "PARAMS.KELP={'fair': 'wall_mid'}"
-    uv run python -m arena.sim run bots/template.py --days 20 --engine rust     # the same output, the market in rust/src/sim.rs
+    uv run python -m arena.sim run bots/template.py --days 20 --engine rust     # the same output, the market in rust/src/arena/sim.rs
 
 Why: the engine replays a recording, so the market never reacts to our orders. The Arena's
 simulator may: a take moves the price, the market maker skews against the flow it receives, and
@@ -825,7 +825,7 @@ def _add_market_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--regime", choices=REGIMES, help="every product's fundamental changes regime during the day (see with_regime)")
     parser.add_argument("--regime-at", type=float, default=0.5, help="with --regime: the share of the day it starts at (default: 0.5)")
     parser.add_argument("--engine", choices=("python", "rust"), default="python",
-                        help="run the market here or in rust/src/sim.rs, the same to the bit (rust: bots with a Rust twin, arena/rust.py)")
+                        help="run the market here or in rust/src/arena/sim.rs, the same to the bit (rust: bots with a Rust twin, arena/rust.py)")
 
 
 def main(argv: list[str] | None = None) -> int:

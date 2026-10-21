@@ -3,9 +3,9 @@
 rust/ ports arena/engine.py and some bots, each with its Python twin listed in rust/twins.json
 (rust/README.md has the table of what is in which language). This module is the bridge:
 
-  export_day    a Day as rust/src/dayfile.rs reads it (the format plug-ins stay in Python)
+  export_day    a Day as rust/src/support/dayfile.rs reads it (the format plug-ins stay in Python)
   write_day     a reference to a Prosperity day's own CSVs instead, which Rust reads itself
-                (rust/src/prosperity.rs), when the day came from them; else export_day
+                (rust/src/arena/formats/prosperity.rs), when the day came from them; else export_day
   bot_spec      a twin bot for Rust: its kind, and its Python file's globals after any --set
                 overrides, so the Rust bot reads the same settings (the template's DEFAULTS and
                 PARAMS, a rival's constants)
@@ -14,10 +14,10 @@ rust/ ports arena/engine.py and some bots, each with its Python twin listed in r
                 DayResults (arena.backtest --engine rust)
   run_batch     `arena-rs batch`: many backtests on every core, each returning what arena.grid's
                 Piece holds (arena.grid, arena.compare, arena.stress --engine rust)
-  run_sim       `arena-rs sim`: arena.sim's market (rust/src/sim.rs) on a range of seeds, with twin
+  run_sim       `arena-rs sim`: arena.sim's market (rust/src/arena/sim.rs) on a range of seeds, with twin
                 bots in it, read back as arena.sim.SimDay (arena.sim --engine rust)
   cscv, mean_correlation, snooping
-                arena/stats.py's statistics that grow with a grid's cells, in rust/src/stats.rs
+                arena/stats.py's statistics that grow with a grid's cells, in rust/src/arena/stats.rs
                 (arena.grid --engine rust): the same results to the bit
   read_day, read_results
                 a day and DayResults as Rust wrote them, back as Python's own types, so the reports
@@ -173,7 +173,7 @@ def _name(text: str) -> str:
 
 
 def export_day(day: Day, path: Path) -> None:
-    """Writes the day in rust/src/dayfile.rs's format: products sorted by name plus the day's own
+    """Writes the day in rust/src/support/dayfile.rs's format: products sorted by name plus the day's own
     order and its limits' order, a format's tick sizes and price unit (Day.info), trader names by
     first appearance, each tick's books in its dict order."""
     products = sorted(day.products)
@@ -201,7 +201,7 @@ def export_day(day: Day, path: Path) -> None:
 
 def write_day(day: Day, stem: Path, only: list[str] | None = None) -> Path:
     """The day for Rust at stem.json, a reference to its Prosperity CSVs that Rust reads itself
-    (rust/src/prosperity.rs), if it was loaded from them (prosperity.reference); else exported to
+    (rust/src/arena/formats/prosperity.rs), if it was loaded from them (prosperity.reference); else exported to
     stem.day. With `only`, just those products (arena.grid.only). Returns the path written."""
     ref = prosperity.reference(day, only)
     if ref is not None:
@@ -303,7 +303,7 @@ def _number(text: str) -> int | float:
 
 
 def read_day(path: Path, with_books: bool = True) -> Day:
-    """A day in rust/src/dayfile.rs's format as Python's Day: products and books in the day's own
+    """A day in rust/src/support/dayfile.rs's format as Python's Day: products and books in the day's own
     order, each tick's trades grouped by product in the order they appear, marks as written (an int
     stays an int). Without `with_books` every tick's books are left empty (quicker, for read_results)."""
     lines = iter(Path(path).read_text().splitlines())
@@ -494,7 +494,7 @@ def backtest(day: Day | Path, bots: list[tuple[str, Path, dict, bool]], config: 
 
 
 def spec_json(spec) -> dict:
-    """An arena.sim MarketSpec as rust/src/sim.rs reads it."""
+    """An arena.sim MarketSpec as rust/src/arena/sim.rs reads it."""
     return dataclasses.asdict(spec)
 
 
@@ -573,7 +573,7 @@ def _stats(request: dict):
 
 
 def cscv(columns: list[list[float]], max_splits: int | None = None, seed: int = 0):
-    """arena.stats.cscv in rust/src/stats.rs."""
+    """arena.stats.cscv in rust/src/arena/stats.rs."""
     from arena import stats
 
     found = _stats({"cscv": {"columns": columns, "max_splits": stats.MAX_SPLITS if max_splits is None else max_splits, "seed": seed}})
@@ -581,12 +581,12 @@ def cscv(columns: list[list[float]], max_splits: int | None = None, seed: int = 
 
 
 def mean_correlation(scaled: list[list[float]]) -> float | None:
-    """arena.stats.mean_correlation in rust/src/stats.rs."""
+    """arena.stats.mean_correlation in rust/src/arena/stats.rs."""
     return _stats({"correlation": {"scaled": scaled}})
 
 
 def snooping(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 0) -> tuple[dict[str, float], list[int]]:
-    """arena.stats.snooping in rust/src/stats.rs."""
+    """arena.stats.snooping in rust/src/arena/stats.rs."""
     from arena import stats
 
     found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed}})

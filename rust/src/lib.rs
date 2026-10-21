@@ -1,14 +1,7 @@
-//! A Rust port of the Python engine (`arena/engine.py`) and one bot, kept apart from the Python
-//! code so the two can be benchmarked like for like. See README.md.
+//! The Rust port, laid out as python/ is: each twin at its Python file's path (arena/engine.rs for
+//! python/arena/engine.py, bots/template.rs for python/bots/template.py), the Rust-only pieces in
+//! support/, the command line in main.rs and commands/. See README.md.
 
+pub mod arena;
 pub mod bots;
-pub mod dayfile;
-pub mod engine;
-pub mod json;
-pub mod model;
-pub mod prosperity;
-pub mod py;
-pub mod pyrandom;
-mod sha512;
-pub mod sim;
-pub mod stats;
+pub mod support;

@@ -5,9 +5,9 @@
 //! the best, but no closer to fair than `make_edge`. Resting orders are cancelled, except with
 //! `hold`: those already at the quote's price are kept (oldest first, while they fit its room).
 
-use crate::engine::{Bot, TickView};
-use crate::json::Value;
-use crate::model::{wall, Action, Book, Day, Fill, MarketTrade, OpenOrder, Order};
+use crate::arena::engine::{Bot, TickView};
+use crate::support::json::Value;
+use crate::arena::model::{wall, Action, Book, Day, Fill, MarketTrade, OpenOrder, Order};
 
 pub const LIMIT: i64 = 50;
 

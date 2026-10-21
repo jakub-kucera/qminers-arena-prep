@@ -35,10 +35,18 @@ def test_every_twin_was_checked_since_its_python_file_changed():
                        "run `uv run python -m experiments.rust_bench --parity-only --record`")
 
 
+def test_every_twin_sits_at_its_python_files_path():
+    """rust/src/ mirrors the Python code: arena/engine.py's twin is rust/src/arena/engine.rs."""
+    for path, twin in rust.twins().items():
+        assert twin["rust"] == "rust/src/" + path.removesuffix(".py") + ".rs", path
+        assert (rust.ROOT / twin["rust"]).is_file(), twin["rust"]
+
+
 def test_the_readme_table_lists_every_twin():
     readme = (rust.RUST / "README.md").read_text()
     for path, twin in rust.twins().items():
-        assert f"`{path}`" in readme and f"`{twin['rust'].removeprefix('rust/')}`" in readme, path
+        if not path.startswith("bots/zoo/"):  # the zoo's row gives the rule for all 32
+            assert f"`{path}`" in readme and f"`{twin['rust'].removeprefix('rust/')}`" in readme, path
 
 
 @needs_cargo
@@ -212,7 +220,7 @@ def test_arena_sim_refuses_a_bot_without_a_rust_twin(capsys):
 @needs_cargo
 def test_the_grid_statistics_are_the_same_in_rust(bench):
     """arena/stats.py's CSCV (every halving, sampled ones, tied ranks), the trials' correlation, and SPA
-    with StepM (no gain, planted gains, many cells) against rust/src/stats.rs."""
+    with StepM (no gain, planted gains, many cells) against rust/src/arena/stats.rs."""
     results = bench.stats_parity()
     assert {label: found for label, _, found in results} == {label: [] for label, *_ in bench.stats_cases()}
 
@@ -308,7 +316,7 @@ def _same_day(a, b) -> bool:
 
 @needs_cargo
 def test_rust_reads_prosperity_csvs_as_the_plug_in_does(bench, tmp_path):
-    """rust/src/prosperity.rs against arena/formats/prosperity.py: arena.sim days written in the
+    """rust/src/arena/formats/prosperity.rs against arena/formats/prosperity.py: arena.sim days written in the
     Prosperity layout (limits.json included), whole and restricted to one product."""
     from arena import grid
     from arena.formats import prosperity

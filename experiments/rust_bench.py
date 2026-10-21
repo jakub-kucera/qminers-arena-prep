@@ -618,7 +618,7 @@ def main() -> None:
         print("   bots/template.py against rust/src/bots/template.rs, each part of STRATEGY on arena.sim's Kelp and Resin (2,000 ticks):")
         for label, counts, found in parity(sim_day(), scratch, template_cases()):
             same &= _report(label, counts, found)
-        print("   bots/rivals/ against rust/src/bots/rivals.rs, on the same day:")
+        print("   bots/rivals/ against rust/src/bots/rivals/, on the same day:")
         for label, counts, found in parity(sim_day(), scratch, rival_cases()):
             same &= _report(label, counts, found)
         print("   bots/zoo/ against rust/src/bots/zoo/, on arena.sim days (2,000 ticks) and the first day of P2, P3 and P4 round 1, whole:")
@@ -632,11 +632,11 @@ def main() -> None:
         for day in drill_days(scratch):
             for label, counts, found in parity(day, scratch, drill_cases()):
                 same &= _report(f"{day.name}: {label}", counts, found, 80)
-        print("   arena/stats.py against rust/src/stats.rs:")
+        print("   arena/stats.py against rust/src/arena/stats.rs:")
         for label, counts, found in stats_parity(args.jobs):
             print(f"   {label:<58} " + ("identical" if not found else f"! {found[0]}"))
             same &= not found
-        print("   arena/sim.py against rust/src/sim.rs, the market with twins in it and their replays (2,000 ticks):")
+        print("   arena/sim.py against rust/src/arena/sim.rs, the market with twins in it and their replays (2,000 ticks):")
         for label, counts, found in sim_parity(2000, args.jobs):
             same &= _report(label, counts, found, 80)
         print("   all identical" if same else "   ! differences")

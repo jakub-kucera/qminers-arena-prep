@@ -18,71 +18,37 @@ uv run pytest tests/test_rust.py                      # the parity checks, short
 
 ## What is in Python, in Rust, and in both
 
-**In both**: every Rust file below has a Python twin, and the two must stay equal.
+**In both**: every Rust file below has a Python twin, and the two must stay equal. A twin sits at
+its Python file's path under `src/`, `.py` becoming `.rs` (`arena/engine.py` → `src/arena/engine.rs`,
+`bots/zoo/claude/opus-5.5_baseline.py` → `src/bots/zoo/claude/opus-5.5_baseline.rs`), and
+`tests/test_rust.py` checks that every pair keeps to it.
 `rust/twins.json` lists the pairs with the hash of the Python file the port was last checked
 against. `tests/test_rust.py` fails when a Python twin changes until the Rust side is updated and
 `experiments.rust_bench --record` has checked the pair again.
 
 | Python | Rust | What it is | How they're checked |
 |---|---|---|---|
-| `arena/engine.py` | `src/engine.rs` | `run_market` / `run_day` function for function (`_take` is `take`, ...): both modes, the three queue models, the fill ratio, several bots in one market, every per-tick record of a `DayResult` | every field a `DayResult` records, under every engine configuration, by all the bots below |
-| `arena/formats/prosperity.py` (`load_day`) | `src/prosperity.rs` | the Prosperity CSVs read as the plug-in reads them, for a day reference (`.json`: data folder, round, day, the limits Python gives, and `only` some products), which `arena/rust.py` `write_day` writes instead of exporting a day the plug-in loaded (`prosperity.reference`); the bot adapter in that file is twinned by the template's ADAPTER | every Prosperity day (P2, P3, P4: 71) and two restricted ones, books, trades, marks and limits; arena.sim days in the Prosperity layout (`limits.json` included); and every real-day parity case reads its day this way |
-| `arena/sim.py` | `src/sim.rs` | the market: the book, the fundamental (reversion, jumps and their bursts, regimes), the five agent kinds drawing from their own seeded `random.Random`s, bots trading inside it in both modes. The specs, presets, `--spec` and regimes stay in Python, which passes the spec as JSON; the Prosperity CSVs of `generate` are written by both | the recording (books, trades and their order, marks, ints kept apart from floats), the fundamental, and every bot's DayResult in the market and in its replays: every preset, both modes, two regimes, agents shown by name, the maker among the takers with skew, the rivals, and all 32 zoo bots racing (13 cases); `arena.sim run` and `generate` print and write the same, byte for byte |
-| `arena/stats.py` | `src/stats.rs` | the grid's statistics whose cost grows with the cells: `cscv` (PBO; every halving, or 4,000 sampled with `random.sample`), `mean_correlation` (the DSR's independent trials), and `snooping` (Hansen's `omega2` and stationary bootstrap, SPA, StepM). `expected_max_sharpe`, `deflated_sharpe` and `standardized` stay Python only, being cheap | 12 cases (`stats_parity`): every halving and sampled ones, ties in the ranks, a constant cell, one cell; correlated and independent cells; no gain, planted gains, 400 cells, whole numbers; and `arena.grid` prints the same on either engine |
+| `arena/engine.py` | `src/arena/engine.rs` | `run_market` / `run_day` function for function (`_take` is `take`, ...): both modes, the three queue models, the fill ratio, several bots in one market, every per-tick record of a `DayResult` | every field a `DayResult` records, under every engine configuration, by all the bots below |
+| `arena/formats/prosperity.py` (`load_day`) | `src/arena/formats/prosperity.rs` | the Prosperity CSVs read as the plug-in reads them, for a day reference (`.json`: data folder, round, day, the limits Python gives, and `only` some products), which `arena/rust.py` `write_day` writes instead of exporting a day the plug-in loaded (`prosperity.reference`); the bot adapter in that file is twinned by the template's ADAPTER | every Prosperity day (P2, P3, P4: 71) and two restricted ones, books, trades, marks and limits; arena.sim days in the Prosperity layout (`limits.json` included); and every real-day parity case reads its day this way |
+| `arena/sim.py` | `src/arena/sim.rs` | the market: the book, the fundamental (reversion, jumps and their bursts, regimes), the five agent kinds drawing from their own seeded `random.Random`s, bots trading inside it in both modes. The specs, presets, `--spec` and regimes stay in Python, which passes the spec as JSON; the Prosperity CSVs of `generate` are written by both | the recording (books, trades and their order, marks, ints kept apart from floats), the fundamental, and every bot's DayResult in the market and in its replays: every preset, both modes, two regimes, agents shown by name, the maker among the takers with skew, the rivals, and all 32 zoo bots racing (13 cases); `arena.sim run` and `generate` print and write the same, byte for byte |
+| `arena/stats.py` | `src/arena/stats.rs` | the grid's statistics whose cost grows with the cells: `cscv` (PBO; every halving, or 4,000 sampled with `random.sample`), `mean_correlation` (the DSR's independent trials), and `snooping` (Hansen's `omega2` and stationary bootstrap, SPA, StepM). `expected_max_sharpe`, `deflated_sharpe` and `standardized` stay Python only, being cheap | 12 cases (`stats_parity`): every halving and sampled ones, ties in the ranks, a constant cell, one cell; correlated and independent cells; no gain, planted gains, 400 cells, whole numbers; and `arena.grid` prints the same on either engine |
 | `bots/mm.py` | `src/bots/mm.rs` | a plain wall-mid market maker, the benchmark's bot | 15 engine configurations (`CONFIGS`) |
 | `bots/template.py` | `src/bots/template.rs` | STRATEGY and EXECUTION function for function, and ADAPTER as the Prosperity plug-in presents a tick to it; the settings come from the Python file's own DEFAULTS and PARAMS | 18 variants, one per part of STRATEGY, alone and in a resting market with a rival; the committed settings in 6 more configurations; 10 real days (P2, P3, P4) under two configurations |
-| `bots/drill/template.py` | `src/bots/template.rs` (`Template::drill`) | the same STRATEGY and EXECUTION behind the drill format's ADAPTER (`drill_step`): prices converted from the format's units to each product's ticks and back as `arena/formats/drill.py` and the ADAPTER do, products in the exchange's order, trades without names, the limit from the exchange. Its days carry `Day.info`'s ticks and unit in the day file | on two drill-format days (`format_drill`'s, prices in cents on ticks of 0.05, 0.01 and 0.25): as committed in each queue model, per tick, against a copy, and the 17 variants of STRATEGY (44 cases); inside `arena.sim`'s market, where it sees prices in its unit |
-| `bots/rivals/sniper.py`, `bots/rivals/spoofer.py`, `bots/rivals/trapper.py` | `src/bots/rivals.rs` | the adversarial `--vs` rivals | 13 cases: against the template and `mm`, resting and per tick, with their constants changed by `--set`, all three at once |
-| the 32 zoo bots, below | `src/bots/zoo/` | translated line by line, never edited on either side; they don't read settings from the file, so `--set` on one is refused | each alone (all, worse, a fill ratio, resting as written, resting requoted) and all of them with the template in one market, per tick and resting, on a simulated day, the same day trending hard up and down, a day with products their prompt never named (where most raise, or trade with limits they made up), and the first day of P2, P3 and P4 round 1: 1,134 cases |
-
-The zoo's twins, one row per Python file (several small bots share a Rust file, one struct each):
-
-| Python | Rust | | |
-|---|---|---|---|
-| `bots/zoo/chatgpt/gpt-5-6-luna_baseline.py` | `src/bots/zoo/chatgpt_luna_baseline.rs` | | |
-| `bots/zoo/chatgpt/gpt-5-6-luna_market_maker.py` | `src/bots/zoo/chatgpt_luna_market_maker.rs` | | |
-| `bots/zoo/claude/haiku-5.5_baseline.py` | `src/bots/zoo/claude_haiku_baseline.rs` | | |
-| `bots/zoo/claude/opus-5.5_baseline.py` | `src/bots/zoo/claude_opus_baseline.rs` | | |
-| `bots/zoo/claude/opus-5.5_market_maker.py` | `src/bots/zoo/claude_opus_market_maker.rs` | | |
-| `bots/zoo/claude/opus-5.5_mean_reversion.py` | `src/bots/zoo/claude_opus_mean_reversion.rs` | | |
-| `bots/zoo/claude/opus-5.5_momentum.py` | `src/bots/zoo/claude_opus_momentum.rs` | | |
-| `bots/zoo/claude/sonnet-5.5_baseline.py` | `src/bots/zoo/claude_sonnet_baseline.rs` | | |
-| `bots/zoo/gemini/gemini-3-8-flash-high_baseline.py` | `src/bots/zoo/gemini_flash_baseline.rs` | | |
-| `bots/zoo/gemini/gemini-3-8-flash-high_market_maker.py` | `src/bots/zoo/gemini_flash_market_maker.rs` | | |
-| `bots/zoo/other/deepseek-r1-14b_baseline.py` | `src/bots/zoo/deepseek_baseline.rs` | | |
-| `bots/zoo/other/deepseek-r1-14b_baseline_2.py` | `src/bots/zoo/deepseek_baseline_2.rs` | | |
-| `bots/zoo/other/deepseek-r1-14b_market_maker.py` | `src/bots/zoo/deepseek_market_maker.rs` | | |
-| `bots/zoo/other/deepseek-r1-14b_market_maker_2.py` | `src/bots/zoo/deepseek_market_maker_2.rs` | | |
-| `bots/zoo/other/gemma4-26b_baseline.py` | `src/bots/zoo/gemma_baseline.rs` | | |
-| `bots/zoo/other/gemma4-26b_baseline_2.py` | `src/bots/zoo/gemma_baseline_2.rs` | | |
-| `bots/zoo/other/gemma4-26b_market_maker.py` | `src/bots/zoo/gemma_market_maker.rs` | | |
-| `bots/zoo/other/gemma4-26b_market_maker_2.py` | `src/bots/zoo/gemma_market_maker_2.rs` | | |
-| `bots/zoo/other/gpt-oss-120B_baseline.py` | `src/bots/zoo/gpt_oss.rs` | | |
-| `bots/zoo/other/gpt-oss-120B_market_maker.py` | `src/bots/zoo/gpt_oss.rs` | | |
-| `bots/zoo/other/gpt-oss-20b_baseline.py` | `src/bots/zoo/gpt_oss.rs` | | |
-| `bots/zoo/other/gpt-oss-20b_baseline_2.py` | `src/bots/zoo/gpt_oss.rs` | | |
-| `bots/zoo/other/gpt-oss-20b_market_maker.py` | `src/bots/zoo/gpt_oss.rs` | | |
-| `bots/zoo/other/gpt-oss-20b_market_maker_2.py` | `src/bots/zoo/gpt_oss.rs` | | |
-| `bots/zoo/other/phi4-14b_baseline.py` | `src/bots/zoo/phi4.rs` | | |
-| `bots/zoo/other/phi4-14b_baseline_2.py` | `src/bots/zoo/phi4.rs` | | |
-| `bots/zoo/other/phi4-14b_market_maker.py` | `src/bots/zoo/phi4.rs` | | |
-| `bots/zoo/other/phi4-14b_market_maker_2.py` | `src/bots/zoo/phi4.rs` | | |
-| `bots/zoo/other/qwen3.8-27b-medium_baseline.py` | `src/bots/zoo/qwen.rs` | | |
-| `bots/zoo/other/qwen3.8-27b-medium_baseline_2.py` | `src/bots/zoo/qwen.rs` | | |
-| `bots/zoo/other/qwen3.8-27b-medium_market_maker.py` | `src/bots/zoo/qwen.rs` | | |
-| `bots/zoo/other/qwen3.8-27b-medium_market_maker_2.py` | `src/bots/zoo/qwen.rs` | | |
+| `bots/drill/template.py` | `src/bots/drill/template.rs` (`Template::drill`, a child module of `src/bots/template.rs`) | the same STRATEGY and EXECUTION behind the drill format's ADAPTER (`drill_step`): prices converted from the format's units to each product's ticks and back as `arena/formats/drill.py` and the ADAPTER do, products in the exchange's order, trades without names, the limit from the exchange. Its days carry `Day.info`'s ticks and unit in the day file | on two drill-format days (`format_drill`'s, prices in cents on ticks of 0.05, 0.01 and 0.25): as committed in each queue model, per tick, against a copy, and the 17 variants of STRATEGY (44 cases); inside `arena.sim`'s market, where it sees prices in its unit |
+| `bots/rivals/sniper.py`, `bots/rivals/spoofer.py`, `bots/rivals/trapper.py` | `src/bots/rivals/sniper.rs`, `src/bots/rivals/spoofer.rs`, `src/bots/rivals/trapper.rs` (what they share in `rivals/mod.rs`) | the adversarial `--vs` rivals | 13 cases: against the template and `mm`, resting and per tick, with their constants changed by `--set`, all three at once |
+| the 32 zoo bots, `bots/zoo/<provider>/<name>.py` | `src/bots/zoo/<provider>/<name>.rs`, one file each, the names kept (dots and dashes too, through `#[path]` in `src/bots/zoo/mod.rs`, which holds what they share) | translated line by line, never edited on either side; they don't read settings from the file, so `--set` on one is refused | each alone (all, worse, a fill ratio, resting as written, resting requoted) and all of them with the template in one market, per tick and resting, on a simulated day, the same day trending hard up and down, a day with products their prompt never named (where most raise, or trade with limits they made up), and the first day of P2, P3 and P4 round 1: 1,134 cases |
 
 Supporting pieces that copy Python exactly but have no file of their own to hash:
 
 | Python | Rust | |
 |---|---|---|
-| `arena/model.py` | `src/model.rs` | the types; products are indices into the day's list (sorted by name), trader names into its name table |
-| `random.Random` (CPython 3.12) | `src/pyrandom.rs` | MT19937, int and str seeding, `random`, `shuffle`, `randint`, `uniform`, `gauss`, `binomialvariate`, draw for draw (`cargo test` has CPython's vectors) |
+| `arena/model.py` | `src/arena/model.rs` | the types; products are indices into the day's list (sorted by name), trader names into its name table |
+| `random.Random` (CPython 3.12) | `src/support/pyrandom.rs` | MT19937, int and str seeding, `random`, `shuffle`, `randint`, `uniform`, `gauss`, `binomialvariate`, draw for draw (`cargo test` has CPython's vectors) |
 | `arena.cli.Requote` | `Requote` in `src/bots/mod.rs` | `--requote` for rivals |
-| `arena.grid.block_pnl`, `report.total_pnl`, `product_stats` | `block_pnl`, `piece` in `src/main.rs` | what a grid task returns (`arena-rs batch`) |
+| `arena.grid.block_pnl`, `report.total_pnl`, `product_stats`, `report.max_drawdown` | `block_pnl`, `piece`, `max_drawdown` in `src/commands/batch.rs` | what a grid task returns (`arena-rs batch`) |
 | `math.erf`, `x ** 2`, `math.exp`, `math.log` | libm's `erf`, `pow`, `exp`, `log` | CPython calls the C library for these, so the Rust does too. On macOS `pow(x, 2)` isn't always `x * x`. |
-| `math.fsum`, `statistics.fmean`, `random.sample` | `fsum`, `fmean`, `sample` in `src/stats.rs` | Shewchuk's partials as `mathmodule.c` has them; `sample`'s two branches as `Lib/random.py` |
-| `sum()` of floats, and of ints and floats mixed; `round(x, n)`, `//`, `max`/`min`; numpy's `mean`, `std` | `src/py.rs` | CPython 3.12's `sum` is compensated (Neumaier), not a plain loop, and adds ints after the first float uncompensated; numpy's sums are pairwise from 0.0. Each checked against the real thing on random inputs, and `cargo test` holds CPython's vectors |
+| `math.fsum`, `statistics.fmean`, `random.sample` | `fsum`, `fmean`, `sample` in `src/arena/stats.rs` | Shewchuk's partials as `mathmodule.c` has them; `sample`'s two branches as `Lib/random.py` |
+| `sum()` of floats, and of ints and floats mixed; `round(x, n)`, `//`, `max`/`min`; numpy's `mean`, `std` | `src/support/py.rs` | CPython 3.12's `sum` is compensated (Neumaier), not a plain loop, and adds ints after the first float uncompensated; numpy's sums are pairwise from 0.0. Each checked against the real thing on random inputs, and `cargo test` holds CPython's vectors |
 | an exception in `Trader.run` | `Bot::failed` | the twin reports the traceback's last line, word for word (`KeyError: 'SQUID_INK'`, `ValueError: min() iterable argument is empty`, NameError's "Did you mean"), and the engine drops the tick's orders and records it, as `_call_bot` does. The twin keeps what the Python keeps: traderData as last returned, the instance's changes up to the error |
 | what an experiment reads from a bot's traderData | `Bot::memory` | the template's: which products' loss stop fired (`experiments/sim_regimes.py`) |
 
@@ -99,21 +65,19 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 
 Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`, `arena.stress`, `arena.sim`, and the experiments, which go through `arena.cli.backtest` (one market on one day on either engine; `fields` limits what is read back, `arena.rust.sim_day_file` has Rust write a simulated day straight to a file, and `arena.rust.prosperity_day` a Prosperity day read from its CSVs, so a worker loads nothing in Python).
 
-**Only in Rust**: the day-file reader (`src/dayfile.rs`, for days `arena/rust.py` exports after the plug-ins have loaded them: simulated, perturbed, permuted and drill days), the thread pools of `arena-rs run`, `batch`, `sim` and `grid` (and the days loaded on a thread each), SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
+**Only in Rust** (`src/support/`, `src/commands/`): the day-file reader (`src/support/dayfile.rs`, for days `arena/rust.py` exports after the plug-ins have loaded them: simulated, perturbed, permuted and drill days), the thread pools of `arena-rs run`, `batch`, `sim` and `grid` (and the days loaded on a thread each), SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
 
 ## Layout
 
-| File | What it is |
+`src/` is laid out as the Python code is, so each twin is where its Python file would be; what has
+no Python file of its own is in `support/` and `commands/`.
+
+| Path | What it is |
 |---|---|
-| `src/engine.rs` | the engine (above) |
-| `src/model.rs`, `src/dayfile.rs` | the types, and the exported day format (version 3: with the limits' order and `Day.info`'s ticks), or a day reference |
-| `src/prosperity.rs` | the Prosperity CSV loader (above) |
-| `src/sim.rs` | arena.sim's market (above), and its Prosperity CSVs |
-| `src/bots/` | the twins; `mod.rs` builds one by its kind (`rust/twins.json`) from its Python file's globals; `zoo/` holds the zoo's |
-| `src/stats.rs` | the grid's statistics (above) |
-| `src/py.rs` | Python's arithmetic where it isn't IEEE's plain operations |
-| `src/pyrandom.rs`, `src/sha512.rs`, `src/json.rs` | Python's random numbers, its string seeding, and the settings' format |
-| `src/main.rs` | `arena-rs run` (one market; `--dump` writes every recorded field, a JSON line per participant), `batch` (arena.grid's backtests on N threads), `sim` (arena.sim's market on N seeds at once, its replays and files), `stats` (the grid's statistics), `day` (days and references written back as day files, for the loader's check), `grid` (`mm`'s make × take grid, for timing) |
+| `src/arena/` | twins of `arena/`: `engine.rs`, `model.rs`, `sim.rs`, `stats.rs`, and `formats/prosperity.rs` (above) |
+| `src/bots/` | twins of `bots/`: `template.rs`, `drill/template.rs`, `mm.rs`, `rivals/`, `zoo/<provider>/`; `mod.rs` builds one by its kind (`rust/twins.json`) from its Python file's globals, and holds `Requote` |
+| `src/support/` | Rust only: `py.rs` (Python's arithmetic where it isn't IEEE's), `pyrandom.rs` and `sha512.rs` (Python's random numbers and string seeding), `json.rs`, and `dayfile.rs` (the exported day format, version 3, or a day reference) |
+| `src/main.rs`, `src/commands/` | the `arena-rs` binary: `run.rs` (one market; `--dump` writes every recorded field, a JSON line per participant), `batch.rs` (arena.grid's, compare's and stress's backtests on N threads), `sim.rs` (arena.sim's market on N seeds at once, its replays and files), `stats.rs` (the grid's statistics), `day.rs` (days and references written back as day files), `grid.rs` (`mm`'s make × take grid, for timing); `mod.rs` holds what they share |
 
 ## What is and isn't ported
 
@@ -134,7 +98,7 @@ Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.gr
 Python files without a Rust twin need nothing. `arena.grid --engine rust` refuses a bot without a twin, and warns when a twin's hash is stale.
 
 A new twin needs four things:
-- a Rust file under `src/bots/` (a new format's template: another adapter in `src/bots/template.rs`, as `Template::drill`);
-- a kind in `src/bots/mod.rs`;
+- a Rust file at its Python file's path under `src/` (a new format's template: another adapter, as `src/bots/drill/template.rs`);
+- a kind in `src/bots/mod.rs` (a zoo bot: its `#[path]` module in `src/bots/zoo/mod.rs`);
 - a row in `rust/twins.json` (with `"format"` if it isn't Prosperity's) and in the table above;
 - cases in `experiments/rust_bench.py`, run by `tests/test_rust.py`.

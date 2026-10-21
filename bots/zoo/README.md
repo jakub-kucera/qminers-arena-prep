@@ -44,7 +44,7 @@ So for each (model, prompt):
    file. Record that in the table below. Don't repair a bot that runs but loses money: that is
    the result.
 6. **Add a row to the table below** and run `uv run python -m experiments.zoo`.
-7. **Give it a Rust twin** (`rust/src/bots/zoo/`, a line-by-line translation; `rust/README.md`, "Keeping it in step"), so the field runs in Rust too. `tests/test_rust.py` fails until it has one.
+7. **Give it a Rust twin** at the same path under `rust/src/` (`rust/src/bots/zoo/<provider>/<name>.rs`, a line-by-line translation, declared in `rust/src/bots/zoo/mod.rs`; `rust/README.md`, "Keeping it in step"), so the field runs in Rust too. `tests/test_rust.py` fails until it has one.
 
 Which models: Gemini (Gemini 4, and an older one such as 2.5 Pro), and ChatGPT, current and
 older (GPT-4o, o3, GPT-4.1, ...). Older models matter: some

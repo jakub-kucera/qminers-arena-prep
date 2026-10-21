@@ -85,7 +85,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from arena import report, rust, stress
-from arena.stats import (  # the statistics live in arena/stats.py (twinned in rust/src/stats.rs); these names stay importable from here
+from arena.stats import (  # the statistics live in arena/stats.py (twinned in rust/src/arena/stats.rs); these names stay importable from here
     ALPHA, EULER_GAMMA, MAX_SPLITS, Cscv, _scales, bootstrap_means, cscv, deflated_sharpe, expected_max_sharpe, independent_trials,
     mean_correlation, omega2, snooping, spa, standardized, stepm,
 )
@@ -787,7 +787,7 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
                     engine: str = "python") -> str:
     """SPA and StepM on each distinct cell's gain over the bot as is, per block of FINE_TICKS ticks,
     under the first mode; StepM's cells are then checked against the bot as is under the others.
-    With engine "rust" the bootstrap runs in rust/src/stats.rs, the same to the bit."""
+    With engine "rust" the bootstrap runs in rust/src/arena/stats.rs, the same to the bit."""
     mode = modes[0]
     base = baseline.fine_pnl.get(mode, [])
     cells: dict[tuple, tuple[list[float], list[Outcome]]] = {}

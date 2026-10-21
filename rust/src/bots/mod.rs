@@ -7,9 +7,9 @@ pub mod rivals;
 pub mod template;
 pub mod zoo;
 
-use crate::engine::{Bot, TickView};
-use crate::json::Value;
-use crate::model::{Action, Day, Fill, MarketTrade, OpenOrder};
+use crate::arena::engine::{Bot, TickView};
+use crate::support::json::Value;
+use crate::arena::model::{Action, Day, Fill, MarketTrade, OpenOrder};
 
 /// A bot by its kind (rust/twins.json), built from its Python twin's globals.
 pub fn build(kind: &str, globals: &Value) -> Result<Box<dyn Bot + Send>, String> {

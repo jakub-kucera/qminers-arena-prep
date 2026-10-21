@@ -3,7 +3,7 @@ Prado's deflated Sharpe ratio and its number of independent trials, Hansen's SPA
 Politis and Romano's stationary bootstrap, and Romano and Wolf's StepM. arena/grid.py's docstring
 says what each one answers; the formulas are cited where they are computed.
 
-rust/src/stats.rs is this module's twin, the same to the bit (rust/twins.json): the parts whose
+rust/src/arena/stats.rs is this module's twin, the same to the bit (rust/twins.json): the parts whose
 cost grows with the cells (cscv, mean_correlation, snooping), which arena.grid --engine rust runs
 there. Standard library only.
 """

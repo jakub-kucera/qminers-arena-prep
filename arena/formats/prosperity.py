@@ -148,14 +148,14 @@ def source_of(day: Day) -> tuple[Path, int, int] | None:
 
 
 def reference(day: Day, only: list[str] | None = None) -> dict | None:
-    """The day as rust/src/prosperity.rs reads it from its CSVs (arena/rust.py `write_day`), if
+    """The day as rust/src/arena/formats/prosperity.rs reads it from its CSVs (arena/rust.py `write_day`), if
     load_day loaded it here (reference_to); None if it wasn't loaded from files."""
     source = source_of(day)
     return None if source is None else reference_to(*source, only)
 
 
 def reference_to(data_dir: Path, round_num: int, day_num: int, only: list[str] | None = None) -> dict:
-    """A day as rust/src/prosperity.rs reads it straight from its CSVs, without loading it here:
+    """A day as rust/src/arena/formats/prosperity.rs reads it straight from its CSVs, without loading it here:
     the limits this module would give it, and only some products if `only` (arena.grid.only)."""
     data_dir = Path(data_dir).resolve()
     return {"format": "prosperity", "dir": str(data_dir), "round": round_num, "day": day_num,
