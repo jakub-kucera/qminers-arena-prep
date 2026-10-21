@@ -6,6 +6,7 @@
     uv run python -m arena.sim run bots/template.py --spec KELP.maker.skew=0.05 --resting
     uv run python -m arena.sim run bots/template.py --products KELP,HYDROGEL_PACK --regime trend_up
     uv run python -m arena.sim run bots/drill/template.py --format drill --set "PARAMS.KELP={'fair': 'wall_mid'}"
+    uv run python -m arena.sim run bots/template.py --days 20 --engine rust     # the same output, the market in rust/src/sim.rs
 
 Why: the engine replays a recording, so the market never reacts to our orders. The Arena's
 simulator may: a take moves the price, the market maker skews against the flow it receives, and
@@ -823,6 +824,8 @@ def _add_market_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--regime", choices=REGIMES, help="every product's fundamental changes regime during the day (see with_regime)")
     parser.add_argument("--regime-at", type=float, default=0.5, help="with --regime: the share of the day it starts at (default: 0.5)")
+    parser.add_argument("--engine", choices=("python", "rust"), default="python",
+                        help="run the market here or in rust/src/sim.rs, the same to the bit (rust: bots with a Rust twin, arena/rust.py)")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -850,11 +853,31 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(error))
 
     if args.command == "generate":
-        for line in _map(args.jobs, _generate_day, [(spec, args.out, args.round, k, args.seed + k) for k in range(args.days)]):
+        if args.engine == "rust":
+            lines = _generate_rust(args, spec)
+        else:
+            lines = _map(args.jobs, _generate_day, [(spec, args.out, args.round, k, args.seed + k) for k in range(args.days)])
+        for line in lines:
             print(line)
         print(f"written to {args.out}/: replay with --data {args.out}")
         return 0
     return _run_command(args, spec, parser)
+
+
+def _write_limits(spec: MarketSpec, data_dir: Path) -> None:
+    limits_path = data_dir / "limits.json"
+    limits = json.loads(limits_path.read_text()) if limits_path.exists() else {}
+    limits.update({p.name: p.limit for p in spec.products})
+    limits_path.write_text(json.dumps(limits, indent=2, sort_keys=True) + "\n")
+
+
+def _generate_rust(args, spec: MarketSpec) -> list[str]:
+    from arena import rust
+
+    rust.build()
+    rows = rust.run_sim(spec, args.seed, args.days, csv=args.out, round_number=args.round, threads=args.jobs, read=False)
+    _write_limits(spec, args.out)
+    return [f"round {args.round} day {row['day']} (seed {row['seed']}): {row['trades']:,} trades" for row in rows]
 
 
 def _map(jobs: int, fn, tasks: list[tuple]) -> list:
@@ -881,27 +904,35 @@ def _load_bots(args, overrides) -> list:
 def _run_day(args, spec: MarketSpec, overrides: dict, seed: int) -> tuple[str, dict[str, dict[str, float]], bool]:
     """One seed's day: the bot in the market and in each replay. Returns what to print, each
     product's PnL by key (replay modes, then "market"), and whether anything raised."""
-    from arena import report
     from arena.cli import participant_names
     from arena.engine import run_market
 
     names = participant_names(args.bot, args.rivals)
-    modes = list(TradeMatching)
-    header = "".join(f"  {'replay ' + m.value:>14}" for m in modes) + f"  {'in market':>14}"
     inside = run(spec, seed, list(zip(names, _load_bots(args, overrides))), resting=args.resting)
     recording = run(spec, seed).day
-    config = {m: EngineConfig(trade_matching=m, resting=args.resting, queue=args.queue, queue_power=args.queue_power) for m in modes}
-    replays = {m: run_market(recording, list(zip(names, _load_bots(args, overrides))), config[m])[0] for m in modes}
-    mine = inside.results[0]
-    failed = bool(mine.errors or any(r.errors for r in replays.values()))
+    config = {m: EngineConfig(trade_matching=m, resting=args.resting, queue=args.queue, queue_power=args.queue_power) for m in TradeMatching}
+    replays = {m: run_market(recording, list(zip(names, _load_bots(args, overrides))), config[m])[0] for m in TradeMatching}
+    finals = {m: {p: series[-1] for p, series in r.pnl.items()} for m, r in replays.items()}
+    return _day_lines(args, names, inside.results, finals, any(r.errors for r in replays.values()))
+
+
+def _day_lines(args, names: list[str], inside: list[DayResult], replays: dict, replay_failed: bool) -> tuple[str, dict[str, dict[str, float]], bool]:
+    """_run_day's output from the bots' results in the market, and the bot's final PnL per product
+    in each replay ({trade matching: {product: pnl}})."""
+    from arena import report
+
+    modes = list(TradeMatching)
+    header = "".join(f"  {'replay ' + m.value:>14}" for m in modes) + f"  {'in market':>14}"
+    mine = inside[0]
+    failed = bool(mine.errors or replay_failed)
     lines = [report.format_day(mine)]
     if args.rivals:
-        lines.append(report.format_rivals(names[1:], inside.results[1:]))
+        lines.append(report.format_rivals(names[1:], inside[1:]))
     lines.append("  pnl in the market, and replaying the same day without the bot (--match-trades):")
     lines.append(f"    {'':<20}{header}")
     rows = {}
     for product in mine.products:
-        row = {m.value: replays[m].pnl[product][-1] for m in modes} | {"market": mine.pnl[product][-1]}
+        row = {m.value: replays[m][product] for m in modes} | {"market": mine.pnl[product][-1]}
         if any(row.values()):
             rows[product] = row
             lines.append(f"    {product:<20}" + "".join(f"  {v:>14,.0f}" for v in row.values()))
@@ -909,6 +940,27 @@ def _run_day(args, spec: MarketSpec, overrides: dict, seed: int) -> tuple[str, d
     if args.out:
         report.write_csvs(mine, args.out)
     return "\n".join(lines), rows, failed
+
+
+def _rust_days(args, spec: MarketSpec, overrides: dict) -> list[tuple[str, dict[str, dict[str, float]], bool]]:
+    """_run_day for every seed, the market and the replays in rust/ (their bots the Rust twins)."""
+    from arena import rust
+    from arena.cli import participant_names
+
+    if args.format != "prosperity":
+        raise ValueError(f"--engine rust runs the Prosperity format's twins, not --format {args.format}")
+    names = participant_names(args.bot, args.rivals)
+    bots = [(names[0], args.bot, overrides, False)] + [(name, path, {}, False) for name, path in zip(names[1:], args.rivals)]
+    for _, path, o, _ in bots:
+        rust.bot_spec(path, o)  # no twin, or --set on a zoo twin: refused before the build
+    rust.build()
+    config = EngineConfig(resting=args.resting, queue=args.queue, queue_power=args.queue_power)
+    rows = rust.run_sim(spec, args.seed, args.days, bots, config, replay=True, read="results", threads=args.jobs)
+    out = []
+    for row in rows:
+        replays = {m: totals[names[0]]["products"] for m, totals in row["replays"].items()}
+        out.append(_day_lines(args, names, row["results"], replays, any(totals[names[0]]["errors"] for totals in row["replays"].values())))
+    return out
 
 
 def _run_command(args, spec: MarketSpec, parser) -> int:
@@ -920,13 +972,17 @@ def _run_command(args, spec: MarketSpec, parser) -> int:
         overrides = dict(parse_override(text) for text in args.overrides)
         args.resting = args.resting or getattr(fmt, "RESTING", False)
         _load_bots(args, overrides)  # fail on a bad bot or override before any day runs
+        if args.engine == "rust":
+            days = _rust_days(args, spec, overrides)
     except (KeyError, ValueError, OSError, OverrideError) as error:
         parser.error(f"unknown format {error}" if isinstance(error, KeyError) else str(error))
     modes = list(TradeMatching)
     totals: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     failed = False
     header = "".join(f"  {'replay ' + m.value:>14}" for m in modes) + f"  {'in market':>14}"
-    for text, rows, day_failed in _map(args.jobs, _run_day, [(args, spec, overrides, args.seed + k) for k in range(args.days)]):
+    if args.engine != "rust":
+        days = _map(args.jobs, _run_day, [(args, spec, overrides, args.seed + k) for k in range(args.days)])
+    for text, rows, day_failed in days:
         print(text)
         failed |= day_failed
         for product, row in rows.items():

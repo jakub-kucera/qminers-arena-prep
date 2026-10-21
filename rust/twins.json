@@ -3,6 +3,10 @@
     "rust": "rust/src/engine.rs",
     "sha256": "bc65286578cf014fa09e604fe75bbeafb75b229413a2fe68a9747e1352f168d9"
   },
+  "arena/sim.py": {
+    "rust": "rust/src/sim.rs",
+    "sha256": "974e00ffb83ba5d2ec8d3edccafa3055e12a1f02561580114e4bd0cab0d6339e"
+  },
   "bots/mm.py": {
     "kind": "mm",
     "rust": "rust/src/bots/mm.rs",

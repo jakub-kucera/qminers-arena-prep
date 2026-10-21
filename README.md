@@ -410,17 +410,18 @@ ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `s
 
 ## The engine in Rust
 
-`rust/` is a Rust port of the engine, the template, the rivals, every zoo bot and `bots/mm.py`, each with its Python file as a twin that must trade the
+`rust/` is a Rust port of the engine, `arena.sim`'s market, the template, the rivals, every zoo bot and `bots/mm.py`, each with its Python file as a twin that must trade the
 same (`rust/README.md` has the table of what is in Python, in Rust, and in both). `uv run python -m experiments.rust_bench` builds it
 (needs `cargo`), then checks every recorded field against our engine:
 - 15 engine configurations with `mm`;
 - every part of the template's STRATEGY, alone and with a rival;
 - 10 real days from P2 to P4;
 - the rivals;
-- every zoo bot alone and all 32 with the template in one market, on calm and trending days.
+- every zoo bot alone and all 32 with the template in one market, on calm and trending days;
+- `arena.sim`'s market with and without them in it, and their replays.
 
 Then it times both. On P3 round 1, one core, per day, the template as committed takes 577 ms in Python and 4.5 ms in Rust (129×);
-`mm` takes 208 ms against 1.5 ms; the template and the whole zoo in one market take 27.5 s against 0.34 s.
+`mm` takes 208 ms against 1.5 ms; the template and the whole zoo in one market take 27.5 s against 0.34 s; an `arena.sim` day with the template in it, 977 ms against 29 ms.
 
 The Rust bots take their settings from the Python file, so `--set` reaches both. `rust/twins.json` records the hash of each Python
 twin as last checked, and `tests/test_rust.py` fails when one changes until `uv run python -m experiments.rust_bench --parity-only
@@ -471,6 +472,7 @@ uv run python -m arena.sim run bots/template.py --products KELP,RAINFOREST_RESIN
 
 `--spec PATH=VALUE` changes any preset field, e.g. `KELP.fundamental.sd=0.3` or `KELP.limit_traders.rate=2`.
 `run` prints each product's PnL in the market next to replaying the same seed's recording, without the bot, in each `--match-trades` mode. Both commands run one day per worker (`--jobs`, default all cores). `run --format` loads the bots through another format, such as `drill`.
+`--engine rust` runs the market in `rust/src/sim.rs` (bots with a Rust twin): the same days and output, without the bot-timing line.
 The recording and the run share every random draw, so the gap is the market's reaction to the bot.
 
 The template over seeds 0–4 (`IDEAS.md`, "Replay against a market that reacts"):

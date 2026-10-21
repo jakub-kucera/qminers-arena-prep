@@ -1,8 +1,10 @@
 //! Python's `random.Random` (CPython 3.12), draw for draw: the engine seeds two of them (fill-ratio
-//! liquidity and the arrival shuffle), so a seeded Rust run matches a seeded Python run.
+//! liquidity and the arrival shuffle), and arena.sim one per product and agent kind, so a seeded
+//! Rust run matches a seeded Python run.
 //!
-//! MT19937 and its seeding are CPython's `_randommodule.c`; `random`, `shuffle`, `_randbelow` and
-//! `binomialvariate` are `Lib/random.py`. One approximation: `binomialvariate`'s rejection test
+//! MT19937 and its seeding are CPython's `_randommodule.c`; `random`, `shuffle`, `_randbelow`,
+//! `randint`, `uniform`, `gauss` and `binomialvariate` are `Lib/random.py` (`gauss` through libm's
+//! `log`, `cos` and `sin`, as CPython's math module calls them). One approximation: `binomialvariate`'s rejection test
 //! calls the C library's `lgamma`, where CPython has its own; they differ by a few ulps, which can
 //! only flip a draw whose test lands within that of the bound.
 
@@ -11,12 +13,16 @@ const M: usize = 397;
 
 extern "C" {
     fn lgamma(x: f64) -> f64;
+    fn log(x: f64) -> f64;
+    fn cos(x: f64) -> f64;
+    fn sin(x: f64) -> f64;
 }
 
 #[derive(Clone)]
 pub struct PyRandom {
     mt: [u32; N],
     index: usize,
+    gauss_next: Option<f64>,
 }
 
 impl PyRandom {
@@ -26,7 +32,7 @@ impl PyRandom {
         for i in 1..N {
             mt[i] = 1812433253u32.wrapping_mul(mt[i - 1] ^ (mt[i - 1] >> 30)).wrapping_add(i as u32);
         }
-        PyRandom { mt, index: N }
+        PyRandom { mt, index: N, gauss_next: None }
     }
 
     fn init_by_array(key: &[u32]) -> Self {
@@ -119,6 +125,31 @@ impl PyRandom {
         }
     }
 
+    /// randint(a, b): a + _randbelow(b - a + 1).
+    pub fn randint(&mut self, a: i64, b: i64) -> i64 {
+        assert!(b >= a, "empty range in randint({a}, {b})");
+        a + self.randbelow((b - a + 1) as u64) as i64
+    }
+
+    /// uniform(a, b): a + (b - a) * random().
+    pub fn uniform(&mut self, a: f64, b: f64) -> f64 {
+        a + (b - a) * self.random()
+    }
+
+    /// gauss(mu, sigma): Box-Muller, the second value of each pair kept for the next call.
+    pub fn gauss(&mut self, mu: f64, sigma: f64) -> f64 {
+        let z = match self.gauss_next.take() {
+            Some(z) => z,
+            None => {
+                let x2pi = self.random() * (2.0 * std::f64::consts::PI);
+                let g2rad = (-2.0 * unsafe { log(1.0 - self.random()) }).sqrt();
+                self.gauss_next = Some(unsafe { sin(x2pi) } * g2rad);
+                (unsafe { cos(x2pi) }) * g2rad
+            }
+        };
+        mu + z * sigma
+    }
+
     pub fn shuffle<T>(&mut self, x: &mut [T]) {
         for i in (1..x.len()).rev() {
             let j = self.randbelow(i as u64 + 1) as usize;
@@ -205,6 +236,15 @@ mod tests {
         r.shuffle(&mut x);
         assert_eq!(x, [1, 3, 0, 2, 4]);
         assert_eq!(r.random(), 0.4657907145295789);
+    }
+
+    #[test]
+    fn gauss_randint_uniform() {
+        // CPython 3.12: r = random.Random("5/KELP/maker"); [r.gauss(0, 1) for _ in range(3)], r.randint(20, 30), r.uniform(0.5, 2.0), r.randint(1, 1)
+        let mut r = PyRandom::from_str("5/KELP/maker");
+        let found = [r.gauss(0.0, 1.0), r.gauss(0.0, 1.0), r.gauss(0.0, 1.0)];
+        assert_eq!(found, [-0.13883759445481775, -0.13919534950354356, -0.4153553423914787]);
+        assert_eq!((r.randint(20, 30), r.uniform(0.5, 2.0), r.randint(1, 1)), (24, 1.0154468423114553, 1));
     }
 
     #[test]

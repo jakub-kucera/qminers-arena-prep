@@ -1,6 +1,7 @@
-//! Python's arithmetic where it isn't IEEE's plain operations, for the zoo's twins: CPython 3.12's
-//! `sum()` of floats (Neumaier's compensated sum), `round(x, n)`, floor division, `max`/`min` on
-//! floats (the first of equals), and numpy's pairwise `mean` and `std`.
+//! Python's arithmetic where it isn't IEEE's plain operations, for the zoo's twins and arena.sim:
+//! CPython 3.12's `sum()` of floats (Neumaier's compensated sum) and of ints and floats mixed,
+//! `round(x, n)`, floor division, `max`/`min` on floats (the first of equals), and numpy's pairwise
+//! `mean` and `std`.
 
 /// CPython 3.12's `sum(xs)` of floats, start 0: the first item as is, the rest compensated.
 pub fn sum(xs: impl IntoIterator<Item = f64>) -> f64 {
@@ -21,6 +22,65 @@ pub fn sum(xs: impl IntoIterator<Item = f64>) -> f64 {
         f += c;
     }
     f
+}
+
+/// A Python number that is an int or a float (arena.sim's mids: a one-sided book's is its price, an int).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Num {
+    Int(i64),
+    Float(f64),
+}
+
+impl Num {
+    pub fn f64(self) -> f64 {
+        match self {
+            Num::Int(v) => v as f64,
+            Num::Float(v) => v,
+        }
+    }
+
+    /// Python's `self / n`, a true division by an int (exact ints divide correctly rounded, as f64 does).
+    pub fn div(self, n: i64) -> f64 {
+        self.f64() / n as f64
+    }
+}
+
+/// CPython 3.12's `sum(xs)` of ints and floats, start 0: the ints exactly until the first float,
+/// then that sum as a float plus the float, the floats after it compensated (Neumaier) and the
+/// ints after it added plainly.
+pub fn sum_num(xs: &[Num]) -> Num {
+    let mut i = 0i64;
+    let mut k = 0;
+    while k < xs.len() {
+        match xs[k] {
+            Num::Int(v) => i += v,
+            Num::Float(_) => break,
+        }
+        k += 1;
+    }
+    if k == xs.len() {
+        return Num::Int(i);
+    }
+    let mut f = i as f64 + xs[k].f64();
+    let mut c = 0.0f64;
+    for &x in &xs[k + 1..] {
+        match x {
+            Num::Float(x) => {
+                let t = f + x;
+                if f.abs() >= x.abs() {
+                    c += (f - t) + x;
+                } else {
+                    c += (x - t) + f;
+                }
+                f = t;
+            }
+            Num::Int(v) => f += v as f64,
+        }
+    }
+    if c != 0.0 && c.is_finite() {
+        f += c;
+    }
+    Num::Float(f)
 }
 
 extern "C" {
@@ -141,6 +201,16 @@ mod tests {
         assert_eq!(sum(vec![0.1; 10]), 1.0);
         assert_eq!(sum([1e100, 1.0, -1e100, 1.0]), 2.0);
         assert_eq!(sum(Vec::<f64>::new()), 0.0);
+    }
+
+    #[test]
+    fn mixed_sum_as_cpython() {
+        // CPython 3.12: sum([3, 4]) == 7; sum([1, 0.1, 2, 1e16, 1.0, -1e16]) == 4.1; sum([0.1, 1e16, 3, -1e16]) == 4.1
+        use Num::{Float, Int};
+        assert_eq!(sum_num(&[Int(3), Int(4)]), Int(7));
+        assert_eq!(sum_num(&[]), Int(0));
+        assert_eq!(sum_num(&[Int(1), Float(0.1), Int(2), Float(1e16), Float(1.0), Float(-1e16)]), Float(4.1));
+        assert_eq!(sum_num(&[Float(0.1), Float(1e16), Int(3), Float(-1e16)]), Float(4.1));
     }
 
     #[test]

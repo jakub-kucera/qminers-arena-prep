@@ -321,7 +321,7 @@ fn settle(players: &mut [Participant], fills: &mut Vec<(usize, Fill)>) {
     }
 }
 
-fn new_result(day: &Day) -> DayResult {
+pub fn new_result(day: &Day) -> DayResult {
     let (n, t) = (day.products.len(), day.ticks.len());
     DayResult {
         timestamps: Vec::with_capacity(t),
@@ -375,7 +375,7 @@ fn cancel(actions: &[Action], working: &[Live], owner: usize, seen: &[OpenOrder]
 }
 
 /// Drops empty orders, and orders for unknown products (an error, naming the product as Python's repr does).
-fn known(orders: &mut Vec<Order>, products: usize, ts: i64, result: &mut DayResult, bot: &dyn Bot) {
+pub fn known(orders: &mut Vec<Order>, products: usize, ts: i64, result: &mut DayResult, bot: &dyn Bot) {
     for order in orders.iter() {
         if order.product >= products {
             let name = bot.product_name(order.product).map_or_else(|| order.product.to_string(), |name| format!("'{name}'"));
@@ -386,7 +386,7 @@ fn known(orders: &mut Vec<Order>, products: usize, ts: i64, result: &mut DayResu
 }
 
 /// Products whose new orders could breach the limit (into `out`): all their buys, or all their sells, filling.
-fn breaches(orders: &[Order], position: &[i64], resting: impl Iterator<Item = (usize, i64)>, limits: &[i64], buys: &mut [i64], sells: &mut [i64], out: &mut Vec<usize>) {
+pub fn breaches(orders: &[Order], position: &[i64], resting: impl Iterator<Item = (usize, i64)>, limits: &[i64], buys: &mut [i64], sells: &mut [i64], out: &mut Vec<usize>) {
     out.clear();
     if orders.is_empty() {
         return;

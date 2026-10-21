@@ -27,7 +27,7 @@ The template's `jump` mode (`bots/template.py:499-543`), off by default. A move 
 - **Both rules reproduce in the template:** holding until the next jump makes 432k on that day (Baguette Fromage 437k), holding 3 ticks and then crossing back 278k (DU 280k).
 - **On all 50 products**, on top of plain market making: +501k over the three days, every day positive (+46k, +4k, +451k); also positive under `worse` fills and `--resting` taking only. Fading every jump without the gate lost 184k on day 3, on Pebbles and Microchips, whose jumps reverse about half the time.
 - **Nowhere else in P2–P4:** no other round has a product with 20 jumps of 50 a day, and P3's jumps of 10 reverse 37–57%.
-- **Practice data:** `arena.sim`'s `ROBOT_DISHES` preset copies the jumping day (jumps of 100 in bursts, 87% reversing the one before, `arena/sim.py:235`). In the market, the jump mode makes about 392k a day there against 2k for plain market making (`IDEAS.md`, "Fading jumps that snap back").
+- **Practice data:** `arena.sim`'s `ROBOT_DISHES` preset copies the jumping day (jumps of 100 in bursts, 87% reversing the one before, `arena/sim.py:236`). In the market, the jump mode makes about 392k a day there against 2k for plain market making (`IDEAS.md`, "Fading jumps that snap back").
 
 ## How to test it here
 `uv run python -m experiments.p4_jumps` (part 1 scans any data with `--data`, `--days` and `--jump-min`; part 2 runs the template on P4 round 5). Results and the parameter sweep are in `IDEAS.md`, "Fading jumps that snap back". On the day: look for a grid in the Arena's prices before anything else; this is a property of one generator, and in P4 it came on one product-day in the data and on another live.

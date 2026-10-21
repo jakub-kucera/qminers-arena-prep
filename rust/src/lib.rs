@@ -6,5 +6,7 @@ pub mod dayfile;
 pub mod engine;
 pub mod json;
 pub mod model;
+pub mod py;
 pub mod pyrandom;
 mod sha512;
+pub mod sim;

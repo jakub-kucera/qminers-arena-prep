@@ -164,3 +164,45 @@ def test_the_day_file_rejects_what_the_rust_engine_cant_hold(bench, tmp_path):
     fractional = replace(day, ticks=[replace(tick, books={"KELP": replace(book, bids=((book.bids[0][0] + 0.5, 1),))})])
     with pytest.raises(ValueError, match="whole prices"):
         bench.export_day(fractional, tmp_path / "day")
+
+
+@needs_cargo
+def test_the_simulated_market_is_the_same_in_rust(bench):
+    """arena.sim with and without twins in it: the recording, the fundamental, every bot's DayResult
+    in the market and its replays, in every preset, both modes, regimes, and the whole zoo racing."""
+    results = bench.sim_parity(600)
+    assert {label: found[:1] for label, _, found in results} == {label: [] for label, *_ in bench.sim_cases(600)}
+    counts = {label: c for label, c, _ in results}
+    assert counts["the template and every zoo twin requoted, resting"][2] > 0  # races happen
+    assert counts["the template copying the noise takers, agents named"][0] != counts["the template, per tick"][0]
+
+
+@needs_cargo
+def test_arena_sim_prints_and_writes_the_same_on_either_engine(tmp_path, capsys):
+    from arena import sim as arena_sim
+
+    def run(argv):
+        assert arena_sim.main(argv) == 0
+        return "\n".join(line for line in capsys.readouterr().out.splitlines() if "bot time per tick" not in line)
+
+    common = ["--days", "2", "--ticks", "800", "--jobs", "2"]
+    argv = ["run", "bots/template.py", "--vs", "bots/rivals/trapper.py", "--resting", "--products", "KELP,ROBOT_DISHES", "--regime", "trend_up", *common]
+    assert run([*argv, "--engine", "rust", "--out", str(tmp_path / "rust")]) == run([*argv, "--out", str(tmp_path / "python")])
+    assert sorted(p.name for p in (tmp_path / "rust").iterdir()) == sorted(p.name for p in (tmp_path / "python").iterdir())
+    for path in (tmp_path / "python").iterdir():
+        assert (tmp_path / "rust" / path.name).read_text() == path.read_text(), path.name
+    argv = ["generate", "--names", "--products", "KELP_FLOW,HYDROGEL_PACK", *common]
+    run([*argv[:1], str(tmp_path / "g_python"), *argv[1:]])
+    run([*argv[:1], str(tmp_path / "g_rust"), *argv[1:], "--engine", "rust"])
+    files = sorted(p.relative_to(tmp_path / "g_python") for p in (tmp_path / "g_python").rglob("*") if p.is_file())
+    assert len(files) == 7  # three files a day, and limits.json
+    for name in files:
+        assert (tmp_path / "g_rust" / name).read_bytes() == (tmp_path / "g_python" / name).read_bytes(), name
+
+
+def test_arena_sim_refuses_a_bot_without_a_rust_twin(capsys):
+    from arena import sim as arena_sim
+
+    with pytest.raises(SystemExit):
+        arena_sim.main(["run", "bots/probe.py", "--days", "1", "--ticks", "100", "--engine", "rust"])
+    assert "has no Rust twin" in capsys.readouterr().err

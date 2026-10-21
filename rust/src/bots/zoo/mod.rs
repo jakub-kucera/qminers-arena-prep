@@ -8,7 +8,7 @@
 //! `sell_orders` (its asks, best first, volumes negative); `state.position` (0 if absent).
 //! Python's own arithmetic, where it isn't IEEE's, is in `py`.
 
-pub mod py;
+pub use crate::py;
 
 mod chatgpt_luna_baseline;
 mod chatgpt_luna_market_maker;

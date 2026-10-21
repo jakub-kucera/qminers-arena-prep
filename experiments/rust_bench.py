@@ -10,10 +10,11 @@ file as a twin (rust/README.md). Days are loaded by our format plug-ins and expo
      engine, for bots/mm.py in each engine configuration (CONFIGS) on P3 round 1 day -2; for the
      template in each part of its STRATEGY (VARIANTS, template_cases) on an arena.sim day, and on
      real days from P2 to P4 (REAL); for the rivals (rival_cases); for every zoo bot alone and all in
-     one market, on calm and trending arena.sim days and a real one (zoo_parity). --record then writes each
-     twin's hash to rust/twins.json, if every case was identical;
+     one market, on calm and trending arena.sim days and a real one (zoo_parity); for arena.sim's market
+     itself, with and without twins trading in it, and their replays (sim_parity). --record then writes
+     each twin's hash to rust/twins.json, if every case was identical;
   2. one core: time per backtest of mm, of the template, and of the zoo's whole field in one market, ours (the bot file through the
-     Prosperity adapter, loaded per backtest as arena.grid does) against Rust's;
+     Prosperity adapter, loaded per backtest as arena.grid does) against Rust's; and per arena.sim day;
   3. every core: Kelp's 64-cell mm grid on the round's three days under all and worse, arena.grid
      against `arena-rs grid`; and the template's 256-cell Kelp grid, arena.grid end to end with
      --engine python against --engine rust (the same CSV).
@@ -205,53 +206,6 @@ def _python_bot(path: Path, overrides: dict, requote: bool):
     return Requote(bot) if requote else bot
 
 
-def _int_or_none(text: str):
-    return None if text == "~" else int(text)
-
-
-def _float_or_none(text: str):
-    return None if text == "~" else float(text)
-
-
-def _fill(line: str) -> tuple:
-    f = line.split(" ", 6)
-    return int(f[0]), f[1], int(f[2]), int(f[3]), f[4], int(f[5]), f[6] if len(f) > 6 else ""
-
-
-SECTIONS = {
-    "fills": _fill,
-    "orders": lambda line: tuple(x if i == 2 else int(x) for i, x in enumerate(line.split())),
-    "cancels": lambda line: tuple(map(int, line.split())),
-    "breaches": lambda line: (int(line.split()[0]), line.split()[1]),
-    "races": lambda line: (int(line.split()[0]), line.split()[1]),
-    "errors": lambda line: (int(line.split(" ", 1)[0]), line.split(" ", 1)[1]),
-}
-SERIES = {"positions": int, "marks": float, "pnl": float, "best_bids": _int_or_none, "best_asks": _int_or_none, "wall_mids": _float_or_none}
-
-
-def parse_dump(text: str) -> dict[str, dict]:
-    """arena-rs run --dump: per participant, its DayResult's fields."""
-    out, lines, k = {}, text.split("\n"), 0
-    while k < len(lines) and lines[k]:
-        name = lines[k].split(" ", 2)[2]
-        k += 1
-        r = {}
-        for key, parse in SECTIONS.items():
-            label, count = lines[k].split()
-            assert label == key, (label, key)
-            r[key] = [parse(line) for line in lines[k + 1:k + 1 + int(count)]]
-            k += 1 + int(count)
-        r["market_trades"] = int(lines[k].split()[1])
-        k += 1
-        r["series"] = {}
-        while k < len(lines) and lines[k].startswith("series "):
-            product = lines[k].split(" ", 1)[1]
-            r["series"][product] = {field: [parse(x) for x in row.split()] for (field, parse), row in zip(SERIES.items(), lines[k + 1:k + 7])}
-            k += 7
-        out[name] = r
-    return out
-
-
 def _error(text: str) -> str:
     """A bot's exception by its type (a Rust twin reports only that); the engine's own errors whole."""
     return text.strip().splitlines()[-1].split(":")[0] if text.startswith("Traceback") else text
@@ -267,7 +221,7 @@ def python_view(result) -> dict:
         "races": list(result.races),
         "errors": [(ts, _error(text)) for ts, text in result.errors],
         "market_trades": len(result.market_trades),
-        "series": {p: {field: getattr(result, field)[p] for field in SERIES} for p in sorted(result.products)},
+        "series": {p: {field: getattr(result, field)[p] for field in rust.SERIES} for p in sorted(result.products)},
     }
 
 
@@ -314,7 +268,7 @@ def _run_case(k: int, label: str, config: EngineConfig, bots: list) -> tuple[str
     run = subprocess.run([str(BINARY), "run", str(path), *_rust_engine(config), *args, "--dump", str(dump)], capture_output=True, text=True)
     if run.returncode != 0:
         return label, (0, 0, 0, 0, 0.0), [f"arena-rs failed: {run.stderr.strip()}"]
-    theirs = parse_dump(dump.read_text())
+    theirs = rust.read_dump(dump.read_text())
     ours = run_market(day, [(name, _python_bot(bot, overrides, requote)) for name, bot, overrides, requote in bots], config)
     found = [f"{name}: {d}" for (name, *_), result in zip(bots, ours) for d in differences(python_view(result), theirs[name])]
     counts = (sum(len(r.fills) for r in ours), sum(f.source == "cross" for r in ours for f in r.fills),
@@ -337,10 +291,95 @@ def parity(day: Day, scratch: Path, configs=CONFIGS, jobs: int | None = None) ->
         return list(pool.map(_run_case, *zip(*cases)))
 
 
-def _rust_engine(config: EngineConfig) -> list[str]:
-    args = ["--match-trades", str(config.trade_matching), "--queue", str(config.queue), "--queue-power", repr(config.queue_power),
-            "--fill-ratio", repr(config.fill_ratio), "--seed", str(config.seed)]
-    return args + (["--resting"] if config.resting else [])
+_rust_engine = rust._engine_args
+
+
+# ---------------------------------------------------------------------------- arena.sim
+
+
+def _days_differ(a: Day, b: Day) -> str | None:
+    """Where two recordings differ: books, trades (and their order by product), marks (and whether an int)."""
+    if (a.name, a.products, a.limits, len(a.ticks)) != (b.name, b.products, b.limits, len(b.ticks)):
+        return f"day {a.name} {a.products} {len(a.ticks)} ticks against {b.name} {b.products} {len(b.ticks)}"
+    for k, (s, t) in enumerate(zip(a.ticks, b.ticks)):
+        for field in ("timestamp", "books", "trades", "marks"):
+            x, y = getattr(s, field), getattr(t, field)
+            if x != y or (isinstance(x, dict) and list(x) != list(y)):
+                return f"tick {k} {field}: {x} against {y}"
+        if any(type(s.marks[p]) is not type(t.marks[p]) for p in s.marks):
+            return f"tick {k} marks: {s.marks} against {t.marks} (int against float)"
+    return None
+
+
+def _run_sim_case(label: str, spec, seed: int, bots: list, config: EngineConfig) -> tuple[str, tuple, list[str]]:
+    """One arena.sim case in both: the recording, the fundamental, every bot's DayResult in the
+    market, and its replays on the day without it under each trade matching."""
+    from arena import sim
+
+    ours = sim.run(spec, seed, [(name, _python_bot(bot, overrides, requote)) for name, bot, overrides, requote in bots], resting=config.resting)
+    theirs = rust.run_sim(spec, seed, bots=bots, config=config, replay=bool(bots), read=True)[0]
+    found = []
+    if (d := _days_differ(ours.day, theirs["sim"].day)) is not None:
+        found.append(f"recording: {d}")
+    if ours.fundamentals != theirs["sim"].fundamentals:
+        found.append("the fundamental differs")
+    for (name, *_), a, b in zip(bots, ours.results, theirs["sim"].results):
+        found += [f"{name}: {d}" for d in differences(python_view(a), python_view(b))]
+    if bots:
+        recording = sim.run(spec, seed).day
+        for mode, results in theirs["replay_results"].items():
+            replays = run_market(recording, [(name, _python_bot(bot, overrides, requote)) for name, bot, overrides, requote in bots],
+                                 replace(config, trade_matching=mode))
+            for (name, *_), a, b in zip(bots, replays, results):
+                found += [f"{name}, replay {mode}: {d}" for d in differences(python_view(a), python_view(b))]
+    rs = ours.results
+    counts = (sum(len(r.fills) for r in rs), 0, sum(len(r.races) for r in rs), sum(len(r.limit_breaches) for r in rs),
+              sum(s[-1] for s in rs[0].pnl.values() if s) if rs else 0.0)
+    return label, counts, found
+
+
+def sim_cases(ticks: int = 2000) -> list[tuple]:
+    """arena.sim with twins in it: (label, spec, seed, participants, config). Every preset, both
+    modes, regimes, the agents shown by name (for the template's copy), the maker among the takers
+    with skew, several bots racing in one market, and bots that raise."""
+    from arena import sim
+
+    p3 = sim.preset_market(ticks=ticks)
+    named = sim.preset_market(ticks=ticks, names=True)
+    others = sim.preset_market(["KELP_FLOW", "ROBOT_DISHES", "HYDROGEL_PACK"], ticks=ticks)
+    skewed = sim.with_override(sim.with_override(p3, "KELP.maker.first", False), "KELP.maker.skew", 0.1)
+    template = ("template", TEMPLATE, {}, False)
+    holding = ("mm", BOT, mm({"KELP": (1, 1, True), "RAINFOREST_RESIN": (2, 1, True)}), False)
+    resting, prob = EngineConfig(resting=True), EngineConfig(resting=True, queue=QueueModel.PROB)
+    jumps = {"PARAMS.ROBOT_DISHES": {"limit": 10, "fair": "wall_mid", "make_edge": 1, "jump_min": 50, "jump_edge": 10, "jump_seen": 5, "jump_share": 0.6},
+             "PARAMS.HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "level": "day", "level_band": 5}, "PARAMS.KELP_FLOW": {"limit": 50, "fair": "wall_mid"}}
+    zoo = [(p.stem if [q.stem for q in zoo_twins()].count(p.stem) == 1 else f"{p.parent.name}/{p.stem}", p, {}, False) for p in zoo_twins()]
+    return [
+        ("no bots", p3, 3, [], EngineConfig()),
+        ("the template, per tick", p3, 3, [template], EngineConfig()),
+        ("the template, resting", p3, 3, [template], resting),
+        ("the template against mm holding, resting, prob", p3, 4, [template, holding], prob),
+        ("the template copying the noise takers, agents named", named, 5,
+         [("template", TEMPLATE, {"PARAMS.KELP.copy": {"noise": 1.0}, "PARAMS.KELP.copy_hold": 20}, False)], EngineConfig()),
+        ("the template on a trend up", sim.with_regime(p3, "trend_up"), 6, [template], resting),
+        ("the template on a shift down, per tick", sim.with_regime(p3, "shift_down", 0.3), 6, [template], EngineConfig()),
+        ("Kelp's maker among the takers, skewed", skewed, 7, [template, holding], resting),
+        ("other presets: jumps, a level, one-sided flow", others, 8, [("template", TEMPLATE, jumps, False)], EngineConfig()),
+        ("other presets, resting", others, 8, [("template", TEMPLATE, jumps, False)], resting),
+        ("the rivals against the template, resting", p3, 9, [template, *[(n, path, {}, False) for n, path in RIVALS.items()]], resting),
+        ("the template and every zoo twin, per tick", p3, 10, [template, *zoo], EngineConfig()),
+        ("the template and every zoo twin requoted, resting", p3, 10, [template, *[(n, path, o, True) for n, path, o, _ in zoo]], resting),
+    ]
+
+
+def sim_parity(ticks: int = 2000, jobs: int | None = None, cases=None) -> list[tuple[str, tuple, list[str]]]:
+    """sim_cases in both, on `jobs` processes."""
+    cases = sim_cases(ticks) if cases is None else cases
+    jobs = jobs or os.cpu_count() or 1
+    if jobs <= 1 or len(cases) <= 1:
+        return [_run_sim_case(*case) for case in cases]
+    with ProcessPoolExecutor(min(jobs, len(cases))) as pool:
+        return list(pool.map(_run_sim_case, *zip(*cases)))
 
 
 # ---------------------------------------------------------------------------- timing
@@ -406,6 +445,23 @@ def field_time(day: Day, path: Path, config: EngineConfig, scratch: Path) -> tup
         rust.run_batch([path], specs, [task] * n, 1, scratch)
         seconds.append(time.perf_counter() - start)
     return len(field), ours, (seconds[1] - seconds[0]) / 4
+
+
+def sim_time(bots: list, config: EngineConfig) -> tuple[float, float]:
+    """Seconds per arena.sim day: ours, and Rust's (61 days less 1 on one thread, to leave out starting it)."""
+    from arena import sim
+
+    spec = sim.preset_market()
+    start = time.perf_counter()
+    for seed in range(2):
+        sim.run(spec, seed, [(name, _python_bot(bot, o, r)) for name, bot, o, r in bots], resting=config.resting)
+    ours = (time.perf_counter() - start) / 2
+    seconds = []
+    for n in (1, 61):
+        start = time.perf_counter()
+        rust.run_sim(spec, 0, n, bots, config)
+        seconds.append(time.perf_counter() - start)
+    return ours, (seconds[1] - seconds[0]) / 60
 
 
 def _report(label: str, counts: tuple, found: list[str], width: int = 58) -> bool:
@@ -482,6 +538,9 @@ def main() -> None:
         print("   ... and the template on real days, whole:")
         for label, counts, found in real_parity(scratch):
             same &= _report(label, counts, found, 80)
+        print("   arena/sim.py against rust/src/sim.rs, the market with twins in it and their replays (2,000 ticks):")
+        for label, counts, found in sim_parity(2000, args.jobs):
+            same &= _report(label, counts, found, 80)
         print("   all identical" if same else "   ! differences")
         if args.record:
             if not same:
@@ -515,6 +574,12 @@ def main() -> None:
         for label, config in (("default", EngineConfig()), ("resting", EngineConfig(resting=True))):
             n, ours, theirs = field_time(days[0], full[0], config, scratch)
             print(f"   {label:<30} {n} bots: Python {ours:6.1f} s   Rust {theirs * 1e3:6.1f} ms   {ours / theirs:,.0f}x")
+
+        print("   arena.sim, one 10,000-tick day of P3 round 1's presets (Python: arena.sim.run; Rust: arena-rs sim, totals only):")
+        for label, bots, config in (("no bots", [], EngineConfig()), ("the template, per tick", [("template", TEMPLATE, {}, False)], EngineConfig()),
+                                    ("the template, resting", [("template", TEMPLATE, {}, False)], EngineConfig(resting=True))):
+            ours, theirs = sim_time(bots, config)
+            print(f"   {label:<30} Python {ours * 1e3:6.0f} ms   Rust {theirs * 1e3:6.1f} ms   {ours / theirs:,.0f}x")
 
         edges = range(8)
         print(f"\n3. every core ({args.jobs}). Kelp's 64-cell mm grid on {len(days)} days under all and worse (384 backtests):")

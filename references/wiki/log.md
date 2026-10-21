@@ -341,3 +341,6 @@ Two comment lines added to Kelp's entry in `bots/template.py` PARAMS shifted eve
 
 ## [2026-10-21] lint | arena.grid's lines moved
 - `arena.grid --engine rust` added code above the bootstrap tests: the citations of `omega2`, `spa`, `stepm`, `format_snooping` and `FINE_TICKS` re-mapped (`stepwise-multiple-testing`, `superior-predictive-ability`, `validation-and-overfitting`).
+
+## [2026-10-21] lint | arena.sim's lines moved
+- `arena.sim --engine rust` added a line to the module docstring: the citations of the KELP_FLOW and ROBOT_DISHES presets re-mapped (`market-making-and-inventory-skew`, `jumps-and-snap-back`).

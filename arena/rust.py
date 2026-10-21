@@ -9,6 +9,11 @@ rust/ ports arena/engine.py and some bots, each with its Python twin listed in r
                 PARAMS, a rival's constants)
   run_batch     `arena-rs batch`: many backtests on every core, each returning what arena.grid's
                 Piece holds (arena.grid --engine rust)
+  run_sim       `arena-rs sim`: arena.sim's market (rust/src/sim.rs) on a range of seeds, with twin
+                bots in it, read back as arena.sim.SimDay (arena.sim --engine rust)
+  read_day, read_results
+                a day and DayResults as Rust wrote them, back as Python's own types, so the reports
+                and CSVs work unchanged
   stale_twins   the twins whose Python file changed since the Rust port was last checked against it
 
 Standard library only, like the rest of arena/ outside analysis.py. Nothing here is needed unless
@@ -17,18 +22,20 @@ a tool is asked for the Rust engine.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import hashlib
 import json
 import shutil
 import subprocess
+from collections import defaultdict
 from dataclasses import fields
 from pathlib import Path
 
 from arena.botfile import BotFile
-from arena.engine import EngineConfig
+from arena.engine import DayResult, EngineConfig, TradeMatching
 from arena.formats import prosperity
-from arena.model import Day
+from arena.model import Book, Day, Fill, MarketTrade, OpenOrder, Tick
 
 ROOT = Path(__file__).resolve().parent.parent
 RUST = ROOT / "rust"
@@ -178,3 +185,176 @@ def run_batch(day_paths: list[Path], specs: list[dict], tasks: list[dict], threa
     if out.returncode != 0:
         raise RuntimeError(f"arena-rs batch failed (exit {out.returncode}); its message is above")
     return [json.loads(line) for line in out.stdout.splitlines()]
+
+
+def _engine_args(config: EngineConfig) -> list[str]:
+    args = ["--match-trades", str(config.trade_matching), "--queue", str(config.queue), "--queue-power", repr(config.queue_power),
+            "--fill-ratio", repr(config.fill_ratio), "--seed", str(config.seed)]
+    return args + (["--resting"] if config.resting else [])
+
+
+def _bot_args(bots: list[tuple[str, Path, dict, bool]], scratch: Path) -> list[str]:
+    """--bot options for (name, bot file, overrides, requote) participants, their specs written to scratch."""
+    args = []
+    for j, (name, path, overrides, requote) in enumerate(bots):
+        spec = scratch / f"bot{j}.json"
+        spec.write_text(json.dumps(bot_spec(path, overrides, requote)))
+        args += ["--bot", f"{name}={spec}"]
+    return args
+
+
+# ---------------------------------------------------------------------------- reading Rust's output
+
+
+def _number(text: str) -> int | float:
+    """A number as Rust wrote it: an int without a point, a float with one (repr's form)."""
+    try:
+        return int(text)
+    except ValueError:
+        return float(text)
+
+
+def read_day(path: Path, with_books: bool = True) -> Day:
+    """A day in rust/src/dayfile.rs's format as Python's Day: products and books in the day's own
+    order, each tick's trades grouped by product in the order they appear, marks as written (an int
+    stays an int). Without `with_books` every tick's books are left empty (quicker, for read_results)."""
+    lines = iter(Path(path).read_text().splitlines())
+    assert next(lines) == "arena-day 2", f"{path}: not an arena-day 2 file"
+    name = next(lines).removeprefix("name ")
+    sorted_products, limits = [], {}
+    for _ in range(int(next(lines).split()[1])):
+        product, limit = next(lines).rsplit(" ", 1)
+        sorted_products.append(product)
+        limits[product] = int(limit)
+    order = [sorted_products[int(k)] for k in next(lines).split()[1:]]
+    names = [next(lines) for _ in range(int(next(lines).split()[1]))]
+    ticks = []
+    for _ in range(int(next(lines).split()[1])):
+        _, timestamp, nb, nt, nm = next(lines).split()
+        books, trades, marks = {}, defaultdict(list), {}
+        for _ in range(int(nb)):
+            line = next(lines)
+            if not with_books:
+                continue
+            f = line.split()
+            product, k = sorted_products[int(f[1])], 2
+            sides = []
+            for _ in range(2):
+                n = int(f[k])
+                sides.append(tuple((int(f[k + 1 + 2 * j]), int(f[k + 2 + 2 * j])) for j in range(n)))
+                k += 1 + 2 * n
+            books[product] = Book(*sides)
+        for _ in range(int(nt)):
+            _, p, price, quantity, buyer, seller, ts = next(lines).split()
+            product = sorted_products[int(p)]
+            trades[product].append(MarketTrade(product, int(price), int(quantity), names[int(buyer)], names[int(seller)], int(ts)))
+        for _ in range(int(nm)):
+            _, p, mark = next(lines).split()
+            marks[sorted_products[int(p)]] = _number(mark)
+        ticks.append(Tick(int(timestamp), books, dict(trades), marks))
+    return Day(name, order, {p: limits[p] for p in order}, ticks)
+
+
+SERIES = ("positions", "marks", "pnl", "best_bids", "best_asks", "wall_mids")  # per product, one value per tick
+
+
+def read_dump(text: str) -> dict[str, dict]:
+    """`arena-rs run --dump` (and sim's .dump files), one JSON line per participant: its DayResult's
+    fields as tuples (fills as (timestamp, product, price, quantity, source, order id, counterparty)),
+    by participant name."""
+    out = {}
+    for line in text.splitlines():
+        r = json.loads(line)
+        for key in ("fills", "orders", "cancels", "breaches", "races", "errors"):
+            r[key] = [tuple(item) for item in r[key]]
+        out[r.pop("participant")] = r
+    return out
+
+
+def read_results(text: str, day: Day) -> dict[str, DayResult]:
+    """A dump as Python DayResults on `day` (the day Rust ran on, as Python loaded it): what our
+    engine records, except step timings and output sizes (a Rust bot has neither) and errors,
+    which name only the exception's type."""
+    out = {}
+    timestamps = [t.timestamp for t in day.ticks]
+    market_trades = [(t.timestamp, trade) for t in day.ticks for trades in t.trades.values() for trade in trades]
+    for name, r in read_dump(text).items():
+        result = DayResult(day.name, list(day.products), dict(day.limits), list(timestamps))
+        for field in SERIES:
+            setattr(result, field, {p: r["series"][p][field] for p in day.products})
+        result.market_trades = list(market_trades)
+        result.orders = [(ts, OpenOrder(i, product, price, quantity, placed)) for ts, i, product, price, quantity, placed in r["orders"]]
+        result.cancels = r["cancels"]
+        result.fills = [Fill(ts, product, price, quantity, source, counterparty, i) for ts, product, price, quantity, source, i, counterparty in r["fills"]]
+        result.errors = r["errors"]
+        result.limit_breaches = r["breaches"]
+        result.races = r["races"]
+        out[name] = result
+    return out
+
+
+# ---------------------------------------------------------------------------- arena.sim
+
+
+def spec_json(spec) -> dict:
+    """An arena.sim MarketSpec as rust/src/sim.rs reads it."""
+    return dataclasses.asdict(spec)
+
+
+def run_sim(spec, seed: int, days: int = 1, bots: list[tuple[str, Path, dict, bool]] = (), config: EngineConfig = EngineConfig(),
+            replay: bool = False, read: bool | str = False, csv: Path | None = None, round_number: int = 1, threads: int = 1) -> list[dict]:
+    """`arena-rs sim`: the market on seeds seed..seed+days-1 with the (name, bot file, overrides,
+    requote) participants in it (resting if config.resting), on `threads` threads. Per day, in seed
+    order: {"seed", "day", "trades", "bots": {name: totals}}, the totals being {"pnl", "products":
+    {product: pnl}, "fills", "errors", "breaches", "races", "first_error"}; with `replay` also
+    "replays" ({trade matching: {name: totals}}: the bots on the day without them, under config's
+    other settings, as arena.sim run prints). `read` adds the whole of it as Python objects, which
+    costs more than the run: "sim" (an arena.sim.SimDay, as arena.sim.run returns it), and with
+    `replay` "recording" (the day without the bots) and "replay_results" ({trade matching: the
+    bots' DayResults}); read="results" adds only "results", the bots' DayResults in the market.
+    `csv` writes the Prosperity layout there (limits.json is the caller's)."""
+    import tempfile
+
+    from arena.sim import SimDay
+
+    with tempfile.TemporaryDirectory() as folder:
+        scratch = Path(folder)
+        path = scratch / "spec.json"
+        path.write_text(json.dumps(spec_json(spec)))
+        args = [str(BINARY), "sim", str(path), "--market-seed", str(seed), "--days", str(days), "--threads", str(threads),
+                *_engine_args(config), *_bot_args(list(bots), scratch)]
+        if read:
+            args += ["--out", str(scratch)]
+        if replay:
+            args.append("--replay")
+        if csv is not None:
+            args += ["--csv", str(csv), "--round", str(round_number)]
+        out = subprocess.run(args, stdout=subprocess.PIPE, text=True)
+        if out.returncode != 0:
+            raise RuntimeError(f"arena-rs sim failed (exit {out.returncode}); its message is above")
+        found = [json.loads(line) for line in out.stdout.splitlines()]
+        for row in found:
+            if "replays" in row:
+                row["replays"] = {TradeMatching(mode): totals for mode, totals in row["replays"].items()}
+            if not read:
+                continue
+            stem = scratch / f"sim{row['seed']}"
+            if read == "results":
+                results = read_results(stem.with_suffix(".dump").read_text(), read_day(stem.with_suffix(".day"), with_books=False))
+                row["results"] = [results[name] for name, *_ in bots]
+                continue
+            day = read_day(stem.with_suffix(".day"))
+            fundamentals = {}
+            for line in stem.with_suffix(".fundamentals").read_text().splitlines():
+                product, *values = line.split(" ")
+                fundamentals[product] = [float(v) for v in values]
+            results = read_results(stem.with_suffix(".dump").read_text(), day) if bots else {}
+            row["sim"] = SimDay(day, {p: fundamentals[p] for p in day.products}, [results[name] for name, *_ in bots])
+            if replay and bots:
+                recording = read_day(Path(f"{stem}.recording.day"))
+                row["recording"] = recording
+                row["replay_results"] = {}
+                for mode in TradeMatching:
+                    results = read_results(Path(f"{stem}.replay.{mode}.dump").read_text(), recording)
+                    row["replay_results"][mode] = [results[name] for name, *_ in bots]
+        return found

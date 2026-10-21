@@ -16,9 +16,11 @@
 //! Products and trader names are indices into those tables. A tick's book lines come in the Python
 //! tick's dict order, which a bot sees its products in (order ids depend on it).
 
+use std::fmt::Write as _;
 use std::fs;
 
 use crate::model::{Book, Day, MarketTrade, Tick};
+use crate::py::Num;
 
 pub fn load(path: &str) -> Result<Day, String> {
     let text = fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
@@ -96,4 +98,41 @@ pub fn parse(text: &str) -> Result<Day, String> {
         ticks.push(tick);
     }
     Ok(Day { name, products, limits, order, ticks, names })
+}
+
+/// Writes a day in this format (arena.sim's recordings, for Python to read back): each tick's
+/// trades in `trades` order (the order they happened, across products), and its marks as Python
+/// holds them (an int for a one-sided book), in the tick's product order.
+pub fn write(day: &Day, trades: &[Vec<MarketTrade>], marks: &[Vec<Option<Num>>]) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "arena-day 2\nname {}\nproducts {}", day.name, day.products.len());
+    for (name, limit) in day.products.iter().zip(&day.limits) {
+        let _ = writeln!(out, "{name} {limit}");
+    }
+    let _ = writeln!(out, "order{}", day.order.iter().map(|p| format!(" {p}")).collect::<String>());
+    let _ = writeln!(out, "names {}", day.names.len());
+    for name in &day.names {
+        let _ = writeln!(out, "{name}");
+    }
+    let _ = writeln!(out, "ticks {}", day.ticks.len());
+    let side = |levels: &[(i64, i64)]| format!("{}{}", levels.len(), levels.iter().map(|(p, v)| format!(" {p} {v}")).collect::<String>());
+    for (k, tick) in day.ticks.iter().enumerate() {
+        let shown: Vec<(usize, Num)> = tick.order.iter().filter_map(|&p| marks[k][p].map(|m| (p, m))).collect();
+        let _ = writeln!(out, "t {} {} {} {}", tick.timestamp, tick.order.len(), trades[k].len(), shown.len());
+        for &p in &tick.order {
+            let book = tick.books[p].as_ref().expect("a product in the order has a book");
+            let _ = writeln!(out, "b {p} {} {}", side(&book.bids), side(&book.asks));
+        }
+        for t in &trades[k] {
+            let _ = writeln!(out, "x {} {} {} {} {} {}", t.product, t.price, t.quantity, t.buyer, t.seller, t.timestamp);
+        }
+        for (p, mark) in shown {
+            match mark {
+                Num::Int(v) => writeln!(out, "m {p} {v}"),
+                Num::Float(v) => writeln!(out, "m {p} {v:?}"),
+            }
+            .unwrap();
+        }
+    }
+    out
 }
