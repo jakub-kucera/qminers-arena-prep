@@ -291,3 +291,43 @@ def test_a_twin_runs_only_in_its_own_format():
         rust.prepare("prosperity", [rust.ROOT / "bots/drill/template.py"])
     with pytest.raises(ValueError, match="is for --format prosperity"):
         rust.prepare("drill", [rust.ROOT / "bots/template.py"])
+
+
+def _rust_day(tmp_path, day, only=None):
+    path = rust.write_day(day, tmp_path / "ref", only)
+    assert path.suffix == ".json"  # a reference to the CSVs, not an export
+    subprocess.run([str(rust.BINARY), "day", str(path), "--out", str(tmp_path)], check=True)
+    return rust.read_day(tmp_path / f"{day.name}.day")
+
+
+def _same_day(a, b) -> bool:
+    return (a.name, a.products, list(a.limits.items()), [t.timestamp for t in a.ticks]) == (b.name, b.products, list(b.limits.items()), [t.timestamp for t in b.ticks]) and all(
+        x.books == y.books and list(x.books) == list(y.books) and x.marks == y.marks and list(x.marks) == list(y.marks)
+        and {p: v for p, v in x.trades.items() if v} == {p: v for p, v in y.trades.items() if v} for x, y in zip(a.ticks, b.ticks))
+
+
+@needs_cargo
+def test_rust_reads_prosperity_csvs_as_the_plug_in_does(bench, tmp_path):
+    """rust/src/prosperity.rs against arena/formats/prosperity.py: arena.sim days written in the
+    Prosperity layout (limits.json included), whole and restricted to one product."""
+    from arena import grid
+    from arena.formats import prosperity
+
+    for k, products in enumerate((["KELP", "RAINFOREST_RESIN"], ["HYDROGEL_PACK", "ROBOT_DISHES"])):
+        sim.write_day(sim.run(sim.preset_market(products, ticks=500), k), tmp_path / "data", 1, k)
+    for day in prosperity.load_days(tmp_path / "data", ["1"]):
+        assert _same_day(_rust_day(tmp_path, day), day)
+        assert _same_day(_rust_day(tmp_path, day, day.products[:1]), grid.only(day, day.products[:1]))
+    assert prosperity.reference(sim.run(sim.preset_market(["KELP"], ticks=10), 0).day) is None  # not from files: exported instead
+
+
+@needs_cargo
+@needs_references
+def test_rust_reads_every_prosperity_day_as_the_plug_in_does(bench, tmp_path):
+    from arena.formats import prosperity
+
+    for data in ("p2", "p3", "p4"):
+        directory = prosperity.resolve_data_dir(data)
+        for r, d in prosperity.list_days(directory)[::4]:
+            day = prosperity.load_day(directory, r, d)
+            assert _same_day(_rust_day(tmp_path, day), day), (data, r, d)

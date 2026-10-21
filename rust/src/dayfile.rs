@@ -25,8 +25,13 @@ use std::fs;
 use crate::model::{Book, Day, MarketTrade, Tick};
 use crate::py::Num;
 
+/// A day file, or a day reference (`.json`: a Prosperity day read from its CSVs, src/prosperity.rs).
 pub fn load(path: &str) -> Result<Day, String> {
     let text = fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
+    if path.ends_with(".json") {
+        let reference = crate::json::parse(&text).map_err(|e| format!("{path}: {e}"))?;
+        return crate::prosperity::load_reference(&reference).map_err(|e| format!("{path}: {e}"));
+    }
     parse(&text).map_err(|e| format!("{path}: {e}"))
 }
 
@@ -161,3 +166,9 @@ pub fn write(day: &Day, trades: &[Vec<MarketTrade>], marks: &[Vec<Option<Num>>])
     out
 }
 
+/// Writes any day in this format: each tick's trades product by product, its marks as floats.
+pub fn write_plain(day: &Day) -> String {
+    let trades: Vec<Vec<MarketTrade>> = day.ticks.iter().map(|t| t.trades.iter().flatten().copied().collect()).collect();
+    let marks: Vec<Vec<Option<Num>>> = day.ticks.iter().map(|t| t.marks.iter().map(|m| m.map(Num::Float)).collect()).collect();
+    write(day, &trades, &marks)
+}

@@ -1,10 +1,11 @@
 # rust/: the engine and the bots in Rust
 
-A Rust port of `arena/engine.py`, `arena/sim.py`'s market and every bot we run, kept apart from the
-Python code. It gives the same results as the Python, to the bit, about 100–200 times faster.
-`arena.grid --engine rust` runs its backtests and statistics here and `arena.sim --engine rust` its market;
-loading data, the statistics and the reports stay Python. The submitted bot is still a Python file: a Rust bot is a twin for searching, never for
-submitting.
+A Rust port of `arena/engine.py`, `arena/sim.py`'s market, the grid's statistics, the Prosperity
+loader and every bot we run, kept apart from the Python code. It gives the same results as the
+Python, to the bit, about 100–200 times faster per backtest. Every tool that runs our bots takes
+`--engine rust` (`arena.backtest`, `grid`, `compare`, `stress`, `sim`, and the experiments); the
+reports, the plots and the format plug-ins stay Python. The submitted bot is still a Python file:
+a Rust bot is a twin for searching, never for submitting.
 
 ```sh
 brew install rust                                     # or rustup; any recent stable toolchain
@@ -25,6 +26,7 @@ against. `tests/test_rust.py` fails when a Python twin changes until the Rust si
 | Python | Rust | What it is | How they're checked |
 |---|---|---|---|
 | `arena/engine.py` | `src/engine.rs` | `run_market` / `run_day` function for function (`_take` is `take`, ...): both modes, the three queue models, the fill ratio, several bots in one market, every per-tick record of a `DayResult` | every field a `DayResult` records, under every engine configuration, by all the bots below |
+| `arena/formats/prosperity.py` (`load_day`) | `src/prosperity.rs` | the Prosperity CSVs read as the plug-in reads them, for a day reference (`.json`: data folder, round, day, the limits Python gives, and `only` some products), which `arena/rust.py` `write_day` writes instead of exporting a day the plug-in loaded (`prosperity.reference`); the bot adapter in that file is twinned by the template's ADAPTER | every Prosperity day (P2, P3, P4: 71) and two restricted ones, books, trades, marks and limits; arena.sim days in the Prosperity layout (`limits.json` included); and every real-day parity case reads its day this way |
 | `arena/sim.py` | `src/sim.rs` | the market: the book, the fundamental (reversion, jumps and their bursts, regimes), the five agent kinds drawing from their own seeded `random.Random`s, bots trading inside it in both modes. The specs, presets, `--spec` and regimes stay in Python, which passes the spec as JSON; the Prosperity CSVs of `generate` are written by both | the recording (books, trades and their order, marks, ints kept apart from floats), the fundamental, and every bot's DayResult in the market and in its replays: every preset, both modes, two regimes, agents shown by name, the maker among the takers with skew, the rivals, and all 32 zoo bots racing (13 cases); `arena.sim run` and `generate` print and write the same, byte for byte |
 | `arena/stats.py` | `src/stats.rs` | the grid's statistics whose cost grows with the cells: `cscv` (PBO; every halving, or 4,000 sampled with `random.sample`), `mean_correlation` (the DSR's independent trials), and `snooping` (Hansen's `omega2` and stationary bootstrap, SPA, StepM). `expected_max_sharpe`, `deflated_sharpe` and `standardized` stay Python only, being cheap | 12 cases (`stats_parity`): every halving and sampled ones, ties in the ranks, a constant cell, one cell; correlated and independent cells; no gain, planted gains, 400 cells, whole numbers; and `arena.grid` prints the same on either engine |
 | `bots/mm.py` | `src/bots/mm.rs` | a plain wall-mid market maker, the benchmark's bot | 15 engine configurations (`CONFIGS`) |
@@ -85,7 +87,7 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 | what an experiment reads from a bot's traderData | `Bot::memory` | the template's: which products' loss stop fired (`experiments/sim_regimes.py`) |
 
 **Only in Python**:
-- the format plug-ins (`arena/formats/`), which load the data;
+- the format plug-ins (`arena/formats/`), which load the data for Python (Rust reads the Prosperity CSVs itself, above; the drill's days are exported);
 - `arena.validate`, which checks the Python file itself;
 - everything in `arena.grid` but the backtests and the heavy statistics: the axes, screening, the permutation test's shuffles (`arena.stress.permute`, 0.09 s a day), held-out days, and the DSR's own formula;
 - `arena.analysis`, `arena.diagnose`, `arena.stress`'s perturbations, and `arena.report`'s CSVs (written from the results Rust hands back);
@@ -97,20 +99,21 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 
 Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`, `arena.stress`, `arena.sim`, and the experiments, which go through `arena.cli.backtest` (one market on one day on either engine; `fields` limits what is read back, `arena.rust.sim_day_file` has Rust write a simulated day straight to a file).
 
-**Only in Rust**: the day-file reader (`src/dayfile.rs`, for days `arena/rust.py` exports after the plug-ins have loaded them), the thread pool of `arena-rs batch` and `grid`, SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
+**Only in Rust**: the day-file reader (`src/dayfile.rs`, for days `arena/rust.py` exports after the plug-ins have loaded them: simulated, perturbed, permuted and drill days), the thread pools of `arena-rs run`, `batch`, `sim` and `grid` (and the days loaded on a thread each), SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
 
 ## Layout
 
 | File | What it is |
 |---|---|
 | `src/engine.rs` | the engine (above) |
-| `src/model.rs`, `src/dayfile.rs` | the types, and the exported day format (version 3: with the limits' order and `Day.info`'s ticks) |
+| `src/model.rs`, `src/dayfile.rs` | the types, and the exported day format (version 3: with the limits' order and `Day.info`'s ticks), or a day reference |
+| `src/prosperity.rs` | the Prosperity CSV loader (above) |
 | `src/sim.rs` | arena.sim's market (above), and its Prosperity CSVs |
 | `src/bots/` | the twins; `mod.rs` builds one by its kind (`rust/twins.json`) from its Python file's globals; `zoo/` holds the zoo's |
 | `src/stats.rs` | the grid's statistics (above) |
 | `src/py.rs` | Python's arithmetic where it isn't IEEE's plain operations |
 | `src/pyrandom.rs`, `src/sha512.rs`, `src/json.rs` | Python's random numbers, its string seeding, and the settings' format |
-| `src/main.rs` | `arena-rs run` (one market; `--dump` writes every recorded field, a JSON line per participant), `batch` (arena.grid's backtests on N threads), `sim` (arena.sim's market on N seeds at once, its replays and files), `stats` (the grid's statistics), `grid` (`mm`'s make × take grid, for timing) |
+| `src/main.rs` | `arena-rs run` (one market; `--dump` writes every recorded field, a JSON line per participant), `batch` (arena.grid's backtests on N threads), `sim` (arena.sim's market on N seeds at once, its replays and files), `stats` (the grid's statistics), `day` (days and references written back as day files, for the loader's check), `grid` (`mm`'s make × take grid, for timing) |
 
 ## What is and isn't ported
 

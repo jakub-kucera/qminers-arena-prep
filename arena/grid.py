@@ -339,12 +339,14 @@ class _Runner:
         def day_index(d: int, restricted: bool, permutation) -> tuple[int, int]:
             key = (d, restricted, permutation)
             if key not in self.exported:
-                day = only(s.days[d], self.subset) if restricted else s.days[d]
-                if permutation is not None:
-                    day = stress.permute(day, *permutation)
-                path = folder / f"day{len(self.exported)}.day"
-                rust.export_day(day, path)
-                self.exported[key] = (path, len(day.ticks))
+                stem = folder / f"day{len(self.exported)}"
+                if permutation is None:  # a Prosperity day goes as a reference to its CSVs (rust.write_day)
+                    path = rust.write_day(s.days[d], stem, self.subset if restricted else None)
+                else:
+                    day = stress.permute(only(s.days[d], self.subset) if restricted else s.days[d], *permutation)
+                    path = stem.with_suffix(".day")
+                    rust.export_day(day, path)
+                self.exported[key] = (path, len(s.days[d].ticks))
             path, ticks = self.exported[key]
             if path not in local_days:
                 local_days[path] = len(paths)

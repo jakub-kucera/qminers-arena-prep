@@ -20,6 +20,7 @@ import ast
 import csv
 import json
 import re
+import weakref
 from collections import defaultdict
 from pathlib import Path
 
@@ -137,6 +138,27 @@ def load_days(data_dir: Path, specs: list[str]) -> list[Day]:
     return [load_day(data_dir, r, d) for r, d in parse_day_specs(specs, data_dir)]
 
 
+_SOURCES: dict[int, tuple] = {}  # id(day) -> (a weak reference to it, data folder, round, day)
+
+
+def source_of(day: Day) -> tuple[Path, int, int] | None:
+    """Where load_day read the day from, (data folder, round, day), while that day lives; else None."""
+    entry = _SOURCES.get(id(day))
+    return entry[1:] if entry is not None and entry[0]() is day else None
+
+
+def reference(day: Day, only: list[str] | None = None) -> dict | None:
+    """The day as rust/src/prosperity.rs reads it from its CSVs (arena/rust.py `write_day`), with
+    the limits this module would give it, and only some products if `only`; None if the day wasn't
+    loaded from files here."""
+    source = source_of(day)
+    if source is None:
+        return None
+    data_dir, round_num, day_num = source
+    return {"format": "prosperity", "dir": str(data_dir), "round": round_num, "day": day_num,
+            "limits": {**LIMITS, **_extra_limits(data_dir)}, "only": list(only) if only is not None else None}
+
+
 def load_day(data_dir: Path, round_num: int, day_num: int) -> Day:
     folder = data_dir / f"round{round_num}"
     books: dict[int, dict[str, Book]] = defaultdict(dict)
@@ -175,7 +197,10 @@ def load_day(data_dir: Path, round_num: int, day_num: int) -> Day:
         Tick(timestamp, books[timestamp], dict(trades.get(timestamp, {})), marks[timestamp])
         for timestamp in sorted(books)
     ]
-    return Day(f"r{round_num}d{day_num}", products, {p: limits[p] for p in products}, ticks)
+    day = Day(f"r{round_num}d{day_num}", products, {p: limits[p] for p in products}, ticks)
+    _SOURCES[id(day)] = (weakref.ref(day), Path(data_dir).resolve(), round_num, day_num)
+    weakref.finalize(day, _SOURCES.pop, id(day), None)
+    return day
 
 
 def _extra_limits(data_dir: Path) -> dict[str, int]:

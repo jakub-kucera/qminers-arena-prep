@@ -3,6 +3,10 @@
     "rust": "rust/src/engine.rs",
     "sha256": "bc65286578cf014fa09e604fe75bbeafb75b229413a2fe68a9747e1352f168d9"
   },
+  "arena/formats/prosperity.py": {
+    "rust": "rust/src/prosperity.rs",
+    "sha256": "8324f3e54b992352f076b88908a80e38dd4013ff8443b0def2389ec58a693ddc"
+  },
   "arena/sim.py": {
     "rust": "rust/src/sim.rs",
     "sha256": "2dd4afbba11f8a101131d01b899e65ac696f5f973bb7467e0c4c38a1f502b7f8"

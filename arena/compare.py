@@ -125,10 +125,7 @@ def _run_rust(s: Setup, candidates: list[Candidate], tasks: list[tuple], jobs: i
     """The tasks as one `arena-rs batch` on `jobs` threads, each summary as _run returns it."""
     with tempfile.TemporaryDirectory() as folder:
         scratch = Path(folder)
-        paths = []
-        for d, day in enumerate(s.days):
-            paths.append(scratch / f"day{d}.day")
-            rust.export_day(day, paths[-1])
+        paths = [rust.write_day(day, scratch / f"day{d}") for d, day in enumerate(s.days)]
         specs = [rust.bot_spec(c.path, c.overrides) for c in candidates] + [rust.bot_spec(r, {}, s.requote) for r in s.rivals]
         batch = []
         for k, c, d, m in tasks:

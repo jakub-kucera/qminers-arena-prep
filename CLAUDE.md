@@ -15,7 +15,7 @@ the day (see "Formats" below).
 ```sh
 references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
 uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
-uv run pytest                       # all tests (~80 s; tests/test_rust.py's parity checks are most of it)
+uv run pytest                       # all tests (~90 s; tests/test_rust.py's parity checks are most of it)
 uv run pytest tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
 uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
@@ -149,7 +149,7 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 - **Twins:** `rust/src/engine.rs` ports `arena/engine.py` function for function, with the Python names, `rust/src/sim.rs` the market of `arena/sim.py`, and `rust/src/stats.rs` the heavy statistics of `arena/stats.py`. `rust/src/bots/` ports `bots/template.py` (all of STRATEGY and EXECUTION, and ADAPTER as the Prosperity plug-in presents a tick; `bots/drill/template.py` is the same core behind the drill ADAPTER, `Template::drill`), `bots/rivals/`, `bots/mm.py` and every zoo bot (`rust/src/bots/zoo/`, with exceptions reproduced by `Bot::failed`, message and all). `rust/src/py.rs` holds Python's arithmetic where it isn't IEEE's (`sum`, `round`, numpy's `mean`/`std`).
 - **`rust/twins.json`** lists each pair with the hash of the Python file as last checked. `tests/test_rust.py` fails when one changes. **A change to a twin's Python file goes into its Rust file too**, then `experiments.rust_bench --parity-only --record` compares every recorded field in every case and records the new hash.
 - **The bridge** (`arena/rust.py`):
-  - days are loaded by the Python format plug-ins and exported (`export_day`; format in `rust/src/dayfile.rs`, products sorted by name plus the Python order, since order ids depend on it);
+  - days are loaded by the Python format plug-ins; a Prosperity day goes to Rust as a reference to its own CSVs, which `rust/src/prosperity.rs` reads as the plug-in does (`write_day`, `prosperity.reference`; the plug-in remembers each day's files while it lives), and any other day is exported (`export_day`; format in `rust/src/dayfile.rs`, products sorted by name plus the Python order, since order ids depend on it);
   - a Rust bot reads its settings from its Python file's upper-case globals after `--set` (`bot_spec`);
   - what Rust writes comes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`; results as JSON lines), so the reports work unchanged;
   - every tool that runs our bots takes `--engine rust` (`arena.cli.add_engine_argument`); the experiments run each backtest through `arena.cli.backtest(day, participants, config, engine, fields=...)`, setting the engine in their workers with an `_init`.

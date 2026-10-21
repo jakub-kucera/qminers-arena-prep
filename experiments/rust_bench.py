@@ -326,8 +326,7 @@ def parity(day: Day, scratch: Path, configs=CONFIGS, jobs: int | None = None) ->
     """Each case (label, config, participants) on the day in both engines, on `jobs` processes
     (default: every core): (label, (fills, cross fills, races, breaches, the first participant's
     PnL), differences), in the cases' order."""
-    path = scratch / (day.name.replace("/", "_") + ".day")
-    export_day(day, path)
+    path = rust.write_day(day, scratch / day.name.replace("/", "_"))  # a real day as a reference to its CSVs, read by Rust
     jobs = jobs or os.cpu_count() or 1
     cases = [(k, *case) for k, case in enumerate(configs)]
     if jobs <= 1 or len(cases) <= 1:

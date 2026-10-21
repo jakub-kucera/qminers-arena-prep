@@ -15,6 +15,8 @@
 //!       fundamentals and the bots' results (.dump); --replay also runs the bots on the day without them
 //!       (.recording.day) under each trade matching (.replay.<mode>.dump); --csv writes the Prosperity layout (arena.sim
 //!       generate). A JSON line per day on stdout: each bot's totals in the market and in each replay
+//!   arena-rs day DAY... --out DIR
+//!       each day (a day file, or a day reference read from its CSVs) written back as a day file, DIR/<name>.day
 //!   arena-rs stats IN.json
 //!       arena.grid's statistics (src/stats.rs) on what IN.json holds: {"cscv": {columns, max_splits, seed}},
 //!       {"correlation": {scaled}} or {"snooping": {d, q, boot, alpha, seed}}; the answer as JSON on stdout
@@ -113,7 +115,15 @@ fn load_days(args: &Args) -> Vec<Day> {
     if args.days.is_empty() {
         fail("no day files given");
     }
-    args.days.iter().map(|p| dayfile::load(p).unwrap_or_else(|e| fail(&e))).collect()
+    load_all(&args.days)
+}
+
+/// Day files and references, read on a thread each.
+fn load_all(paths: &[String]) -> Vec<Day> {
+    thread::scope(|scope| {
+        let workers: Vec<_> = paths.iter().map(|p| scope.spawn(move || dayfile::load(p))).collect();
+        workers.into_iter().map(|w| w.join().unwrap().unwrap_or_else(|e| fail(&e))).collect()
+    })
 }
 
 fn main() {
@@ -126,6 +136,7 @@ fn main() {
         "batch" => batch_command(&args),
         "sim" => sim_command(&args),
         "stats" => stats_command(&args),
+        "day" => day_command(&args),
         other => fail(&format!("unknown command {other}")),
     }
 }
@@ -537,7 +548,8 @@ fn batch_command(args: &Args) {
     let text = fs::read_to_string(path).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
     let batch = json::parse(&text).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
     let list = |key: &str| batch.get(key).and_then(Value::as_list).unwrap_or_else(|| fail(&format!("{path}: {key} must be a list")));
-    let days: Vec<Day> = list("days").iter().map(|d| dayfile::load(d.as_str().unwrap_or_else(|| fail("days are paths"))).unwrap_or_else(|e| fail(&e))).collect();
+    let paths: Vec<String> = list("days").iter().map(|d| d.as_str().unwrap_or_else(|| fail("days are paths")).to_string()).collect();
+    let days = load_all(&paths);
     let specs: Vec<Spec> = list("bots").iter().map(|b| Spec::read(b).unwrap_or_else(|e| fail(&e))).collect();
     for spec in &specs {
         spec.build().unwrap_or_else(|e| fail(&e)); // refuse settings before running anything
@@ -776,4 +788,12 @@ fn stats_command(args: &Args) {
         fail("stats: give cscv, correlation or snooping");
     }
     println!("{out}");
+}
+
+fn day_command(args: &Args) {
+    let dir = args.get("--out").unwrap_or_else(|| fail("day needs --out DIR"));
+    for day in load_days(args) {
+        let path = format!("{dir}/{}.day", day.name);
+        fs::write(&path, dayfile::write_plain(&day)).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
+    }
 }

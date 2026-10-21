@@ -4,6 +4,8 @@ rust/ ports arena/engine.py and some bots, each with its Python twin listed in r
 (rust/README.md has the table of what is in which language). This module is the bridge:
 
   export_day    a Day as rust/src/dayfile.rs reads it (the format plug-ins stay in Python)
+  write_day     a reference to a Prosperity day's own CSVs instead, which Rust reads itself
+                (rust/src/prosperity.rs), when the day came from them; else export_day
   bot_spec      a twin bot for Rust: its kind, and its Python file's globals after any --set
                 overrides, so the Rust bot reads the same settings (the template's DEFAULTS and
                 PARAMS, a rival's constants)
@@ -197,6 +199,24 @@ def export_day(day: Day, path: Path) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
+def write_day(day: Day, stem: Path, only: list[str] | None = None) -> Path:
+    """The day for Rust at stem.json, a reference to its Prosperity CSVs that Rust reads itself
+    (rust/src/prosperity.rs), if it was loaded from them (prosperity.reference); else exported to
+    stem.day. With `only`, just those products (arena.grid.only). Returns the path written."""
+    ref = prosperity.reference(day, only)
+    if ref is not None:
+        path = stem.with_suffix(".json")
+        path.write_text(json.dumps(ref))
+        return path
+    if only is not None:
+        from arena.grid import only as restrict
+
+        day = restrict(day, only)
+    path = stem.with_suffix(".day")
+    export_day(day, path)
+    return path
+
+
 # ---------------------------------------------------------------------------- runs
 
 
@@ -223,10 +243,7 @@ def run_days(days: list[Day], bots: list[tuple[str, Path, dict, bool]], config: 
 
     with tempfile.TemporaryDirectory() as folder:
         scratch = Path(folder)
-        paths = []
-        for k, day in enumerate(days):
-            paths.append(scratch / f"day{k}.day")
-            export_day(day, paths[-1])
+        paths = [write_day(day, scratch / f"day{k}") for k, day in enumerate(days)]
         dump = scratch / "dump.jsonl"
         out = subprocess.run([str(BINARY), "run", *map(str, paths), *_engine_args(config), *_bot_args(bots, scratch), "--dump", str(dump),
                               "--threads", str(threads)], stdout=subprocess.DEVNULL)
@@ -391,11 +408,10 @@ def _scratch() -> Path:
 
 
 def day_file(day: Day) -> Path:
-    """The day exported for Rust, once per process and day: the entry and its file go when the day does."""
+    """The day for Rust (write_day: a reference to its CSVs, or exported), once per process and
+    day: the entry and its file go when the day does."""
     if id(day) not in _EXPORTED:
-        path = _scratch() / f"day{next(_COUNT)}.day"
-        export_day(day, path)
-        _EXPORTED[id(day)] = path
+        _EXPORTED[id(day)] = write_day(day, _scratch() / f"day{next(_COUNT)}")
         weakref.finalize(day, _forget, id(day))
     return _EXPORTED[id(day)]
 
