@@ -107,6 +107,11 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
   - Find out: in which format are the files behind each round's "Download public backtest data" button (the site says they exist)? Does the data the private evaluation uses look the same (book depth, tick spacing)?
   - Then: write the loader in `arena/formats/qminers.py`, and run the template and validator on it before changing any strategy.
   - If no data is provided: have the probe bot print the full book and trades every tick, and build a dataset from the logs.
+- [ ] **Is the data a real series in disguise?** An idea to explore, **only once the user explicitly approves it**: the search can cost an agent a lot of tokens, so agree a budget first.
+  - Why: last year's data (hockey) was the Czech league with the years changed, so that the source couldn't simply be looked up (the user, 2026-10-22).
+  - Find out: look for fingerprints in the download that survive relabelling: the shape of each series after rescaling, the gaps and session structure in the timestamps, the volatility, the correlations between products, and any dated jumps. Compare them by shape, not by date, with public historical data that could have been used: indices, futures, FX, crypto, and sports or other event data if the products look like that.
+  - We assume: the prices are simulated (the site promises a "realistic" simulated exchange), so nothing outside the download predicts them.
+  - Then: if a source turns up, first check that the Technical Rules allow using it. If they do, it tells you what kind of process each product is (a level it returns to, trends, news jumps), and possibly how the private run continues.
 - [ ] **What kind of market is each product?**
   - Find out: once the loader reads the download, run `uv run python -m arena.diagnose <days> --format qminers --data <folder>`, and go through its notes with the table in `references/wiki/concepts/reading-the-data-on-day-one.md`.
   - We assume the Prosperity picture (P3 round 1):
