@@ -9,6 +9,43 @@ now, and what to change if the Arena differs. **Write the answer in under each i
 you know it**, with where it came from (docs, probe, email), so the whole team works from the
 same facts.
 
+## The day: timeline and roles
+
+The official times are from the organisers' e-mail of 7 Oct (`references/algo_trade_arena_conversation.json`, its first message; see "Known so far"). The plan column, the roles and the rota are ours: try them in the mock round and change them there (`TODO.md`, "Run a mock round" and "Agree the roles and the sleep rota").
+
+| Time | Official | Our plan |
+|---|---|---|
+| Sat 08:00–09:00 | arrival, registration | Laptops on power and a connection (eduroam or our own); `git pull`, `uv run pytest` passes; `references/` was cloned at home (2 GB). |
+| 09:00–09:30 | opening ceremony | The Technical Rules are published and explained now: one person reads them in full and writes every answer they give into "First hour" below. |
+| 09:30–10:30 | workshop | The API and data format: start the three tracks of "Splitting the first hour" as soon as either is shown. |
+| 10:30–12:00 | **playground (90 min)** | The probe bot first (its risky probes run last), then the plain template once its ADAPTER runs, to measure the engine's error. The loader and `arena.diagnose` on any data they give. |
+| 12:00–13:00 | lunch | The template's ADAPTER finished, `arena.validate` with their time limit, the round-1 candidates written down in order. |
+| 13:00–18:00 | **round 1 (10%)** | The round's protocol below. Round 1 is the "forgiving market": get a validated upload in early. |
+| 18:00–19:00 | dinner | Handover note; the first sleepers go. |
+| 19:00–24:00 | **round 2 (20%)** | The round's protocol. |
+| Sun 00:00–01:00 | coffee break | Handover note. |
+| 01:00–06:00 | **round 3 (30%)** | The round's protocol, with whoever drives round 4 asleep. |
+| 06:00–07:00 | breakfast | Handover note. Before round 4, decide in writing how much risk to keep (the lead in weighted points; "How is PnL scored?"). |
+| 07:00–12:00 | **round 4 (40%)** | The most rested people at the keyboard. |
+| 12:00–14:00 | lunch, closing | |
+
+**Each round (5 hours, T = its start).** Each agent session starts from `KICKOFF_PROMPT.md`, which holds the same times:
+- T+0:00: download the data and the round's rules; write what changed into "Rule changes" and "Products".
+- T+0:15: `arena.diagnose`; backtest the last round's bot on the new days in every fill mode.
+- T+2:00: a validated bot that is at least as good, and an upload by the submission rule ("Spend the round's submissions by a rule written before the first score").
+- T+4:30: stop changing the strategy; validate the final candidate and upload it.
+- T−0:10: check which submission is marked final.
+
+**Roles** (one person can hold two; write the names in before the event):
+- **Driver** (<name>): owns the bot file and every upload. Nobody else uploads.
+- **Data** (<name>): the loader, `arena.diagnose`, backtests, grids, stress.
+- **Research** (<name>): the "Every round" items, re-tests from `IDEAS.md`, the round's zoo.
+- **Recorder** (<name>): writes each answer into this file with its source, keeps the round's submission list, and writes the handover note.
+
+**Sleep.** Sleeping bags and mats aren't allowed in the building, and at least one member must be on site at all times (Known so far). Round 4 weighs the most, so its driver should sleep through most of round 3 (somewhere nearby, booked before the event), and round 3's driver after it. A rota for four, to adjust: A and B off 18:00–23:00, C and D off 01:00–06:30; A or B drives rounds 1 and 3, C or D rounds 2 and 4.
+
+**Handover note** at the end of each round, in `data/arena/round<N>/HANDOVER.md` (kept with the round's data, not committed): what was uploaded and why, its portal score against the local backtest, the questions still open, and the next round's first three actions.
+
 ## Splitting the first hour
 
 Each agent session starts from [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md): one prompt for round 1 and one for rounds 2–4, with the data, the rules, the deadline and the session's track filled in.
@@ -53,6 +90,13 @@ official rules, is only in the bundle `assets/index-*.js`; read 2026-10-10; re-c
 - Teams must work independently, and may not post questions about the task publicly or ask anyone outside the team during the event. (Reading public material is fine.)
 - All leaderboards are preliminary. The organisers verify the validity and **reproducibility** of the top solutions and may rerun them. Keep the bot deterministic: seed any randomness and don't depend on wall-clock time.
 - Prizes: 100,000 / 60,000 / 40,000 CZK for places 1 to 3. Bring your own internet connection or use eduroam.
+
+From the organisers' e-mail of 7 Oct (saved as the first message of `references/algo_trade_arena_conversation.json`, the conversation it was pasted into):
+- 200+ participants, with a waiting list.
+- The schedule: Saturday 08:00 arrival, 09:00 opening, 09:30 workshop, **10:30–12:00 playground**, 12:00 lunch, **round 1 13:00–18:00**, 18:00 dinner, **round 2 19:00–24:00**; Sunday 00:00 coffee break, **round 3 01:00–06:00**, 06:00 breakfast, **round 4 07:00–12:00**, 12:00 lunch, 13:00–14:00 closing. "The day: timeline and roles" plans around it.
+- Strictly in person, with no way to take part off site. Members may leave to rest or sleep, but **at least one member of each team must always be on site**. Sleeping bags and mats are not allowed by the building; the organisers suggest booking accommodation nearby and taking turns.
+- Coffee, tea and water throughout; lunch, dinner, midnight refreshments, breakfast and a light lunch are provided.
+- A last e-mail comes about a week before the event, with travel, parking and the final instructions (`MANUAL_TODO.md`, A: save it).
 - Still unknown: whether all teams share one market or each team trades alone (the leaderboard calls itself a market simulation, and one of the four skills listed is "game theory... anticipate competitors"), the bot interface, the data format, and the runtime limits.
 
 ## First hour: answers that change the code

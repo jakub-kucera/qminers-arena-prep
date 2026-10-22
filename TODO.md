@@ -418,6 +418,8 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
   - A variant for rounds 2–4 starts from the previous round's bot and the leaderboard, and asks first what changed in the data and rules.
   - Done when: the prompt is committed, the mock round's agent started from it, and whatever it got wrong there is fixed in it.
   - **Drafted 2026-10-23:** `KICKOFF_PROMPT.md`, linked from `ON_THE_DAY.md`'s "Splitting the first hour". It also holds a prompt without the repository, for a teammate's clean-room agent that sees only the organisers' files (a `Priors` block distils our Prosperity results, deleted for a fully clean run). Left: the mock round, where one teammate runs each and the two bots are compared.
+- [ ] **Agree the roles and the sleep rota.** `ON_THE_DAY.md`, "The day: timeline and roles", proposes four roles (driver, data, research, recorder), a rota that keeps round 4's driver asleep through most of round 3, and a handover note per round. The building allows no sleeping bags and at least one member must always be on site, so whoever sleeps needs a bed nearby.
+  - Done when: the names are in that section, accommodation is booked (or the team decides to stay awake), and the mock round has tried the rota's handover.
 - [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), a passing `uv run pytest`, and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
   - Done when: everyone has run the template backtest on their own machine.
 

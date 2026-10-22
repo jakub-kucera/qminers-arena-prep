@@ -7,6 +7,7 @@ references/*
 !references/check_arena_site.py
 !references/fetch_notion.py
 !references/arena-site-snapshot.txt
+!references/algo_trade_arena_conversation.json
 
 # Source PDFs for literature_md/ (large, mostly copyrighted books); not committed
 literature_raw/
