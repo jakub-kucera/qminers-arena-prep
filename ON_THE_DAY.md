@@ -11,6 +11,8 @@ same facts.
 
 ## Splitting the first hour
 
+Each agent session starts from [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md): one prompt for round 1 and one for rounds 2–4, with the data, the rules, the deadline and the session's track filled in.
+
 Three tracks can run in parallel:
 - **Checklist:** read the docs and fill in every answer they give.
 - **Probes:** rewrite `python/bots/probe.py`'s ADAPTER for their API, set `PRODUCT` and `LIMIT`, and run it in the playground (see "Probes" below).

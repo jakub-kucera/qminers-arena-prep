@@ -416,8 +416,8 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
     - what not to do without asking: anything the rules may forbid, and `ON_THE_DAY.md`'s data-source search, which needs the user's approval and a budget;
     - what to hand back: the bot file, the `arena.validate` output, and what's still untested.
   - A variant for rounds 2–4 starts from the previous round's bot and the leaderboard, and asks first what changed in the data and rules.
-  - Where: a file at the root, e.g. `KICKOFF_PROMPT.md`, linked from `ON_THE_DAY.md`.
   - Done when: the prompt is committed, the mock round's agent started from it, and whatever it got wrong there is fixed in it.
+  - **Drafted 2026-10-23:** `KICKOFF_PROMPT.md`, linked from `ON_THE_DAY.md`'s "Splitting the first hour". Left: the mock round.
 - [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), a passing `uv run pytest`, and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
   - Done when: everyone has run the template backtest on their own machine.
 
