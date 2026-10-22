@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from arena.engine import EngineConfig, QueueModel, TradeMatching, run_day, run_market
@@ -356,6 +358,34 @@ def test_bots_compete_for_the_same_book_level():
     for t in range(20):  # the level fills one of them each tick
         assert sum(f.quantity for f in a.fills + b.fills if f.timestamp == t) == 3
     assert a.fills and b.fills  # who arrives first changes from tick to tick
+
+
+@pytest.mark.parametrize("config", [EngineConfig(), EngineConfig(resting=True)], ids=["per tick", "resting"])
+def test_a_market_trade_fills_the_better_priced_bot_first(config):
+    """Two bots' bids wait for a sell at 98: the bid at 100 has priority over the bid at 99, whoever
+    arrived first, in both modes."""
+    d = day(tick(0, bids=[(90, 5)], asks=[(105, 5)], trades=[MarketTrade("X", 98, 1, "b", "s", 0)]), tick(100, bids=[(90, 5)], asks=[(105, 5)]))
+    for seed in range(20):
+        worse, better = market(d, ScriptedBot({0: [Order("X", 99, 1)]}), ScriptedBot({0: [Order("X", 100, 1)]}), config=replace(config, seed=seed))
+        assert (fills(worse), fills(better)) == ([], [(100, 1, "trade")])
+
+
+def test_a_market_trade_fills_bots_at_one_price_in_their_arrival_order():
+    d = day(tick(0, bids=[(90, 5)], asks=[(105, 5)], trades=[MarketTrade("X", 98, 1, "b", "s", 0)]), tick(100, bids=[(90, 5)], asks=[(105, 5)]))
+    winners = set()
+    for seed in range(20):
+        a, b = market(d, ScriptedBot({0: [Order("X", 100, 1)]}), ScriptedBot({0: [Order("X", 100, 1)]}), config=EngineConfig(seed=seed))
+        assert len(a.fills) + len(b.fills) == 1
+        winners.add("a" if a.fills else "b")
+    assert winners == {"a", "b"}  # the arrival order is drawn each tick
+
+
+def test_one_bots_leftover_orders_meet_the_trades_in_its_own_order():
+    """prosperity3bt's rule, which the parity test pins: a lone bot's orders take the market trades
+    in the order it sent them, not by price."""
+    d = day(tick(0, bids=[(90, 5)], asks=[(105, 5)], trades=[MarketTrade("X", 98, 1, "b", "s", 0)]))
+    result = run_day(d, ScriptedBot({0: [Order("X", 99, 1), Order("X", 100, 1)]}))
+    assert fills(result) == [(99, 1, "trade")]
 
 
 def test_bots_trade_with_each_other_at_the_resting_price():

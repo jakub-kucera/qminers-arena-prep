@@ -174,9 +174,12 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
       - A new order trades with the recorded book and the other bots' orders, best price first.
         At one price the recorded volume goes first, then the bots' orders, oldest first.
         Fills are at the price of the order that was there first.
+      - What's left meets the tick's market trades as an exchange would queue it: each trade
+        fills the orders it reaches best price first, then oldest, whoever arrived first.
       - The book a bot sees includes the other bots' resting orders, never its own. Trades
         between other bots show up in its market trades, with the bots' names.
-    With one bot this is exactly the single-bot engine.
+    With one bot this is exactly the single-bot engine, whose leftover orders take the trades in
+    the order the bot sent them (prosperity3bt's rule, pinned by the parity test).
     """
     names = [name for name, _ in bots]
     if len(set(names)) != len(names):
@@ -256,8 +259,11 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         if config.resting:
             settle(_fill_resting(working, trades, config.trade_matching, tick.timestamp))
             resting = [order for order in working if order.quantity]
-        else:
+        elif len(players) == 1:
+            # One bot's leftover orders take the trades in the order it sent them: prosperity3bt's rule.
             settle([fill for order in working for fill in _take_trades(order, trades, config.trade_matching, tick.timestamp)])
+        else:
+            settle(_match_trades(working, trades, config.trade_matching, tick.timestamp))
         remaining = _remaining_trades(trades)
         for player in players:
             player.market_trades = _market_view(remaining, between, player.name)
@@ -458,6 +464,45 @@ def _take_trades(order: _Live, trades, matching: TradeMatching, timestamp: int) 
         if order.quantity == 0:
             break
     return fills
+
+
+def _match_trades(working: list[_Live], trades, matching: TradeMatching, timestamp: int) -> list[Fill]:
+    """Several bots' leftover orders against this tick's market trades, at each order's own price.
+
+    Each trade fills the orders it reaches in price-time priority, best price first, then the
+    oldest: as _fill_resting, but with no queue, since nothing rests. TradeMatching as in
+    _take_trades: a trade at an order's own price counts under ALL only.
+    """
+    if matching is TradeMatching.NONE:
+        return []
+    fills = []
+    for product, entries in trades.items():
+        mine = [order for order in working if order.product == product]
+        buys, sells = _priority(mine, True), _priority(mine, False)
+        for entry in entries:
+            entry[2] = _match_queue(buys, entry[0], entry[2], True, matching, timestamp, fills)
+            entry[3] = _match_queue(sells, entry[0], entry[3], False, matching, timestamp, fills)
+    return fills
+
+
+def _match_queue(queue: list[_Live], trade: MarketTrade, left: int, buying: bool, matching, timestamp, fills) -> int:
+    """Fills one side's orders, in priority, from a market trade. Returns the trade volume left over."""
+    sign = 1 if buying else -1
+    for order in queue:
+        if left == 0:
+            break
+        size = abs(order.quantity)
+        if size == 0:
+            continue
+        through = (order.price > trade.price) if buying else (order.price < trade.price)
+        if not (through or (order.price == trade.price and matching is TradeMatching.ALL)):
+            break  # the queue is best price first: no later order reaches this trade
+        take = min(left, size)
+        order.quantity -= sign * take
+        left -= take
+        counterparty = trade.seller if buying else trade.buyer
+        fills.append(Fill(timestamp, trade.product, order.price, sign * take, "trade", counterparty, order.id, order.tag))
+    return left
 
 
 def _remaining_trades(trades) -> dict[str, list[MarketTrade]]:

@@ -294,10 +294,14 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             settle(&mut players, &mut s.fills);
             working.retain(|o| o.quantity != 0);
             std::mem::swap(&mut working, &mut resting);
-        } else {
+        } else if players.len() == 1 {
+            // One bot's leftover orders take the trades in the order it sent them: prosperity3bt's rule.
             for order in working.iter_mut() {
                 take_trades(order, &mut trades, config.trade_matching, ts, &mut s.fills);
             }
+            settle(&mut players, &mut s.fills);
+        } else {
+            match_trades(&mut working, &mut trades, config.trade_matching, ts, &mut s);
             settle(&mut players, &mut s.fills);
         }
         working.clear();
@@ -512,6 +516,51 @@ fn take_trades(order: &mut Live, trades: &mut [Vec<Entry>], matching: TradeMatch
             break;
         }
     }
+}
+
+/// Several bots' leftover orders against this tick's market trades, at each order's own price:
+/// each trade fills the orders it reaches best price first, then the oldest (`_match_trades`).
+fn match_trades(working: &mut [Live], trades: &mut [Vec<Entry>], matching: TradeMatching, ts: i64, s: &mut Scratch) {
+    if matching == TradeMatching::None {
+        return;
+    }
+    for (product, entries) in trades.iter_mut().enumerate() {
+        if entries.is_empty() {
+            continue;
+        }
+        priority(working, product, true, &mut s.priority);
+        priority(working, product, false, &mut s.priority_sells);
+        for entry in entries.iter_mut() {
+            entry.for_buys = match_queue(working, &s.priority, &entry.trade, entry.for_buys, true, matching, ts, &mut s.fills);
+            entry.for_sells = match_queue(working, &s.priority_sells, &entry.trade, entry.for_sells, false, matching, ts, &mut s.fills);
+        }
+    }
+}
+
+/// Fills one side's orders, in priority, from a market trade. Returns the trade volume left over (`_match_queue`).
+#[allow(clippy::too_many_arguments)]
+fn match_queue(working: &mut [Live], queue: &[usize], trade: &MarketTrade, mut left: i64, buying: bool, matching: TradeMatching, ts: i64, fills: &mut Vec<(usize, Fill)>) -> i64 {
+    let sign = if buying { 1 } else { -1 };
+    for &k in queue {
+        if left == 0 {
+            break;
+        }
+        let order = &mut working[k];
+        let size = order.quantity.abs();
+        if size == 0 {
+            continue;
+        }
+        let through = if buying { order.price > trade.price } else { order.price < trade.price };
+        if !(through || (order.price == trade.price && matching == TradeMatching::All)) {
+            break; // the queue is best price first: no later order reaches this trade
+        }
+        let take = left.min(size);
+        order.quantity -= sign * take;
+        left -= take;
+        let counterparty = if buying { trade.seller } else { trade.buyer };
+        fills.push((order.owner, Fill { timestamp: ts, product: trade.product, price: order.price, quantity: sign * take, source: Source::Trade, counterparty, order_id: order.id }));
+    }
+    left
 }
 
 /// Market trades as the bots see them next tick: minus the volume our orders took over.
