@@ -430,7 +430,7 @@ Then it times both. On P3 round 1, one core, per day, the template as committed 
 Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`,
 `arena.stress`, `arena.sim` and the experiments. Each prints and writes what the Python engine does (a
 Rust bot has no step timings, so a report leaves out the bot-timing line). The Rust bots take their settings from the Python file, so `--set` reaches both. `rust/twins.json` records the hash of each Python
-twin as last checked, and `python/tests/test_rust.py` fails when one changes until `uv run python -m experiments.rust_bench --parity-only
+twin's code as last checked (comments, docstrings and the settings Rust reads from the file don't count), and `python/tests/test_rust.py` fails when its code changes until `uv run python -m experiments.rust_bench --parity-only
 --record` has checked the pair again. The submitted bot stays a Python file.
 
 ## Stress

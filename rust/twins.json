@@ -1,245 +1,276 @@
 {
   "python/arena/engine.py": {
     "rust": "rust/src/arena/engine.rs",
-    "sha256": "bc65286578cf014fa09e604fe75bbeafb75b229413a2fe68a9747e1352f168d9"
+    "sha256": "4001c6a968394b415145151cacce09122325b8064c4b579b701ced61fd49d338"
   },
   "python/arena/formats/prosperity.py": {
     "rust": "rust/src/arena/formats/prosperity.rs",
-    "sha256": "cb243f04464ddd2bb6a0aefad36a8a5f4f4ccb72cc19f5a104dd8d02e02192e1"
+    "sha256": "bcc04dc332934bc7e0bf0fdf67b6bc3d507b5cc4bdcb73403ad81a353a23c19e"
   },
   "python/arena/sim.py": {
     "rust": "rust/src/arena/sim.rs",
-    "sha256": "38ba5fd5f46d5c9279522ce3ebda96ec225c68818374996cd6376129c2532c8d"
+    "sha256": "d381c5cc8682ccce806649117d9f112867d515783ae3cb5a1b10d1b383a0aab6"
   },
   "python/arena/stats.py": {
     "rust": "rust/src/arena/stats.rs",
-    "sha256": "d61e4635033e29208a86379745a9dd34763afbf5b241672c12e01acf9fd3391d"
+    "sha256": "db2996b4cebb9fc8900f4b6e037ab4a85ec2f9424d75599cf9d0862650bae4f7"
   },
   "python/arena/stress.py": {
     "rust": "rust/src/arena/stress.rs",
-    "sha256": "277e0d03a429abbbfb89bc12c2bef1c530166286290b58ea88973c60659e9c32"
+    "sha256": "d7c0b6c8c0ec9a3bc39f4503fe8dfa0feb56c0442460b8fb1f459feb738e5a8e"
   },
   "python/bots/mm.py": {
     "kind": "mm",
     "rust": "rust/src/bots/mm.rs",
-    "sha256": "90a3dbf3d06da47d4e639d12beae0bb695fa8d6aeac0529e477dcf9b48cc3fe9"
+    "sha256": "b73efb7e2c63a2a150ecb3c440f79d01251871f5bb433ba2af4827df68690197",
+    "reads": [
+      "PARAMS",
+      "LIMIT"
+    ]
   },
   "python/bots/rivals/sniper.py": {
     "kind": "sniper",
     "rust": "rust/src/bots/rivals/sniper.rs",
-    "sha256": "a19c42567764f63cf125703dc93d9382ea50418f930644b991048e885a0c83da"
+    "sha256": "6111fe056cd625aa82fb8d412d0dd2df3e26d1f165c552faa46ddec7d347d190",
+    "reads": [
+      "LIMITS",
+      "DEFAULT_LIMIT",
+      "EDGE"
+    ]
   },
   "python/bots/rivals/spoofer.py": {
     "kind": "spoofer",
     "rust": "rust/src/bots/rivals/spoofer.rs",
-    "sha256": "69a2b861f98bfb89aacd020aad51608575d5eaa72a75d3d00aad43c83ec9c1ef"
+    "sha256": "57a8c76c80f90c23f49db9a457931a1961f5a157890daa9ffa957cfa3df5491b",
+    "reads": [
+      "LIMITS",
+      "DEFAULT_LIMIT",
+      "SPOOF",
+      "OFFSET",
+      "PERIOD"
+    ]
   },
   "python/bots/rivals/trapper.py": {
     "kind": "trapper",
     "rust": "rust/src/bots/rivals/trapper.rs",
-    "sha256": "2b7a8800eafe9c0477f24953400993a298b9ce54e8fd09a9eb338b5fa2cf42b0"
+    "sha256": "a44fd68fffcf347883ad7ffa29629ad1b6f322e8f06234d4704acdcbe3e88d7d",
+    "reads": [
+      "LIMITS",
+      "DEFAULT_LIMIT",
+      "BAIT",
+      "PERIOD",
+      "COOLDOWN"
+    ]
   },
   "python/bots/template.py": {
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
-    "sha256": "2f21f40d96cf87943bb71fb31946cdced3b0a19530c95f992abace533c864320"
+    "sha256": "91efd43b9c067f92d9d675d839abab5a3d9eb4cbb9da11d84acccd0010f27a47",
+    "reads": [
+      "DEFAULTS",
+      "PARAMS"
+    ]
   },
   "python/bots/drill/template.py": {
     "kind": "drill_template",
     "format": "drill",
     "rust": "rust/src/bots/drill/template.rs",
-    "sha256": "589e65aa51fa084f5bfed2a550d3f43b0577f69dbac83420b5ecc7edef720bfd"
+    "sha256": "d3d73a2b719a53a76578e0425c7ab894cdf9db743f16c1ab0cf72eb8684c0b16",
+    "reads": [
+      "DEFAULTS",
+      "PARAMS"
+    ]
   },
   "python/bots/zoo/chatgpt/gpt-5-6-luna_baseline.py": {
     "kind": "zoo/chatgpt/gpt-5-6-luna_baseline",
     "rust": "rust/src/bots/zoo/chatgpt/gpt-5-6-luna_baseline.rs",
     "settings": false,
-    "sha256": "34dd64b96f35120fa0f3fc6ab287623553de080d95ce4a621b16f0313d3f244f"
+    "sha256": "28142450a398cf8f9b72d556d2b2fb7d1e5e4beffe30c6d174ffd905b53899db"
   },
   "python/bots/zoo/chatgpt/gpt-5-6-luna_market_maker.py": {
     "kind": "zoo/chatgpt/gpt-5-6-luna_market_maker",
     "rust": "rust/src/bots/zoo/chatgpt/gpt-5-6-luna_market_maker.rs",
     "settings": false,
-    "sha256": "fe498e913e8f24088232a6a489743ec259deb372715630a79f8799565812e455"
+    "sha256": "a881cc7ff5a387daefc1b68773e643708cfa6a4c2192eec2e92795447f9b2de5"
   },
   "python/bots/zoo/claude/haiku-5.5_baseline.py": {
     "kind": "zoo/claude/haiku-5.5_baseline",
     "rust": "rust/src/bots/zoo/claude/haiku-5.5_baseline.rs",
     "settings": false,
-    "sha256": "1852afbd67e54a49c00c7a3ab801eba67f7613d5e89cf3601a63be2c17393170"
+    "sha256": "07f73f6244586c0e746428e9a37f2ed0bace607055059c3e11ae6347659c5731"
   },
   "python/bots/zoo/claude/opus-5.5_baseline.py": {
     "kind": "zoo/claude/opus-5.5_baseline",
     "rust": "rust/src/bots/zoo/claude/opus-5.5_baseline.rs",
     "settings": false,
-    "sha256": "6ac616397ca73debb2504abe71e18b858117e7b12e320144bd33b077c3c9d084"
+    "sha256": "70c4918e0f843915196a37d00e74ee74f83495cc5ce05900b466c0691112a30f"
   },
   "python/bots/zoo/claude/opus-5.5_market_maker.py": {
     "kind": "zoo/claude/opus-5.5_market_maker",
     "rust": "rust/src/bots/zoo/claude/opus-5.5_market_maker.rs",
     "settings": false,
-    "sha256": "1fd170405431301f1259e40dab05acde8fc573a8cb53fa342d1eb676ed546ecf"
+    "sha256": "b8ee20026abd6e96448e74bf742b059772ee84c9f55df1b2764c2261c4e5ed0c"
   },
   "python/bots/zoo/claude/opus-5.5_mean_reversion.py": {
     "kind": "zoo/claude/opus-5.5_mean_reversion",
     "rust": "rust/src/bots/zoo/claude/opus-5.5_mean_reversion.rs",
     "settings": false,
-    "sha256": "327cc4a9369e6e3b5d7a686f474af6ac90a1d472302cd40b8d2da4fcc249b877"
+    "sha256": "12d4dfb668cf6979e2aca1771390190c6ba30e2a09a1cc2a0f1f4123b8330f10"
   },
   "python/bots/zoo/claude/opus-5.5_momentum.py": {
     "kind": "zoo/claude/opus-5.5_momentum",
     "rust": "rust/src/bots/zoo/claude/opus-5.5_momentum.rs",
     "settings": false,
-    "sha256": "5639ef5a1ea24da7068c0e8dbeb6ff95dc38b31238be8ef299bcfb33f4743499"
+    "sha256": "37b70d92c033aa66290960e27849110f13a300c9ac1c388200ea8a7fd49462dd"
   },
   "python/bots/zoo/claude/sonnet-5.5_baseline.py": {
     "kind": "zoo/claude/sonnet-5.5_baseline",
     "rust": "rust/src/bots/zoo/claude/sonnet-5.5_baseline.rs",
     "settings": false,
-    "sha256": "da24778e414b0be46f9504b9c8824d4abd9c7cc5e1bef88b87a775f3260d432f"
+    "sha256": "4d1430e40cd106eda8307f34be7c9657afb921bf61686cd4d0bfac89f5dcc3d0"
   },
   "python/bots/zoo/gemini/gemini-3-8-flash-high_baseline.py": {
     "kind": "zoo/gemini/gemini-3-8-flash-high_baseline",
     "rust": "rust/src/bots/zoo/gemini/gemini-3-8-flash-high_baseline.rs",
     "settings": false,
-    "sha256": "0f0cf23ef9907a530e8b29450896494590d6e41300c836a24358220e112c81b7"
+    "sha256": "a4e9d4d13e9d27baf4ef5846018628c7c97a3574a6e807c3cfce0ae6eb25f44a"
   },
   "python/bots/zoo/gemini/gemini-3-8-flash-high_market_maker.py": {
     "kind": "zoo/gemini/gemini-3-8-flash-high_market_maker",
     "rust": "rust/src/bots/zoo/gemini/gemini-3-8-flash-high_market_maker.rs",
     "settings": false,
-    "sha256": "9e37c74df8457cff3355135d08d1796666385f21ae733c66e4fc0d31a5d0883e"
+    "sha256": "bca809c4d4aa6e75013c3109cf81358d268e5f1367e867935cec830a7cbf1a6d"
   },
   "python/bots/zoo/other/deepseek-r1-14b_baseline.py": {
     "kind": "zoo/other/deepseek-r1-14b_baseline",
     "rust": "rust/src/bots/zoo/other/deepseek-r1-14b_baseline.rs",
     "settings": false,
-    "sha256": "ce18acfc5e08d54554b7233a0e644d017c14b1ec79fe26ae9fe4f75d35560a20"
+    "sha256": "df8834248c9493fdc9835f2dbe7b13eeb5bb626b14a730f0181504c2bac5bad4"
   },
   "python/bots/zoo/other/deepseek-r1-14b_baseline_2.py": {
     "kind": "zoo/other/deepseek-r1-14b_baseline_2",
     "rust": "rust/src/bots/zoo/other/deepseek-r1-14b_baseline_2.rs",
     "settings": false,
-    "sha256": "3246e884d9e4cbbbbcf41867f574e1da1661c7f0aad8ddf67f700532b3121ab0"
+    "sha256": "ec0898e8d586360873016448821156e189c15d82656e9d50cfa86f532e21f946"
   },
   "python/bots/zoo/other/deepseek-r1-14b_market_maker.py": {
     "kind": "zoo/other/deepseek-r1-14b_market_maker",
     "rust": "rust/src/bots/zoo/other/deepseek-r1-14b_market_maker.rs",
     "settings": false,
-    "sha256": "5a0cb304794f69d34f042786e56893930472c44f8161ab8236f576f9c0f1e136"
+    "sha256": "8687be7b4dd0a38510e6c4025b6211a85824dda5e8c50dc7aacd3cac3e07552b"
   },
   "python/bots/zoo/other/deepseek-r1-14b_market_maker_2.py": {
     "kind": "zoo/other/deepseek-r1-14b_market_maker_2",
     "rust": "rust/src/bots/zoo/other/deepseek-r1-14b_market_maker_2.rs",
     "settings": false,
-    "sha256": "462cdb81ad5d1b75d539c19da24a27fd1d9a1e13b9d288115eb645af7b3b42dc"
+    "sha256": "15fa14bb455a833582e142cbdf61c30f872e7f2f25d6865144f69b01d9f865b5"
   },
   "python/bots/zoo/other/gemma4-26b_baseline.py": {
     "kind": "zoo/other/gemma4-26b_baseline",
     "rust": "rust/src/bots/zoo/other/gemma4-26b_baseline.rs",
     "settings": false,
-    "sha256": "0b5ef0741b44e5db321d21f0e5fbd1ab647a0d602977f99c7d6cf342cd14c123"
+    "sha256": "f08b1d4ec960cd7085f59786e1e8590044d4ee2d667e881c8cb9a7d4bd67d940"
   },
   "python/bots/zoo/other/gemma4-26b_baseline_2.py": {
     "kind": "zoo/other/gemma4-26b_baseline_2",
     "rust": "rust/src/bots/zoo/other/gemma4-26b_baseline_2.rs",
     "settings": false,
-    "sha256": "6e55e6ea61227fa8e20f7973d837f8f685a40409a8e28435575ffb996fc622a6"
+    "sha256": "9f83ee4127662fdf4ab4edba3737dea82dac35bd9b6bb4cf6ed8abc7e5c91e88"
   },
   "python/bots/zoo/other/gemma4-26b_market_maker.py": {
     "kind": "zoo/other/gemma4-26b_market_maker",
     "rust": "rust/src/bots/zoo/other/gemma4-26b_market_maker.rs",
     "settings": false,
-    "sha256": "d6d798b5ba5e6e4d35170e944e541836e6c09d8c5e77bc35673df701aff9629f"
+    "sha256": "30aca5936a03f4873aa49f13d5031e44da900ddf433c6158fa04c37279e5c5ad"
   },
   "python/bots/zoo/other/gemma4-26b_market_maker_2.py": {
     "kind": "zoo/other/gemma4-26b_market_maker_2",
     "rust": "rust/src/bots/zoo/other/gemma4-26b_market_maker_2.rs",
     "settings": false,
-    "sha256": "a19a519f73850306896c1419adca5063247cdafdb321135c5020bb4410183fff"
+    "sha256": "8bd4339267c65f1d8254374df2ba4170ab37b0e432f5fa9dd99ca5bb539e7b6a"
   },
   "python/bots/zoo/other/gpt-oss-120B_baseline.py": {
     "kind": "zoo/other/gpt-oss-120B_baseline",
     "rust": "rust/src/bots/zoo/other/gpt-oss-120B_baseline.rs",
     "settings": false,
-    "sha256": "ab37ca3676bb832027aeda7c54e3842111e0abf1f50749924444ce8e3ba68318"
+    "sha256": "9692a2e14e4985975a753145f06be8f024a1c9ebac1c4565eabe4469f52ed81d"
   },
   "python/bots/zoo/other/gpt-oss-120B_market_maker.py": {
     "kind": "zoo/other/gpt-oss-120B_market_maker",
     "rust": "rust/src/bots/zoo/other/gpt-oss-120B_market_maker.rs",
     "settings": false,
-    "sha256": "16db9397d4f87e4060097c3807d01f4dffdf06a8e671840ca3f17f55422cf2ce"
+    "sha256": "66b4cbfd2ebd8e568eadaa02e14e1eb2653a91e0cbe3d27c0c9d6c46ad976b31"
   },
   "python/bots/zoo/other/gpt-oss-20b_baseline.py": {
     "kind": "zoo/other/gpt-oss-20b_baseline",
     "rust": "rust/src/bots/zoo/other/gpt-oss-20b_baseline.rs",
     "settings": false,
-    "sha256": "633d6d75214c5796d1c2edded0da9f1573ff1b11da609ecf041a783e5e535256"
+    "sha256": "3ed86d08ada7dc0f81ed33580d80bb2039e371e291660465cc886f940888ff35"
   },
   "python/bots/zoo/other/gpt-oss-20b_baseline_2.py": {
     "kind": "zoo/other/gpt-oss-20b_baseline_2",
     "rust": "rust/src/bots/zoo/other/gpt-oss-20b_baseline_2.rs",
     "settings": false,
-    "sha256": "3f5698494f69617d2a2bf74e9e2399d0b43a23f4471a3027ac8bab44e4e19c4f"
+    "sha256": "8daffb602dbb85cb22876ca0879d10c75c30950af91bd16f0da8889a625bfa80"
   },
   "python/bots/zoo/other/gpt-oss-20b_market_maker.py": {
     "kind": "zoo/other/gpt-oss-20b_market_maker",
     "rust": "rust/src/bots/zoo/other/gpt-oss-20b_market_maker.rs",
     "settings": false,
-    "sha256": "f2a097a4db4992c64eca1b64262170972373400d25a6feb4158709241168e84f"
+    "sha256": "289c6a03c14259c54e9f3a1e9debfe397fed6a95f68c72b6d686d2d698d477dd"
   },
   "python/bots/zoo/other/gpt-oss-20b_market_maker_2.py": {
     "kind": "zoo/other/gpt-oss-20b_market_maker_2",
     "rust": "rust/src/bots/zoo/other/gpt-oss-20b_market_maker_2.rs",
     "settings": false,
-    "sha256": "282780ccb4418c958a5de315d142771b8fb2eeb3aac0233c0840be88970d7461"
+    "sha256": "470c1678b24e6f6b4a60381e418cd2b1e0c8c13e192e303f21ef7f2abc71cae0"
   },
   "python/bots/zoo/other/phi4-14b_baseline.py": {
     "kind": "zoo/other/phi4-14b_baseline",
     "rust": "rust/src/bots/zoo/other/phi4-14b_baseline.rs",
     "settings": false,
-    "sha256": "cd4c37cbe5788c29f76634052b08febf35b57c6331b08d4d5f6dd6610f5e5a36"
+    "sha256": "5fc51f6b0685e8a824c7bd3855afc53338048105cdda6f759b328c5e279fb6e6"
   },
   "python/bots/zoo/other/phi4-14b_baseline_2.py": {
     "kind": "zoo/other/phi4-14b_baseline_2",
     "rust": "rust/src/bots/zoo/other/phi4-14b_baseline_2.rs",
     "settings": false,
-    "sha256": "449cad1f19ee46c58152352fa2afb23f8d8880fb09b5610c670125d3057ba8c5"
+    "sha256": "20235ebbf27bfccfe6630dbc9f2e4e2dd27bcee74382176a9b3ee738ff171949"
   },
   "python/bots/zoo/other/phi4-14b_market_maker.py": {
     "kind": "zoo/other/phi4-14b_market_maker",
     "rust": "rust/src/bots/zoo/other/phi4-14b_market_maker.rs",
     "settings": false,
-    "sha256": "07fee03127140930561fc4fffc9bf549dad1d63e2e425f3cd32d5090afe538db"
+    "sha256": "939871edd95b373e20ef305bf5e75f7ec58bd8fc112f455b37576bc24629e503"
   },
   "python/bots/zoo/other/phi4-14b_market_maker_2.py": {
     "kind": "zoo/other/phi4-14b_market_maker_2",
     "rust": "rust/src/bots/zoo/other/phi4-14b_market_maker_2.rs",
     "settings": false,
-    "sha256": "e3251449c9e5714e6c72c1b4254765bced72844c9c6eab75447dc87a393bdce7"
+    "sha256": "c2ee90afee65e74665fa946e1056e7e8306f99ae2fd623ad5ff10846d78792c0"
   },
   "python/bots/zoo/other/qwen3.8-27b-medium_baseline.py": {
     "kind": "zoo/other/qwen3.8-27b-medium_baseline",
     "rust": "rust/src/bots/zoo/other/qwen3.8-27b-medium_baseline.rs",
     "settings": false,
-    "sha256": "79282e005d337625fde4a6b42b8909346595f6a343cd2c806f5d4c0ee31b8fa4"
+    "sha256": "da7fe73dac5c49ee4ecf54845cb5013f1ee0708b1024bc72ee513ea787047f15"
   },
   "python/bots/zoo/other/qwen3.8-27b-medium_baseline_2.py": {
     "kind": "zoo/other/qwen3.8-27b-medium_baseline_2",
     "rust": "rust/src/bots/zoo/other/qwen3.8-27b-medium_baseline_2.rs",
     "settings": false,
-    "sha256": "39fa503393991b92dbe048570308d32212b5abdd6ebfc5da5a1ac8a92b0f1157"
+    "sha256": "cb57ed1f98a342b1115d3c0cdbd60386ce8d3ec3e2e7f2fa81c8fb62ba8d8dd0"
   },
   "python/bots/zoo/other/qwen3.8-27b-medium_market_maker.py": {
     "kind": "zoo/other/qwen3.8-27b-medium_market_maker",
     "rust": "rust/src/bots/zoo/other/qwen3.8-27b-medium_market_maker.rs",
     "settings": false,
-    "sha256": "12962aeaba064b89835ad87be57588526b760eae972c510fe653d64cc1dc7a86"
+    "sha256": "9f30bcdfffc6a7e23eef89941a7b98ceacbae8fce696fe118d60445c191f52f9"
   },
   "python/bots/zoo/other/qwen3.8-27b-medium_market_maker_2.py": {
     "kind": "zoo/other/qwen3.8-27b-medium_market_maker_2",
     "rust": "rust/src/bots/zoo/other/qwen3.8-27b-medium_market_maker_2.rs",
     "settings": false,
-    "sha256": "e2bf6e369a9f4fbc94b21679af5d7b0ed02755cadffa94fa4a5c6102b93e39d9"
+    "sha256": "bc1b0bef867773f4ded472864bbaac7457196943ac4915bd1a6cae9c5e87ee44"
   }
 }

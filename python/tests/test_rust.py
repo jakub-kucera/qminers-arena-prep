@@ -35,6 +35,27 @@ def test_every_twin_was_checked_since_its_python_file_changed():
                        "run `uv run python -m experiments.rust_bench --parity-only --record`")
 
 
+def test_the_twin_hash_counts_code_not_comments_docstrings_or_the_settings_rust_reads():
+    path = "python/bots/template.py"
+    reads = rust.twins()[path]["reads"]
+    source = (rust.ROOT / path).read_text()
+    before = rust.code_hash(source, reads)
+    same = [
+        source.replace("# Each product is isolated", "# Every product is isolated"),  # a comment
+        source.replace('"""Trade against book orders', '"""Takes book orders', 1),  # a docstring
+        source.replace('"KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5', '"KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 1'),
+        source.replace('"wall_size": 15,', '"wall_size": 20,'),  # DEFAULTS
+        source.replace("\n\n\nclass Book:", "\n\n\n\nclass Book:"),  # layout
+    ]
+    assert all(changed != source for changed in same)
+    assert [rust.code_hash(changed, reads) for changed in same] == [before] * len(same)
+    code = source.replace("if level[0] > fair - p[\"take_edge\"]:", "if level[0] >= fair - p[\"take_edge\"]:")
+    assert code != source and rust.code_hash(code, reads) != before
+    # The settings count where Rust doesn't read them from the file: a twin without `reads` (the
+    # engine, the zoo) hashes its constants.
+    assert rust.code_hash(same[2]) != rust.code_hash(source)
+
+
 def test_every_twin_sits_at_its_python_files_path():
     """rust/src/ mirrors python/: python/arena/engine.py's twin is rust/src/arena/engine.rs."""
     for path, twin in rust.twins().items():

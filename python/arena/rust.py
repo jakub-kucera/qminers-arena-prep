@@ -30,6 +30,7 @@ a tool is asked for the Rust engine.
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import functools
 import hashlib
@@ -90,20 +91,64 @@ def _reads_settings() -> dict[str, bool]:
     return {twin["kind"]: twin.get("settings", True) for twin in twins().values() if "kind" in twin}
 
 
-def file_hash(relative: str) -> str:
-    return hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+def code_hash(source: str, reads: list[str] | tuple[str, ...] = ()) -> str:
+    """The hash of what a Rust twin must match in a Python file: its syntax tree without docstrings,
+    so comments, docstrings and layout don't count. `reads` names the upper-case globals the Rust
+    twin reads from the file at run time (bot_globals: the template's DEFAULTS and PARAMS, a rival's
+    constants): top-level statements that only set those are left out too, since Rust gets their
+    values when it runs, not from its own code."""
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and _docstring(node.body):
+            node.body = node.body[1:] or [ast.Pass()]
+    if reads:
+        tree.body = [node for node in tree.body if not _sets_only(node, set(reads))]
+    return hashlib.sha256(ast.dump(tree).encode()).hexdigest()
+
+
+def _docstring(body: list[ast.stmt]) -> bool:
+    return bool(body) and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str)
+
+
+def _root(target: ast.expr) -> list[str]:
+    """The global names an assignment target sets: `PARAMS["X"]["y"]` sets PARAMS."""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Subscript, ast.Attribute)):
+        return _root(target.value)
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [name for element in target.elts for name in _root(element)]
+    return [""]
+
+
+def _sets_only(node: ast.stmt, names: set[str]) -> bool:
+    """Whether a top-level statement does nothing but set `names` (a loop over private names counts,
+    such as the template's `for _strike in ...: PARAMS[...] = {...}`)."""
+    if isinstance(node, ast.Assign):
+        return all(name in names for target in node.targets for name in _root(target))
+    if isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+        return all(name in names for name in _root(node.target))
+    if isinstance(node, ast.For):
+        return (all(name.startswith("_") for name in _root(node.target)) and not node.orelse
+                and all(_sets_only(statement, names) for statement in node.body))
+    return False
+
+
+def file_hash(relative: str, reads: list[str] | tuple[str, ...] = ()) -> str:
+    """code_hash of a twin's Python file, by its path from the repo root."""
+    return code_hash((ROOT / relative).read_text(encoding="utf-8"), reads)
 
 
 def stale_twins() -> list[str]:
-    """The twins whose Python file isn't the one their Rust port was last checked against."""
-    return [path for path, twin in twins().items() if file_hash(path) != twin["sha256"]]
+    """The twins whose Python code isn't what their Rust port was last checked against."""
+    return [path for path, twin in twins().items() if file_hash(path, twin.get("reads", ())) != twin["sha256"]]
 
 
 def record_hashes() -> None:
     """Writes each twin's current hash: run only after the parity check passed (python/experiments/rust_bench.py --record)."""
     table = twins()
     for path, twin in table.items():
-        twin["sha256"] = file_hash(path)
+        twin["sha256"] = file_hash(path, twin.get("reads", ()))
     TWINS.write_text(json.dumps(table, indent=2) + "\n")
 
 

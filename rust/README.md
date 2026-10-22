@@ -22,8 +22,12 @@ uv run pytest python/tests/test_rust.py                      # the parity checks
 its Python file's path under `src/`, `.py` becoming `.rs` (`python/arena/engine.py` → `src/arena/engine.rs`,
 `python/bots/zoo/claude/opus-5.5_baseline.py` → `src/bots/zoo/claude/opus-5.5_baseline.rs`), and
 `python/tests/test_rust.py` checks that every pair keeps to it.
-`rust/twins.json` lists the pairs with the hash of the Python file the port was last checked
-against. `python/tests/test_rust.py` fails when a Python twin changes until the Rust side is updated and
+`rust/twins.json` lists the pairs with the hash of the Python code the port was last checked
+against: the file's syntax tree without its docstrings, so comments, docstrings and layout don't
+count (`python/arena/rust.py` `code_hash`). A bot whose Rust twin reads settings from the file lists
+those globals under `reads` (the template's `DEFAULTS` and `PARAMS`, a rival's constants), and the
+statements that only set them are left out of the hash too, since Rust reads their values at run
+time. `python/tests/test_rust.py` fails when a twin's code changes until the Rust side is updated and
 `experiments.rust_bench --record` has checked the pair again.
 
 | Python | Rust | What it is | How they're checked |
