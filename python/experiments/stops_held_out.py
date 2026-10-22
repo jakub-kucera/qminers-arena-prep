@@ -30,7 +30,7 @@ from pathlib import Path
 
 from arena import report, rust, sim
 from arena.botfile import BotFile
-from arena.cli import backtest
+from arena.cli import add_engine_argument, backtest
 from arena.engine import EngineConfig
 from arena.formats import prosperity
 from arena.grid import SMOKE_TEST_TICKS
@@ -102,10 +102,10 @@ def distinct_days(alias: str, rounds: list[int], exclude: set[str] = frozenset()
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.stops_held_out")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     limits = stops()
 
     p3 = prosperity.resolve_data_dir("p3")

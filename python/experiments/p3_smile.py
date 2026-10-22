@@ -35,7 +35,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
 from arena import rust
-from arena.cli import backtest as run_backtest
+from arena.cli import add_engine_argument, backtest as run_backtest
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 from experiments.p4_vouchers import bs_call, implied_vol
@@ -203,10 +203,10 @@ def trade(held: dict, engine: str = "python") -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.p3_smile")
     parser.add_argument("--window", type=int, default=20, help="EMA ticks for the residual's slow part (default 20)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     by_day = {day.name: points(day) for day in load()}
     alpha = 2 / (args.window + 1)
 

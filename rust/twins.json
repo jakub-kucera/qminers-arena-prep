@@ -9,7 +9,7 @@
   },
   "python/arena/sim.py": {
     "rust": "rust/src/arena/sim.rs",
-    "sha256": "d381c5cc8682ccce806649117d9f112867d515783ae3cb5a1b10d1b383a0aab6"
+    "sha256": "f634162e1576512aba970539f427d461fdfe9026252bba189fed99ba8da42fcc"
   },
   "python/arena/stats.py": {
     "rust": "rust/src/arena/stats.rs",
@@ -17,7 +17,7 @@
   },
   "python/arena/stress.py": {
     "rust": "rust/src/arena/stress.rs",
-    "sha256": "d7c0b6c8c0ec9a3bc39f4503fe8dfa0feb56c0442460b8fb1f459feb738e5a8e"
+    "sha256": "752a26248ef4e76cbb0b2441bd76f33867da9355e5ba9e6006528773240b2b31"
   },
   "python/bots/mm.py": {
     "kind": "mm",

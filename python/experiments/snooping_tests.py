@@ -40,7 +40,7 @@ import statistics
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import grid, report, rust
-from arena.cli import backtest, backtest_days
+from arena.cli import add_engine_argument, backtest, backtest_days
 from arena.engine import EngineConfig
 from arena.formats import prosperity
 
@@ -132,10 +132,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.snooping_tests")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     parser.add_argument("--boot", type=int, default=2000, help="bootstrap resamples (default: 2000)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     tasks = [(name, cell) for name, (_, _, _, cells) in GRIDS.items() for cell in range(-1, len(cells))]
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = {task: rest for task, *rest in pool.map(run, tasks, chunksize=1)}

@@ -32,7 +32,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import backtest
+from arena.cli import add_engine_argument, backtest
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 from experiments.p4_vouchers import series
@@ -125,10 +125,10 @@ def main(argv):
     parser.add_argument("--data", default="p4")
     parser.add_argument("--days", nargs="+", default=["5"])
     parser.add_argument("--jump-min", type=float, default=DEFAULT_JUMP["jump_min"])
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     _init(args.data, args.days)
     names = list(_DAYS)
 

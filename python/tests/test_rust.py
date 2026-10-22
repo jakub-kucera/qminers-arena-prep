@@ -322,6 +322,26 @@ def test_a_twin_runs_only_in_its_own_format():
         rust.prepare("drill", [rust.ROOT / "python/bots/template.py"])
 
 
+def test_a_stale_twin_refuses_to_run_unless_allowed(monkeypatch, capsys):
+    """A twin checked against older Python code would run that older code: refused, by the tools and
+    the experiments, unless --allow-stale."""
+    built = []
+    monkeypatch.setattr(rust, "build", lambda: built.append(True))
+    template = rust.ROOT / "python/bots/template.py"
+    monkeypatch.setattr(rust, "stale_twins", lambda: ["python/bots/template.py"])
+    with pytest.raises(ValueError, match="python/bots/template.py were checked against older Python code"):
+        rust.prepare("prosperity", [template])
+    with pytest.raises(ValueError, match="--allow-stale"):
+        rust.require()
+    rust.prepare("prosperity", [rust.ROOT / "python/bots/mm.py"])  # a stale bot the run doesn't use doesn't matter
+    rust.prepare("prosperity", [template], allow_stale=True)
+    assert "! the Rust twins of python/bots/template.py" in capsys.readouterr().err
+    monkeypatch.setattr(rust, "stale_twins", lambda: ["python/arena/engine.py"])  # the engine's twin matters to every run
+    with pytest.raises(ValueError, match="engine.py"):
+        rust.prepare("prosperity", [rust.ROOT / "python/bots/mm.py"])
+    assert len(built) == 2
+
+
 def _rust_day(tmp_path, day, only=None):
     path = rust.write_day(day, tmp_path / "ref", only)
     assert path.suffix == ".json"  # a reference to the CSVs, not an export

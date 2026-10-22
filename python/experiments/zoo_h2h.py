@@ -20,7 +20,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust, sim
-from arena.cli import backtest, backtest_days
+from arena.cli import add_engine_argument, backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 from experiments.zoo import TEMPLATE, label, zoo_bots
@@ -95,10 +95,10 @@ def k(x: float) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.zoo_h2h")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     rivals = [str(p) for p in zoo_bots()]
     tasks = [(v, r, m.value) for v in VARIANTS for r in [None, *rivals] for m in MODES]
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:

@@ -97,10 +97,14 @@ def add_rival_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def add_engine_argument(parser: argparse.ArgumentParser) -> None:
+def add_engine_argument(parser: argparse.ArgumentParser, help: str | None = None) -> None:
+    """--engine, and --allow-stale for a Rust twin checked against older Python code (python/arena/rust.py `prepare`)."""
     parser.add_argument("--engine", choices=["python", "rust"], default="python",
-                        help="run the backtests on our engine, or on its Rust port (rust/: needs cargo, and bots with a Rust twin, "
+                        help=help or "run the backtests on our engine, or on its Rust port (rust/: needs cargo, and bots with a Rust twin, "
                         "rust/twins.json), with the same results about 100 times faster (default: python)")
+    parser.add_argument("--allow-stale", action="store_true",
+                        help="with --engine rust, run even if a twin's Python code changed since its Rust port was checked: Rust then "
+                        "runs the old code (default: refuse)")
 
 
 def setup(args: argparse.Namespace) -> Setup:

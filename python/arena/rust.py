@@ -9,7 +9,8 @@ rust/ ports python/arena/engine.py and some bots, each with its Python twin list
   bot_spec      a twin bot for Rust: its kind, and its Python file's globals after any --set
                 overrides, so the Rust bot reads the same settings (the template's DEFAULTS and
                 PARAMS, a rival's constants)
-  prepare       --engine rust's checks: bots with a twin for the format, a built binary
+  prepare       --engine rust's checks: bots with a twin for the format, twins checked since their
+                Python code changed (--allow-stale to run anyway), a built binary; require for an experiment
   run_days      `arena-rs run`: participants in one market on each day, on threads, back as Python
                 DayResults (arena.backtest --engine rust)
   run_batch     `arena-rs batch`: many backtests on every core, each returning what arena.grid's
@@ -154,10 +155,7 @@ def record_hashes() -> None:
 
 def kind_of(path: Path) -> str:
     """The Rust bot kind of a bot file, or a ValueError naming the bots that have one."""
-    try:
-        relative = Path(path).resolve().relative_to(ROOT).as_posix()
-    except ValueError:
-        relative = str(path)
+    relative = _relative(path)
     kinds = _kinds()
     if relative not in kinds:
         raise ValueError(f"{path} has no Rust twin (bots with one: {', '.join(kinds)})")
@@ -265,20 +263,44 @@ def write_day(day: Day, stem: Path, only: list[str] | None = None) -> Path:
 # ---------------------------------------------------------------------------- runs
 
 
-def prepare(format_name: str, bots: list[Path]) -> None:
+def prepare(format_name: str, bots: list[Path], allow_stale: bool = False) -> None:
     """--engine rust: bots with a Rust twin written for the format (prosperity, or drill for
-    python/bots/drill/template.py) that has been checked against them since they last changed (a warning
-    if not), and a built binary. ValueError if not."""
-    import sys
-
+    python/bots/drill/template.py), and a built binary. A ValueError if a bot has no twin for the
+    format, or if its twin or one of the engine's (the twins with no bot kind: the engine, the loader,
+    the sim, the stress copies, the statistics) was last checked against older Python code: Rust
+    would run that older code. With allow_stale (--allow-stale) it runs anyway, with a warning."""
     for path in bots:
         if format_of(path) != format_name:
             raise ValueError(f"{path}'s Rust twin is for --format {format_of(path)}, not {format_name}")
-    stale = stale_twins()
-    if stale:
-        print(f"! the Rust twins of {', '.join(stale)} weren't checked since that file changed: their results may differ "
-              "(uv run python -m experiments.rust_bench --parity-only --record)", file=sys.stderr)
+    _check_stale([*(path for path, twin in twins().items() if "kind" not in twin), *map(_relative, bots)], allow_stale)
     build()
+
+
+def require(allow_stale: bool = False) -> None:
+    """An experiment's --engine rust: every twin checked since its Python code changed (an
+    experiment may run any of them), else a ValueError, and a built binary."""
+    _check_stale(list(twins()), allow_stale)
+    build()
+
+
+def _relative(path: Path) -> str:
+    try:
+        return Path(path).resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _check_stale(paths: list[str], allow_stale: bool) -> None:
+    import sys
+
+    stale = [path for path in stale_twins() if path in paths]
+    if not stale:
+        return
+    message = (f"the Rust twins of {', '.join(stale)} were checked against older Python code, so Rust would run that: port the "
+               "change to the Rust file rust/twins.json names, then `uv run python -m experiments.rust_bench --parity-only --record`")
+    if not allow_stale:
+        raise ValueError(message + " (or pass --allow-stale to run the old code anyway)")
+    print(f"! {message}", file=sys.stderr)
 
 
 def run_days(days: list[Day], bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, threads: int = 1) -> list[list[DayResult]]:

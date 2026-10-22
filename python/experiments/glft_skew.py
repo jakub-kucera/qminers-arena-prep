@@ -28,7 +28,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import backtest as run_backtest, backtest_days
+from arena.cli import add_engine_argument, backtest as run_backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 
@@ -102,10 +102,10 @@ def backtest(job: tuple[str, float | None, str]) -> tuple[tuple, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.glft_skew")
     parser.add_argument("--jobs", type=int, default=None)
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         fits = dict(zip(PRODUCTS, pool.map(measure, PRODUCTS)))
         limits = {p: FMT.LIMITS[p] for p in PRODUCTS}

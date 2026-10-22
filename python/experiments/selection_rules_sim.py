@@ -26,7 +26,7 @@ import statistics
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import grid, rust, sim
-from arena.cli import backtest
+from arena.cli import add_engine_argument, backtest
 from arena.engine import EngineConfig, TradeMatching
 from experiments.selection_rules import MODES, RULES, TEMPLATE, default_cell, pick
 
@@ -86,10 +86,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.selection_rules_sim")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     parser.add_argument("--reps", type=int, default=REPS, help=f"repetitions with fresh training days (default: {REPS})")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the days and backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the days and backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     tasks = [(p, k, rep) for p in PRODUCTS for k in range(-1, len(cells(p))) for rep in [None, *range(args.reps)]]
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         done = dict(pool.map(run, tasks, chunksize=1))

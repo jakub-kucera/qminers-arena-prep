@@ -19,7 +19,7 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import rust
-from arena.cli import backtest, backtest_days
+from arena.cli import add_engine_argument, backtest, backtest_days
 from arena.engine import EngineConfig
 
 TEMPLATE = "python/bots/template.py"
@@ -75,10 +75,10 @@ def run(task: tuple[str, str]) -> tuple[tuple[str, str], dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.adversaries")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     tasks = [(v, r) for v in VARIANTS for r in RIVALS]
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = dict(pool.map(run, tasks))

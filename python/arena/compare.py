@@ -292,7 +292,7 @@ def main(argv: list[str] | None = None) -> int:
         base = Candidate(args.bot, s.overrides, default_label(args.bot, s.overrides))
         candidates = labelled([base, *(parse_candidate(text) for text in args.bots)])
         if s.engine == "rust":
-            rust.prepare(args.format, [*{c.path for c in candidates}, *s.rivals])
+            rust.prepare(args.format, [*{c.path for c in candidates}, *s.rivals], args.allow_stale)
             for c in candidates:
                 rust.bot_spec(c.path, c.overrides)  # --set or @ settings on a zoo twin: refused
     except (ValueError, OSError, OverrideError, RuntimeError) as error:

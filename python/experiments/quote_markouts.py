@@ -38,7 +38,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import backtest
+from arena.cli import add_engine_argument, backtest
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 
@@ -145,10 +145,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.quote_markouts")
     parser.add_argument("--jobs", type=int, default=None)
     parser.add_argument("--horizon", type=int, default=20, choices=HORIZONS, help="the horizon of the total and of the day test (default 20)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     jobs = []
     for dataset, (data, days) in DATASETS.items():
         for day in FMT.load_days(FMT.resolve_data_dir(data), days):

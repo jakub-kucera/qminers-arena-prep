@@ -42,7 +42,7 @@ from pathlib import Path
 
 from arena import grid, rust
 from arena.botfile import BotFile
-from arena.cli import backtest
+from arena.cli import add_engine_argument, backtest
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 
@@ -200,10 +200,10 @@ def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.selection_rules")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     tasks = [(name, k) for name in STUDIES for k in range(-1, len(cells(name)))]
     days = {}
     if args.engine == "rust":  # each study's days loaded once, here, to find the repeats; the workers load nothing

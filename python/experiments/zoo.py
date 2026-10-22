@@ -20,7 +20,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust, sim
-from arena.cli import backtest, backtest_days
+from arena.cli import add_engine_argument, backtest, backtest_days
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import prosperity
 
@@ -105,11 +105,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.zoo")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     parser.add_argument("--local", action="store_true", help="put the local models' bots in the field too")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python",
-                        help="run the backtests in rust/ (the same results; the slowest-tick column is the Python bot's, so it's blank)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results; the slowest-tick column is the Python bot's, so it's blank)")
     args = parser.parse_args()
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     paths = [TEMPLATE, *zoo_bots()]
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         rows = list(pool.map(score, paths))

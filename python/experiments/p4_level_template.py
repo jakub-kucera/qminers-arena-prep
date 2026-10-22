@@ -22,7 +22,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import backtest
+from arena.cli import add_engine_argument, backtest
 from arena.engine import EngineConfig
 from arena.formats import FORMATS
 from experiments.p4_levels import day_means
@@ -72,10 +72,10 @@ def _name(spec):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     names = [_name(s) for s in DAYS]
     means = day_means(FMT.load_days(FMT.resolve_data_dir("p4"), DAYS))
     loo = {p: {d: st.mean(means[o][p] for o in names if o != d) for d in names} for p in GRIDS}

@@ -220,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
         for name in names:
             perturb(Day("check", [], {}, []), name)
         if s.engine == "rust":
-            rust.prepare(args.format, [args.bot, *s.rivals])
+            rust.prepare(args.format, [args.bot, *s.rivals], args.allow_stale)
             rust.bot_spec(args.bot, s.overrides)
     except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))

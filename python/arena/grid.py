@@ -90,7 +90,7 @@ from arena.stats import (  # the statistics live in python/arena/stats.py (twinn
     mean_correlation, omega2, snooping, spa, standardized, stepm,
 )
 from arena.botfile import OverrideError, parse_value
-from arena.cli import Setup, add_common_arguments, add_rival_argument, participant_names, run_with_rivals, setup
+from arena.cli import Setup, add_common_arguments, add_engine_argument, add_rival_argument, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
 from arena.formats import FORMATS
 from arena.model import Day
@@ -946,9 +946,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="also run the whole grid on N copies of the days with their ticks shuffled, for a permutation test (default: 0)")
     parser.add_argument("--permute-block", type=int, default=1, metavar="TICKS",
                         help="shuffle the ticks in runs of this many, keeping the order inside a run (default: 1)")
-    parser.add_argument("--engine", choices=["python", "rust"], default="python",
-                        help="run the backtests and the statistics in Python, or on the Rust port (rust/: needs cargo, and a bot with a Rust "
-                        "twin, rust/twins.json), with the same results about 100 times faster (default: python)")
+    add_engine_argument(parser, "run the backtests and the statistics in Python, or on the Rust port (rust/: needs cargo, and a bot with a "
+                        "Rust twin, rust/twins.json), with the same results about 100 times faster (default: python)")
     parser.add_argument("--screen", type=float, metavar="SHARE",
                         help="successive halving: run every combination on the first day under the first mode, then only this share "
                         "of them, the best there, on every day and mode (e.g. 0.25)")
@@ -964,7 +963,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.screen is not None and not 0 < args.screen < 1:
             raise ValueError("--screen needs a share between 0 and 1, e.g. 0.25")
         if s.engine == "rust":
-            rust.prepare(args.format, [args.bot, *s.rivals])
+            rust.prepare(args.format, [args.bot, *s.rivals], args.allow_stale)
         smoke_test(s, args.bot, axes)
     except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))

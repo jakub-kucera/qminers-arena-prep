@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
         for rival in s.rivals:
             s.format.load_bot(rival, {}, strict=True)
         if s.engine == "rust":
-            rust.prepare(args.format, [args.bot, *s.rivals])
+            rust.prepare(args.format, [args.bot, *s.rivals], args.allow_stale)
             ran = rust.run_days(s.days, participants(args.bot, s.overrides, s.rivals, s.requote), s.config, threads=len(s.days))
     except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))

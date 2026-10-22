@@ -144,8 +144,10 @@ kept neighbours. With `--permute`, each copy is screened the same way.
 correlation, SPA and StepM) on the Rust port (`rust/`, needs `cargo`), on `--jobs` threads, and
 prints and writes the same results to the last digit. The axes, the screen and the permuted copies
 stay in Python. It takes a bot and rivals with a Rust twin
-(`rust/twins.json`: the template, the rivals, `mm`) in the Prosperity format, and warns if a twin's
-Python file changed since the pair was last checked. Kelp's 256 cells (`make_edge` × `take_edge`, P3
+(`rust/twins.json`: the template, the rivals, `mm`) in the Prosperity format, and refuses to run if
+a twin it uses was last checked against older Python code, since Rust would run that older code
+(`--allow-stale` runs it anyway, with a warning; every tool and experiment with `--engine rust`
+does the same). Kelp's 256 cells (`make_edge` × `take_edge`, P3
 round 1, `--modes all,worse`, 1,542 backtests) took 1.3 s against 50.6 s, with the same CSV; the
 grid's own work is most of the 1.3 s. 1,024 cells (`make_edge` × `skew`, 337 of them distinct) took
 2.7 s against 226 s.

@@ -29,7 +29,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import backtest
+from arena.cli import add_engine_argument, backtest
 from arena.engine import EngineConfig
 from arena.formats import FORMATS
 
@@ -134,10 +134,10 @@ def _thaw(setting):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     _init()
     stats, jobs, folds = {}, [], {}
     for name, d in DATASETS.items():

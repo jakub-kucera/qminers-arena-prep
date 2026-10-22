@@ -30,6 +30,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust, sim
+from arena.cli import add_engine_argument
 from arena.engine import EngineConfig
 from arena.formats import prosperity
 
@@ -84,10 +85,10 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--days", type=int, default=10)
     parser.add_argument("--jobs", type=int, default=None)
-    parser.add_argument("--engine", choices=("python", "rust"), default="python", help="run the backtests in rust/ (the same results)")
+    add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
     if args.engine == "rust":
-        rust.build()
+        rust.require(args.allow_stale)
     jobs = [(r, v, s) for r in REGIMES for v in VARIANTS for s in range(args.days)]
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
         results = list(pool.map(_run, jobs))

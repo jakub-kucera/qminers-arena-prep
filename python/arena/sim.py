@@ -812,6 +812,8 @@ def _spec_from_args(args) -> MarketSpec:
 
 
 def _add_market_arguments(parser: argparse.ArgumentParser) -> None:
+    from arena.cli import add_engine_argument
+
     parser.add_argument("--days", type=int, default=3, help="days to simulate, one seed each (default: 3)")
     parser.add_argument("--seed", type=int, default=0, help="seed of the first day; day k uses seed + k (default: 0)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes, one day each (default: CPU count)")
@@ -824,8 +826,8 @@ def _add_market_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--regime", choices=REGIMES, help="every product's fundamental changes regime during the day (see with_regime)")
     parser.add_argument("--regime-at", type=float, default=0.5, help="with --regime: the share of the day it starts at (default: 0.5)")
-    parser.add_argument("--engine", choices=("python", "rust"), default="python",
-                        help="run the market here or in rust/src/arena/sim.rs, the same to the bit (rust: bots with a Rust twin, python/arena/rust.py)")
+    add_engine_argument(parser, "run the market here or in rust/src/arena/sim.rs, the same to the bit (rust: bots with a Rust twin, "
+                        "python/arena/rust.py)")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -854,7 +856,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "generate":
         if args.engine == "rust":
-            lines = _generate_rust(args, spec)
+            try:
+                lines = _generate_rust(args, spec)
+            except ValueError as error:  # a stale twin
+                parser.error(str(error))
         else:
             lines = _map(args.jobs, _generate_day, [(spec, args.out, args.round, k, args.seed + k) for k in range(args.days)])
         for line in lines:
@@ -874,7 +879,7 @@ def _write_limits(spec: MarketSpec, data_dir: Path) -> None:
 def _generate_rust(args, spec: MarketSpec) -> list[str]:
     from arena import rust
 
-    rust.build()
+    rust.prepare("prosperity", [], args.allow_stale)  # no bots: the market's twin
     rows = rust.run_sim(spec, args.seed, args.days, csv=args.out, round_number=args.round, threads=args.jobs, read=False)
     _write_limits(spec, args.out)
     return [f"round {args.round} day {row['day']} (seed {row['seed']}): {row['trades']:,} trades" for row in rows]
@@ -951,7 +956,7 @@ def _rust_days(args, spec: MarketSpec, overrides: dict) -> list[tuple[str, dict[
     bots = [(names[0], args.bot, overrides, False)] + [(name, path, {}, False) for name, path in zip(names[1:], args.rivals)]
     for _, path, o, _ in bots:
         rust.bot_spec(path, o)  # no twin, or --set on a zoo twin: refused before the build
-    rust.prepare(args.format, [args.bot, *args.rivals])
+    rust.prepare(args.format, [args.bot, *args.rivals], args.allow_stale)
     config = EngineConfig(resting=args.resting, queue=args.queue, queue_power=args.queue_power)
     rows = rust.run_sim(spec, args.seed, args.days, bots, config, replay=True, read="results", threads=args.jobs)
     out = []

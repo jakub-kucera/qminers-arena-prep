@@ -100,7 +100,7 @@ no Python file of its own is in `support/` and `commands/`.
 2. Run `uv run python -m experiments.rust_bench --parity-only --record`. It compares every recorded field in every case, and records the new hashes only if every case is identical.
 3. Run `uv run pytest python/tests/test_rust.py`.
 
-Python files without a Rust twin need nothing. `arena.grid --engine rust` refuses a bot without a twin, and warns when a twin's hash is stale.
+Python files without a Rust twin need nothing. Every tool with `--engine rust` refuses a bot without a twin, and refuses to run when a twin it uses (the bots, and the engine's own twins) was last checked against older Python code; an experiment refuses if any twin is. `--allow-stale` runs anyway, with a warning, since Rust then runs the older code.
 
 A new twin needs four things:
 - a Rust file at its Python file's path under `src/` (a new format's template: another adapter, as `src/bots/drill/template.rs`);
