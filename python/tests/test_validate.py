@@ -113,3 +113,37 @@ def test_syntax_errors_stop_before_replaying(check):
     code, out = check("class Trader(:\n")
     assert code == 1
     assert "syntax error" in out and "errors in" not in out
+
+
+def _seeds_that_order_a_set_differently(names: set[str]) -> tuple[str, str]:
+    import subprocess
+    import sys
+
+    first = {}
+    for seed in map(str, range(40)):
+        out = subprocess.run([sys.executable, "-c", f"print(next(iter({names!r})))"], capture_output=True, text=True,
+                             env={"PYTHONHASHSEED": seed})
+        first.setdefault(out.stdout.strip(), seed)
+        if len(first) == 2:
+            return tuple(first.values())
+    raise AssertionError("no two seeds order the set differently")
+
+
+def test_a_bot_that_depends_on_the_hash_seed_warns(check, monkeypatch):
+    # Which product comes first out of a set of strings changes with PYTHONHASHSEED, so a rerun in
+    # another process (the organisers') trades another product.
+    monkeypatch.setattr(validate, "HASH_SEEDS", _seeds_that_order_a_set_differently({"KELP", "RAINFOREST_RESIN"}))
+    code, out = check(
+        """
+        from datamodel import Order
+
+        class Trader:
+            def run(self, state):
+                first = next(iter(set(state.order_depths)))
+                asks = state.order_depths[first].sell_orders
+                return {first: [Order(first, min(asks), 1)]} if asks else {}, 0, ""
+        """
+    )
+    assert code == 0
+    assert "WARN  fills differ between Python processes with other hash seeds" in out
+    assert "PASS  same fills when r1d-1 is replayed again" in out  # one process can't see it

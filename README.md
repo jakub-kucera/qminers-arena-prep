@@ -321,7 +321,7 @@ It fails (exit code 1) on:
 
 It warns about:
 - use of environment variables, files, subprocesses or the network
-- results that change on a repeat run
+- results that change on a repeat run, or when the first day is replayed in two other Python processes with other hash seeds (`PYTHONHASHSEED`), which catches a bot that iterates a set of strings: the organisers rerun the top bots, and such a bot wouldn't reproduce
 - results that change when the bot is reloaded every tick, which means it keeps state outside `traderData` that the real engine may not preserve
 
 ## How the engine works

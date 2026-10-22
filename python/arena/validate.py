@@ -10,9 +10,11 @@ probably won't have.
 
 Replay checks on the given days: no exceptions, well-formed orders, no orders cancelled for
 breaching a position limit, and no tick slower than --time-limit-ms. The first day is then
-replayed three more times: once to check the results repeat exactly, once reloading the bot every
-tick, which shows whether it relies on state the real engine might not keep between calls, and
-once with STRICT off, as submitted, to check that no exception escapes its own error handling.
+replayed again: once to check the results repeat exactly, twice in other Python processes with
+other hash seeds (PYTHONHASHSEED), which catches a bot that iterates a set of strings, so that the
+organisers' rerun wouldn't reproduce it, once reloading the bot every tick, which shows whether it
+relies on state the real engine might not keep between calls, and once with STRICT off, as
+submitted, to check that no exception escapes its own error handling.
 
 Exits with 1 if any check fails.
 """
@@ -21,7 +23,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
+import os
 import statistics
+import subprocess
 import sys
 import textwrap
 from dataclasses import dataclass
@@ -35,6 +40,7 @@ from arena.engine import run_day
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
 
 RISKY_MODULES = {"subprocess", "socket", "urllib", "http", "requests"}
+HASH_SEEDS = ("1", "2")  # PYTHONHASHSEED of the two other processes the first day is replayed in
 
 
 @dataclass(frozen=True)
@@ -77,7 +83,8 @@ def static_checks(source: str, fmt, allow: set[str]) -> tuple[list[Check], bool]
     return checks, not problems
 
 
-def replay_checks(path: Path, s: Setup, time_limit_ms: float) -> list[Check]:
+def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None) -> list[Check]:
+    """argv, this run's arguments, lets the first day be replayed in other processes (hash_seed_check)."""
     results, bots = [], []
     for day in s.days:
         bot = s.format.load_bot(path, s.overrides, strict=True)
@@ -123,6 +130,8 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float) -> list[Check]:
         checks.append(Check(PASS, f"same fills when {first.name} is replayed again"))
     else:
         checks.append(Check(WARN, "fills differ on a repeat run: the bot isn't deterministic (clock, randomness, set order?)"))
+    if argv is not None:
+        checks.append(hash_seed_check(argv, fills_digest(baseline), first.name))
 
     fresh = run_day(first, s.format.load_bot(path, s.overrides, strict=True, fresh_each_tick=True), s.config)
     if fresh.fills == baseline:
@@ -156,6 +165,28 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float) -> list[Check]:
     checks.append(Check(INFO, f"pnl: {pnl}"))
     checks.append(Check(INFO, f"largest state {state:,} chars, largest print per tick {output:,} chars"))
     return checks
+
+
+def fills_digest(fills) -> str:
+    return hashlib.sha256(repr(fills).encode()).hexdigest()
+
+
+def hash_seed_check(argv: list[str], digest: str, day: str) -> Check:
+    """The first day's fills in two other Python processes, with other PYTHONHASHSEEDs, against
+    this process's. A repeat in one process can't see a dependence on the hash seed: set and dict
+    order of strings stay the same there, and change between processes."""
+    found = []
+    for seed in HASH_SEEDS:
+        out = subprocess.run([sys.executable, "-m", "arena.validate", *argv, "--fills-digest"], capture_output=True, text=True,
+                             env={**os.environ, "PYTHONHASHSEED": seed})
+        if out.returncode != 0:
+            last = (out.stderr.strip().splitlines() or ["no output"])[-1]
+            return Check(WARN, f"couldn't replay {day} in another Python process: {last}")
+        found.append(out.stdout.split()[-1])
+    if all(other == digest for other in found):
+        return Check(PASS, f"same fills when {day} is replayed in other Python processes (PYTHONHASHSEED {', '.join(HASH_SEEDS)})")
+    return Check(WARN, "fills differ between Python processes with other hash seeds: the bot depends on the order of a set of "
+                 "strings (or something built from one), so a rerun by the organisers may not reproduce its result")
 
 
 def _imported_modules(tree: ast.Module) -> set[str]:
@@ -192,7 +223,13 @@ def main(argv: list[str] | None = None) -> int:
     add_common_arguments(parser)
     parser.add_argument("--allow", default="", help="comma-separated non-standard-library modules the competition allows")
     parser.add_argument("--time-limit-ms", type=float, default=900, help="slowest allowed tick (default: 900, Prosperity's limit)")
+    parser.add_argument("--fills-digest", action="store_true", help=argparse.SUPPRESS)  # hash_seed_check's other processes
+    argv = sys.argv[1:] if argv is None else list(argv)
     args = parser.parse_args(argv)
+    if args.fills_digest:
+        s = setup(args)
+        print(fills_digest(run_day(s.days[0], s.format.load_bot(args.bot, s.overrides, strict=True), s.config).fills))
+        return 0
 
     try:
         s = setup(args)
@@ -205,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
     checks, replayable = static_checks(source, s.format, allow)
     if replayable:
         try:
-            checks += replay_checks(args.bot, s, args.time_limit_ms)
+            checks += replay_checks(args.bot, s, args.time_limit_ms, argv)
         except OverrideError as error:
             parser.error(str(error))
         except Exception as error:  # the bot failed while loading, before any tick ran
