@@ -417,7 +417,7 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
     - what to hand back: the bot file, the `arena.validate` output, and what's still untested.
   - A variant for rounds 2–4 starts from the previous round's bot and the leaderboard, and asks first what changed in the data and rules.
   - Done when: the prompt is committed, the mock round's agent started from it, and whatever it got wrong there is fixed in it.
-  - **Drafted 2026-10-23:** `KICKOFF_PROMPT.md`, linked from `ON_THE_DAY.md`'s "Splitting the first hour". Left: the mock round.
+  - **Drafted 2026-10-23:** `KICKOFF_PROMPT.md`, linked from `ON_THE_DAY.md`'s "Splitting the first hour". It also holds a prompt without the repository, for a teammate's clean-room agent that sees only the organisers' files (a `Priors` block distils our Prosperity results, deleted for a fully clean run). Left: the mock round, where one teammate runs each and the two bots are compared.
 - [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), a passing `uv run pytest`, and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
   - Done when: everyone has run the template backtest on their own machine.
 
