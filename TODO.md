@@ -405,7 +405,19 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
   - **For the mock round:** `ON_THE_DAY.md`, "The format swap, step by step", is the checklist, and `python/arena/formats/drill.py` is the file to copy. The drill used `arena.sim` seeds 1000–1002, so the mock round's data must use other seeds.
 - [ ] **Run a mock round in the week of 26 Oct.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.
   - Data: `uv run python -m arena.sim generate <folder> --days 3 --seed <a seed the others don't know>`, with `--spec` changes so the products aren't the presets. Include at least one product type the template isn't tuned for: `ROBOT_DISHES` (jumps that snap back), `KELP_FLOW` (one-sided takers; raise `--spec KELP_FLOW.noise.persistence=0.5` for flow that persists), or `HYDROGEL_PACK` (a level). Then rename the products and rewrite the files into a layout of the preparer's own, so the others have to write a loader. Keep the fundamental files back: they are the answer key.
+  - Start the agent from the kickoff prompt (next item), so the round tests it too.
   - Done when: the round is done, and whatever was slow or confusing is fixed in the tooling or the checklist.
+- [ ] **Write the competition day's kickoff prompt.** One prompt to paste into a fresh agent session at the start of each round, with the round's data or the real assignment attached, so the agent starts from the repo's own process instead of improvising.
+  - It says:
+    - where the inputs are: placeholders for the download's folder, the assignment or Technical Rules text, and the round number;
+    - what to read first: `CLAUDE.md`, `ON_THE_DAY.md` (the format swap step by step, then the first-hour tracks), and `references/wiki/concepts/reading-the-data-on-day-one.md`;
+    - the order of work: the rules and API first, writing the answers into `ON_THE_DAY.md`; then `python/arena/formats/qminers.py` modelled on `drill.py`; then `arena.diagnose`; then the template's ADAPTER and PARAMS; then `arena.validate`;
+    - the time budget: a validated, submittable bot well before the round's 5 hours end, improved afterwards, and the times to check in with the user;
+    - what not to do without asking: anything the rules may forbid, and `ON_THE_DAY.md`'s data-source search, which needs the user's approval and a budget;
+    - what to hand back: the bot file, the `arena.validate` output, and what's still untested.
+  - A variant for rounds 2–4 starts from the previous round's bot and the leaderboard, and asks first what changed in the data and rules.
+  - Where: a file at the root, e.g. `KICKOFF_PROMPT.md`, linked from `ON_THE_DAY.md`.
+  - Done when: the prompt is committed, the mock round's agent started from it, and whatever it got wrong there is fixed in it.
 - [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), a passing `uv run pytest`, and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
   - Done when: everyone has run the template backtest on their own machine.
 
