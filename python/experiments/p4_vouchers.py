@@ -1,7 +1,7 @@
 """Is each option a fixed function of its underlying? Implied volatility per strike and day.
 
 usage (from the repo root): uv run python -m experiments.p4_vouchers [DAYS...]
-    [--data p4 --underlying VELVETFRUIT_EXTRACT --prefix VEV_ --expiry r3d0=7,r3d1=6,...]
+    [--data p4 --underlying VELVETFRUIT_EXTRACT --prefix VEV_ --expiry r3d0=7,r3d1=6,...] [--format F]
 
 By default: P4's vouchers on the four distinct days of rounds 3-4 (round 4 days 1 and 2 repeat
 round 3's), with time to expiry as the teams read the round pages: 7 days at the start of round 3
@@ -9,7 +9,7 @@ day 0, one fewer per day, so round 4 day 3 starts at 4. For other data, name the
 options' common prefix (the strike is the number at the end of each name) and the days to expiry
 at the open of each day, e.g. P3's volcanic vouchers:
     3 --data p3 --underlying VOLCANIC_ROCK --prefix VOLCANIC_ROCK_VOUCHER_ --expiry r3d0=8,r3d1=7,r3d2=6
-Prices are wall mids.
+Prices are wall mids, in the data's unit; --format reads the data through another format plug-in.
 
 Per strike and day it prints the median implied volatility, how much it moves within the day, and
 the residual: the voucher's wall mid minus Black-Scholes at Velvetfruit's wall mid and that day's
@@ -136,10 +136,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--underlying", default=UNDERLYING)
     parser.add_argument("--prefix", default="VEV_")
     parser.add_argument("--expiry", help="days to expiry at each day's open, e.g. r3d0=8,r3d1=7 (default: P4's)")
+    parser.add_argument("--format", default="prosperity", choices=sorted(FORMATS), help="the data's format (default: prosperity)")
     args = parser.parse_args(argv)
     expiry = {k: float(v) for k, v in (pair.split("=") for pair in args.expiry.split(","))} if args.expiry else DAYS_TO_EXPIRY
-    fmt = FORMATS["prosperity"]
+    fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
+    if not any(strikes(day, args.prefix) for day in days):
+        sys.exit(f"no options named {args.prefix}<strike> in the data")
     print("strike: spread (median), time value (mean), share of ticks with an implied vol; median vol, its IQR within the day,")
     print("first / last tenth of the day, corr(vol, spot); residual sd and mean against BS at the day's median vol; median delta;")
     print("half the spread per unit of delta, the cost of a round trip in the underlying's terms (P4 Velvetfruit's own: 2.5)")

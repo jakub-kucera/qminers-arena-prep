@@ -1,6 +1,7 @@
 """Fading jumps that snap back: where they are in the data, and the template's jump mode on every product.
 
 usage (from the repo root): uv run python -m experiments.p4_jumps [--jobs N] [--data p4] [--days 5] [--jump-min 50] [--engine rust]
+       uv run python -m experiments.p4_jumps --data DIR --days 1 2 [--format F --bot FILE] [--jump-min J] [--trade]
 
 In P4 round 5 some products' wall mids sat on multiples of 100 and moved in steps of 100 that
 mostly went straight back (references/wiki/concepts/jumps-and-snap-back.md). The teams' Robots
@@ -23,6 +24,8 @@ next jump); `uv run python -m arena.backtest <their file> 5 --data p4` prints it
    half the spread on half the ticks or more, and full-room quotes resting there lose about 19
    million a day (`uv run python -m arena.backtest python/bots/template.py 5-2 --data p4 --resting --set
    'PARAMS={"PEBBLES_XL": {"limit": 10, "fair": "wall_mid", "make_edge": 1}}'`: -1.7 million).
+   It runs on P4 round 5, or on any other --data with --trade (each product at the data's limit).
+   --format reads the data through another format plug-in, with --bot the template written for it.
 """
 
 import argparse
@@ -32,7 +35,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import add_engine_argument, backtest
+from arena.cli import TEMPLATES, add_engine_argument, backtest
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 from experiments.p4_vouchers import series
@@ -87,11 +90,15 @@ def jump_stats(day, product: str, jump_min: float) -> dict | None:
 
 
 _PRODUCTS: dict = {}  # --engine rust: {day name: its products}, from the main process
+FORMAT, LIMITS, UNITS = "prosperity", None, None  # --format; with --trade on other data each product's limit (else PLAIN's 10),
+# and its tick in the data's price unit, since jump_min is in the data's unit here and in ticks in the template
 
 
-def _init(data, days, engine="python", products=None):
+def _init(data, days, engine="python", products=None, settings=None):
     ENGINE[0] = engine
-    if products is not None:  # Rust reads each day's CSVs itself (_run): only the products are needed here
+    globals().update(settings or {})
+    globals()["FMT"] = FORMATS[FORMAT]
+    if products is not None and FORMAT == "prosperity":  # Rust reads each day's CSVs itself (_run): only the products are needed here
         _PRODUCTS.update(products, data=data)
         return
     _DAYS.update({d.name: d for d in FMT.load_days(FMT.resolve_data_dir(data), days)})
@@ -99,14 +106,19 @@ def _init(data, days, engine="python", products=None):
 
 def _run(job):
     variant, jump, mode, day_name = job
-    if ENGINE[0] == "rust":
+    if ENGINE[0] == "rust" and FORMAT == "prosperity":
         day, products = rust.named_day(_PRODUCTS["data"], day_name), _PRODUCTS[day_name]
     else:
         day = _DAYS[day_name]
         products = day.products
     base = {**PLAIN, "make_size": 0} if mode == "resting" else PLAIN
-    params = {p: {**base, **dict(jump)} for p in products}
-    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": params}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"))
+    params = {p: {**base, **({"limit": LIMITS[p]} if LIMITS else {}), **dict(jump)} for p in products}
+    if UNITS:
+        for p, entry in params.items():
+            if "jump_min" in entry:
+                entry["jump_min"] = entry["jump_min"] / UNITS.get(p, 1)
+    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": params}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"),
+                         FORMAT)
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return job, (pnl, len(result.limit_breaches) + len(result.errors))
 
@@ -125,11 +137,17 @@ def main(argv):
     parser.add_argument("--data", default="p4")
     parser.add_argument("--days", nargs="+", default=["5"])
     parser.add_argument("--jump-min", type=float, default=DEFAULT_JUMP["jump_min"])
+    parser.add_argument("--format", default="prosperity", choices=sorted(FORMATS), help="the data's format (default: prosperity)")
+    parser.add_argument("--bot", type=Path, help="the template file, written for that format (default: python/bots/template.py)")
+    parser.add_argument("--trade", action="store_true", help="run part 2 on data other than P4 round 5, each product at the data's limit")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args(argv)
     if args.engine == "rust":
         rust.require(args.allow_stale)
-    _init(args.data, args.days)
+    settings = {"FORMAT": args.format}
+    if args.bot or args.format != "prosperity":
+        settings["TEMPLATE"] = Path(args.bot or TEMPLATES.get(args.format, TEMPLATE))
+    _init(args.data, args.days, settings=settings)
     names = list(_DAYS)
 
     print(f"1. jumps of at least {args.jump_min:g} in the wall mid, products with 20 or more on a day")
@@ -142,14 +160,20 @@ def main(argv):
                 rev = f"{s['reversed']:.0%}" if s["reversed"] is not None else "-"
                 print(f"   {name:<6} {product:<30} {s['jumps']:>6} {rev:>9} {s['round100']:>8.0%} "
                       f"{s['spread']:>7g} {s['fade']:>10,.0f}")
-    if (args.data, args.days) != ("p4", ["5"]):
-        return 0
+    if (args.data, args.days, args.format) != ("p4", ["5"], "prosperity"):
+        if not args.trade:
+            return 0
+        settings["LIMITS"] = {p: v for day in _DAYS.values() for p, v in day.limits.items()}
+        settings["UNITS"] = {p: round(i["tick"] / i["unit"]) for day in _DAYS.values() for p, i in day.info.items() if "tick" in i and "unit" in i}
+        DEFAULT_JUMP["jump_min"] = args.jump_min
+        SWEEP["jump_min"] = [round(0.6 * args.jump_min, 6), round(1.6 * args.jump_min, 6)]
+        globals().update(settings)
 
     runs = variants()
     jobs = [(label, jump, "default", n) for label, jump in runs for n in names]
     jobs += [(label, jump, mode, n) for label, jump in runs[:2] for mode in ("worse", "resting") for n in names]
     products = {name: day.products for name, day in _DAYS.items()} if args.engine == "rust" else None
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.data, args.days, args.engine, products)) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.data, args.days, args.engine, products, settings)) as pool:
         out = dict(pool.map(_run, jobs))
 
     def totals(label, jump, mode):

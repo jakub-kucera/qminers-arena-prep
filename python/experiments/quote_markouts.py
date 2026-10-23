@@ -1,6 +1,7 @@
 """When is a quote worth posting? The template's passive fills, valued against the wall mid by state.
 
 usage (from the repo root): uv run python -m experiments.quote_markouts [--jobs N] [--horizon H] [--engine rust]
+       uv run python -m experiments.quote_markouts --data DIR --days 1 2 [--format F --bot FILE]
 
 For every passive fill of the template as committed (a market trade at our price, or a resting
 order crossed by the next snapshot), its value per unit at horizon h, against the wall mid:
@@ -27,6 +28,9 @@ Datasets: P2 round 1, P3 round 1, P4 rounds 1-2 (the template's tuned products),
 engine modes: per tick under --match-trades all and worse, and --resting. A bin counts as a
 finding only if its mean total has the same sign on every day of its dataset: totals at long
 horizons overlap, so a t-statistic over fills would overstate the evidence.
+
+With --data (the day's download, or the playground's fills for probe 18) the one dataset replaces
+DATASETS. Values are in the data's price unit; the spread bins are in each product's ticks.
 """
 
 from __future__ import annotations
@@ -38,7 +42,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import add_engine_argument, backtest
+from arena.cli import add_dataset_arguments, add_engine_argument, backtest, dataset_from
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 
@@ -66,10 +70,20 @@ def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bo
 
 
 ENGINE = ["python"]  # set in each worker by _init (--engine)
+FORMAT = "prosperity"  # --data sets it, with FMT, TEMPLATE and DATASETS
 
 
-def _init(engine: str) -> None:
+def _init(engine: str, settings: dict | None = None) -> None:
     ENGINE[0] = engine
+    globals().update(settings or {})
+    if settings:
+        globals()["FMT"] = FORMATS[FORMAT]
+
+
+def _tick(day, product: str) -> float:
+    """The product's tick in the data's price unit: 1 unless the format's Day.info says otherwise."""
+    info = day.info.get(product, {})
+    return round(info["tick"] / info["unit"]) if "tick" in info and "unit" in info else 1
 
 
 def run(job: tuple[str, str, str]) -> list[dict]:
@@ -77,7 +91,7 @@ def run(job: tuple[str, str, str]) -> list[dict]:
     dataset, mode, day_name = job
     data, days = DATASETS[dataset]
     (day,) = [d for d in FMT.load_days(FMT.resolve_data_dir(data), days) if d.name == day_name]
-    (result,) = backtest(day, [("you", TEMPLATE, {}, False)], MODES[mode], ENGINE[0], fields=("fills",))
+    (result,) = backtest(day, [("you", TEMPLATE, {}, False)], MODES[mode], ENGINE[0], fields=("fills",), format_name=FORMAT)
     index = {tick.timestamp: i for i, tick in enumerate(day.ticks)}
     walls = {p: [] for p in day.products}
     for tick in day.ticks:
@@ -103,7 +117,7 @@ def run(job: tuple[str, str, str]) -> list[dict]:
         row = {
             "dataset": dataset, "mode": mode, "day": day_name, "product": fill.product, "units": abs(fill.quantity),
             "edge": sign * (wall[i] - fill.price),
-            **_bins(ask[0] - bid[0], place, sign * (bid[1] - ask[1]) / (bid[1] + ask[1]),
+            **_bins((ask[0] - bid[0]) / _tick(day, fill.product), place, sign * (bid[1] - ask[1]) / (bid[1] + ask[1]),
                     sign * (wall[i] - wall[i - MOMENTUM]), sign * before >= 0),
         }
         for h in HORIZONS:
@@ -146,14 +160,23 @@ def main() -> None:
     parser.add_argument("--jobs", type=int, default=None)
     parser.add_argument("--horizon", type=int, default=20, choices=HORIZONS, help="the horizon of the total and of the day test (default 20)")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
+    add_dataset_arguments(parser, products=False)
     args = parser.parse_args()
+    try:
+        dataset = dataset_from(args)
+    except ValueError as error:
+        parser.error(str(error))
     if args.engine == "rust":
         rust.require(args.allow_stale)
+    settings = {}
+    if dataset:
+        settings = {"DATASETS": {dataset.name: (dataset.data, list(dataset.days))}, "TEMPLATE": Path(dataset.bot), "FORMAT": dataset.format}
+        _init(args.engine, settings)
     jobs = []
     for dataset, (data, days) in DATASETS.items():
         for day in FMT.load_days(FMT.resolve_data_dir(data), days):
             jobs += [(dataset, mode, day.name) for mode in MODES]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, settings)) as pool:
         rows = [row for part in pool.map(run, jobs) for row in part]
     header = (f"  {'data':<8} {'mode':<8} {'product':<22} {'state':<9} {'fills':>7} {'units':>8}  {'edge':>6}  "
               + "  ".join(f"{'move' + str(h):>6}" for h in HORIZONS) + f"  {'total':>6}  sign of the total per day")

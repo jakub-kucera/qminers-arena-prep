@@ -1,6 +1,8 @@
 """Which way of picking a grid cell holds up on days the grid never saw?
 
 usage (from the repo root): uv run python -m experiments.selection_rules [--jobs N] [--engine rust]
+       uv run python -m experiments.selection_rules --data DIR --train 1 --test 2 --products A,B
+           --grid make_edge=0,0.5,1,2 --grid take_edge=0,1,2 [--format F --bot FILE]
 
 Each study grids two of one product's parameters on a training round, picks a cell by each RULE
 from the training days alone, and scores the pick on the product's later days that repeat no
@@ -28,6 +30,9 @@ starts ahead), and the template's DEFAULTS for the two gridded parameters, the p
 product first seen on the day. The oracle (the best cell on the test days themselves) gives the
 scale. Results go into IDEAS.md
 ("Selection rules on unseen days") and references/wiki/concepts/validation-and-overfitting.md.
+
+With --data (the Arena's rounds, once two exist) each of --products is a study: the --grid axes
+(each PARAM=V1,V2,...) trained on the --train days and tested on the --test days, and reversed.
 """
 
 from __future__ import annotations
@@ -42,9 +47,9 @@ from pathlib import Path
 
 from arena import grid, rust
 from arena.botfile import BotFile
-from arena.cli import add_engine_argument, backtest
+from arena.cli import TEMPLATES, add_engine_argument, backtest, bot_module
 from arena.engine import EngineConfig, TradeMatching
-from arena.formats import prosperity
+from arena.formats import FORMATS, prosperity
 
 TEMPLATE = "python/bots/template.py"
 MODES = (TradeMatching.ALL, TradeMatching.WORSE)
@@ -62,11 +67,26 @@ RULES = ["base", "pnl", "nbhd", "min day", "worse", "both modes", "top-5 mean", 
 _DAYS: dict = {}
 ENGINE = ["python"]  # set in each worker by _init (--engine)
 _KEPT: dict = {}  # --engine rust: per study, the names of the training and test days days_for keeps
+FORMAT = "prosperity"  # --data sets it, with STUDIES, TEMPLATE and DEFAULTS
 
 
-def _init(engine: str, kept: dict | None = None) -> None:
+def _init(engine: str, kept: dict | None = None, settings: dict | None = None) -> None:
     ENGINE[0] = engine
     _KEPT.update(kept or {})
+    globals().update(settings or {})
+
+
+def _settings(args) -> dict:
+    """The studies --data names: one per product, its --grid axes trained on --train and tested on --test."""
+    bot = str(args.bot or TEMPLATES.get(args.format, TEMPLATE))
+    axes = {axis.target: axis.values for axis in map(grid.parse_axis, args.grid)}  # PARAM=V1,V2,... or START..STOP[..STEP]
+    if not (args.train and args.test and args.products and axes):
+        raise ValueError("--data needs --train, --test, --products and at least one --grid")
+    studies = {}
+    for product in (p.strip() for p in args.products.split(",") if p.strip()):
+        studies[product] = (args.data, list(args.train), list(args.test), product, axes)
+        studies[f"{product} (reversed)"] = (args.data, list(args.test), list(args.train), product, axes)
+    return {"STUDIES": studies, "TEMPLATE": bot, "FORMAT": args.format, "DEFAULTS": bot_module(bot, args.format).DEFAULTS}
 
 
 def kept(name: str) -> tuple[str, tuple[list[str], list[str]]]:
@@ -78,6 +98,8 @@ def kept(name: str) -> tuple[str, tuple[list[str], list[str]]]:
 def _rust_days(name: str) -> tuple[list, list]:
     """days_for's days for Rust, which reads them from their CSVs (only the study's product): no Python load."""
     data, product = STUDIES[name][0], STUDIES[name][3]
+    if FORMAT != "prosperity":  # exported once per process (arena.rust.day_file)
+        return days_for(name)
     day = lambda n: rust.prosperity_day(data, *map(int, n.removeprefix("r").split("d")), [product])
     return tuple([day(n) for n in names] for names in _KEPT[name])
 
@@ -95,9 +117,10 @@ def days_for(name: str) -> tuple[list, list]:
     """The training days and the unseen test days, each holding only the study's product."""
     if name not in _DAYS:
         data, train, test, product, _ = STUDIES[name]
-        directory = prosperity.resolve_data_dir(data)
-        train_days = [d for d in prosperity.load_days(directory, train) if product in d.products]
-        test_days = [d for d in prosperity.load_days(directory, test) if product in d.products]
+        fmt = FORMATS[FORMAT]
+        directory = fmt.resolve_data_dir(data)
+        train_days = [d for d in fmt.load_days(directory, train) if product in d.products]
+        test_days = [d for d in fmt.load_days(directory, test) if product in d.products]
         training = {d.name for d in train_days}
         drop = set()
         for names, products in grid.repeated_days(train_days + test_days):
@@ -124,7 +147,8 @@ def run(task: tuple[str, int]) -> tuple[tuple[str, int], dict]:
     for part, days in (("train", train), ("test", test)):
         for day in days:
             for mode in MODES:
-                (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(trade_matching=mode), ENGINE[0], fields=("pnl",))
+                (result,) = backtest(day, [("you", TEMPLATE, overrides, False)], EngineConfig(trade_matching=mode), ENGINE[0], fields=("pnl",),
+                                     format_name=FORMAT)
                 series = result.pnl.get(product) or [0.0] * len(result.timestamps)
                 out[part][mode].append(series[-1])
                 if part == "train" and mode is TradeMatching.ALL:
@@ -146,10 +170,11 @@ def dsr(base: list[float], columns: list[list[float]], best: list[float]) -> flo
     return grid.deflated_sharpe(mean / statistics.stdev(mine), sharpe0, len(mine), skew, kurtosis)
 
 
-def default_cell(axes: dict) -> int:
-    """The grid cell with the template's DEFAULTS for both parameters."""
+def default_cell(axes: dict) -> int | None:
+    """The grid cell with the template's DEFAULTS for both parameters; None if the grid doesn't hold it."""
     values = tuple(DEFAULTS[k] for k in axes)
-    return list(itertools.product(*axes.values())).index(values)
+    cells = list(itertools.product(*axes.values()))
+    return cells.index(values) if values in cells else None
 
 
 def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
@@ -201,15 +226,32 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.selection_rules")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
+    group = parser.add_argument_group("the day's data", "studies on the Arena's rounds in place of the built-in Prosperity ones")
+    group.add_argument("--data", help="a data folder, or p2 / p3 / p4")
+    group.add_argument("--format", default="prosperity", choices=sorted(FORMATS), help="the data's format (default: prosperity)")
+    group.add_argument("--bot", type=Path, help="the template file, written for that format")
+    group.add_argument("--products", help="comma-separated: a study for each")
+    group.add_argument("--train", nargs="+", help="the training day specs, e.g. 1")
+    group.add_argument("--test", nargs="+", help="the test day specs, e.g. 2")
+    group.add_argument("--grid", action="append", default=[], metavar="PARAM=V1,V2,...", help="an axis of each product's grid (repeatable)")
     args = parser.parse_args()
+    settings = {}
+    if args.data:
+        try:
+            settings = _settings(args)
+        except ValueError as error:
+            parser.error(str(error))
+        globals().update(settings)
+    elif args.format != "prosperity" or args.bot or args.products or args.train or args.test or args.grid:
+        parser.error("--format, --bot, --products, --train, --test and --grid choose the day's data: give --data too")
     if args.engine == "rust":
         rust.require(args.allow_stale)
     tasks = [(name, k) for name in STUDIES for k in range(-1, len(cells(name)))]
     days = {}
-    if args.engine == "rust":  # each study's days loaded once, here, to find the repeats; the workers load nothing
-        with ProcessPoolExecutor(args.jobs) as pool:
+    if args.engine == "rust" and FORMAT == "prosperity":  # each study's days loaded once, here, to find the repeats; the workers load nothing
+        with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, None, settings)) as pool:
             days = dict(pool.map(kept, STUDIES))
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, days)) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, days, settings)) as pool:
         done = dict(pool.map(run, tasks, chunksize=1))
     for baseline in ("committed", "defaults"):
         totals = {rule: {m: 0.0 for m in MODES} for rule in RULES}
@@ -219,6 +261,10 @@ def main() -> None:
         print("|---" * (len(RULES) + 2) + "|")
         for name in STUDIES:
             results = [done[(name, k)] for k in range(len(cells(name)))]
+            if baseline == "defaults" and default_cell(STUDIES[name][4]) is None:
+                defaults = ", ".join(f"{k} {DEFAULTS[k]}" for k in STUDIES[name][4])
+                print(f"| {name}: the grid doesn't hold DEFAULTS' values ({defaults}), so there is no such baseline |")
+                continue
             base = done[(name, -1)] if baseline == "committed" else results[default_cell(STUDIES[name][4])]
             picks = pick(STUDIES[name][4], base, results)
             axes = STUDIES[name][4]

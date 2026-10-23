@@ -1,6 +1,7 @@
 """Following named traders: whose trades tell where the price goes, and the template's copy mode.
 
 usage (from the repo root): uv run python -m experiments.counterparties [--jobs N] [--engine rust]
+       uv run python -m experiments.counterparties --data DIR --days 4 [--format F --bot FILE]
 
 The trade files of P3 round 5 and P4 round 4 name each trade's buyer and seller. The bot sees a
 tick's trades on the next tick (python/arena/engine.py), so every move here is measured from the wall
@@ -28,6 +29,10 @@ mid of the tick after the trade.
    under --resting; and copying her on Kelp, which loses. Under --resting, both runs only take
    (make_size 0): these products' prices jump past half the spread, and full-room quotes resting
    there lose (`arena.diagnose 5 --data p3`).
+
+With --data (the day's download, if its trades name traders) parts 1 and 2 run on that dataset
+alone, every product market-made with the data's own limits; part 3 is P3's alone. A format whose
+trades carry no names (the drill's) gives empty tables.
 """
 
 import argparse
@@ -38,10 +43,9 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import add_engine_argument, backtest
+from arena.cli import add_dataset_arguments, add_engine_argument, backtest, dataset_from
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
-from arena.formats.prosperity import LIMITS
 
 FMT = FORMATS["prosperity"]
 TEMPLATE = Path("python/bots/template.py")
@@ -128,16 +132,20 @@ ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 
 _PRODUCTS: dict = {}  # --engine rust: {label: {day name: its products}}, from the main process
+LIMITS: dict = {}  # each product's limit in the data, from the main process
+FORMAT = "prosperity"  # --data sets it, with FMT, TEMPLATE and DATASETS
 
 
-def _init(datasets, engine="python", products=None):
+def _init(datasets, engine="python", products=None, settings=None):
     ENGINE[0] = engine
-    if products is not None:  # Rust reads each day's CSVs itself (_run): only the products are needed here
+    globals().update(settings or {})
+    globals()["FMT"] = FORMATS[FORMAT]
+    if products is not None and FORMAT == "prosperity":  # Rust reads each day's CSVs itself (_run): only the products are needed here
         _PRODUCTS.update(products)
         return
     for label in datasets:
-        data, rnd = DATASETS[label]
-        _DAYS[label] = {d.name: d for d in FMT.load_days(FMT.resolve_data_dir(data), [rnd])}
+        data, specs = DATASETS[label]
+        _DAYS[label] = {d.name: d for d in FMT.load_days(FMT.resolve_data_dir(data), [specs] if isinstance(specs, str) else specs)}
 
 
 def _params(products, copy, mode):
@@ -154,13 +162,14 @@ def _params(products, copy, mode):
 
 def _run(job):
     label, day_name, copy, mode = job
-    if ENGINE[0] == "rust":
+    if ENGINE[0] == "rust" and FORMAT == "prosperity":
         day, products = rust.named_day(DATASETS[label][0], day_name), _PRODUCTS[label][day_name]
     else:
         day = _DAYS[label][day_name]
         products = day.products
     copy = {product: dict(names) for product, names in copy}
-    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": _params(products, copy, mode)}, False)], MODES[mode], ENGINE[0], True, ("pnl", "errors", "breaches"))
+    (result,) = backtest(day, [("you", TEMPLATE, {"PARAMS": _params(products, copy, mode)}, False)], MODES[mode], ENGINE[0], True,
+                         ("pnl", "errors", "breaches"), FORMAT)
     return job, ({p: s[-1] for p, s in result.pnl.items() if s}, len(result.limit_breaches) + len(result.errors))
 
 
@@ -190,10 +199,20 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
+    add_dataset_arguments(parser, products=False)
     args = parser.parse_args(argv)
+    try:
+        dataset = dataset_from(args)
+    except ValueError as error:
+        parser.error(str(error))
     if args.engine == "rust":
         rust.require(args.allow_stale)
-    _init(DATASETS)
+    settings = {}
+    if dataset:
+        settings = {"DATASETS": {dataset.name: (dataset.data, list(dataset.days))}, "TEMPLATE": Path(dataset.bot), "FORMAT": dataset.format}
+    _init(list(settings.get("DATASETS", DATASETS)), settings=settings)
+    LIMITS.update({p: v for days in _DAYS.values() for day in days.values() for p, v in day.limits.items()})
+    settings["LIMITS"] = dict(LIMITS)
 
     jobs, folds = [], {}
     for label, days in _DAYS.items():
@@ -229,7 +248,7 @@ def main(argv):
                     jobs.append((label, n, _freeze(FIXED), mode))
             jobs += [(label, n, _freeze({"KELP": {"Olivia": 1}}), "default") for n in names]
     products = {label: {name: day.products for name, day in days.items()} for label, days in _DAYS.items()} if args.engine == "rust" else None
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(list(DATASETS), args.engine, products)) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(list(DATASETS), args.engine, products, settings)) as pool:
         out = dict(pool.map(_run, set(jobs)))
 
     for label, days in _DAYS.items():

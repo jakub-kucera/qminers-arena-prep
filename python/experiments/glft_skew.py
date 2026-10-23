@@ -1,6 +1,7 @@
 """The template's `skew` from GLFT's closed form, per product, against the committed setting.
 
 usage (from the repo root): uv run python -m experiments.glft_skew [--jobs N] [--engine rust]
+       uv run python -m experiments.glft_skew --data DIR --days 1 2 [--format F --bot FILE --products A,B]
 
 Guéant, Lehalle & Fernandez-Tapia's stationary quotes shift by c2 per unit of inventory, with
 c2 = sqrt(sigma^2 gamma / (2 k A) x (1 + gamma/k)^(1 + k/gamma))
@@ -17,6 +18,9 @@ Per product, on the data the template is tuned on (one tick = one time unit):
      whether the exponential model applies (the wiki: if log rate isn't linear, it doesn't);
   3. for each gamma in GAMMAS, the theory's skew, and the template's PnL with it, against the
      committed skew, under --match-trades all and worse.
+
+With --data (the day's download) every product the bot trades there (or --products) is measured on
+those days, in its own ticks (Day.info's tick, for a format whose prices are in a finer unit).
 """
 
 from __future__ import annotations
@@ -28,17 +32,26 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import add_engine_argument, backtest as run_backtest, backtest_days
+from arena.cli import add_dataset_arguments, add_engine_argument, backtest as run_backtest, backtest_days, dataset_from
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 
 FMT = FORMATS["prosperity"]
 TEMPLATE = Path("python/bots/template.py")
 ENGINE = ["python"]  # set in each worker by _init (--engine)
+FORMAT = "prosperity"  # --data sets it, with FMT, TEMPLATE and PRODUCTS
 
 
-def _init(engine: str) -> None:
+def _init(engine: str, settings: dict | None = None) -> None:
     ENGINE[0] = engine
+    globals().update(settings or {})
+    globals()["FMT"] = FORMATS[FORMAT]
+
+
+def _tick(day, product: str) -> float:
+    """The product's tick in the data's price unit: 1 unless the format's Day.info says otherwise."""
+    info = day.info.get(product, {})
+    return round(info["tick"] / info["unit"]) if "tick" in info and "unit" in info else 1
 PRODUCTS = {  # product: (data, days)
     "AMETHYSTS": ("p2", ["1"]),
     "STARFRUIT": ("p2", ["1"]),
@@ -58,21 +71,23 @@ def _days(product):
 def measure(product: str) -> dict:
     steps, reach, ticks = [], {}, 0
     for day in _days(product):
-        last = None
+        last, unit = None, _tick(day, product)
         for tick in day.ticks:
             book = tick.books.get(product)
             wall = book.wall_mid if book is not None else None
             if wall is None:
                 continue
+            wall /= unit
             if last is not None:
                 steps.append(wall - last)
             last = wall
             ticks += 1
             far = {1: 0.0, -1: 0.0}  # the farthest trade beyond the wall mid on each side this tick
             for trade in tick.trades.get(product, []):
-                side = 1 if trade.price > wall else -1 if trade.price < wall else 0
+                price = trade.price / unit
+                side = 1 if price > wall else -1 if price < wall else 0
                 if side:
-                    far[side] = max(far[side], abs(trade.price - wall))
+                    far[side] = max(far[side], abs(price - wall))
             for distance in far.values():
                 for delta in range(1, math.floor(distance) + 1):
                     reach[delta] = reach.get(delta, 0) + 0.5  # per side, averaged over the two
@@ -93,8 +108,8 @@ def backtest(job: tuple[str, float | None, str]) -> tuple[tuple, float]:
     product, skew, mode = job
     overrides = {} if skew is None else {f"PARAMS.{product}.skew": skew}
     pnl = 0.0
-    for day in backtest_days(*PRODUCTS[product], ENGINE[0]):
-        (result,) = run_backtest(day, [("you", TEMPLATE, overrides, False)], MODES[mode], ENGINE[0], fields=("pnl",))
+    for day in backtest_days(*PRODUCTS[product], ENGINE[0], FORMAT):
+        (result,) = run_backtest(day, [("you", TEMPLATE, overrides, False)], MODES[mode], ENGINE[0], fields=("pnl",), format_name=FORMAT)
         pnl += result.pnl[product][-1] if result.pnl.get(product) else 0.0
     return job, pnl
 
@@ -103,12 +118,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.glft_skew")
     parser.add_argument("--jobs", type=int, default=None)
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
+    add_dataset_arguments(parser)
     args = parser.parse_args()
+    try:
+        dataset = dataset_from(args)
+    except ValueError as error:
+        parser.error(str(error))
     if args.engine == "rust":
         rust.require(args.allow_stale)
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
+    settings = {}
+    if dataset:
+        settings = {"PRODUCTS": {p: (dataset.data, list(dataset.days)) for p in dataset.products}, "TEMPLATE": Path(dataset.bot),
+                    "FORMAT": dataset.format}
+        _init(args.engine, settings)
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, settings)) as pool:
         fits = dict(zip(PRODUCTS, pool.map(measure, PRODUCTS)))
-        limits = {p: FMT.LIMITS[p] for p in PRODUCTS}
+        limits = {p: _days(p)[0].limits[p] for p in PRODUCTS}
         skews = {p: {g: c2(f["sigma"], f["A"], f["k"], g) * limits[p] for g in GAMMAS} for p, f in fits.items()}
         jobs = [(p, s, m) for p in PRODUCTS for s in [None, *skews[p].values()] for m in MODES]
         pnl = dict(pool.map(backtest, jobs))

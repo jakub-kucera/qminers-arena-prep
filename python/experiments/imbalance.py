@@ -1,6 +1,7 @@
 """Does the best-level imbalance predict the price on Prosperity data? Gould & Bonart's test, per product and day.
 
 usage (from the repo root): uv run python -m experiments.imbalance
+       uv run python -m experiments.imbalance --data DIR --days 1 2 [--format F --products A,B]
 
 The imbalance is `ρ = (Vᵇ − Vᵃ)/(Vᵇ + Vᵃ)` at the best bid and ask
 (references/wiki/concepts/book-imbalance-and-micro-price.md). For each product of the
@@ -21,14 +22,20 @@ market-making rounds (DATASETS), three tests:
 3. The fitted `b` per day, in ticks per unit of ρ, at each horizon: a stable sign and size is
    what a `PARAMS` entry would need.
 Results go into IDEAS.md ("The micro-price or weighted mid as fair value", "Book imbalance").
+
+With --data (the day's download) every product there (or --products) is studied on those days;
+prices stay in the data's unit, and the spread is in each product's ticks (Day.info).
 """
 
 from __future__ import annotations
 
+import argparse
 import math
+import sys
 from collections import defaultdict
 
-from arena.formats import prosperity
+from arena.cli import add_dataset_arguments, dataset_from
+from arena.formats import FORMATS
 
 DATASETS = [  # (data alias, round, products): the rounds whose products the template makes markets in
     ("p2", "1", ["AMETHYSTS", "STARFRUIT"]),
@@ -60,7 +67,9 @@ def weighted_mid(book) -> float:
 
 
 def series(day, product) -> list[dict]:
-    """Per tick with both sides present: ρ, spread and the candidate prices."""
+    """Per tick with both sides present: ρ, spread (in ticks) and the candidate prices."""
+    info = day.info.get(product, {})
+    unit = round(info["tick"] / info["unit"]) if "tick" in info and "unit" in info else 1  # the tick in the data's unit
     out = []
     for tick in day.ticks:
         book = tick.books.get(product)
@@ -68,7 +77,7 @@ def series(day, product) -> list[dict]:
             out.append(None)
             continue
         out.append({
-            "rho": imbalance(book), "spread": book.asks[0][0] - book.bids[0][0],
+            "rho": imbalance(book), "spread": (book.asks[0][0] - book.bids[0][0]) / unit,
             "mid": book.mid, "wall_mid": book.wall_mid, "sized_mid": sized_mid(book), "weighted": weighted_mid(book),
         })
     return out
@@ -196,12 +205,23 @@ def study(days: list, product: str) -> dict:
     return out
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog="python -m experiments.imbalance")
+    add_dataset_arguments(parser, bot=False)
+    args = parser.parse_args(argv)
+    try:
+        dataset = dataset_from(args)
+    except ValueError as error:
+        parser.error(str(error))
+    datasets = [(alias, f"r{rnd}", "prosperity", [rnd], products) for alias, rnd, products in DATASETS]
+    if dataset:
+        datasets = [(dataset.name, "", dataset.format, list(dataset.days), list(dataset.products))]
     results = {}
-    for alias, rnd, products in DATASETS:
-        days = prosperity.load_days(prosperity.resolve_data_dir(alias), [rnd])
+    for data, label, format_name, specs, products in datasets:
+        fmt = FORMATS[format_name]
+        days = fmt.load_days(fmt.resolve_data_dir(dataset.data if dataset else data), specs)
         for product in products:
-            results[(alias, rnd, product)] = study(days, product)
+            results[(data, label, product)] = study(days, product)
 
     print("1. Gould & Bonart: the direction of the next mid change from ρ one tick before, leaving one day out.\n")
     print("| Data | Product | Mid changes | ROC area | Squared error vs a coin flip | x1 per day | ROC area by spread (ticks: n, area) |")
@@ -209,7 +229,7 @@ def main() -> None:
     for (alias, rnd, product), o in results.items():
         slopes = ", ".join(f"{s:+.2f}" for s in o["slopes"])
         spreads = "; ".join(f"{k}: {n:,}, {a:.2f}" for k, (n, a) in sorted(o["by_spread"].items()))
-        print(f"| {alias} r{rnd} | {product} | {o['n']:,} | {o['auc']:.3f} | {o['brier'] * 100:+.1f}% | {slopes} | {spreads} |")
+        print(f"| {(alias + " " + rnd).strip()} | {product} | {o['n']:,} | {o['auc']:.3f} | {o['brier'] * 100:+.1f}% | {slopes} | {spreads} |")
 
     for target in ("wall_mid", "mid"):
         print(f"\n2. Root mean squared error of each candidate against the {target} H ticks later (pooled over the days; "
@@ -222,14 +242,14 @@ def main() -> None:
                 r = o["rmse"][(target, h)]
                 best = min(r.values())
                 cells = [f"**{r[n]:.3f}**" if r[n] == best else f"{r[n]:.3f}" for n in names]
-                print(f"| {alias} r{rnd} | {product} | {h} | " + " | ".join(cells) + " |")
+                print(f"| {(alias + " " + rnd).strip()} | {product} | {h} | " + " | ".join(cells) + " |")
 
     print("\n3. The fitted b (ticks of wall-mid move per unit of ρ) on each day alone, target the wall mid.\n")
     print("| Data | Product | " + " | ".join(f"H={h}" for h in HORIZONS) + " |")
     print("|---|---|" + "---|" * len(HORIZONS))
     for (alias, rnd, product), o in results.items():
         cells = [", ".join(f"{b:+.2f}" for b in o["b"][("wall_mid", h)]) for h in HORIZONS]
-        print(f"| {alias} r{rnd} | {product} | " + " | ".join(cells) + " |")
+        print(f"| {(alias + " " + rnd).strip()} | {product} | " + " | ".join(cells) + " |")
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |
 | `python/tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
-| `python/experiments/` | One-off studies whose results are in `IDEAS.md` |
+| `python/experiments/` | One-off studies whose results are in `IDEAS.md`; [its README](python/experiments/README.md) lists all of them, and the commands that run the re-tests on the day's data (`--data`, `--format`) |
 | `rust/` | The Rust twins of the engine, the simulator, the grid's statistics and the bots, laid out as `python/` is (`rust/src/arena/engine.rs` for `python/arena/engine.py`); see [rust/README.md](rust/README.md) |
 | [`ON_THE_DAY.md`](ON_THE_DAY.md) | What to find out about the real Arena at the event, and what each answer changes here |
 | [`TODO.md`](TODO.md) | Prep work left before the event |

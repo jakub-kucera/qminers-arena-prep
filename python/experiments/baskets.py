@@ -1,6 +1,7 @@
 """Trading a basket's spread with the template, scored on days it wasn't tuned on.
 
 usage (from the repo root): uv run python -m experiments.baskets [--jobs N] [--engine rust]
+       uv run python -m experiments.baskets --data DIR --days 2 --basket B1=LEG1:6,LEG2:3 [--basket ...] [--format F --bot FILE]
 
 Datasets: P3 round 2 (PICNIC_BASKET1 = 6 Croissants + 3 Jams + 1 Djembes, PICNIC_BASKET2 =
 4 Croissants + 2 Jams) and P2 round 3 (GIFT_BASKET = 4 Chocolate + 6 Strawberries + 1 Roses),
@@ -19,6 +20,10 @@ per basket held. clear_edge is about half of each product's spread.
 3. For comparison, on the same days: plain market making on the baskets and legs (the template
    with fair wall_mid, make_edge 1), the best setting chosen on all three days (in-sample), and
    the held-out settings with the level from the day so far ("day").
+
+With --data (the day's download) the baskets come from --basket (NAME=LEG:WEIGHT,...; a family
+that sums to a constant is a basket with legs of weight -1), each product's limit from the data,
+and each clear_edge about half its median spread.
 """
 
 import argparse
@@ -29,7 +34,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
-from arena.cli import add_engine_argument, backtest
+from arena.cli import add_dataset_arguments, add_engine_argument, backtest, dataset_from
 from arena.engine import EngineConfig
 from arena.formats import FORMATS
 
@@ -56,14 +61,52 @@ DATASETS = {
 GRID = {"k": [0.5, 0.75, 1.0, 1.5, 2.0], "level_exit": [None, 0], "hedge_ratio": [0.0, 0.5, 1.0]}
 _DAYS: dict = {}
 ENGINE = ["python"]  # set in each worker by _init (--engine)
+FORMAT = "prosperity"  # --data sets it, with FMT, TEMPLATE and DATASETS
 
 
-def _init(engine="python"):
+def _init(engine="python", settings=None):
     ENGINE[0] = engine
-    if engine == "rust":  # the workers' Rust reads each day's CSVs itself (_run): nothing to load
+    globals().update(settings or {})
+    globals()["FMT"] = FORMATS[FORMAT]
+    if engine == "rust" and FORMAT == "prosperity":  # the workers' Rust reads each day's CSVs itself (_run): nothing to load
         return
     for name, d in DATASETS.items():
         _DAYS[name] = {day.name: day for day in FMT.load_days(FMT.resolve_data_dir(d["data"]), d["days"])}
+
+
+def parse_basket(text: str) -> tuple[str, dict[str, float]]:
+    """`NAME=LEG:WEIGHT,LEG:WEIGHT` (--basket) as (basket, {leg: weight})."""
+    name, sep, legs = text.partition("=")
+    try:
+        weights = {leg.strip(): float(weight) for leg, weight in (part.split(":") for part in legs.split(","))}
+    except ValueError:
+        raise ValueError(f"--basket {text!r}: write NAME=LEG:WEIGHT,LEG:WEIGHT, e.g. PICNIC_BASKET2=CROISSANTS:4,JAMS:2") from None
+    if not sep or not name.strip() or not weights:
+        raise ValueError(f"--basket {text!r}: write NAME=LEG:WEIGHT,LEG:WEIGHT")
+    return name.strip(), {leg: int(w) if w == int(w) else w for leg, w in weights.items()}
+
+
+def _dataset_settings(dataset, baskets: list[str]) -> dict:
+    """DATASETS for the day's data: the baskets from --basket, limits from the data, clear_edge half the median spread."""
+    fmt = FORMATS[dataset.format]
+    days = fmt.load_days(fmt.resolve_data_dir(dataset.data), list(dataset.days))
+    limits = {p: v for day in days for p, v in day.limits.items()}
+    spreads: dict = {}
+    for day in days:
+        for tick in day.ticks:
+            for product, book in tick.books.items():
+                if book.bids and book.asks:
+                    spreads.setdefault(product, []).append(book.asks[0][0] - book.bids[0][0])
+    edge = {p: max(1, round(st.median(s) / 2)) for p, s in spreads.items()}
+    parsed = dict(parse_basket(text) for text in baskets)
+    missing = sorted({p for name, legs in parsed.items() for p in (name, *legs)} - set(limits))
+    if missing:
+        raise ValueError(f"not in the data: {', '.join(missing)}")
+    legs = {leg for weights in parsed.values() for leg in weights}
+    d = {"data": dataset.data, "days": list(dataset.days),
+         "baskets": {name: (weights, limits[name], edge.get(name, 1)) for name, weights in parsed.items()},
+         "legs": {leg: (limits[leg], edge.get(leg, 1)) for leg in sorted(legs)}}
+    return {"DATASETS": {dataset.name: d}, "TEMPLATE": Path(dataset.bot), "FORMAT": dataset.format}
 
 
 def spreads(day, basket, legs) -> list[float]:
@@ -108,8 +151,9 @@ def overrides(d, setting) -> dict:
 def _run(job):
     name, setting, day_name = job
     d = DATASETS[name]
-    day = rust.named_day(d["data"], day_name) if ENGINE[0] == "rust" else _DAYS[name][day_name]
-    (result,) = backtest(day, [("you", TEMPLATE, overrides(d, _thaw(setting)), False)], EngineConfig(), ENGINE[0], True, ("pnl", "errors", "breaches"))
+    day = rust.named_day(d["data"], day_name) if ENGINE[0] == "rust" and FORMAT == "prosperity" else _DAYS[name][day_name]
+    (result,) = backtest(day, [("you", TEMPLATE, overrides(d, _thaw(setting)), False)], EngineConfig(), ENGINE[0], True,
+                         ("pnl", "errors", "breaches"), FORMAT)
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     baskets = sum(pnl.get(b, 0.0) for b in d["baskets"])
     legs = sum(pnl.get(leg, 0.0) for leg in d["legs"])
@@ -135,10 +179,20 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--jobs", type=int, default=None)
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
+    add_dataset_arguments(parser, products=False)
+    parser.add_argument("--basket", action="append", default=[], metavar="NAME=LEG:WEIGHT,...",
+                        help="with --data: a basket and its legs (repeatable), e.g. PICNIC_BASKET2=CROISSANTS:4,JAMS:2")
     args = parser.parse_args(argv)
+    try:
+        dataset = dataset_from(args)
+        if bool(dataset) != bool(args.basket):
+            raise ValueError("--data and --basket go together: the baskets of the day's data")
+        settings = _dataset_settings(dataset, args.basket) if dataset else {}
+    except ValueError as error:
+        parser.error(str(error))
     if args.engine == "rust":
         rust.require(args.allow_stale)
-    _init()
+    _init(settings=settings)
     stats, jobs, folds = {}, [], {}
     for name, d in DATASETS.items():
         names = list(_DAYS[name])
@@ -158,7 +212,7 @@ def main(argv):
                 if fold != "all":
                     jobs.append((name, _freeze(("day", sds, *values)), fold))
         jobs += [(name, None, day) for day in names]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, settings)) as pool:
         pnl = dict(pool.map(_run, jobs, chunksize=4))
 
     for name, d in DATASETS.items():

@@ -1,6 +1,7 @@
 """What a rival that undercuts us costs the template, and whether undercutting back wins it back.
 
 usage (from the repo root): uv run python -m experiments.undercut [--jobs N] [--engine rust]
+       uv run python -m experiments.undercut --data DIR --days 1 2 [--format F --bot FILE --products A,B] [--war PRODUCT]
 
 Wang et al. (references/wiki/sources/marl-competition-no-collusion.md): a market maker trained to
 cut its rival's PnL quoted tighter and took 84% of the flow. The simplest such rival is a copy of
@@ -14,6 +15,9 @@ variant (OURS) and rival (RIVALS): our PnL, the rival's, and each side's passive
 Then, for Resin (a fair known exactly), --resting: ours at each `make_edge` in EDGES against a
 rival at each, the payoff matrix of the price war.
 Results go into IDEAS.md ("Against a rival that undercuts us").
+
+With --data (the day's download) the one dataset replaces DATASETS, and the price-war table is
+for the product --war names (a fair known exactly, Resin-like), or skipped.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor
 
 from arena import rust
-from arena.cli import add_engine_argument, backtest, backtest_days
+from arena.cli import add_dataset_arguments, add_engine_argument, backtest, backtest_days, dataset_from
 from arena.engine import EngineConfig, TradeMatching
 
 TEMPLATE = "python/bots/template.py"
@@ -41,10 +45,13 @@ EDGES = (2, 1, 0)
 
 
 ENGINE = ["python"]  # set in each worker by _init (--engine)
+FORMAT = "prosperity"
+WAR = ("p3", ["1"], "RAINFOREST_RESIN")  # the price war's data, days and product; --data and --war change it
 
 
-def _init(engine: str) -> None:
+def _init(engine: str, settings: dict | None = None) -> None:
     ENGINE[0] = engine
+    globals().update(settings or {})
 
 
 def _overrides(products: list[str], edge: int | None) -> dict:
@@ -59,11 +66,11 @@ def run(task: tuple[str, str, str, str]) -> tuple[tuple, dict]:
     dataset, mode, ours, rival = task
     data, days, products = DATASETS[dataset]
     out = {p: {"pnl": 0.0, "rival": 0.0, "passive": 0, "rival passive": 0, "days": []} for p in products}
-    for day in backtest_days(data, days, ENGINE[0]):
+    for day in backtest_days(data, days, ENGINE[0], FORMAT):
         bots = [("template", TEMPLATE, _overrides(products, OURS[ours]), False)]
         if RIVALS[rival] != "none":
             bots.append(("rival", TEMPLATE, _overrides(products, RIVALS[rival]), False))
-        results = backtest(day, bots, MODES[mode], ENGINE[0], fields=("pnl", "fills"))
+        results = backtest(day, bots, MODES[mode], ENGINE[0], fields=("pnl", "fills"), format_name=FORMAT)
         for p in products:
             o = out[p]
             pnl = results[0].pnl[p][-1] if results[0].pnl.get(p) else 0.0
@@ -80,12 +87,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.undercut")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
+    add_dataset_arguments(parser)
+    parser.add_argument("--war", metavar="PRODUCT", help="with --data: the product of the price-war table (default: none)")
     args = parser.parse_args()
+    try:
+        dataset = dataset_from(args)
+    except ValueError as error:
+        parser.error(str(error))
     if args.engine == "rust":
         rust.require(args.allow_stale)
+    settings = {}
+    if dataset:
+        settings = {"DATASETS": {dataset.name: (dataset.data, list(dataset.days), list(dataset.products))}, "TEMPLATE": dataset.bot,
+                    "FORMAT": dataset.format, "WAR": (dataset.data, list(dataset.days), args.war) if args.war else None}
+    globals().update(settings)
     tasks = [(d, m, o, r) for d in DATASETS for m in MODES for o in OURS for r in RIVALS]
-    pairs = [(o, r) for o in EDGES for r in (None, *EDGES)]
-    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine,)) as pool:
+    pairs = [(o, r) for o in EDGES for r in (None, *EDGES)] if WAR else []
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, settings)) as pool:
         results = dict(pool.map(run, tasks))
         resin = dict(pool.map(resin_war, pairs))
     print("PnL in thousands over the dataset's days, per product; 'share' is our share of the two bots' passive fill")
@@ -99,7 +117,10 @@ def main() -> None:
                 for o in OURS:
                     for r in RIVALS:
                         print(_row(p, m, o, r, results[(d, m, o, r)][p], base))
-    print("\nRAINFOREST_RESIN, P3 round 1, --resting: ours / the rival's PnL in thousands, by each one's make_edge.\n")
+    if not WAR:
+        return
+    where = "P3 round 1" if not dataset else dataset.name
+    print(f"\n{WAR[2]}, {where}, --resting: ours / the rival's PnL in thousands, by each one's make_edge.\n")
     print("| Ours \\ rival | alone | " + " | ".join(str(e) for e in EDGES) + " |")
     print("|---|---|" + "---|" * len(EDGES))
     for o in EDGES:
@@ -109,12 +130,13 @@ def main() -> None:
 
 def resin_war(pair: tuple[int, int | None]) -> tuple[tuple, tuple[float, float]]:
     ours, rival = pair
-    key = "PARAMS.RAINFOREST_RESIN.make_edge"
+    data, days, product = WAR
+    key = f"PARAMS.{product}.make_edge"
     totals = [0.0, 0.0]
-    for day in backtest_days("p3", ["1"], ENGINE[0]):
+    for day in backtest_days(data, days, ENGINE[0], FORMAT):
         bots = [("template", TEMPLATE, {key: ours}, False)] + ([("rival", TEMPLATE, {key: rival}, False)] if rival is not None else [])
-        for k, result in enumerate(backtest(day, bots, EngineConfig(resting=True), ENGINE[0], fields=("pnl",))):
-            totals[k] += result.pnl["RAINFOREST_RESIN"][-1]
+        for k, result in enumerate(backtest(day, bots, EngineConfig(resting=True), ENGINE[0], fields=("pnl",), format_name=FORMAT)):
+            totals[k] += result.pnl[product][-1]
     return pair, tuple(totals)
 
 

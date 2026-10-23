@@ -1,6 +1,7 @@
 """Is there a volatility smile to trade? P3's volcanic vouchers, by held-out days.
 
 usage (from the repo root): uv run python -m experiments.p3_smile [--window N] [--engine rust]
+       uv run python -m experiments.p3_smile --data DIR --days 3-0 3-1 --underlying U --prefix U_OPT_ --expiry r3d0=8,r3d1=7 [--format F --bot FILE]
 
 The five distinct days with the vouchers: P3 round 3 days 0-2, round 4 day 3 and round 5 day 4
 (round 4 days 1-2 and round 5 days 2-3 repeat them; arena.grid.repeated_days). Time to expiry is
@@ -24,6 +25,12 @@ mids; the rock's is the spot S.
    worse and with --resting, with or without a delta hedge in the rock (`hedge_ratio` 1: the rock holds minus the
    vouchers' delta). Then the variant chosen by PnL on the other four days, scored on the fifth.
 Results go into IDEAS.md ("Options: trading implied-volatility deviations from a fitted smile").
+
+With --data (the day's download), the options are the products named --prefix plus a strike, on
+--underlying, with --expiry the days to expiry at each day's open (by day name, as the tables show
+it). The variants cover every strike found, and the trading part sets each product's whole PARAMS
+entry (limits from the data), since the bot's own PARAMS may not list them. The fit needs at least
+two days (it leaves one out).
 """
 
 from __future__ import annotations
@@ -35,7 +42,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
 from arena import rust
-from arena.cli import add_engine_argument, backtest as run_backtest
+from arena.cli import add_dataset_arguments, add_engine_argument, backtest as run_backtest, dataset_from
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
 from experiments.p4_vouchers import bs_call, implied_vol
@@ -63,12 +70,39 @@ VARIANTS = {
 }
 
 
+DATA, FORMAT, EXPIRY, LIMITS, CUSTOM = "p3", "prosperity", {}, {}, False  # --data sets them (_settings)
+
+
 def days_to_expiry(day_name: str) -> int:
-    return 8 - int(day_name.split("d")[-1])
+    return EXPIRY[day_name] if EXPIRY else 8 - int(day_name.split("d")[-1])
 
 
 def load():
-    return FMT.load_days(FMT.resolve_data_dir("p3"), DAYS)
+    return FMT.load_days(FMT.resolve_data_dir(DATA), DAYS)
+
+
+def _settings(dataset, underlying: str, prefix: str, expiry: str) -> dict:
+    """The module's settings for the day's data: its options (found by prefix), expiry and limits, and
+    variants over every strike."""
+    fmt = FORMATS[dataset.format]
+    days = fmt.load_days(fmt.resolve_data_dir(dataset.data), list(dataset.days))
+    strikes = tuple(sorted({int(p.removeprefix(prefix)) for day in days for p in day.products if p.startswith(prefix) and p.removeprefix(prefix).isdigit()}))
+    if underlying not in {p for day in days for p in day.products} or not strikes:
+        raise ValueError(f"no {underlying} or no options named {prefix}<strike> in the data")
+    try:
+        table = {name: int(n) for name, n in (part.split("=") for part in expiry.split(","))}
+    except ValueError:
+        raise ValueError(f"--expiry {expiry!r}: write DAY=DAYS,..., e.g. r3d0=8,r3d1=7") from None
+    missing = [day.name for day in days if day.name not in table]
+    if missing:
+        raise ValueError(f"--expiry has no entry for {', '.join(missing)}")
+    variants = {
+        f"all strikes, take {take}{', make ' + str(make) if make is not None else ''}{', hedged' if hedge else ''}": (strikes, take, make, hedge, "smile")
+        for take in (0.5, 1, 1.5, 2) for make in (None, 1) for hedge in (0, 1)
+    } | {f"control: all strikes, take 0.5, make 1, {model} model": (strikes, 0.5, 1, 0, model) for model in ("flat", "none")}
+    return {"DATA": dataset.data, "DAYS": list(dataset.days), "FORMAT": dataset.format, "FMT": fmt, "TEMPLATE": dataset.bot,
+            "UNDERLYING": underlying, "PREFIX": prefix, "STRIKES": strikes, "EXPIRY": table, "VARIANTS": variants, "CUSTOM": True,
+            "KEEP": [underlying, *(f"{prefix}{k}" for k in strikes)], "LIMITS": {p: v for day in days for p, v in day.limits.items()}}
 
 
 def points(day) -> list[dict]:
@@ -135,6 +169,20 @@ def overrides(variant: str | None, coef: tuple[float, float, float], expiry: int
     strikes, take, make, hedge, model = VARIANTS[variant]
     if model == "flat":
         coef = (0.0, 0.0, coef[2])
+    if CUSTOM:  # whole entries: the bot's PARAMS needn't list these products
+        out = {f"PARAMS.{UNDERLYING}": {"limit": LIMITS[UNDERLYING], "fair": "wall_mid", "hedge": True, "take_edge": 10**6, "make_size": 0, "clear_edge": 1}}
+        for k in STRIKES:
+            product = f"{PREFIX}{k}"
+            entry = {"limit": LIMITS[product], "fair": "wall_mid", "strike": k}
+            if k in strikes and model == "none":
+                entry |= {"take_edge": take, "make_size": None, "make_edge": make, "clear_edge": 0}
+            elif k in strikes:
+                entry |= {"smile": coef, "underlying": UNDERLYING, "expiry": expiry, "take_edge": take, "make_size": None if make is not None else 0,
+                          "make_edge": make if make is not None else 2, "clear_edge": 0, "hedge_ratio": hedge}
+            else:
+                entry |= {"take_edge": 10**6, "make_size": 0}
+            out[f"PARAMS.{product}"] = entry
+        return out
     out = {"PARAMS.VOLCANIC_ROCK.level": None, "PARAMS.VOLCANIC_ROCK.hedge": True, "PARAMS.VOLCANIC_ROCK.take_edge": 10**6,
            "PARAMS.VOLCANIC_ROCK.make_size": 0, "PARAMS.VOLCANIC_ROCK.clear_edge": 1}
     for k in STRIKES:
@@ -154,27 +202,30 @@ def overrides(variant: str | None, coef: tuple[float, float, float], expiry: int
 ENGINE = ["python"]  # set in each worker by _init (--engine)
 
 
-def _init(engine: str) -> None:
+def _init(engine: str, settings: dict | None = None) -> None:
     ENGINE[0] = engine
+    globals().update(settings or {})
+    globals()["FMT"] = FORMATS[FORMAT]
 
 
 def backtest(job: tuple[str, str | None, str, tuple]) -> tuple[tuple, dict]:
     day_name, variant, mode, coef = job
-    if ENGINE[0] == "rust":  # Rust reads the day's CSVs itself, keeping the options: nothing to load here
+    if ENGINE[0] == "rust" and FORMAT == "prosperity":  # Rust reads the day's CSVs itself, keeping the options: nothing to load here
         r, d = day_name.removeprefix("r").split("d")
-        day = rust.prosperity_day("p3", int(r), int(d), KEEP)
+        day = rust.prosperity_day(DATA, int(r), int(d), KEEP)
     else:
         (day,) = [_only_options(d) for d in load() if d.name == day_name]
     bots = [("you", TEMPLATE, overrides(variant, coef, days_to_expiry(day_name)), False)]
-    (result,) = run_backtest(day, bots, MODES[mode], ENGINE[0], fields=("pnl", "errors", "breaches"))
+    (result,) = run_backtest(day, bots, MODES[mode], ENGINE[0], fields=("pnl", "errors", "breaches"), format_name=FORMAT)
     pnl = {p: s[-1] for p, s in result.pnl.items() if s}
     return (day_name, variant, mode), {"rock": pnl.get(UNDERLYING, 0.0), "options": sum(v for p, v in pnl.items() if p != UNDERLYING),
                                        "errors": len(result.errors), "breaches": len(result.limit_breaches)}
 
 
-def trade(held: dict, engine: str = "python") -> None:
+def trade(held: dict, engine: str = "python", settings: dict | None = None) -> None:
     jobs = [(d, v, m, held[d]) for d in held for v in (None, *VARIANTS) for m in MODES]
-    with ProcessPoolExecutor(initializer=_init, initargs=(engine,)) as pool:
+    settings = {k: v for k, v in (settings or {}).items() if k != "FMT"}  # a module doesn't pickle: _init finds it
+    with ProcessPoolExecutor(initializer=_init, initargs=(engine, settings)) as pool:
         results = dict(pool.map(backtest, jobs))
     names = list(held)
     print("\n3. Trading it: rock + vouchers PnL in thousands per day (rock / vouchers in the total column), under all; worse and --resting in the last columns\n")
@@ -204,9 +255,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.p3_smile")
     parser.add_argument("--window", type=int, default=20, help="EMA ticks for the residual's slow part (default 20)")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
+    add_dataset_arguments(parser, products=False)
+    parser.add_argument("--underlying", help="with --data: the options' underlying")
+    parser.add_argument("--prefix", help="with --data: the options' common name; the strike is the number after it")
+    parser.add_argument("--expiry", help="with --data: days to expiry at each day's open, e.g. r3d0=8,r3d1=7")
     args = parser.parse_args()
+    try:
+        dataset = dataset_from(args)
+        if dataset and not (args.underlying and args.prefix and args.expiry):
+            raise ValueError("--data needs --underlying, --prefix and --expiry")
+        settings = _settings(dataset, args.underlying, args.prefix, args.expiry) if dataset else {}
+    except ValueError as error:
+        parser.error(str(error))
     if args.engine == "rust":
         rust.require(args.allow_stale)
+    globals().update(settings)
     by_day = {day.name: points(day) for day in load()}
     alpha = 2 / (args.window + 1)
 
@@ -237,7 +300,7 @@ def main() -> None:
             alive = sum(1 for r in series if r["v"] is not None)
             print(f"| {name} | {product.removeprefix(PREFIX)} | {alive:,} | {st.fmean(residual):+.2f} | {st.pstdev(residual):.2f} | "
                   f"{st.pstdev(fast):.2f} | {lag1:.2f} | {st.fmean(r['half_spread'] for r in series):.2f} |")
-    trade(held, args.engine)
+    trade(held, args.engine, settings)
 
 
 if __name__ == "__main__":

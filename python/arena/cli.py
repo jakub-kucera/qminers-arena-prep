@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -138,32 +139,102 @@ def participants(bot: Path, overrides: dict[str, object], rivals: list[Path], re
     return [(names[0], bot, overrides, False)] + [(name, path, {}, requote) for name, path in zip(names[1:], rivals)]
 
 
-def backtest_days(data: str, specs: list[str], engine: str = "python") -> list:
-    """The Prosperity days the specs select, for backtests through `backtest` only: Python Days, or
-    with engine "rust" references to their CSVs that Rust reads itself (nothing loaded here)."""
-    from arena.formats import prosperity
-
-    if engine == "rust":
+def backtest_days(data: str, specs: list[str], engine: str = "python", format_name: str = "prosperity") -> list:
+    """The days the specs select, for backtests through `backtest` only: Python Days, or with engine
+    "rust" and Prosperity data, references to their CSVs that Rust reads itself (nothing loaded here).
+    A day in another format is loaded here, and Rust gets it exported once per process."""
+    fmt = FORMATS[format_name]
+    if engine == "rust" and format_name == "prosperity":
         from arena import rust
 
         return rust.prosperity_days(data, specs)
-    return prosperity.load_days(prosperity.resolve_data_dir(data), specs)
+    return fmt.load_days(fmt.resolve_data_dir(data), specs)
 
 
 def backtest(day: Day, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, engine: str = "python", strict: bool = False,
-             fields: tuple[str, ...] | None = None) -> list[DayResult]:
-    """The (name, bot file, overrides, requote) participants in one market on one day, in the
-    Prosperity format, on either engine: each one's DayResult. With engine "rust" the day may be a
-    day file (arena.rust.sim_day_file), `fields` limits what is read back, and `strict` is moot
+             fields: tuple[str, ...] | None = None, format_name: str = "prosperity") -> list[DayResult]:
+    """The (name, bot file, overrides, requote) participants in one market on one day, in the format
+    (Prosperity's by default), on either engine: each one's DayResult. With engine "rust" the day may
+    be a day file (arena.rust.sim_day_file), `fields` limits what is read back, and `strict` is moot
     (a Rust twin can't raise from a bug)."""
     if engine == "rust":
         from arena import rust
 
         return rust.backtest(day, bots, config, fields)
-    from arena.formats import prosperity
-
-    loaded = [(name, prosperity.load_bot(path, overrides, strict)) for name, path, overrides, _ in bots]
+    fmt = FORMATS[format_name]
+    loaded = [(name, fmt.load_bot(path, overrides, strict)) for name, path, overrides, _ in bots]
     return run_market(day, [(name, Requote(bot) if requote else bot) for (name, bot), (*_, requote) in zip(loaded, bots)], config)
+
+
+# ---------------------------------------------------------------------------- the day's data, for the experiments
+
+TEMPLATE = Path("python/bots/template.py")
+TEMPLATES = {"prosperity": TEMPLATE, "drill": Path("python/bots/drill/template.py")}  # the default --bot per format
+
+
+def add_dataset_arguments(parser: argparse.ArgumentParser, products: bool = True, bot: bool = True) -> None:
+    """--data, --days, --format, --bot and --products: one dataset in place of an experiment's
+    built-in Prosperity ones, so it runs on the day's download (dataset_from reads them). Without
+    --data the experiment runs as it always has, so the results it gave stay reproducible."""
+    group = parser.add_argument_group("the day's data", "one dataset in place of the experiment's built-in Prosperity ones, "
+                                      "e.g. --data data/arena --days 1 2 --format qminers --bot python/bots/qminers/template.py")
+    group.add_argument("--data", help="a data folder, or p2 / p3 / p4")
+    group.add_argument("--days", nargs="+", help="day specs as arena.backtest takes them (required with --data), e.g. 1 2, or all for drill sessions")
+    group.add_argument("--format", default="prosperity", choices=sorted(FORMATS), help="the data's format (default: prosperity)")
+    if bot:
+        group.add_argument("--bot", type=Path, help="the template file to run, written for that format (default: "
+                           + ", ".join(f"{path} for {name}" for name, path in TEMPLATES.items()) + ")")
+    if products:
+        group.add_argument("--products", help="comma-separated products to study (default: every product in the data"
+                           + (" that the bot's PARAMS lists)" if bot else ")"))
+
+
+@dataclass(frozen=True)
+class Dataset:
+    """The dataset add_dataset_arguments names: where it is, which days, its format, the bot and the products."""
+
+    name: str  # as the experiment's tables show it
+    data: str
+    days: tuple[str, ...]
+    format: str = "prosperity"
+    bot: str = str(TEMPLATE)
+    products: tuple[str, ...] = ()
+
+
+def dataset_from(args: argparse.Namespace) -> Dataset | None:
+    """The dataset the arguments name, or None when there is no --data (the experiment's own). A
+    ValueError for options that need --data, or --data without --days."""
+    bot = getattr(args, "bot", None)
+    if args.data is None:
+        if args.format != "prosperity" or bot is not None or args.days or getattr(args, "products", None):
+            raise ValueError("--days, --format, --bot and --products choose the day's data: give --data too")
+        return None
+    if not args.days:
+        raise ValueError("--data needs --days, e.g. --days 1 2 (Prosperity rounds) or --days all (drill sessions)")
+    fmt = FORMATS[args.format]
+    bot = str(bot or TEMPLATES.get(args.format, TEMPLATE))
+    if getattr(args, "products", None):
+        products = tuple(p.strip() for p in args.products.split(",") if p.strip())
+    else:
+        days = fmt.load_days(fmt.resolve_data_dir(args.data), list(args.days))
+        products = sorted({p for day in days for p in day.products})
+        if hasattr(args, "bot"):
+            listed = bot_params(bot, args.format)
+            products = [p for p in products if p in listed]
+        products = tuple(products)
+    return Dataset(f"{Path(args.data).name or args.data} {' '.join(args.days)}", args.data, tuple(args.days), args.format, bot, products)
+
+
+def bot_module(path: str | Path, format_name: str):
+    """The bot file loaded as a module under its format (with that format's provided modules)."""
+    FORMATS[format_name].load_bot(Path(path), {}, strict=False)
+    return sys.modules[f"arena_bot_{Path(path).stem}"]  # BotFile.load registers the module under this name
+
+
+def bot_params(path: str | Path, format_name: str) -> dict:
+    """The bot file's PARAMS, as it loads under its format ({} if it has none)."""
+    params = getattr(bot_module(path, format_name), "PARAMS", None)
+    return params if isinstance(params, dict) else {}
 
 
 def run_with_rivals(

@@ -45,6 +45,7 @@ uv run python -m experiments.format_drill --sync                   # copy the te
 uv run python -m arena.analysis --grid results/grid.csv           # grid heatmaps
 uv run --group analysis jupyter lab python/notebooks/analysis.ipynb      # the analysis group adds Jupyter
 uv run python -m experiments.p4_levels                            # a one-off study; its numbers are in IDEAS.md
+uv run python -m experiments.glft_skew --data data/arena --days 1 --format qminers --bot python/bots/qminers/template.py   # a re-test on the day's data (python/experiments/README.md lists which take it)
 uv run python -m experiments.zoo                                  # scores every LLM-written bot in python/bots/zoo/ against the template (--local: local models in the field too)
 uv run python -m experiments.zoo_h2h                              # the template against each zoo bot, per product, under all and worse
 uv run python -m experiments.adversaries                          # the template against a trapper, spoofers and a sniper (python/bots/rivals/), --resting
