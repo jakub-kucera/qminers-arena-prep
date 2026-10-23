@@ -88,5 +88,5 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
   - Done when: the names are in that section, accommodation is booked (or the team decides to stay awake), and the mock round has tried the rota's handover.
 - [ ] **Keep the repository private.** `literature_md/` holds Marker conversions of copyrighted books and papers, committed (the audit's L5, `TODO_DONE.md`, "From the audit (2026-10-22)"). Nothing to do while it stays private.
   - Done when: the event is over and the repository is still private, or `literature_md/` was removed from the history before any change of visibility.
-- [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), a passing `uv run pytest`, and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
-  - Done when: everyone has run the template backtest on their own machine.
+- [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), cargo for `--engine rust` (`brew install rust`), a passing `uv run pytest` with no "needs cargo" or "needs references" skips (without either, the run still passes but skips every parity check), and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
+  - Done when: everyone has run the template backtest on their own machine, on both engines (`--engine rust`).
