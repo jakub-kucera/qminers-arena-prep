@@ -1,7 +1,7 @@
 {
   "python/arena/engine.py": {
     "rust": "rust/src/arena/engine.rs",
-    "sha256": "27ee90dddf16dd501cfef6d3dcebb8a574dec8843e382a4d51c434f244595ee9"
+    "sha256": "5a400173e6e69f44b976f2c12b2825748cbf08ea3cfe356d15bdd16084529266"
   },
   "python/arena/formats/prosperity.py": {
     "rust": "rust/src/arena/formats/prosperity.rs",
@@ -9,7 +9,7 @@
   },
   "python/arena/sim.py": {
     "rust": "rust/src/arena/sim.rs",
-    "sha256": "f634162e1576512aba970539f427d461fdfe9026252bba189fed99ba8da42fcc"
+    "sha256": "8e1eabc73d0850f17247fada9808861f8894114b6119b4bf151feb46f27731fc"
   },
   "python/arena/stats.py": {
     "rust": "rust/src/arena/stats.rs",

@@ -188,7 +188,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
     rng = random.Random(config.seed)
     arrival = random.Random(f"arrival-{config.seed}")
     players = [
-        _Participant(name, bot, _new_result(day), dict.fromkeys(day.products, 0), dict.fromkeys(day.products, 0.0))
+        _Participant(name, bot, new_result(day), dict.fromkeys(day.products, 0), dict.fromkeys(day.products, 0.0))
         for name, bot in bots
     ]
     for _, bot in bots:
@@ -221,7 +221,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         for i, player in enumerate(players):
             mine = [order.view() for order in resting if order.owner == i]
             seen = _seen_by(tick, resting, i)
-            actions.append(_call_bot(player.bot, seen, player.position, player.unseen_fills, player.market_trades, mine, config, player.result))
+            actions.append(call_bot(player.bot, seen, player.position, player.unseen_fills, player.market_trades, mine, config, player.result))
             decided.append((dict(player.position), mine))  # what the bot based its orders on
             player.unseen_fills = []
 
@@ -235,12 +235,12 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             mine = [order for order in working if order.owner == i]
             orders, cancelled, kept = _cancel(actions[i], mine, {o.id for o in seen}, config.resting, tick.timestamp, player.result)
             working = [order for order in working if order.id not in cancelled]
-            orders = _known(orders, day.limits, tick.timestamp, player.result)
+            orders = known(orders, day.limits, tick.timestamp, player.result)
             # Orders that don't fit the position the bot saw are its bug. Orders that did fit, but
             # no longer do because another bot filled one of its orders since, lost a race.
             # Both are rejected, as Prosperity does: every new order for that product.
-            breached = _breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], day.limits)
-            raced = _breaches(orders, player.position, kept, day.limits) - breached
+            breached = breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], day.limits)
+            raced = breaches(orders, player.position, kept, day.limits) - breached
             player.result.limit_breaches.extend((tick.timestamp, product) for product in sorted(breached))
             player.result.races.extend((tick.timestamp, product) for product in sorted(raced))
             orders = [order for order in orders if order.product not in breached | raced]
@@ -271,12 +271,16 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         for product in day.products:
             mark[product] = _mark(tick, product, mark[product])
         for player in players:
-            _record(player, tick, mark)
+            record(player, tick, mark)
 
     return [player.result for player in players]
 
 
-def _new_result(day: Day) -> DayResult:
+# Public, since arena.sim's market runs bots with them too (python/arena/sim.py): new_result, record,
+# call_bot, known and breaches. The rest of this module is private to it.
+
+
+def new_result(day: Day) -> DayResult:
     return DayResult(
         day.name,
         day.products,
@@ -290,7 +294,7 @@ def _new_result(day: Day) -> DayResult:
     )
 
 
-def _record(player: _Participant, tick: Tick, mark: dict[str, float]) -> None:
+def record(player: _Participant, tick: Tick, mark: dict[str, float]) -> None:
     result = player.result
     result.timestamps.append(tick.timestamp)
     for product in result.products:
@@ -304,7 +308,7 @@ def _record(player: _Participant, tick: Tick, mark: dict[str, float]) -> None:
     result.market_trades.extend((tick.timestamp, trade) for trades in tick.trades.values() for trade in trades)
 
 
-def _call_bot(bot, tick, position, own_fills, market_trades, open_orders, config, result) -> list[Order | Cancel]:
+def call_bot(bot, tick, position, own_fills, market_trades, open_orders, config, result) -> list[Order | Cancel]:
     output = io.StringIO()
     start = time.perf_counter()
     try:
@@ -339,7 +343,7 @@ def _cancel(actions, resting: list[_Live], seen: set[int], resting_mode: bool, t
     return orders, cancelled, [order for order in resting if order.id not in cancelled]
 
 
-def _known(orders, limits, timestamp, result) -> list[Order]:
+def known(orders, limits, timestamp, result) -> list[Order]:
     """Drops empty orders, and orders for unknown products (an error)."""
     for order in orders:
         if order.product not in limits:
@@ -347,7 +351,7 @@ def _known(orders, limits, timestamp, result) -> list[Order]:
     return [order for order in orders if order.product in limits and order.quantity != 0]
 
 
-def _breaches(orders, position, resting, limits) -> set[str]:
+def breaches(orders, position, resting, limits) -> set[str]:
     """Products whose new orders could breach the limit: all their buys, or all their sells, filling.
 
     Resting orders (anything with .product and .quantity) count too. They always fit on their

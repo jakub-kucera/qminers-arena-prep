@@ -65,7 +65,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 
-from arena.engine import Bot, DayResult, EngineConfig, QueueModel, TradeMatching, _breaches, _call_bot, _known, _new_result, _record
+from arena.engine import Bot, DayResult, EngineConfig, QueueModel, TradeMatching, breaches, call_bot, known, new_result, record
 from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Tick
 
 DEPTH = 3  # levels a side in a snapshot, as in Prosperity's price files
@@ -582,7 +582,7 @@ def run(
     limits = {p.name: p.limit for p in spec.products}
     day_name = name or f"sim{seed}"
     shell = Day(day_name, list(products), limits, [])
-    players = [_Player(n, bot, _new_result(shell), dict.fromkeys(products, 0), dict.fromkeys(products, 0.0)) for n, bot in bots]
+    players = [_Player(n, bot, new_result(shell), dict.fromkeys(products, 0), dict.fromkeys(products, 0.0)) for n, bot in bots]
     for _, bot in bots:
         if hasattr(bot, "begin_day"):
             bot.begin_day(shell)
@@ -650,7 +650,7 @@ def run(
         ticks.append(Tick(timestamp, books, trades, {p: m for p, m in ((p, _mid(b)) for p, b in books.items()) if m is not None}))
         tick_marked = Tick(timestamp, books, {}, dict(marks))
         for player in players:
-            _record(player, tick_marked, marks)
+            record(player, tick_marked, marks)
 
     for player in players:
         player.result.market_trades = [(t.timestamp, trade) for t in ticks for trades in t.trades.values() for trade in trades]
@@ -666,7 +666,7 @@ def _bots_trade(players, products, books, since, marks, timestamp, spec, by_name
         market_trades = _by_product(_named(t, spec, by_name) for t in since if player.name not in (t.buyer, t.seller))
         mine = [order.view() for order in player.live.values()]
         seen = Tick(timestamp, seen_books, {}, dict(marks))
-        actions.append(_call_bot(player.bot, seen, player.position, player.unseen_fills, market_trades, mine, config, player.result))
+        actions.append(call_bot(player.bot, seen, player.position, player.unseen_fills, market_trades, mine, config, player.result))
         decided.append((dict(player.position), mine))
         player.unseen_fills = []
 
@@ -688,10 +688,10 @@ def _bots_trade(players, products, books, since, marks, timestamp, spec, by_name
             elif action.order_id not in seen_ids:
                 hint = "" if resting else " (orders only rest in resting mode)"
                 player.result.errors.append((timestamp, f"cancel for order {action.order_id}, which isn't open{hint}"))
-        orders = _known(orders, limits, timestamp, player.result)
+        orders = known(orders, limits, timestamp, player.result)
         kept = [order.view() for order in player.live.values()]
-        breached = _breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], limits)
-        raced = _breaches(orders, player.position, kept, limits) - breached
+        breached = breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], limits)
+        raced = breaches(orders, player.position, kept, limits) - breached
         player.result.limit_breaches.extend((timestamp, product) for product in sorted(breached))
         player.result.races.extend((timestamp, product) for product in sorted(raced))
         placed = []
