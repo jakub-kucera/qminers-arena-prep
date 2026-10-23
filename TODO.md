@@ -138,6 +138,12 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Recommendation: (a) now, since it attacks the largest measured risk and needs no Rust. Keep (b) ready as a small Rust field of archetypes to run if the playground shows a shared market. Leave (c) and (d) unless (b) proves its worth.
   - Done when: the user has chosen, and each chosen option is its own `TODO.md` entry with a "done when".
 
+- [ ] **Write a fallback bot against the Arena's API in the playground?** Raised 2026-10-23 by the audit (M8): `ON_THE_DAY.md` says to upload the plain template early, as the first score and the measure of our engine's error, but that needs the template's ADAPTER rewritten for their API first, which on the drill took about 100 lines.
+  - Evidence: round 1 (13:00) comes 90 minutes after the playground opens (10:30), it weighs 10% and is the "forgiving market"; one bug in a new ADAPTER blocks every upload. A plain market maker written straight against their API (fair at the mid or the largest level, quote one tick inside, cancel and requote each step, stay inside the limit) is 40–60 lines, has no STRATEGY to port, and an agent or the zoo's prompt (`python/bots/zoo/PROMPTS.md`, `market_maker`) can write one from the docs in minutes.
+  - Options: (a) no fallback: the template's ADAPTER is the first upload; (b) the data track writes the fallback during the playground, uploads it once it runs there, and the template replaces it when validated; (c) (b), and keep the fallback as a `--vs` rival and a sanity check of the loader: our engine and theirs should give it similar fills (probe 16).
+  - Recommendation: (c). It costs one person 20–30 minutes and one submission, and it turns the first upload into a known-good one whatever happens to the ADAPTER. Skip it if submissions are scarce (`ON_THE_DAY.md`, "How do submissions work?").
+  - Done when: the user has chosen, and if (b) or (c), `ON_THE_DAY.md`'s timeline names who writes it, and the mock round has tried it.
+
 ## Harder-round prep
 
 Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals"), in this order.
