@@ -18,6 +18,7 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 | `python/experiments/` | One-off studies whose results are in `IDEAS.md`; [its README](python/experiments/README.md) lists all of them, and the commands that run the re-tests on the day's data (`--data`, `--format`) |
 | `rust/` | The Rust twins of the engine, the simulator, the grid's statistics and the bots, laid out as `python/` is (`rust/src/arena/engine.rs` for `python/arena/engine.py`); see [rust/README.md](rust/README.md) |
 | [`ON_THE_DAY.md`](ON_THE_DAY.md) | What to find out about the real Arena at the event, and what each answer changes here |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | How the code fits together: the engine, the formats, the matching rules and their modes, the grid and its statistics, the simulator, the Rust port |
 | [`RUNBOOK.md`](RUNBOOK.md) | One page for the day: the commands and checkpoints, in order, each pointing into `ON_THE_DAY.md` |
 | [`TODO.md`](TODO.md) | Prep work left before the event ([`TODO_DONE.md`](TODO_DONE.md): the finished items, with their evidence and decisions) |
 

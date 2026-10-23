@@ -38,7 +38,7 @@ The Avellaneda–Stoikov model with a **hard inventory bound Q**, solved exactly
   - The exponential intensity "is only suited to liquid stocks with a small bid-ask spread" (`dealing-with-inventory-risk.md:458-460` (p. 23)).
 
 ## Assumptions against the Arena
-- **A hard bound is our setting.** Prosperity rejects all of a product's orders if they could breach the limit (`CLAUDE.md`, matching rule 2). The paper's "no bid at Q" is the clean version of that.
+- **A hard bound is our setting.** Prosperity rejects all of a product's orders if they could breach the limit (`ARCHITECTURE.md`, matching rule 2). The paper's "no bid at Q" is the clean version of that.
 - **Brownian reference price.** Same caveat as [Avellaneda–Stoikov](hft-in-a-limit-order-book.md): on a pegged product inventory risk is smaller than `σ²` suggests. The drift extension covers a deterministic trend (P4 Pepper Root's `+0.001` per timestamp, [drift](../concepts/drift-and-regime-change.md)), not mean reversion.
 - **Exponential intensity and a small spread.** The authors' own caveat. Prosperity's spreads are 2–21 ticks *(checked, [micro-price](micro-price.md))*, and its fills come from bots, so `A·e^{−kδ}` must be checked against our fill data before trusting `A` and `k`.
 - **Liquidation at the reference price at T, no penalty;** a penalty "would be mutatis mutandis the same" (`dealing-with-inventory-risk.md:99` (p. 5)).

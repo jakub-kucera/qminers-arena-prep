@@ -18,7 +18,7 @@ updated: 2026-10-10
 - README: order matching `README.md:59`, **data files** `README.md:70-83` (rounds 0–8; rounds 6–8 are the data actually used in submission and end-of-round runs), "Conversions are not supported", environment variables that exist only in the backtester `README.md:85`.
 
 ## What carries over
-The matching rules in 380 lines; the data format (`;`-separated, 3 levels per side); the P3 data (rounds 1–5). Convention: it reports final PnL before the last tick's fills (see `CLAUDE.md` for how our parity test converts).
+The matching rules in 380 lines; the data format (`;`-separated, 3 levels per side); the P3 data (rounds 1–5). Convention: it reports final PnL before the last tick's fills (see `ARCHITECTURE.md` for how our parity test converts).
 
 ## Traps
 No conversions (macarons, orchids); `--match-trades` changes results a lot, so state which one a number used.

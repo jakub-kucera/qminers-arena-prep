@@ -359,3 +359,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-23] restructure | TODO's finished items moved to TODO_DONE.md
 - The repo's `TODO.md` keeps its open items; the 55 finished ones moved, word for word, to `TODO_DONE.md`. The pages that cite a finished item now cite `TODO_DONE.md` (22 places in 17 pages); `backtesting-and-tooling`'s status lines brought up to date (`--data p4` and the PnL split exist).
+
+## [2026-10-23] restructure | the repo's architecture moved from CLAUDE.md to ARCHITECTURE.md
+- CLAUDE.md's Architecture, Bot files and Known gaps sections moved word for word to `ARCHITECTURE.md`; CLAUDE.md keeps the commands, the rules that keep the code consistent and the conventions. The pages citing those sections now cite `ARCHITECTURE.md` (12 places in 11 pages).

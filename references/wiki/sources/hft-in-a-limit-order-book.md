@@ -43,7 +43,7 @@ The paper behind every "Avellaneda–Stoikov" market maker. A dealer quotes one 
 - **Inventory is marked at the mid at T for free.** So the skew *shrinks* to zero near the close. If the Arena liquidates at a bad price, the terminal condition changes and the skew should *grow* near the close instead; Guéant et al. and Cartea et al. 2018 use a liquidation penalty for this. Prosperity zeroes positions at fair value at the end, per IMC's webinar answers as reported in `references/README.md` (Ctrl-Alt-DefeatTheMarket). If that holds for the Arena, A–S's assumption holds too.
 - **Continuous prices.** Prosperity has integer ticks and spreads of 2–21 ticks, and Cartea et al. 2018 show that continuous depths rounded to the tick collapse to quoting at the touch ([order-book-signals](order-book-signals.md)).
 - **No hard limit:** inventory is unbounded in the finite-horizon version; only `ω` in the infinite-horizon version bounds it. [Guéant, Lehalle & Fernandez-Tapia](dealing-with-inventory-risk.md) add the hard bound.
-- **Fills arrive as Poisson market orders reaching our distance from the mid.** In Prosperity, fills come from bots crossing our quote or trading at our price (`CLAUDE.md`, matching rules), so `A` and `k` have to be measured, not derived.
+- **Fills arrive as Poisson market orders reaching our distance from the mid.** In Prosperity, fills come from bots crossing our quote or trading at our price (`ARCHITECTURE.md`, matching rules), so `A` and `k` have to be measured, not derived.
 
 ## In our notation
 | Paper | Ours |

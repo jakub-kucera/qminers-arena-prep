@@ -27,7 +27,7 @@ The community backtesters (jmerle's, then the Prosperity 4 fork) implement the m
 Nothing material.
 
 ## What it means for our code
-`arena.backtest`, `arena.grid`, `arena.analysis` and `arena.validate` exist; the engine is pinned to jmerle's P3 rules by `python/tests/test_parity.py` and also has a resting-order mode and a shared-market mode (`CLAUDE.md`). Missing: conversions and a visualizer-compatible log writer (`--data p4` and the PnL split, `arena.analysis.pnl_split`, were built: `TODO_DONE.md`).
+`arena.backtest`, `arena.grid`, `arena.analysis` and `arena.validate` exist; the engine is pinned to jmerle's P3 rules by `python/tests/test_parity.py` and also has a resting-order mode and a shared-market mode (`ARCHITECTURE.md`). Missing: conversions and a visualizer-compatible log writer (`--data p4` and the PnL split, `arena.analysis.pnl_split`, were built: `TODO_DONE.md`).
 
 ## How to test it here
 Done (`TODO_DONE.md`, "Run the cloned teams' traders through our engine as a cross-check"): four P4 traders give identical PnL per product and day in our engine and in `prosperity4btest`; each one's PnL is on its source page, next to the claim. Frankfurt's file was run on P3 (see its source page).

@@ -28,7 +28,7 @@ A 39-page working paper, most of it heat maps. The idea: don't tune a trading ru
 - **Everything rests on the fitted process.** If the product isn't O-U, or `φ` changes during the day, the "optimal" rule is optimal for the wrong market. Overfitting the rule is traded for misspecifying the model *(inferred)*.
 - **An exit rule for one position,** not a market maker's continuous quoting. The template's analogue is `stop_loss` per product and the `level_band` of a product that returns to a level (`python/bots/template.py` PARAMS); its quotes are not covered.
 - **The template's stops already follow the market-maker shape:** each `stop_loss` is about 3 times the plain-day drawdown, wide against small per-trade edges (`IDEAS.md`, "A loss stop per product"). That is consistent with Figure 1 *(inferred; not tested against a fitted process)*.
-- **Not measured here:** `φ` and the half-life of any Prosperity product's deviation from its level. `arena.sim`'s `HYDROGEL_PACK` preset already uses an O-U fundamental calibrated on P4's Hydrogel (`CLAUDE.md`, "Simulated market").
+- **Not measured here:** `φ` and the half-life of any Prosperity product's deviation from its level. `arena.sim`'s `HYDROGEL_PACK` preset already uses an O-U fundamental calibrated on P4's Hydrogel (`ARCHITECTURE.md`, "Simulated market").
 
 ## In our notation
 | Paper | Ours |

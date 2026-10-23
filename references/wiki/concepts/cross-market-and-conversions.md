@@ -22,7 +22,7 @@ Prosperity 2 (Orchids) and Prosperity 3 (Macarons) let you buy from or sell to a
 Nothing to compare.
 
 ## What it means for our code
-`CLAUDE.md` "Known gaps": no conversions. The Arena's product list is unknown; build this only if the Technical Rules introduce another venue or island.
+`ARCHITECTURE.md` "Known gaps": no conversions. The Arena's product list is unknown; build this only if the Technical Rules introduce another venue or island.
 
 ## How to test it here
 Not testable until the engine supports conversions. Cost of building: new order type, observation fields and fee handling in `python/arena/engine.py` and the Prosperity format.

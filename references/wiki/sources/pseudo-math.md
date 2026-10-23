@@ -45,7 +45,7 @@ The readable, 34-page entry to the overfitting trilogy (with [PBO](probability-o
 | a trial / configuration | one `arena.grid` cell (bot file + `--set` + grid values), one manual variant, or one portal submission |
 | N | grid cells × variants tried before the choice, not just the final grid's size |
 | `y` years, `q` returns per year | D days, or D × blocks per day, of per-period PnL |
-| `SR` | per-period mean PnL over its std; `arena.grid` reports the PnL total, `min day` and `nbhd` (`CLAUDE.md`, Grid search), not this ratio |
+| `SR` | per-period mean PnL over its std; `arena.grid` reports the PnL total, `min day` and `nbhd` (`ARCHITECTURE.md`, Grid search), not this ratio |
 
 ## Traps
 - **OCR:** the upper bound `√(2 ln[N])` reads "p 2 ln[N] 3" (the 3 is a footnote marker) (`pseudo-math.md:123` (p. 9)). MinBTL's bound appears twice, once garbled across a line break (`pseudo-math.md:149-151` (p. 11)).

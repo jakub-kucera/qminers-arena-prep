@@ -1,0 +1,150 @@
+# Architecture
+
+How the code fits together: the engine, the format plug-ins, bot loading, the matching rules and
+their modes, the shared and simulated markets, the stress harness, the grid and its statistics,
+bot comparison, the Rust port and the analysis, then the bot files and the known gaps.
+`CLAUDE.md` holds the commands, the rules that keep these parts consistent, and the repo's
+conventions; `README.md` is the user's guide. This file was CLAUDE.md's middle until 2026-10-23,
+moved here word for word.
+
+## Architecture
+
+**The engine doesn't know any format.**
+- `python/arena/model.py` defines the internal types: `Book`, `Tick`, `Day`, `Order`, `Cancel`, `OpenOrder`, `Fill`, `MarketTrade`. Order and fill quantities are signed; book volumes are positive. `Order.tag` (a bot API's own order id) is copied, unread, to the order's `OpenOrder` and `Fill`s. `Day.info` holds a format's per-product metadata (e.g. tick sizes); `run_market` and `arena.sim` hand the day to any bot with a `begin_day(day)` method before the first tick.
+- `python/arena/engine.py` `run_day(day, bot, config)` replays a `Day` against any object with `step(tick, positions, own_fills, market_trades, open_orders) -> list[Order | Cancel]`.
+- It records per-tick positions, marks, PnL and best bid/ask, plus orders, fills, errors, limit breaches and timings, in a `DayResult`.
+- `python/arena/report.py` `write_csvs` turns it into `<day>_timeline.csv` (with the book's `wall_mid`), `_fills.csv`, `_orders.csv` and `_trades.csv` (the data's market trades). Those columns are the contract with `python/arena/analysis.py`, so change both together.
+- **Only `python/arena/analysis.py` imports pandas and matplotlib.** Everything else is standard library.
+- **`python/arena/diagnose.py`** reads days through the format plug-in, with no bot or engine. Per product, it prints the spread regime, noise, drift, and the market trades' impact and market-making margins. Its notes use thresholds calibrated on Prosperity data, as module constants. `references/wiki/concepts/reading-the-data-on-day-one.md` maps each note to a strategy choice, so change both together.
+- The engine catches the bot's exceptions and records them per tick, so a run never aborts.
+
+**Formats are plug-ins** (`python/arena/formats/`). A format module must provide:
+- `PROVIDED_MODULES`
+- `resolve_data_dir`
+- `load_days`
+- `load_bot`
+- `check_source`
+
+It is registered in `python/arena/formats/__init__.py` `FORMATS`, and may set `RESTING = True` if its orders rest until cancelled (the CLI then runs as with `--resting`). There are two formats. `drill.py` is a practice format deliberately unlike Prosperity's (decimal prices in integer cents, `Day.info` tick sizes, a `Bot.on_tick(api)` callback, opaque order ids through `Order.tag`), and the one to copy on the day; `python/bots/drill/template.py` is the template with only its imports, PARAMS and ADAPTER rewritten for it, and `python/tests/test_drill.py` checks that the rest matches `python/bots/template.py` word for word and that both make the same PnL on the same days. `prosperity.py` holds:
+- **The CSV loader:** `;`-separated. Prosperity 2 trade files have `_wn`/`_nn` name variants.
+- **The `LIMITS` table:** the loader raises on any product without a limit.
+- **`ProsperityBot`:** it builds a `TradingState`, calls `Trader().run(state)`, type-checks the returned `(orders, conversions, traderData)`, and converts the orders.
+
+`prosperity_datamodel.py` is our own copy of IMC's `datamodel` module, without jsonpickle. On the day, the plan is to add `python/arena/formats/qminers.py`, modelled on `drill.py`. When `python/bots/template.py`'s DEFAULTS, STRATEGY or EXECUTION change, run `uv run python -m experiments.format_drill --sync` to copy them into `python/bots/drill/template.py` (`python/tests/test_drill.py` fails until you do).
+
+**Bot loading** (`python/arena/botfile.py`). `BotFile` compiles the bot source once. Each `load()` execs it into a fresh module, then:
+- **Injects provided modules:** the format's modules go into `sys.modules`, so `from datamodel import ...` resolves to ours.
+- **Sets `STRICT = True`:** only in strict mode, and only if the bot defines `STRICT`.
+- **Applies `--set` overrides:** `GLOBAL.key.key=literal`. Missing intermediate keys raise `OverrideError`; a new leaf key is allowed.
+
+The validator's `fresh_each_tick` mode reloads the module every tick to catch state kept outside `traderData`.
+
+**Matching rules (Prosperity semantics):**
+1. The bot quotes against the current tick's book.
+2. If a product's orders could breach its position limit (all buys, or all sells, filling), every order for that product is cancelled.
+3. Each order matches the visible book at the book's prices.
+4. What's left matches that tick's market trades at the order's own price. `--match-trades all|worse|none` controls which trades qualify.
+5. Everything unfilled is cancelled. Nothing rests between ticks.
+
+**Resting mode** (`--resting`, `EngineConfig.resting`) replaces rule 5. The module docstring of `engine.py` has the full rules.
+- **Resting:** unfilled orders rest until filled or cancelled, unless `Order.ioc`. Each one queues behind the visible volume at its price.
+- **Queue models** (`--queue`, `EngineConfig.queue`): `back` (default) moves an order up only as far as the visible volume forces; `prob` splits unexplained drops by the share ahead to the power `--queue-power` (hftbacktest's); `front` puts it ahead of everyone after one snapshot (they re-post every tick). Each `_Live` keeps `seen` and `traded` for `prob`.
+- **Trade fills:** trades at its price first use up the queue ahead of it; trades through its price fill it.
+- **Book fills:** a next snapshot that crosses it fills it at its own price (`Fill.source == "cross"`), and the bot sees that snapshot minus the volume. That tick's market trades at the crossed prices lose the same volume (`_spend_crossed`), so the order can't fill from the same orders twice.
+- **Bot interface:** `Bot.step` gets `open_orders` (always empty in the default mode) and may return `Cancel(order_id)` among its orders. The Prosperity format exposes these as datamodel extensions: `state.open_orders`, `Cancel`, `Order(..., ioc=True)`.
+- **The default path doesn't change:** resting-mode code lives in its own branch of `run_day` and in the helpers below the "resting mode" marker. Parity only covers the default mode.
+
+`--fill-ratio` thins out liquidity with binomial draws, seeded and independent of the bot's orders, so variants of a bot can be compared fairly.
+
+**Shared market** (`run_market(day, [(name, bot), ...], config)`, CLI `--vs BOT`):
+- **One engine:** `run_day` is `run_market` with one participant. Every helper works on `_Live` orders carrying an `owner`, and fills are routed to their owner by `order_id`.
+- **Arrival:** all bots see the same tick and decide at once. Their actions are then processed in a seeded shuffle, drawn from its own random stream so the `--fill-ratio` draws don't depend on the number of bots.
+- **Matching:** `_take` matches a new order against the recorded levels and other owners' working orders, best price first. At one price the recorded volume goes first. Each bot's book (`_seen_by`) adds the others' resting orders, never its own.
+- **Market trades:** with two or more bots, leftover orders meet each market trade in price-time priority (`_match_trades` per tick, `_fill_resting` resting); one bot keeps prosperity3bt's order-list rule (`_take_trades`), which the parity test pins.
+- **Breaches vs races:** limits are checked twice. Orders that don't fit the position the bot saw are `limit_breaches`, the bot's bug. Orders that fitted but don't fit after another bot's fill are `races`. Both are rejected, but the grid only discards combinations with breaches.
+- **CLI:** `arena.cli.run_with_rivals` loads the bot and its `--vs` rivals and runs them, for both the backtest and the grid. `--set` only applies to the main bot.
+- **The teams' Prosperity bots as rivals:** they were written for orders that live one tick and never cancel, so in `--resting` their orders pile up until they breach limits. `--requote` wraps every rival (`arena.cli.Requote`) to cancel its open orders before each tick. Some import jsonpickle: `uv run --with jsonpickle ...`.
+
+**Simulated market** (`python/arena/sim.py`): an agent-based market with its own price-time book, separate from the engine (the engine is untouched, so parity is too).
+- **Agents per product:** a fundamental, a market maker quoting walls (optional inventory skew), limit traders, then, after the snapshot and the bots, noise, value and momentum takers. That order is what a Prosperity tick implies, so a recorded day replays with the same semantics.
+- **Seeding:** one generator per product and agent kind, ABIDES's rule; each arrival makes the same draws whatever the book shows, so a run with a bot and the recording without it share every random number.
+- **Bots:** the same `Bot` protocol and `DayResult` as the engine, both modes (default: an order lives for that tick's takers; `--resting`), `--vs`. It reuses the engine's public `breaches`, `call_bot`, `known`, `new_result` and `record` (the rest of `engine.py` is private to it).
+- **Presets** are calibrated through `arena.diagnose`, and `python/tests/test_sim.py` holds the bands. `KELP`, `RAINFOREST_RESIN` and `SQUID_INK` copy P3 round 1 and are the default market. `HYDROGEL_PACK` copies P4's Hydrogel (an Ornstein–Uhlenbeck fundamental), `KELP_FLOW` is Kelp with P3's one-sided takers (35% buys, `NoiseTakers.sell_size` and `persistence`), and `ROBOT_DISHES` copies P4 round 5's jumping day (jumps of 100 in bursts that mostly reverse: `jump_excite`, `jump_decay`, `jump_reverse`); they are chosen with `--products`. New fields draw random numbers only when set, so the older presets' days don't change. `write_day` writes the Prosperity layout plus `limits.json`, which the Prosperity loader merges into `LIMITS`.
+- **Regimes:** `with_regime` (`--regime`, `--regime-at`) shifts or trends every product's fundamental and its level from mid-day, sized in its wall spread. The morning keeps the same draws, so it is the same day until the change.
+- **Formats:** `run --format` loads the bots through any format plug-in. The market's prices are whole ticks, and `begin_day` gets a day with no `info`, so a decimal-price format sees them in its price unit.
+- **Rust** (`--engine rust`): `rust/src/arena/sim.rs` is the market's twin, the same to the bit; `generate` writes the same files and `run` prints the same, but for the bot-timing line. `python/arena/rust.py` `run_sim` runs seeds on threads and returns each bot's totals (PnL per product, fills, errors) in the market and its replays, or, with `read`, the SimDays and DayResults (reading them back costs more than the run).
+
+**Stress harness** (`python/arena/stress.py`): `permute(day, seed, block)` (for the grid's permutation test) is separate from the perturbations. Each perturbation (volatility ×2, a trend, a mid-day shift, a spike, the walls removed) moves a product's whole book, its trades and its mark by one offset per tick. Offsets are sized in the product's median spread and kept on its tick grid (the gcd of the gaps between its prices), so a format with a tick coarser than its price unit stays on the grid. Its twin `rust/src/arena/stress.rs` makes the same copies from a task's `transform` ("trend_up:2.5", "permuted:SEED:BLOCK"), so with `--engine rust` neither `arena.stress` nor the grid's permutation test copies days in Python.
+
+**Grid search** (`python/arena/grid.py`):
+- **Parallel runs:** `_Runner` keeps one `ProcessPoolExecutor` for a run, with one task per (combination, day, mode) (`_run_piece`, a `Piece`), and `_assemble` adds the pieces into each `Outcome`, days in order. Each worker loads the days once, in `_init_worker`, into the module-level `_WORKER` dict. `--jobs 1` runs in-process.
+- **Only the axes' products:** when the axes set only some products (`axis_products`), the bot as is runs on full days and on days holding only those (`only`). If their PnL agrees on every day and mode, every combination runs on the smaller days and gets the other products' PnL, blocks and fills from the bot as is's run (`_difference`), so the summary is what a full run prints. `--all-products` turns it off.
+- **Smoke test:** before the pool starts, a 200-tick run of the first combination makes typos fail fast.
+- **Ranking:** combinations are ranked on `pnl`, `min day`, `nbhd` (mean over the combination and its one-step grid neighbours) and the PnL under each extra mode. The summary flags when these measures disagree.
+- **Screen** (`--screen SHARE`, successive halving with one rung): every combination on the first day under the first mode (`screened`), then only the best share on every day and mode; `GridRun.outcomes` holds only the kept cells and `GridRun.screen` the rest. `format_screen` says what was dropped; `format_unseen` repeats SPA, StepM and the pick without the first day (`without_first_day`). `run_permutations` screens each copy the same way.
+- **Rust engine** (`--engine rust`, `Setup.engine`): `_Runner._rust` sends each batch to `arena-rs batch` (`python/arena/rust.py`, `run_batch`) instead of the pool, and the statistics go to `arena-rs stats`. Each day (restricted, permuted) is exported once per run, and each combination's settings are read from the bot file once (`bot_spec`). It returns the same `Piece`s. `rust.prepare` refuses a bot or rival without a Rust twin for the run's format (`rust/twins.json`'s `format`: the drill template's is drill) before the smoke test.
+- **Permutation test** (`--permute N`, `--permute-block`): the whole grid reruns under the first mode on N copies from `arena.stress.permute` (the days' own ticks shuffled in runs, each shifted to continue by its real wall-bid move), and the real search's best PnL and its lift over the median cell, on the products the axes set, are ranked among the copies' (`format_permutations`).
+- **SPA, StepM and the pick:** each cell's PnL is also kept per block of `FINE_TICKS` (100) ticks for Hansen's SPA test and Romano and Wolf's StepM (stationary bootstrap, `SPA_Q`, `BOOTSTRAP`). StepM's cells are checked under every `--modes` entry, and the summary's `pick` is the best that beats the bot as is under all of them (`format_snooping`).
+- **Held-out days:** with two or more days, `leave_one_day_out` scores each day with the best combination by PnL on the other days, from the per-day PnL already collected (no extra runs). `repeated_days` flags days that share a product's books and trades (ignoring counterparty names): Prosperity reuses days across rounds.
+- **Overfitting:** each run's PnL is also kept per block of ticks (`block_pnl`, about `BLOCKS` = 16 over the days, never straddling one). `format_overfitting` prints the trial count, `cscv`'s PBO (Bailey et al., sampled to `MAX_SPLITS` halvings) and `deflated_sharpe` of the best cell's gain over the baseline (the bot with only `--set`), with `independent_trials` from the gains' average correlation. Both formulas were checked against the PDFs; `python/tests/test_grid.py` reproduces the DSR paper's worked example.
+- **The statistics live in `python/arena/stats.py`** (`cscv`, the DSR's helpers, `omega2`, `bootstrap_means`, `spa`, `stepm`, and `snooping`, SPA and StepM on one bootstrap); `arena.grid` re-exports the names. `rust/src/arena/stats.rs` twins the ones that grow with the cells (`cscv`, `mean_correlation`, `snooping`), and `--engine rust` runs those there: 4,096 distinct cells take 1.9 s against 21.9 s.
+
+**Bot comparison** (`python/arena/compare.py`): several bot files or `FILE@PATH=VALUE` variants against the first bot as baseline, one pool task per (bot, day, mode). Each bot becomes an `arena.grid.Outcome` under a one-value `Axis("bot")`, so the grid's held-out days, PBO, DSR, SPA, StepM and pick apply unchanged.
+
+**Rust port** (`rust/`, its own Cargo crate, kept apart from the Python code; `rust/README.md` has the table of what is in Python, Rust and both):
+- **Twins**, each at its Python file's path under `rust/src/` (`.py` → `.rs`; `python/tests/test_rust.py` checks): `rust/src/arena/engine.rs` ports `python/arena/engine.py` function for function, with the Python names, `rust/src/arena/sim.rs` the market of `python/arena/sim.py`, and `rust/src/arena/stats.rs` the heavy statistics of `python/arena/stats.py`, `rust/src/arena/stress.rs` the perturbations and `permute` of `python/arena/stress.py`. `rust/src/bots/` ports `python/bots/template.py` (all of STRATEGY and EXECUTION, and ADAPTER as the Prosperity plug-in presents a tick; `python/bots/drill/template.py` is the same core behind the drill ADAPTER, `Template::drill`), `python/bots/rivals/`, `python/bots/mm.py` and every zoo bot (`rust/src/bots/zoo/<provider>/`, with exceptions reproduced by `Bot::failed`, message and all). What has no Python file is in `rust/src/support/` (Python's arithmetic and random numbers, JSON, the day file) and `rust/src/commands/` (the `arena-rs` subcommands).
+- **`rust/twins.json`** lists each pair with the hash of the Python code as last checked (`rust.code_hash`: the syntax tree without docstrings, and without the settings a bot's Rust twin reads from the file at run time, listed as its `reads`), so a comment, a docstring or a PARAMS change doesn't need a re-record. `python/tests/test_rust.py` fails when the code changes, and `--engine rust` refuses to run a stale twin (`rust.prepare`, `rust.require`) unless `--allow-stale`. **A change to a twin's Python file goes into its Rust file too**, then `experiments.rust_bench --parity-only --record` compares every recorded field in every case and records the new hash.
+- **The bridge** (`python/arena/rust.py`):
+  - days are loaded by the Python format plug-ins; a Prosperity day goes to Rust as a reference to its own CSVs, which `rust/src/arena/formats/prosperity.rs` reads as the plug-in does (`write_day`, `prosperity.reference`; the plug-in remembers each day's files while it lives), and any other day is exported (`export_day`; format in `rust/src/support/dayfile.rs`, products sorted by name plus the Python order, since order ids depend on it);
+  - a Rust bot reads its settings from its Python file's upper-case globals after `--set` (`bot_spec`);
+  - what Rust writes comes back as Python's own `Day` and `DayResult` (`read_day`, `read_results`; results as JSON lines), so the reports work unchanged;
+  - every tool that runs our bots takes `--engine rust` (`arena.cli.add_engine_argument`); the experiments run each backtest through `arena.cli.backtest(day, participants, config, engine, fields=...)`, setting the engine in their workers with an `_init`; on Rust a worker that only backtests on a Prosperity day takes `arena.cli.backtest_days` or `arena.rust.prosperity_day`/`named_day` (Rust reads the CSVs, nothing is loaded in Python).
+- **Exact floats:** `rust/src/support/pyrandom.rs` reproduces Python's `random.Random` draw for draw (`gauss` included), and the template calls libm's `erf`, `exp`, `log` and `pow` as CPython does (`x ** 2` is `pow`, not `x * x`), so the PnL matches to the bit.
+- `python/tests/test_rust.py` is skipped without `cargo`, except the hash check.
+
+**Analysis** (`python/arena/analysis.py`):
+- **No pyplot:** charts are `Chart` objects, a `Figure` subclass with `_repr_png_`, so they display in notebooks and save from the CLI without pyplot. Each `Chart` keeps the rc params of the theme it was drawn in.
+- **Palette:** `THEMES` holds palettes checked with the dataviz skill's validator. Keep categorical colors in slot order.
+- **Product colors:** `Run.colors` gives each product the same color in every chart of a run. It covers the `MAX_SERIES` products with the largest |PnL|; charts fold the rest into "other".
+- **Fill edge:** measured against the **arrival mid**, one tick before the fill. A taken order is part of its own tick's book and skews that tick's mid.
+- **Markout horizons start at 1 tick**, for the same reason.
+- **Reference price:** fill edge, markouts and `pnl_split` take `reference="mark"` (default) or `"wall_mid"` (`Book.wall_mid`, carried over ticks with an empty side). `pnl_split` adds up to the engine's PnL exactly for either.
+- **`trade_impact`:** per product and reference, the taker's edge and the signed move after the data's market trades. A tick's trades are classified against that tick's book. Pass a list of runs to pool days.
+
+**Parity with prosperity3bt is pinned.** The engine matched jmerle's prosperity3bt 0.12.0 fill for fill. `python/tests/test_parity.py` (needs `references/`) asserts fill counts and PnL for `python/tests/fixtures/parity_bot.py`.
+- **Engine changes:** any change to matching, limits or marking must keep this test passing.
+- **The fixture:** it is a frozen snapshot. Don't edit it, even when `python/bots/template.py` changes.
+- **PnL conventions differ:** ours is marked after each tick's fills. prosperity3bt reports final PnL before the last tick's fills, and the test converts between the two.
+
+## Bot files (`python/bots/`)
+
+The competition runs one file, so a bot must stay **self-contained, standard library only, and keep all
+cross-tick state in `traderData`**. The real engine may not keep instance or module variables
+between calls.
+
+`python/bots/template.py` has five sections:
+- **PARAMS:** `DEFAULTS` plus a per-product dict. Products not listed aren't traded. Unknown keys raise, which catches typos.
+- **STRATEGY:** format-agnostic. Fair value (fixed, mid, `wall_mid`, `outer_mid`, `sized_mid` or `weighted_mid`; `sized_mid` survives rivals' resting orders) → take → clear → make, the last three around the fair plus `imbalance` × the best-level imbalance (off by default). `clear`, `skew` and `size_skew` work inventory toward `target` (default 0; a long target holds with a steady drift). With `level` set, `level_target` replaces `target`: the full limit against a move of `level_band` from a price the product returns to. `cpd_*` adds online changepoint detection on that level (`changepoint_level`; dropped on Prosperity data, off by default). `flatten_from` works every position to zero before the close (target 0, no takes, `reduce_only` quotes). With `follow` set, `follow_target` makes a call option hold its underlying's target as a share of its own limit (Black–Scholes helpers in total variance, so no expiry is needed). With `smile` set, `smile_fair` prices a call off its `underlying` instead: Black–Scholes at a fitted smile in `m = ln(K/S)/√T` (needs `expiry`), plus an EMA of the call's offset from it, and take/clear/make trade around that. A product with `basket` trades its spread against its legs with the level settings, and legs with `hedge` take what the baskets ask of them (`Plan.legs`). With `jump_min` set, `jump_target` holds the full limit against each jump once enough of the day's jumps have reversed (a gate measured on the day, so it can run on every product), crossing up to `jump_edge`. With `copy` set (`{name: weight}`), `copy_target` holds the weighted direction of the named traders' last trades, from `Market.trades`, which the ADAPTER fills from both `market_trades` and our own fills' counterparties. `stop_loss` (per product, about 3× its plain-day drawdown from `arena.stress`) flattens and stops a product for the day; `fixed_guard` lets a fixed fair give way to the sized mid; `level_guard` and `vol_guard` exist but are off. `param_conflicts(product)` lists settings that can't matter (two target modes, a target a mode replaces, a mode's setting while it is off); `arena.validate` warns on them, and `arena.grid` flags an axis that never changes the PnL. The cross-product hook is `Market`: every product's book, and this tick's `Plan`s so far. `Trader.run` trades products that `follow` or `hedge` another after it (one level of dependency). `Plan` keeps all orders inside the full room under the limit, counting buys and sells separately. It holds `takes` (take, clear) and `quotes` (make) apart.
+- **EXECUTION:** format-agnostic. `execute(plan, resting)` returns cancels and new orders:
+  - takes are sent as IOC
+  - a resting quote is kept while a quote on its side and price still wants at least its size
+  - everything else is cancelled
+
+  ADAPTER passes the resting orders oldest first: `execute` doesn't sort them, since a format's ids needn't grow with age.
+
+  The engine applies cancels before the limit check, which is why planning with the full room is safe. With nothing resting, it sends the whole plan, so one file works in both engine modes.
+- **ADAPTER:** the only Prosperity-specific code, including the resting extensions (`state.open_orders`, `Cancel`, `ioc`).
+- **`Trader.run`:** a try/except per product, swallowed unless `STRICT`. A product that errors cancels its resting orders.
+
+`python/bots/rivals/` holds adversarial `--vs` rivals for `--resting`: a quote-matching trapper, a spoofer (`OFFSET` ticks behind the best) and a sniper of stale quotes.
+
+`python/bots/zoo/` holds bots written blind by language models from `python/bots/zoo/SPEC.md` and `PROMPTS.md`: the agent baseline and `--vs` rivals. Never edit a zoo bot or a prompt once used; its README has the protocol for adding other providers' bots. Each zoo bot has a Rust twin (`rust/src/bots/zoo/`), and `python/tests/test_rust.py` fails until a new one has its own.
+
+New strategy logic goes in STRATEGY, order-management changes go in EXECUTION, and format changes go in ADAPTER. `python/bots/datamodel.py` only
+lets editors resolve imports; it is never submitted. `python/bots/probe.py` runs `ON_THE_DAY.md`'s probes in a schedule of tick windows and prints a `PROBE` line per finding and a `SEEN` line per tick (Prosperity format; only its ADAPTER, `PRODUCT` and `LIMIT` change on the day); `python/tests/test_probe.py` checks its findings against the engine's known behaviour in both modes.
+
+## Known gaps (from README)
+
+- **The queue model is an estimate.** `--queue back` (default) and `front` bracket it; `prob` can't see a level re-posted at the same size.
+- **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
+- **Rivals are only the bots you bring** with `--vs`. Real teams will behave differently.

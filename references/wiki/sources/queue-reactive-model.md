@@ -34,7 +34,7 @@ A 29-page model of the order book as a Markov queueing system. The arrival rates
 
 ## Assumptions against the Arena
 - **Spread under 2.5 ticks.** P3 Kelp and Squid Ink sit at 2–4 ticks (borderline) and P4 round 1 at 13–21 *(checked, [micro-price](micro-price.md))*.
-- **Needs event data.** It counts insertions, cancels and market orders per level. Prosperity gives snapshots per tick plus trades, so only net queue changes can be inferred, the same limit as `--resting`'s queue estimate (`CLAUDE.md`, "Known gaps").
+- **Needs event data.** It counts insertions, cancels and market orders per level. Prosperity gives snapshots per tick plus trades, so only net queue changes can be inferred, the same limit as `--resting`'s queue estimate (`ARCHITECTURE.md`, "Known gaps").
 - **Prosperity has no queue priority** ([queue position](../concepts/queue-position-and-fills.md), Leo-Hawking). The model becomes relevant only if the Arena runs a FIFO book with persistent orders.
 - **The useful result for us is the direction of the bias:** uniform-cancellation queue models overestimate fills for the order at the back. Our `--resting` (cancels never advance you) is pessimistic; `ProbQueueModel` with `f(x) = x` is close to uniform, so it errs on the optimistic side *(inferred)*.
 

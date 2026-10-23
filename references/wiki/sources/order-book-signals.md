@@ -43,7 +43,7 @@ It is the one paper that turns the imbalance signal into a quoting rule, and its
 ## Assumptions against the Arena
 - **Large-tick stocks (spread 1–2 ticks) and posting only at the touch.** Prosperity spreads are 2–4 ticks (P3 Kelp, Squid Ink) or 13–21 (P4 round 1) *(checked, [micro-price](micro-price.md))*, and our template quotes inside the spread (one tick better than the best quote). The authors say small-tick stocks need quotes inside the spread, which their model doesn't cover (`order-book-signals.md:172` (p. 13)).
 - **The rule of thumb carries over without the model.** Half-spread against `ε±(J)` needs no HJB solution. It only needs the expected mid move after our fills, by state, and that is what our markout tables measure.
-- **Always filled at the touch, zero latency.** In Prosperity, our fills come from bots crossing our quote or from trades at our price (`CLAUDE.md`, matching rules); the queue question is what `--resting` models. Table 7 shows how much the result depends on the fill assumption.
+- **Always filled at the touch, zero latency.** In Prosperity, our fills come from bots crossing our quote or from trades at our price (`ARCHITECTURE.md`, matching rules); the queue question is what `--resting` models. Table 7 shows how much the result depends on the fill assumption.
 - **The book is a bot's quote.** In Prosperity the best-level volume is often one bot's fixed size, so `ρ` may mostly encode *which* bot is at the touch. That may still predict, but for a different reason.
 - **Their Sharpe ratios are annualised over half-hour windows with parameters re-forecast each window** (`order-book-signals.md:392-428` (p. 25–27)). That is not comparable to a Prosperity day's PnL.
 
@@ -52,7 +52,7 @@ It is the one paper that turns the imbalance signal into a quoting rule, and its
 |---|---|
 | `V^b_t`, `V^a_t` | `book.bids[0][1]`, `book.asks[0][1]` (`python/bots/template.py`); `bid_volume_1`, `ask_volume_1` in the CSVs |
 | `Δ/2` | the half-spread earned. For our quotes it is the distance of the quote from `fair` (`make_edge`, `python/bots/template.py:45`), not half the book's spread |
-| `ε±(J)` | the markout of our fills: the mid change after a fill, by side and by the state at the fill. `python/arena/analysis.py` computes fill markouts from 1 tick ("Markout horizons start at 1 tick", `CLAUDE.md`) but not per imbalance state |
+| `ε±(J)` | the markout of our fills: the mid change after a fill, by side and by the state at the fill. `python/arena/analysis.py` computes fill markouts from 1 tick ("Markout horizons start at 1 tick", `ARCHITECTURE.md`) but not per imbalance state |
 | `φ` | no direct parameter; the template's linear `skew` is the closest |
 | `Q̲, Q̄` | `limit` per product in `PARAMS` |
 
