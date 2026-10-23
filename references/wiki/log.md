@@ -368,3 +368,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-23] lint | fill-model scenarios in arena.grid and arena.compare
 - `arena.grid --scenario` (repo `python/arena/scenario.py`) and the selection rules across ten scenarios: `validation-and-overfitting` gets the result (the worst-case PnL loses most often; the pick least). The citations of `FINE_TICKS` and `format_snooping` re-mapped (`superior-predictive-ability`, `validation-and-overfitting`).
+
+## [2026-10-23] lint | a rival field: the taker archetype and the payoff matrix
+- `python/bots/rivals/taker.py` (with a Rust twin) and `python/experiments/rival_field.py`: `shared-market-and-adversaries` gets the field result (the best reply depends on the field; Resin's edge 2 collapses against makers nearer fair when orders rest).

@@ -23,6 +23,7 @@ pub fn build(kind: &str, globals: &Value, adapter: Option<&Value>) -> Result<Box
         "drill_template" => Box::new(template::Template::drill(globals)?),
         "sniper" => Box::new(rivals::Sniper::from_globals(globals)?),
         "spoofer" => Box::new(rivals::Spoofer::from_globals(globals)?),
+        "taker" => Box::new(rivals::Taker::from_globals(globals)?),
         "trapper" => Box::new(rivals::Trapper::from_globals(globals)?),
         other => match zoo::build(other) {
             Some(bot) => bot,

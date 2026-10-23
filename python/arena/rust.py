@@ -308,8 +308,13 @@ def _check_stale(paths: list[str], allow_stale: bool) -> None:
     stale = [path for path in stale_twins() if path in paths]
     if not stale:
         return
-    message = (f"the Rust twins of {', '.join(stale)} were checked against older Python code, so Rust would run that: port the "
-               "change to the Rust file rust/twins.json names, then `uv run python -m experiments.rust_bench --parity-only --record`")
+    table = twins()
+    new = [path for path in stale if not table[path]["sha256"]]
+    old = [path for path in stale if path not in new]
+    parts = ([f"the Rust twins of {', '.join(old)} were checked against older Python code, so Rust would run that"] if old else [])
+    parts += [f"the Rust twins of {', '.join(new)} have never been checked against their Python files"] if new else []
+    message = ("; ".join(parts) + ": port the change to the Rust file rust/twins.json names, then "
+               "`uv run python -m experiments.rust_bench --parity-only --record`")
     if not allow_stale:
         raise ValueError(message + " (or pass --allow-stale to run the old code anyway)")
     print(f"! {message}", file=sys.stderr)

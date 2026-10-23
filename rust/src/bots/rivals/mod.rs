@@ -1,7 +1,7 @@
-//! python/bots/rivals/ in Rust: the sniper, the spoofer and the trapper, each in the file named as
+//! python/bots/rivals/ in Rust: the sniper, the spoofer, the taker and the trapper, each in the file named as
 //! its Python twin, and here what they share. Keep each equal to its Python file: python/tests/test_rust.py checks that both trade the
 //! same, and rust/twins.json holds the hash each port was last checked against. Their constants
-//! (LIMITS, DEFAULT_LIMIT, EDGE, SPOOF, OFFSET, PERIOD, BAIT, COOLDOWN) come from the Python file's
+//! (LIMITS, DEFAULT_LIMIT, EDGE, SPOOF, OFFSET, PERIOD, BAIT, COOLDOWN, RATE, NOISE, SIZE, HOLD, SEED) come from the Python file's
 //! globals, so `--set` reaches them.
 
 use crate::support::json::Value;
@@ -76,8 +76,10 @@ pub(super) fn take_through(product: usize, book: &Book, fair: f64, position: i64
 
 pub mod sniper;
 pub mod spoofer;
+pub mod taker;
 pub mod trapper;
 
 pub use sniper::Sniper;
 pub use spoofer::Spoofer;
+pub use taker::Taker;
 pub use trapper::Trapper;

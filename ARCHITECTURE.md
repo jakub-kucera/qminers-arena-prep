@@ -139,7 +139,7 @@ between calls.
 - **ADAPTER:** the only Prosperity-specific code, including the resting extensions (`state.open_orders`, `Cancel`, `ioc`).
 - **`Trader.run`:** a try/except per product, swallowed unless `STRICT`. A product that errors cancels its resting orders.
 
-`python/bots/rivals/` holds adversarial `--vs` rivals for `--resting`: a quote-matching trapper, a spoofer (`OFFSET` ticks behind the best) and a sniper of stale quotes.
+`python/bots/rivals/` holds adversarial `--vs` rivals for `--resting`: a quote-matching trapper, a spoofer (`OFFSET` ticks behind the best) and a sniper of stale quotes, plus a taker at the touch (momentum and noise, its draws a hash of `SEED`, the timestamp and the product, so it needs no random state and its Rust twin draws the same). `python/experiments/rival_field.py` puts candidate settings against fields of them.
 
 `python/bots/zoo/` holds bots written blind by language models from `python/bots/zoo/SPEC.md` and `PROMPTS.md`: the agent baseline and `--vs` rivals. Never edit a zoo bot or a prompt once used; its README has the protocol for adding other providers' bots. Each zoo bot has a Rust twin (`rust/src/bots/zoo/`), and `python/tests/test_rust.py` fails until a new one has its own.
 

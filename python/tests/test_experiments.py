@@ -7,6 +7,7 @@ take minutes)."""
 import importlib
 import inspect
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -74,6 +75,17 @@ def test_options_and_baskets_say_what_they_need(capsys, monkeypatch, drill_data)
     assert "--data and --basket go together" in capsys.readouterr().err
     out = run(capsys, monkeypatch, "baskets", "--data", drill_data, "--days", "all", *DRILL, "--basket", "ALPHA=BETA:1")
     assert "2. nested leave-one-day-out" in out
+
+
+def test_the_rival_field_runs_on_prosperity_format_days(capsys, monkeypatch, drill_data):
+    """The archetypes are Prosperity bots: the field runs on the fixture's days before their drill conversion."""
+    data = str(Path(drill_data).parent / "prosperity")
+    out = run(capsys, monkeypatch, "rival_field", "--data", data, "--days", "1", "--products", "KELP,RAINFOREST_RESIN",
+              "--candidate", "PARAMS.KELP.make_edge=1,2", "--jobs", "2")
+    assert "| KELP.make_edge 1 |" in out and out.count("max-min:") == 2
+    with pytest.raises(SystemExit):
+        run(capsys, monkeypatch, "rival_field", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "Prosperity-format bots" in capsys.readouterr().err
 
 
 def test_the_days_data_options_need_data(capsys, monkeypatch):

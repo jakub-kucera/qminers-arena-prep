@@ -144,7 +144,7 @@ def template_cases(variants=VARIANTS) -> list[tuple[str, EngineConfig, list]]:
     return cases
 
 
-RIVALS = {name: BOTS / "rivals" / f"{name}.py" for name in ("sniper", "spoofer", "trapper")}
+RIVALS = {name: BOTS / "rivals" / f"{name}.py" for name in ("sniper", "spoofer", "trapper", "taker")}
 
 
 def rival_cases() -> list[tuple[str, EngineConfig, list]]:
@@ -163,7 +163,9 @@ def rival_cases() -> list[tuple[str, EngineConfig, list]]:
         ("the spoofer 3 ticks behind, flipping every 50", resting, [template, ("spoofer", RIVALS["spoofer"], {"OFFSET": 3, "PERIOD": 50}, False)]),
         ("a small trapper with a short cooldown", resting, [template, ("trapper", RIVALS["trapper"], {"BAIT": 12, "PERIOD": 60, "COOLDOWN": 5}, False)]),
         ("the sniper at edge 0, Kelp's limit 20", resting, [template, ("sniper", RIVALS["sniper"], {"EDGE": 0, "LIMITS.KELP": 20}, False)]),
-        ("all three against the template, resting, worse", EngineConfig(resting=True, trade_matching=WORSE),
+        ("a busy taker, seed 7, holding 10", EngineConfig(), [template, ("taker", RIVALS["taker"], {"RATE": 0.3, "NOISE": 0.2, "SIZE": 8, "HOLD": 10,
+                                                                                                  "SEED": 7}, False)]),
+        ("all four against the template, resting, worse", EngineConfig(resting=True, trade_matching=WORSE),
          [template, *[(name, path, {}, False) for name, path in RIVALS.items()]]),
     ]
     return cases

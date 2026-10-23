@@ -50,6 +50,20 @@
       "PERIOD"
     ]
   },
+  "python/bots/rivals/taker.py": {
+    "kind": "taker",
+    "rust": "rust/src/bots/rivals/taker.rs",
+    "sha256": "a0b4ca68ad2d597440b36335243b181d2e3330b1510c92cb78eff9fa980f4636",
+    "reads": [
+      "LIMITS",
+      "DEFAULT_LIMIT",
+      "RATE",
+      "NOISE",
+      "SIZE",
+      "HOLD",
+      "SEED"
+    ]
+  },
   "python/bots/rivals/trapper.py": {
     "kind": "trapper",
     "rust": "rust/src/bots/rivals/trapper.rs",

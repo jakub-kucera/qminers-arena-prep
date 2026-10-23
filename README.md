@@ -448,10 +448,17 @@ off: the rival's `wall_mid` treats your large quote as the market maker's level.
 **Adversarial rivals** (`python/bots/rivals/`, for `--resting`): `trapper.py` baits with a large order
 one tick inside the best and sells into whoever steps in front of it (Harris); `spoofer.py` rests
 a large order `OFFSET` ticks behind the best and takes what that mispricing brings; `sniper.py`
-takes any order left through its fair. `uv run python -m experiments.adversaries` runs the
+takes any order left through its fair; `taker.py` takes at the touch, on momentum and at random
+(seeded draws that don't depend on the other bots). `uv run python -m experiments.adversaries` runs the
 template against each. On P3 round 1 the trap and the near spoof barely cost it; a large order 10
 ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `sized_mid` is immune
 (`IDEAS.md`, "Adversarial rivals").
+
+`uv run python -m experiments.rival_field --engine rust` puts candidate settings against fields of
+these archetypes, `mm.py` at three edges and a copy, per tick and resting, and prints the payoff
+matrix, the best reply to each field, and the max-min and mean choices. On P3 round 1 the best
+reply changed with the field, and the reply to one copy was neither of the two robust choices
+(`IDEAS.md`, "Our settings against a field of rival archetypes").
 
 ## The engine in Rust
 
