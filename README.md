@@ -275,6 +275,24 @@ from each tick's book and the fill model, so check the pick under `--modes worse
 measured against the bot as is, whose settings were tuned to the real order. Each copy reruns the
 whole grid under the first mode, so 19 copies (the fewest for p 0.05) cost about 19 grids.
 
+`--scenario NAME:ITEM,...` adds a fill model to the `--modes`, scored like a mode (its own
+`pnl(NAME)` column, in the held-out days, and in the pick, which must beat the bot as is under every
+one). Each item changes one engine setting from the run's own: `match=all|worse|none`,
+`resting` (or `resting=no`), `queue=back|prob|front`, `power=N`, `fill=RATIO`, `seed=N`. A
+`vs=FILE[@PATH=VALUE...]` item (repeatable) gives the scenario its own rivals in place of `--vs`, with
+`--set`-style overrides, and `vs=none` runs it alone:
+
+```sh
+uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0.5,1,1.5,2 --modes all,worse \
+    --scenario rest:resting,queue=prob --scenario thin:fill=0.5 --scenario war:vs=python/bots/template.py@PARAMS.KELP.make_edge=0 --engine rust
+```
+
+With a scenario, the summary also gives each cell's `worst` PnL over them all (`--sort worst`, and
+a `worst` column in `--out`). That is a measure to read, not a rule: chosen by it, cells lost money
+most often of five rules on unseen Prosperity and simulated days, while the pick lost least
+(`IDEAS.md`, "Choosing a cell by its worst case over fill-model scenarios"). Grid under the
+scenarios the playground probes leave possible, and take the pick.
+
 An axis whose values never change any working combination's PnL, with the other axes held fixed, is flagged: a typo'd key (`--set` accepts a new one) or a setting another one overrides. `arena.compare` flags a variant that makes exactly its baseline's PnL the same way. `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
 per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL. Combinations with errors
 or limit breaches are left out of the summary's picks and of the heatmaps, and the grid exits with 1
@@ -294,6 +312,7 @@ uv run python -m arena.compare python/bots/template.py 1 2 --data p4 --resting -
 - **The baseline** is the first bot, the bot as is. `--set` applies to it alone.
 - **Each `--bot`** is a file, or `FILE@PATH=VALUE@...` for a variant. It takes several, so a shell glob works. `NAME:FILE@...` names a variant in the tables; without a name, a value over 16 characters (a whole product's dict) is cut in its label, and the summary lists such variants' settings in full.
 - **One worker task per (bot, day, mode),** so even a few bots use every core. Every bot trades against the same `--vs` rivals.
+- **`--scenario`** works as in the grid: a fill model with its own engine settings and rivals, a `worst` column, and the pick checked under each.
 - **The summary:**
   - a ranked table (PnL, the gain over the baseline, worst day, each extra mode, fills);
   - PnL per product, the ten products with the most at stake;

@@ -12,7 +12,10 @@ combination also gets:
             neighbours that failed. Prefer a plateau, where nearby values do about as well, to a
             lone spike.
   <mode>    PnL under each extra --modes entry, e.g. `worse` fill matching. A gain that only
-            exists with optimistic fills is probably a backtest artefact.
+            exists with optimistic fills is probably a backtest artefact. A --scenario (arena.scenario:
+            engine settings and rivals of its own) is one more mode, and with one the summary adds
+  worst     the least PnL over the modes and scenarios: a measure to read, not a rule (picked by it,
+            cells lost most often on unseen days: python/experiments/selection_rules.py, part 2).
 
 The summary names the best combination by each measure and says whether they agree. With two or
 more days it also holds out each day in turn: the combination with the best PnL on the other days
@@ -62,7 +65,10 @@ summary says what it dropped and how the screen day ranks the kept cells against
 PBO, the DSR, SPA and StepM then see the kept cells only, on days that include the screen's, so
 they understate the selection bias of the cells tried; with two or more days SPA, StepM and the
 pick are also given on the other days alone, which the screen's choice can't bias. --permute
-screens each copy the same way.
+screens each copy the same way. --halving SHARE does it in steps: the cells run one day under one
+mode at a time, the first mode's days first, and after each step but the last that share of the
+cells still alive, by their PnL so far, goes on; the unseen-days section then leaves out every day a
+step ranked on. --sample N runs N cells drawn at random from the whole grid, never listing it.
 Halvings and bootstrap blocks mix blocks of the same days, so a day-level change is invisible to
 all of them: the held-out days are the check for that, and a cell they accept still has to hold
 under the other --modes (references/wiki/concepts/validation-and-overfitting.md).
@@ -97,6 +103,7 @@ from arena.cli import Setup, add_common_arguments, add_engine_argument, add_riva
 from arena.engine import TradeMatching
 from arena.formats import FORMATS
 from arena.model import Day
+from arena.scenario import Scenario, add_scenario_argument, config_for, every_rival, rivals_for, scenarios_from
 
 SMOKE_TEST_TICKS = 200
 BLOCKS = 16  # CSCV's S over all the days: Bailey et al. call 16 reasonable (p. 21-22)
@@ -152,6 +159,7 @@ class Row:
     nbhd: float  # under the first mode
     fills: int
     failed: bool
+    worst: float = 0.0  # the least pnl over the modes (scenarios)
 
 
 # ---------------------------------------------------------------------------- axes
@@ -249,7 +257,7 @@ def _run_piece(values: tuple, day_index: int, mode: TradeMatching, restricted: b
                 cache.clear()
             cache[key] = stress.permute(day, *permutation)
         day = cache[key]
-    result = run_with_rivals(w["fmt"], day, w["bot"], overrides, w["rivals"], replace(w["config"], trade_matching=mode), requote=w["requote"])[0]
+    result = run_with_rivals(w["fmt"], day, w["bot"], overrides, rivals_for(w["rivals"], mode), config_for(w["config"], mode), requote=w["requote"])[0]
     series = report.total_pnl(result) or [0.0] * len(day.ticks)
     return Piece(
         pnl=series[-1],
@@ -346,7 +354,6 @@ class _Runner:
         spec for the bot with each combination applied by Rust (_base), or each combination's settings
         read from the bot file once; the results read back in binary."""
         s, folder = self.s, Path(self.scratch.name)
-        names = participant_names(self.bot, s.rivals)
         paths: list[Path] = []
         specs: list[dict] = []
         local_days: dict[Path, int] = {}
@@ -371,13 +378,23 @@ class _Runner:
                 specs.append(self.specs[key])
             return local_specs[key]
 
-        # a grid's tasks share their configs, cells and product lists: each is sent, or made, once
+        # a grid's tasks share their configs, cells, rivals and product lists: each is sent, or made, once
         batch, products, configs, cells = [], [], {}, {}
         listed: dict[tuple, list[str]] = {}
-        rivals = [[names[k + 1], spec_index(("rival", k), lambda path=path: rust.bot_spec(path, {}, s.requote))] for k, path in enumerate(s.rivals)]
+        markets: dict = {}  # mode -> (the participants' names, the rivals' [name, spec index]s)
+
+        def field_of(mode) -> tuple[list[str], list]:
+            if mode not in markets:
+                rivals = rivals_for(s.rivals, mode)
+                names = participant_names(self.bot, rivals)
+                markets[mode] = names, [[names[k + 1], spec_index(("rival", str(r)), lambda r=r: rust.bot_spec(getattr(r, "path", r), getattr(r, "overrides", {}),
+                                                                                                         s.requote))] for k, r in enumerate(rivals)]
+            return markets[mode]
+
         for _key, values, d, mode, restricted, permutation in tasks:
             day, ticks = day_index(d, restricted)
             config = configs.setdefault(mode, len(configs))
+            names, rivals = field_of(mode)
             if self.base is not None:
                 bots = [[names[0], spec_index(("base",), lambda: self.base)]]
                 cell = {"cell": cells.setdefault(repr(values), (len(cells), values))[0]} if values else {}  # repr: a value may be a dict
@@ -391,12 +408,12 @@ class _Runner:
             if (d, restricted) not in listed:
                 listed[(d, restricted)] = [p for p in s.days[d].products if not restricted or p in self.subset]
             products.append(listed[(d, restricted)])
-        results = rust.run_batch(paths, specs, batch, self.jobs, folder, products, [rust.config_json(replace(s.config, trade_matching=m)) for m in configs],
+        results = rust.run_batch(paths, specs, batch, self.jobs, folder, products, [rust.config_json(config_for(s.config, m)) for m in configs],
                                  [[[target, value] for target, value in zip(self.targets, values)] for _, values in cells.values()])
-        fields, out = Piece.__dataclass_fields__, {}
+        kept, out = Piece.__dataclass_fields__, {}
         for k, (key, *_) in enumerate(tasks):
             found, results[k] = results[k], None  # each result's dict let go as its Piece is made
-            out[key] = Piece(**{f: v for f, v in found.items() if f in fields})
+            out[key] = Piece(**{f: v for f, v in found.items() if f in kept})
         return out
 
     def run(self, tasks: list[tuple]) -> dict:
@@ -604,14 +621,18 @@ def format_permutations(axes: list[Axis], outcomes: dict[tuple[int, ...], Outcom
     return "\n".join(lines)
 
 
-def smoke_test(s: Setup, bot: Path, axes: list[Axis]) -> None:
-    """Runs the first combination briefly, so a typo fails fast instead of in every run."""
+def smoke_test(s: Setup, bot: Path, axes: list[Axis], modes: list | None = None) -> None:
+    """Runs the first combination briefly, under each scenario that sets more than the trade
+    matching (its own rivals load then), so a typo fails fast instead of in every run."""
     overrides = {**s.overrides, **{axis.target: axis.values[0] for axis in axes}}
     day = s.days[0]
     sample = Day(day.name, day.products, day.limits, day.ticks[:SMOKE_TEST_TICKS])
-    result = run_with_rivals(s.format, sample, bot, overrides, s.rivals, s.config, requote=s.requote)[0]
-    if result.errors:
-        raise ValueError(f"the bot fails with the first combination: {report.last_line(result.errors[0][1])}")
+    runs = [(s.config, s.rivals, "")] + [(config_for(s.config, m), rivals_for(s.rivals, m), f" under {m}") for m in modes or []
+                                          if isinstance(m, Scenario) and not m.plain]
+    for config, rivals, where in runs:
+        result = run_with_rivals(s.format, sample, bot, overrides, rivals, config, requote=s.requote)[0]
+        if result.errors:
+            raise ValueError(f"the bot fails with the first combination{where}: {report.last_line(result.errors[0][1])}")
 
 
 class _Progress:
@@ -659,9 +680,19 @@ def build_rows(axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tupl
             nbhd=neighborhood_mean(outcomes, index, shape, primary),
             fills=outcome.fills,
             failed=outcome.failed,
+            worst=worst_case(outcome, modes),
         )
         for index, outcome in sorted(outcomes.items())
     ]
+
+
+def scored_worst(modes: list) -> bool:
+    """Whether the summaries add the worst case over the modes: with any scenario beyond --modes."""
+    return any(isinstance(mode, Scenario) and not mode.plain for mode in modes)
+
+
+def worst_case(outcome: Outcome, modes: list) -> float:
+    return min(outcome.pnl(mode) for mode in modes)
 
 
 def measures(modes: list[TradeMatching]) -> dict[str, Callable[[Row], float]]:
@@ -674,6 +705,8 @@ def measures(modes: list[TradeMatching]) -> dict[str, Callable[[Row], float]]:
     }
     for mode in modes[1:]:
         named[mode.value] = lambda row, mode=mode: row.pnl[mode]
+    if scored_worst(modes):
+        named["worst"] = lambda row: row.worst
     return named
 
 
@@ -687,12 +720,13 @@ def format_summary(axes, modes, baseline: Outcome, rows: list[Row], sort: str, t
     ]
 
     header = ["rank", *(axis.label for axis in axes), f"pnl({primary})", "min day", "nbhd"]
-    header += [f"pnl({mode})" for mode in modes[1:]] + ["fills", ""]
+    worst = scored_worst(modes)
+    header += [f"pnl({mode})" for mode in modes[1:]] + (["worst"] if worst else []) + ["fills", ""]
     ranked = sorted(rows, key=named[sort], reverse=True)
     table = []
     for rank, row in enumerate(ranked[:top], 1):
         cells = [str(rank), *(str(v) for v in row.values), _num(row.pnl[primary]), _num(row.min_day), _num(row.nbhd)]
-        cells += [_num(row.pnl[mode]) for mode in modes[1:]] + [f"{row.fills:,}", "!" if row.failed else ""]
+        cells += [_num(row.pnl[mode]) for mode in modes[1:]] + ([_num(row.worst)] if worst else []) + [f"{row.fills:,}", "!" if row.failed else ""]
         table.append(cells)
     widths = [max(len(cell) for cell in column) for column in zip(header, *table)]
     lines.append("")
@@ -956,6 +990,7 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
     if p["c"] < ALPHA and dsr is not None and dsr < 0.95:
         lines.append("! SPA finds a gain the DSR doesn't: the DSR's bar rises with the spread of all cells, poor ones included, "
                      "and SPA discounts those (references/wiki/contradictions.md, row 18)")
+    failing = []
     for other in modes[1:]:
         found = [o for k in winners for o in groups[k][1]]
         if not found:
@@ -964,7 +999,11 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
         best = max(o.pnl(other) - baseline.pnl(other) for o in found)
         lines.append(f"  under {other}: {len(holds)} of StepM's {len(found)} cells beat the bot as is (best by {best:+,.0f})")
         if not holds:
-            lines.append(f"! StepM's cells only beat the bot as is under {mode}: the gain depends on the fill model")
+            failing.append(str(other))
+    if failing and len(modes) == 2:
+        lines.append(f"! StepM's cells only beat the bot as is under {mode}: the gain depends on the fill model")
+    elif failing:
+        lines.append(f"! none of StepM's cells beats the bot as is under {', '.join(failing)}: the gain depends on the fill model")
     if p["c"] < ALPHA and len(modes) == 1:
         lines.append("  a gain under one matching mode still has to hold under the others: rerun with --modes all,worse")
     found = [o for k in winners for o in groups[k][1]]
@@ -1037,7 +1076,8 @@ def write_csv(path: Path, axes: list[Axis], modes: list[TradeMatching], outcomes
         header += [f"pnl_{mode}", f"min_day_{mode}", f"nbhd_{mode}"]
         header += [f"pnl_{mode}_{day}" for day in days[mode]]
         header += [f"pnl_{mode}_{product}" for product in products[mode]]
-    header += ["fills", "errors", "limit_breaches"]
+    worst = scored_worst(modes)
+    header += (["worst"] if worst else []) + ["fills", "errors", "limit_breaches"]
 
     with path.open("w", newline="") as file:
         writer = csv.writer(file)
@@ -1048,7 +1088,7 @@ def write_csv(path: Path, axes: list[Axis], modes: list[TradeMatching], outcomes
                 row += [outcome.pnl(mode), outcome.min_day(mode), neighborhood_mean(outcomes, index, shape, mode)]
                 row += [outcome.day_pnl[mode][day] for day in days[mode]]
                 row += [outcome.product_pnl[mode].get(product, 0.0) for product in products[mode]]
-            row += [outcome.fills, outcome.errors, outcome.limit_breaches]
+            row += ([worst_case(outcome, modes)] if worst else []) + [outcome.fills, outcome.errors, outcome.limit_breaches]
             writer.writerow(row)
 
 
@@ -1079,7 +1119,8 @@ def main(argv: list[str] | None = None) -> int:
         help="comma-separated trade-matching modes to run every combination under, e.g. all,worse. "
         "The first is the main one (default: --match-trades)",
     )
-    parser.add_argument("--sort", default="pnl", help="rank by pnl, nbhd, min-day, or an extra mode's pnl (default: pnl)")
+    add_scenario_argument(parser)
+    parser.add_argument("--sort", default="pnl", help="rank by pnl, nbhd, min-day, an extra mode's pnl, or with --scenario the worst over them (default: pnl)")
     parser.add_argument("--top", type=int, default=15, help="rows to show (default: 15)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     parser.add_argument("--out", type=Path, help="write every combination's results to this CSV")
@@ -1104,7 +1145,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         s = setup(args)
         axes = [parse_axis(text) for text in args.axes]
-        modes = [TradeMatching(mode.strip()) for mode in args.modes.split(",")] if args.modes else [args.match_trades]
+        modes = scenarios_from(args.modes, args.scenarios, args.match_trades)
         _check(axes, modes, s, args.sort)
         if args.permute < 0 or args.permute_block < 1:
             raise ValueError("--permute needs N >= 0 and --permute-block a run of at least 1 tick")
@@ -1117,8 +1158,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.sample is not None and args.sample < 1:
             raise ValueError("--sample needs a number of cells, e.g. 10000")
         if s.engine == "rust":
-            rust.prepare(args.format, [args.bot, *s.rivals], args.allow_stale)
-        smoke_test(s, args.bot, axes)
+            rust.prepare(args.format, [args.bot, *every_rival(s.rivals, modes)], args.allow_stale)
+            for mode in modes:
+                for rival in rivals_for([], mode):
+                    rust.bot_spec(rival.path, rival.overrides)  # settings on a twin that takes none: refused
+        smoke_test(s, args.bot, axes, modes)
     except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))
 
@@ -1144,6 +1188,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{combos:,} combinations × {len(s.days)} days × {len(modes)} modes ({runs:,} backtests) on {args.jobs} workers")
     if s.rivals:
         print(f"each against {', '.join(participant_names(args.bot, s.rivals)[1:])} in the same market")
+    described = format_scenarios(modes, s)
+    if described:
+        print(described)
     start = time.perf_counter()
     run = run_grid(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.all_products, args.screen, args.sample, args.sample_seed,
                    args.halving)
@@ -1178,6 +1225,20 @@ def main(argv: list[str] | None = None) -> int:
         write_csv(args.out, axes, modes, outcomes)
         print(f"\nall combinations written to {args.out}")
     return 1 if all(outcome.failed for outcome in outcomes.values()) else 0
+
+
+def format_scenarios(modes: list, s: Setup) -> str:
+    """What each --scenario changes, or nothing when every mode is plain."""
+    lines = []
+    for mode in modes:
+        if isinstance(mode, Scenario) and not mode.plain:
+            config, rivals = config_for(s.config, mode), rivals_for(s.rivals, mode)
+            setting = f"match {config.trade_matching}, " + (f"resting, queue {config.queue}" + (f" (power {config.queue_power:g})" if config.queue == "prob" else "")
+                                                            if config.resting else "per tick")
+            setting += (f", fill {config.fill_ratio:g}" if config.fill_ratio != 1 else "") + (f", seed {config.seed}" if config.seed else "")
+            setting += f"; against {', '.join(str(r) for r in rivals)}" if rivals else "; no rivals"
+            lines.append(f"  {mode}: {setting}")
+    return "scenarios:\n" + "\n".join(lines) if lines else ""
 
 
 def _check(axes: list[Axis], modes: list[TradeMatching], s: Setup, sort: str) -> None:

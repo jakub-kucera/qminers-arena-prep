@@ -34,6 +34,7 @@ uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_ed
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --grid PARAMS.KELP.skew=0..9 --sample 1000 --halving 0.5 --modes all,worse --engine rust   # huge grids: a random 1,000 cells, halved day by day
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --engine rust   # the same output, its backtests on rust/ (a bot with a Rust twin)
 uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/zoo/claude/*.py "python/bots/template.py@PARAMS.KELP.make_edge=1" --modes all,worse   # several bots or variants against a baseline
+uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0.5,1,2 --modes all,worse --scenario rest:resting,queue=prob --scenario war:vs=python/bots/template.py@PARAMS.KELP.make_edge=0 --engine rust   # fill-model scenarios, each with its own settings and rivals
 uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
 uv run python -m arena.stress python/bots/template.py 1                    # the bot on perturbed days (trend, shift, spike, vol x2, no wall)
 uv run python -m arena.sim generate data/sim --days 5              # simulated days in the Prosperity layout (--data data/sim)

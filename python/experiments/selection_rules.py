@@ -1,6 +1,6 @@
 """Which way of picking a grid cell holds up on days the grid never saw?
 
-usage (from the repo root): uv run python -m experiments.selection_rules [--jobs N] [--engine rust]
+usage (from the repo root): uv run python -m experiments.selection_rules [--jobs N] [--engine rust] [--part 1|2]
        uv run python -m experiments.selection_rules --data DIR --train 1 --test 2 --products A,B
            --grid make_edge=0,0.5,1,2 --grid take_edge=0,1,2 [--format F --bot FILE]
 
@@ -31,8 +31,21 @@ product first seen on the day. The oracle (the best cell on the test days themse
 scale. Results go into IDEAS.md
 ("Selection rules on unseen days") and references/wiki/concepts/validation-and-overfitting.md.
 
+Part 2, across fill-model scenarios (TODO_DONE.md, "Choose a cell across fill-model scenarios"):
+on Kelp's and Resin's studies and their reverses, every cell runs under each of SCENARIOS (the three
+trade matchings, resting orders in each queue model, a share of the liquidity, a copy of the bot as
+committed and a copy undercutting it at make_edge 0), and SCENARIO_RULES pick from the training days:
+  pnl          the best training PnL under all, as part 1
+  pick         arena.grid's pick: StepM's best cell that beats the base under every scenario
+  max-min      the best worst training PnL over the scenarios
+  max-min gain the best worst gain over the base, the base unless that is above 0
+  low quantile the best lower quartile of the training PnL over the scenarios
+Each pick is scored on the test days by its mean gain over the base across the scenarios, its worst
+one, and in how many scenarios it lost.
+
 With --data (the Arena's rounds, once two exist) each of --products is a study: the --grid axes
-(each PARAM=V1,V2,...) trained on the --train days and tested on the --test days, and reversed.
+(each PARAM=V1,V2,...) trained on the --train days and tested on the --test days, and reversed;
+part 2 runs on all of them.
 """
 
 from __future__ import annotations
@@ -48,8 +61,9 @@ from pathlib import Path
 from arena import grid, rust
 from arena.botfile import BotFile
 from arena.cli import TEMPLATES, add_engine_argument, backtest, bot_module
-from arena.engine import EngineConfig, TradeMatching
+from arena.engine import EngineConfig, QueueModel, TradeMatching
 from arena.formats import FORMATS, prosperity
+from arena.scenario import Rival, Scenario, config_for
 
 TEMPLATE = "python/bots/template.py"
 MODES = (TradeMatching.ALL, TradeMatching.WORSE)
@@ -64,6 +78,17 @@ for _name in list(STUDIES):  # the same grids the other way round: train on the 
     STUDIES[f"{_name} (reversed)"] = (_data, _test, _train, _product, _axes)
 DEFAULTS = BotFile(Path(TEMPLATE), {"datamodel": prosperity.dm}, {}, False).load().DEFAULTS
 RULES = ["base", "pnl", "nbhd", "min day", "worse", "both modes", "top-5 mean", "DSR gate", "SPA gate", "SPA+worse"]
+SCENARIO_RULES = ["base", "pnl", "pick", "max-min", "max-min gain", "low quantile"]
+SCENARIO_STUDIES = ["Kelp", "Resin", "Kelp (reversed)", "Resin (reversed)"]  # part 2 (--data: every study)
+
+
+def scenarios(product: str) -> list[Scenario]:
+    """Part 2's fill models: the first is the plain one the rules' pnl and SPA read."""
+    copy, undercut = Rival(Path(TEMPLATE), {}, "copy"), Rival(Path(TEMPLATE), {f"PARAMS.{product}.make_edge": 0}, "undercut")
+    return [Scenario("all", TradeMatching.ALL), Scenario("worse", TradeMatching.WORSE), Scenario("none", TradeMatching.NONE),
+            Scenario("rest back", resting=True, queue=QueueModel.BACK), Scenario("rest prob", resting=True, queue=QueueModel.PROB),
+            Scenario("rest front", resting=True, queue=QueueModel.FRONT), Scenario("fill 0.7", fill_ratio=0.7), Scenario("fill 0.4", fill_ratio=0.4),
+            Scenario("copy", rivals=(copy,)), Scenario("undercut", rivals=(undercut,))]
 _DAYS: dict = {}
 ENGINE = ["python"]  # set in each worker by _init (--engine)
 _KEPT: dict = {}  # --engine rust: per study, the names of the training and test days days_for keeps
@@ -157,6 +182,55 @@ def run(task: tuple[str, int]) -> tuple[tuple[str, int], dict]:
     return task, out
 
 
+def run_scenarios(task: tuple[str, int]) -> tuple[tuple[str, int], dict]:
+    """Part 2: one cell (-1: the bot as is) under each scenario, PnL per day on both sets, and the
+    training blocks under the first."""
+    name, k = task
+    product = STUDIES[name][3]
+    overrides = {} if k < 0 else cells(name)[k]
+    train, test = _rust_days(name) if ENGINE[0] == "rust" else days_for(name)
+    found = scenarios(product)
+    out = {"train": {s.name: [] for s in found}, "test": {s.name: [] for s in found}, "fine": []}
+    for part, days in (("train", train), ("test", test)):
+        for day in days:
+            for s in found:
+                bots = [("you", TEMPLATE, overrides, False)] + [(str(r), r.path, r.overrides, False) for r in s.rivals or ()]
+                result = backtest(day, bots, config_for(EngineConfig(), s), ENGINE[0], fields=("pnl",), format_name=FORMAT)[0]
+                series = result.pnl.get(product) or [0.0] * len(result.timestamps)
+                out[part][s.name].append(series[-1])
+                if part == "train" and s is found[0]:
+                    out["fine"] += grid.block_pnl(series, len(series) // grid.FINE_TICKS)
+    return task, out
+
+
+def pick_scenarios(base: dict, results: list[dict], names: list[str]) -> dict[str, int | None]:
+    """Each of SCENARIO_RULES' cells from the training days (None: the base), for run_scenarios' results."""
+    pnl = [{n: sum(r["train"][n]) for n in names} for r in results]
+    gain = [{n: p[n] - sum(base["train"][n]) for n in names} for p in pnl]
+    ks, first = range(len(results)), names[0]
+    out = {"base": None, "pnl": max(ks, key=lambda k: pnl[k][first]), "max-min": max(ks, key=lambda k: min(pnl[k].values())),
+           "low quantile": max(ks, key=lambda k: statistics.quantiles(pnl[k].values(), n=4)[0])}
+    best = max(ks, key=lambda k: min(gain[k].values()))
+    out["max-min gain"] = best if min(gain[best].values()) > 0 else None
+    columns, owners = [], []
+    for k, r in enumerate(results):
+        g = [x - b for x, b in zip(r["fine"], base["fine"])]
+        if any(g):
+            columns.append(g)
+            owners.append(k)
+    winners = []
+    if columns and grid.spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] < grid.ALPHA:
+        winners = [owners[j] for j in grid.stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
+    holding = [k for k in winners if all(g > 0 for g in gain[k].values())]
+    out["pick"] = max(holding, key=lambda k: pnl[k][first]) if holding else None
+    return out
+
+
+def scenario_scores(k: int | None, base: dict, results: list[dict], names: list[str], days: int = 1) -> dict[str, float]:
+    """A pick's gain over the base on the test days per scenario (per test day with `days`)."""
+    return {n: 0.0 if k is None else (sum(results[k]["test"][n]) - sum(base["test"][n])) / days for n in names}
+
+
 def dsr(base: list[float], columns: list[list[float]], best: list[float]) -> float | None:
     gains = [[x - b for x, b in zip(c, base)] for c in {tuple(round(x, 6) for x in c): c for c in columns}.values()]
     mine = [x - b for x, b in zip(best, base)]
@@ -225,6 +299,7 @@ def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.selection_rules")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
+    parser.add_argument("--part", type=int, choices=(1, 2), help="run only part 1 (the rules under all and worse) or part 2 (across scenarios)")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     group = parser.add_argument_group("the day's data", "studies on the Arena's rounds in place of the built-in Prosperity ones")
     group.add_argument("--data", help="a data folder, or p2 / p3 / p4")
@@ -246,11 +321,18 @@ def main() -> None:
         parser.error("--format, --bot, --products, --train, --test and --grid choose the day's data: give --data too")
     if args.engine == "rust":
         rust.require(args.allow_stale)
-    tasks = [(name, k) for name in STUDIES for k in range(-1, len(cells(name)))]
     days = {}
     if args.engine == "rust" and FORMAT == "prosperity":  # each study's days loaded once, here, to find the repeats; the workers load nothing
         with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, None, settings)) as pool:
             days = dict(pool.map(kept, STUDIES))
+    if args.part != 2:
+        part_one(args, days, settings)
+    if args.part != 1:
+        part_two(args, days, settings)
+
+
+def part_one(args, days: dict, settings: dict) -> None:
+    tasks = [(name, k) for name in STUDIES for k in range(-1, len(cells(name)))]
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, days, settings)) as pool:
         done = dict(pool.map(run, tasks, chunksize=1))
     for baseline in ("committed", "defaults"):
@@ -279,6 +361,41 @@ def main() -> None:
             oracle = max(sum(r["test"][MODES[0]]) for r in results) - sum(base["test"][MODES[0]])
             print(f"| {name}: {', '.join(axes)} ({len(base['test'][MODES[0]])}) | " + " | ".join(row) + f" | {oracle:+,.0f} |")
         print("| **Total** | " + " | ".join(f"**{totals[r][MODES[0]]:+,.0f} / {totals[r][MODES[1]]:+,.0f}**" for r in RULES) + " | |")
+
+
+def part_two(args, days: dict, settings: dict) -> None:
+    studies = list(STUDIES) if args.data else SCENARIO_STUDIES
+    tasks = [(name, k) for name in studies for k in range(-1, len(cells(name)))]
+    with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, days, settings)) as pool:
+        done = dict(pool.map(run_scenarios, tasks, chunksize=1))
+    names = [s.name for s in scenarios("X")]
+    print(f"\n2. Across fill-model scenarios ({', '.join(names)}). Per rule, the pick's gain over the baseline on the unseen test days: "
+          f"its mean over the {len(names)} scenarios / its worst, and in how many it lost. The pick is in brackets.")
+    for baseline in ("committed", "defaults"):
+        print(f"\nBaseline: the bot {'as committed' if baseline == 'committed' else 'with DEFAULTS for the two parameters'}.\n")
+        print("| Study (test days) | " + " | ".join(SCENARIO_RULES) + " |")
+        print("|---" * (len(SCENARIO_RULES) + 1) + "|")
+        totals = {r: [0.0, 0.0, 0] for r in SCENARIO_RULES}
+        for name in studies:
+            results = [done[(name, k)] for k in range(len(cells(name)))]
+            if baseline == "defaults" and default_cell(STUDIES[name][4]) is None:
+                print(f"| {name}: the grid doesn't hold DEFAULTS' values, so there is no such baseline |")
+                continue
+            base = done[(name, -1)] if baseline == "committed" else results[default_cell(STUDIES[name][4])]
+            picks = pick_scenarios(base, results, names)
+            row = []
+            for rule in SCENARIO_RULES:
+                k = picks[rule]
+                scores = scenario_scores(k, base, results, names)
+                mean, worst, lost = statistics.fmean(scores.values()), min(scores.values()), sum(g < -1e-9 for g in scores.values())
+                totals[rule][0] += mean
+                totals[rule][1] += worst
+                totals[rule][2] += lost
+                label = "base" if k is None else ",".join(str(v) for v in cells(name)[k].values())
+                row.append(f"{mean:+,.0f} / {worst:+,.0f}, lost {lost} ({label})")
+            print(f"| {name}: {', '.join(STUDIES[name][4])} ({len(base['test'][names[0]])}) | " + " | ".join(row) + " |")
+        print("| **Total** | " + " | ".join(f"**{a:+,.0f} / {b:+,.0f}, lost {c}**" for a, b, c in totals.values()) + " |")
+
 
 if __name__ == "__main__":
     main()

@@ -9,8 +9,10 @@ The first bot is the baseline, the bot as is (`--set` applies to it alone). Each
 file, or a variant of one: FILE@PATH=VALUE@PATH=VALUE sets globals as `--set` does, and a leading
 NAME: names it in the tables (a value longer than MAX_VALUE_CHARS is cut in the label, and the
 summary lists such bots' settings in full). Every bot runs
-on every day under each `--modes` entry, one backtest per worker task, against the same `--vs`
-rivals. The summary ranks the bots by PnL, worst day and the other modes, scores each day held
+on every day under each `--modes` entry and `--scenario` (arena.scenario: a fill model with its own
+rivals), one backtest per worker task, against the same `--vs` rivals unless a scenario names its
+own. The summary ranks the bots by PnL, worst day, the other modes and, with a scenario, the worst
+case over them all; it scores each day held
 out, and then judges the choice as arena.grid judges a grid's (references/wiki/concepts/
 validation-and-overfitting.md): PBO, the DSR, Hansen's SPA and Romano and Wolf's StepM against the
 baseline, and a pick: StepM's best bot that beats the baseline under every mode, else the
@@ -36,6 +38,7 @@ from arena.botfile import OverrideError, parse_override
 from arena.cli import Setup, add_common_arguments, add_engine_argument, add_rival_argument, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
 from arena.formats import FORMATS
+from arena.scenario import add_scenario_argument, config_for, every_rival, rivals_for, scenarios_from
 
 MAX_PRODUCT_COLUMNS = 10
 MAX_VALUE_CHARS = 16  # a longer setting is cut in the label; --out and the legend keep it whole
@@ -98,12 +101,12 @@ def _init_worker(format_name, data_arg, day_specs, rivals, config, requote, days
 
 
 def _run(k: int, candidate: Candidate, day_index: int, mode: TradeMatching) -> tuple:
-    """One bot on one day under one mode."""
+    """One bot on one day under one mode (or scenario)."""
     w = _WORKER
     day = w["days"][day_index]
-    config = replace(w["config"], trade_matching=mode)
+    config = config_for(w["config"], mode)
     try:
-        result = run_with_rivals(w["fmt"], day, candidate.path, candidate.overrides, w["rivals"], config, requote=w["requote"])[0]
+        result = run_with_rivals(w["fmt"], day, candidate.path, candidate.overrides, rivals_for(w["rivals"], mode), config, requote=w["requote"])[0]
     except Exception:  # a bot that doesn't load (syntax error, missing class): every day fails
         return k, day_index, mode, None, report.last_line(traceback.format_exc())
     series = report.total_pnl(result) or [0.0] * len(day.ticks)
@@ -126,12 +129,19 @@ def _run_rust(s: Setup, candidates: list[Candidate], tasks: list[tuple], jobs: i
     with tempfile.TemporaryDirectory() as folder:
         scratch = Path(folder)
         paths = [rust.write_day(day, scratch / f"day{d}") for d, day in enumerate(s.days)]
-        specs = [rust.bot_spec(c.path, c.overrides) for c in candidates] + [rust.bot_spec(r, {}, s.requote) for r in s.rivals]
+        specs = [rust.bot_spec(c.path, c.overrides) for c in candidates]
+        rival_specs: dict[str, int] = {}  # each distinct rival's spec, once
         batch = []
         for k, c, d, m in tasks:
-            names = participant_names(c.path, s.rivals)
-            bots = [[names[0], k]] + [[name, len(candidates) + j] for j, name in enumerate(names[1:])]
-            batch.append({"day": d, "config": rust.config_json(replace(s.config, trade_matching=m)), "bots": bots,
+            rivals = rivals_for(s.rivals, m)
+            names = participant_names(c.path, rivals)
+            bots = [[names[0], k]]
+            for name, r in zip(names[1:], rivals):
+                if str(r) not in rival_specs:
+                    rival_specs[str(r)] = len(specs)
+                    specs.append(rust.bot_spec(getattr(r, "path", r), getattr(r, "overrides", {}), s.requote))
+                bots.append([name, rival_specs[str(r)]])
+            batch.append({"day": d, "config": rust.config_json(config_for(s.config, m)), "bots": bots,
                           "blocks": grid.blocks_per_day(len(s.days)), "fine": len(s.days[d].ticks) // grid.FINE_TICKS})
         results = rust.run_batch(paths, specs, batch, jobs, scratch)
     keys = ("pnl", "fine", "products", "fills", "errors", "breaches", "first_error")
@@ -199,14 +209,15 @@ def format_legend(candidates: list[Candidate]) -> str:
 
 
 def format_table(candidates: list[Candidate], modes: list[TradeMatching], outcomes: dict[int, grid.Outcome], top: int) -> str:
-    primary, base = modes[0], outcomes[0]
-    header = ["rank", "bot", f"pnl({primary})", "vs base", "min day", *(f"pnl({m})" for m in modes[1:]), "fills", ""]
+    primary, base, worst = modes[0], outcomes[0], grid.scored_worst(modes)
+    header = ["rank", "bot", f"pnl({primary})", "vs base", "min day", *(f"pnl({m})" for m in modes[1:]), *(["worst"] if worst else []), "fills", ""]
     ranked = sorted(outcomes.items(), key=lambda item: (item[1].failed, -item[1].pnl(primary)))
     rows = []
     for rank, (k, o) in enumerate(ranked[:top], 1):
         flag = f"! {o.errors} errors, {o.limit_breaches} breaches" if o.failed else ("(base)" if k == 0 else "")
         rows.append([str(rank), candidates[k].label, grid._num(o.pnl(primary)), f"{o.pnl(primary) - base.pnl(primary):+,.0f}",
-                     grid._num(o.min_day(primary)), *(grid._num(o.pnl(m)) for m in modes[1:]), f"{o.fills:,}", flag])
+                     grid._num(o.min_day(primary)), *(grid._num(o.pnl(m)) for m in modes[1:]),
+                     *([grid._num(grid.worst_case(o, modes))] if worst else []), f"{o.fills:,}", flag])
     widths = [max(len(cell) for cell in column) for column in zip(header, *rows)]
     lines = ["  ".join((cell.ljust(w) if i == 1 else cell.rjust(w)) for i, (cell, w) in enumerate(zip(cells, widths))).rstrip()
              for cells in [header, *rows]]
@@ -219,6 +230,7 @@ def format_table(candidates: list[Candidate], modes: list[TradeMatching], outcom
     if usable:
         lines.append("")
         named = {"pnl": lambda o: o.pnl(primary), "min-day": lambda o: o.min_day(primary)} | {m.value: (lambda o, m=m: o.pnl(m)) for m in modes[1:]}
+        named |= {"worst": lambda o: grid.worst_case(o, modes)} if worst else {}
         width = max(len(name) for name in named)
         picks = set()
         for name, key in named.items():
@@ -255,7 +267,8 @@ def write_csv(path: Path, candidates: list[Candidate], modes: list[TradeMatching
     header = ["bot", "file", "overrides"]
     for m in modes:
         header += [f"pnl_{m}", f"min_day_{m}", *(f"pnl_{m}_{d}" for d in days[m]), *(f"pnl_{m}_{p}" for p in products[m])]
-    header += ["fills", "errors", "limit_breaches"]
+    worst = grid.scored_worst(modes)
+    header += (["worst"] if worst else []) + ["fills", "errors", "limit_breaches"]
     with path.open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(header)
@@ -264,7 +277,7 @@ def write_csv(path: Path, candidates: list[Candidate], modes: list[TradeMatching
             row = [c.label, str(c.path), " ".join(f"{a}={b}" for a, b in c.overrides.items())]
             for m in modes:
                 row += [o.pnl(m), o.min_day(m), *(o.day_pnl[m][d] for d in days[m]), *(o.product_pnl[m].get(p, 0.0) for p in products[m])]
-            row += [o.fills, o.errors, o.limit_breaches]
+            row += ([grid.worst_case(o, modes)] if worst else []) + [o.fills, o.errors, o.limit_breaches]
             writer.writerow(row)
 
 
@@ -279,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bot", dest="bots", action="extend", nargs="+", required=True, metavar="[NAME:]FILE[@PATH=VALUE...]",
                         help="a bot to compare with the baseline, or a variant FILE@PATH=VALUE@..., optionally named NAME:...; repeatable, and takes several")
     parser.add_argument("--modes", help="comma-separated trade-matching modes, e.g. all,worse; the first is the main one (default: --match-trades)")
+    add_scenario_argument(parser)
     parser.add_argument("--top", type=int, default=20, help="rows to show (default: 20)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     parser.add_argument("--out", type=Path, help="write one row per bot to this CSV")
@@ -286,14 +300,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         s = setup(args)
-        modes = [TradeMatching(m.strip()) for m in args.modes.split(",")] if args.modes else [args.match_trades]
-        if len(set(modes)) != len(modes):
-            raise ValueError("--modes lists a mode twice")
+        modes = scenarios_from(args.modes, args.scenarios, args.match_trades)
         base = Candidate(args.bot, s.overrides, default_label(args.bot, s.overrides))
         candidates = labelled([base, *(parse_candidate(text) for text in args.bots)])
         if s.engine == "rust":
-            rust.prepare(args.format, [*{c.path for c in candidates}, *s.rivals], args.allow_stale)
-            for c in candidates:
+            rust.prepare(args.format, [*{c.path for c in candidates}, *every_rival(s.rivals, modes)], args.allow_stale)
+            for c in [*candidates, *(r for m in modes for r in rivals_for([], m))]:
                 rust.bot_spec(c.path, c.overrides)  # --set or @ settings on a zoo twin: refused
     except (ValueError, OSError, OverrideError, RuntimeError) as error:
         parser.error(str(error))
@@ -303,6 +315,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{len(candidates) - 1} bots and the baseline × {len(s.days)} days × {len(modes)} modes ({runs} backtests) on {jobs} workers")
     if s.rivals:
         print(f"each against {', '.join(str(r) for r in s.rivals)} in the same market")
+    described = grid.format_scenarios(modes, s)
+    if described:
+        print(described)
     start = time.perf_counter()
     outcomes = run_compare(s, candidates, modes, jobs, args.format, args.data, args.days)
     print(f"done in {time.perf_counter() - start:.1f} s\n")

@@ -365,3 +365,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-23] lint | arena.grid and arena.stats lines moved (halving, sampling, the O(cells × blocks) correlation)
 - `arena.grid` gains `--halving` and `--sample`, and `arena.stats.mean_correlation` becomes the identity (‖Σz‖² − Σ‖z‖²) / (S·M(M−1)) with exact sums: the citations of `FINE_TICKS`, `format_snooping`, `omega2`, `spa` and `stepm` re-mapped (`superior-predictive-ability`, `stepwise-multiple-testing`, `validation-and-overfitting`).
+
+## [2026-10-23] lint | fill-model scenarios in arena.grid and arena.compare
+- `arena.grid --scenario` (repo `python/arena/scenario.py`) and the selection rules across ten scenarios: `validation-and-overfitting` gets the result (the worst-case PnL loses most often; the pick least). The citations of `FINE_TICKS` and `format_snooping` re-mapped (`superior-predictive-ability`, `validation-and-overfitting`).

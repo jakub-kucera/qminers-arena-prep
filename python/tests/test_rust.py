@@ -210,6 +210,23 @@ def test_the_grid_prints_the_same_on_either_engine(bench, tmp_path, capsys):
     assert "permutation test" in ours and "screened" in ours and "SPA on pnl" in ours and "CSCV on pnl" in ours
 
 
+@needs_cargo
+def test_the_grid_and_compare_print_the_same_on_either_engine_under_scenarios(tmp_path, capsys):
+    """Scenarios with their own engine settings and rivals (a rival's overrides too), beside --vs."""
+    from arena import compare
+
+    data = _sim_data(tmp_path)
+    scenarios = ["--scenario", "rest:resting,queue=front,fill=0.7,vs=python/bots/rivals/trapper.py@BAIT=20@PERIOD=100",
+                 "--scenario", "alone:match=worse,vs=none", "--vs", "python/bots/rivals/sniper.py", "--jobs", "2"]
+    argv = ["python/bots/template.py", "1", "--data", data, "--grid", "PARAMS.KELP.make_edge=0.5,1,2", "--modes", "all", *scenarios]
+    ours = _grid_output(capsys, [*argv, "--out", str(tmp_path / "python.csv")])
+    assert _grid_output(capsys, [*argv, "--engine", "rust", "--out", str(tmp_path / "rust.csv")]) == ours
+    assert (tmp_path / "rust.csv").read_text() == (tmp_path / "python.csv").read_text()
+    assert "best by worst" in ours and "rest: match all, resting, queue front, fill 0.7; against python/bots/rivals/trapper.py@BAIT=20@PERIOD=100" in ours
+    argv = ["python/bots/template.py", "1", "--data", data, "--bot", "python/bots/template.py@PARAMS.KELP.make_edge=1", *scenarios]
+    assert _printed(capsys, compare.main, [*argv, "--engine", "rust"]) == _printed(capsys, compare.main, argv)
+
+
 def test_the_grid_refuses_a_bot_without_a_rust_twin(tmp_path, capsys):
     from arena import grid
 

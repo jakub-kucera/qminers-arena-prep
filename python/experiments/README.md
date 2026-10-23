@@ -36,7 +36,7 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `p4_vouchers_template` | The underlying's level bet with its options following, by held-out days | "What the P4 vouchers are" | `--data D --days ... --underlying U --prefix P` |
 | `p4_level_template` | The level mode by held-out days, and other ways to set the level | "Trading toward a known level" | `--data D --days ... --products A,B` (those `arena.diagnose` notes as reverting to a level) |
 | `p4_jumps` | Jumps that snap back, per product and day, and the `jump` mode on every product | "Fading jumps that snap back" | `--data D --days ... --jump-min J [--format F] [--trade]` (`--trade` runs part 2 on any data; `--jump-min` in the data's price unit) |
-| `selection_rules` | Which way of picking a grid cell holds up on unseen days | "Selection rules on unseen days" | `--data D --train ... --test ... --products ... --grid PARAM=V1,V2 --grid ...` once two rounds exist |
+| `selection_rules` | Which way of picking a grid cell holds up on unseen days; part 2, picking across ten fill-model scenarios (`--part 2`) | "Selection rules on unseen days", "Choosing a cell by its worst case over fill-model scenarios" | `--data D --train ... --test ... --products ... --grid PARAM=V1,V2 --grid ...` once two rounds exist |
 
 ## The rest
 
@@ -46,7 +46,7 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `format_drill` | Makes drill-format data (and `--sync` copies the template into the drill bot) | — | A tool, not a study |
 | `p4_levels` | How much of the teams' P4 PnL survives without their hard-coded levels | "Trading toward a known level", "What the P4 vouchers are" | Runs other teams' Prosperity bots |
 | `rust_bench` | Every Rust twin against its Python file, then the speed | — | The parity check (`--parity-only --record`) |
-| `selection_rules_sim` | The selection rules on fresh `arena.sim` days | "Selection rules on unseen days" | Simulated days; calibrate `arena.sim` to the download first (`--spec`) |
+| `selection_rules_sim` | The selection rules on fresh `arena.sim` days; part 2 across the scenarios | "Selection rules on unseen days", "Choosing a cell by its worst case over fill-model scenarios" | Simulated days; calibrate `arena.sim` to the download first (`--spec`) |
 | `sim_regimes` | The template's stops and guards when `arena.sim`'s regime changes mid-day | "Regime changes in a market that reacts" | Simulated days |
 | `snooping_tests` | SPA and StepM next to the DSR on two grids and null controls | "Bootstrap tests of the best cell" | A check of the statistics; `arena.grid` runs them on any data |
 | `stops_held_out` | Do the loss stops hold on days they weren't sized on | "A loss stop per product" | `arena.stress` on the day's data does the same check |

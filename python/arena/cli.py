@@ -123,11 +123,12 @@ def setup(args: argparse.Namespace) -> Setup:
     return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False), getattr(args, "engine", "python"))
 
 
-def participant_names(bot: Path, rivals: list[Path]) -> list[str]:
-    """File stems, numbered from the second copy on: template, template#2, other."""
+def participant_names(bot: Path, rivals: list) -> list[str]:
+    """File stems, numbered from the second copy on: template, template#2, other. A rival is a path or
+    an arena.scenario.Rival (a file with overrides)."""
     seen: Counter[str] = Counter()
     names = []
-    for path in [bot, *rivals]:
+    for path in [bot, *(getattr(r, "path", r) for r in rivals)]:
         seen[path.stem] += 1
         names.append(path.stem if seen[path.stem] == 1 else f"{path.stem}#{seen[path.stem]}")
     return names
@@ -242,13 +243,14 @@ def run_with_rivals(
     day: Day,
     bot: Path,
     overrides: dict[str, object],
-    rivals: list[Path],
+    rivals: list,
     config: EngineConfig,
     strict: bool = True,
     requote: bool = False,
 ) -> list[DayResult]:
-    """Runs the bot, plus any rivals in the same market. The bot's result comes first."""
-    others = [fmt.load_bot(rival, {}, strict) for rival in rivals]
+    """Runs the bot, plus any rivals in the same market (paths, or arena.scenario.Rivals with their
+    overrides). The bot's result comes first."""
+    others = [fmt.load_bot(getattr(rival, "path", rival), getattr(rival, "overrides", {}), strict) for rival in rivals]
     if requote:
         others = [Requote(other) for other in others]
     bots = [fmt.load_bot(bot, overrides, strict), *others]

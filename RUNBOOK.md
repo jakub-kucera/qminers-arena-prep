@@ -36,7 +36,7 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 | T+0:00 | Download the data and the round's rules; write what changed into "Rule changes" and "Products". |
 | T+0:15 | `arena.diagnose` on the new days; backtest last round's bot on them in each mode; `arena.validate` it: the first candidate. |
 | T+0:30 | New products into PARAMS, by `references/wiki/concepts/reading-the-data-on-day-one.md`. Options, baskets, named traders or jumps: the experiment for each (`python/experiments/README.md`). |
-| T+1:00 | `uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>.make_edge=0.5,1,1.5,2 --modes <closest>,worse [--screen 0.25]`. Change a setting only to the summary's `pick` ["Evaluation data"]. |
+| T+1:00 | `uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>.make_edge=0.5,1,1.5,2 --modes <closest>,worse [--screen 0.25]`. Change a setting only to the summary's `pick` ["Evaluation data"]. Fill model unsure: add a `--scenario` for each one left possible ["Which backtest settings match the playground?"]. |
 | T+1:30 | `uv run python -m arena.stress BOT DAYS --format qminers --data D`; set each `stop_loss` to about 3× its plain drawdown ["Stress the bot"]. If the market is shared: `--vs` copies, the round's zoo through `arena.compare`, and the rivals ["Is the market shared"]. |
 | T+2:00 | A validated bot at least as good as the last one, uploaded; its portal score against our backtest is the engine's error `T`. |
 | T+4:30 | Stop changing the strategy. Validate the final candidate and upload it. |
