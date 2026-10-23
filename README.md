@@ -257,7 +257,7 @@ from each tick's book and the fill model, so check the pick under `--modes worse
 measured against the bot as is, whose settings were tuned to the real order. Each copy reruns the
 whole grid under the first mode, so 19 copies (the fewest for p 0.05) cost about 19 grids.
 
-`--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
+An axis whose values never change any working combination's PnL, with the other axes held fixed, is flagged: a typo'd key (`--set` accepts a new one) or a setting another one overrides. `arena.compare` flags a variant that makes exactly its baseline's PnL the same way. `--sort` ranks the table by another measure. `--out` writes every combination to a CSV:
 per-mode totals, `min day` and `nbhd`, then per-day and per-product PnL. Combinations with errors
 or limit breaches are left out of the summary's picks and of the heatmaps, and the grid exits with 1
 if every combination failed.
@@ -323,6 +323,7 @@ It warns about:
 - use of environment variables, files, subprocesses or the network
 - results that change on a repeat run, or when the first day is replayed in two other Python processes with other hash seeds (`PYTHONHASHSEED`), which catches a bot that iterates a set of strings: the organisers rerun the top bots, and such a bot wouldn't reproduce
 - results that change when the bot is reloaded every tick, which means it keeps state outside `traderData` that the real engine may not preserve
+- settings that can't matter, if the bot lists them (the template's `param_conflicts`): two target modes on one product (the first in `trade_product`'s order wins), a static `target` that a mode replaces, or a mode's own setting while the mode is off
 
 ## How the engine works
 

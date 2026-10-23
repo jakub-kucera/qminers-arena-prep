@@ -79,6 +79,7 @@ import statistics
 import sys
 import tempfile
 import time
+from collections import defaultdict
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
@@ -644,6 +645,33 @@ def format_summary(axes, modes, baseline: Outcome, rows: list[Row], sort: str, t
     return "\n".join(lines)
 
 
+def _fingerprint(outcome: Outcome, modes: list[TradeMatching]) -> tuple:
+    return tuple((mode, tuple(outcome.day_pnl[mode].items()), tuple(sorted(outcome.product_pnl[mode].items()))) for mode in modes)
+
+
+def dead_axes(axes: list[Axis], outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching]) -> list[Axis]:
+    """The axes whose values never change a working combination's PnL, day by day, product by product
+    and mode by mode, with the other axes held fixed: a typo'd key (--set accepts a new leaf), or a
+    setting that another one overrides (the template's param_conflicts lists those)."""
+    dead = []
+    for a, axis in enumerate(axes):
+        groups: dict[tuple, set] = defaultdict(set)
+        sizes: dict[tuple, int] = defaultdict(int)
+        for index, outcome in outcomes.items():
+            if not outcome.failed:
+                key = index[:a] + index[a + 1 :]
+                groups[key].add(_fingerprint(outcome, modes))
+                sizes[key] += 1
+        if any(n > 1 for n in sizes.values()) and all(len(found) == 1 for found in groups.values()):
+            dead.append(axis)
+    return dead
+
+
+def format_dead_axes(axes: list[Axis], outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching]) -> str:
+    return "\n".join(f"! {axis.label} never changed the PnL: a typo'd key, or a setting another one overrides "
+                     "(python/bots/template.py's param_conflicts lists those; arena.validate prints them)" for axis in dead_axes(axes, outcomes, modes))
+
+
 def leave_one_day_out(outcomes: dict[tuple[int, ...], Outcome], mode: TradeMatching) -> dict[str, Outcome]:
     """For each day, the combination with the best PnL on the other days (failed ones left out)."""
     usable = [outcome for _, outcome in sorted(outcomes.items()) if not outcome.failed]
@@ -986,6 +1014,9 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = build_rows(axes, modes, outcomes)
     print(format_summary(axes, modes, baseline, rows, args.sort, args.top))
+    dead = format_dead_axes(axes, outcomes, modes)
+    if dead:
+        print(dead)
     held_out = format_held_out(axes, modes, outcomes, repeated_days(s.days))
     if held_out:
         print("\n" + held_out)

@@ -415,3 +415,12 @@ def test_the_screen_works_with_the_permutation_test_and_rejects_a_bad_share(caps
     for share in ("0", "1", "1.5"):
         with pytest.raises(SystemExit):
             run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", "--screen", share)
+
+
+def test_an_axis_that_never_changes_the_pnl_is_flagged(capsys, bot, data_dir):
+    # `unused` is read by nothing, and `--set` accepts a new leaf such as `typo`: both axes are dead.
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..2", "--grid", "PARAMS.unused=a,b", "--grid", "PARAMS.typo=1,2",
+                          "--jobs", "1")
+    assert code == 0
+    assert "! unused never changed the PnL" in text and "! typo never changed the PnL" in text
+    assert "! size never changed" not in text

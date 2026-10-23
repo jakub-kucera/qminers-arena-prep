@@ -13,7 +13,8 @@
 //! computed in the same order as Python's, with the same libm calls (`x ** 2` is libm's `pow`, which
 //! on macOS isn't always `x * x`; NormalDist's cdf is libm's `erf`), so the PnL matches to the bit.
 //!
-//! Not ported: STRICT (a Rust bot can't raise into the result), and the per-product try/except.
+//! Not ported: STRICT (a Rust bot can't raise into the result), the per-product try/except, and
+//! `param_conflicts` (a check that arena.validate calls; it doesn't trade).
 //! Settings the Python file would only fail on at run time (an unknown key, an unknown fair method,
 //! a float where the strategy needs an integer) are refused when the bot is built.
 

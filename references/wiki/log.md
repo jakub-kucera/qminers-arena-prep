@@ -353,3 +353,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-23] lint | per-tick market trades go best price first
 - `python/arena/engine.py` (`_match_trades`) and its Rust twin: with two or more bots, per tick, leftover orders meet the market trades in price-time priority, where they met them in arrival order. `shared-market-and-adversaries` gets the re-run undercut figures (repo `IDEAS.md`, "Against a rival that undercuts us"); the resting results it cites are unchanged.
+
+## [2026-10-23] lint | arena.grid's lines moved
+- `arena.grid` flags an axis that never changes the PnL (`dead_axes`): the citations of `FINE_TICKS` and `format_snooping` re-mapped (`superior-predictive-ability`, `validation-and-overfitting`).

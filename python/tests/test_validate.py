@@ -147,3 +147,12 @@ def test_a_bot_that_depends_on_the_hash_seed_warns(check, monkeypatch):
     assert code == 0
     assert "WARN  fills differ between Python processes with other hash seeds" in out
     assert "PASS  same fills when r1d-1 is replayed again" in out  # one process can't see it
+
+
+def test_settings_that_cant_matter_warn(check, tmp_path):
+    source = TEMPLATE.read_text().replace('"KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200},',
+                                          '"KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200, "level": 2030, "jump_min": 4},')
+    assert source != TEMPLATE.read_text()
+    code, out = check(source)
+    assert code == 0
+    assert "WARN  settings that can't matter: KELP: level sets the target, so jump_min is ignored" in out

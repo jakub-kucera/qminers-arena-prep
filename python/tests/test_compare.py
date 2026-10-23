@@ -91,3 +91,11 @@ def test_compare_runs_in_parallel_with_the_same_numbers(capsys, bots, data_dir):
     _, parallel = run_main(capsys, *args, "--jobs", "2")
     strip = lambda text: [line for line in text.splitlines() if "done in" not in line and "workers" not in line]
     assert strip(serial) == strip(parallel)
+
+
+def test_a_variant_with_the_baselines_pnl_is_flagged(capsys, bots, data_dir):
+    code = compare.main([str(bots["base"]), "1", "--data", str(data_dir), "--jobs", "1",
+                         "--bot", f"{bots['base']}@PARAMS.size=2", f"{bots['base']}@PARAMS.typo=5"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "! bot typo=5 makes exactly the baseline's PnL" in out and "! bot size=2 makes" not in out

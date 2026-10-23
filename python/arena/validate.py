@@ -167,6 +167,21 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     return checks
 
 
+def conflict_checks(path: Path, s: Setup) -> list[Check]:
+    """A WARN for each setting the bot itself says can't matter, if it says (the template's
+    param_conflicts(product): a second target mode, a target a mode replaces, a mode's own setting
+    while the mode is off)."""
+    s.format.load_bot(path, s.overrides, strict=True)
+    module = sys.modules.get(f"arena_bot_{Path(path).stem}")  # BotFile.load registers the module under this name
+    conflicts, params = getattr(module, "param_conflicts", None), getattr(module, "PARAMS", None)
+    if not callable(conflicts) or not isinstance(params, dict):
+        return []
+    found = [f"{product}: {reason}" for product in params for reason in conflicts(product)]
+    if not found:
+        return [Check(PASS, "no setting in PARAMS is overridden by another or left without its mode")]
+    return [Check(WARN, "settings that can't matter: " + "; ".join(found))]
+
+
 def fills_digest(fills) -> str:
     return hashlib.sha256(repr(fills).encode()).hexdigest()
 
@@ -243,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     if replayable:
         try:
             checks += replay_checks(args.bot, s, args.time_limit_ms, argv)
+            checks += conflict_checks(args.bot, s)
         except OverrideError as error:
             parser.error(str(error))
         except Exception as error:  # the bot failed while loading, before any tick ran

@@ -678,6 +678,47 @@ def _scaled(size: int, factor: float) -> int:
     return int(size * max(factor, 0.0))
 
 
+# The target modes in the order trade_product tries them: the first one set decides the target.
+_TARGET_MODES = ("basket", "level", "copy", "jump_min", "follow", "hedge")
+# Each mode's own settings, which do nothing while it is off (a basket uses the level ones too).
+_MODE_SETTINGS = {
+    "level": ("level_weight", "level_band", "level_exit", "level_guard", "cpd_hazard"),
+    "cpd_hazard": ("cpd_reversion", "cpd_sd", "cpd_block", "cpd_action", "cpd_threshold"),
+    "copy": ("copy_hold", "copy_edge"),
+    "jump_min": ("jump_hold", "jump_edge", "jump_seen", "jump_share"),
+    "follow": ("max_cost_per_delta",),
+    "smile": ("expiry", "smile_window"),
+    "stop_loss": ("stop_edge",),
+    "flatten_from": ("flatten_edge",),
+    "vol_guard": (),
+}
+
+
+def param_conflicts(product: str) -> list[str]:
+    """The settings in PARAMS[product] that can't matter, each with the reason: a second target mode
+    (the first in trade_product's order decides the target), a static target that a mode replaces,
+    or a mode's own setting while the mode is off. arena.validate prints them, and a grid axis over
+    one of them never changes the PnL. It doesn't trade, so it has no Rust twin."""
+    own = PARAMS[product]
+    p = {**DEFAULTS, **own}
+    found = []
+    modes = [mode for mode in _TARGET_MODES if p[mode] not in (None, False)]
+    if "basket" in modes and "level" in modes:
+        modes.remove("level")  # a basket's level is its spread's usual value
+    if len(modes) > 1:
+        found.append(f"{modes[0]} sets the target, so {', '.join(modes[1:])} {'is' if len(modes) == 2 else 'are'} ignored")
+    if modes and own.get("target", 0) != 0:
+        found.append(f"target is ignored: {modes[0]} sets the target")
+    for mode, keys in _MODE_SETTINGS.items():
+        on = p[mode] is not None or (mode == "level" and p["basket"] is not None)
+        found += [f"{key} does nothing without {mode}" for key in keys if key in own and not on]
+    if p["fair"] != "fixed":
+        found += [f"{key} does nothing unless fair is \"fixed\"" for key in ("fixed_fair", "fixed_guard") if key in own]
+    if p["basket"] is not None and p["level"] is None:
+        found.append("basket needs level, its spread's usual value")
+    return found
+
+
 # ------------------------------------------------------------------------------ EXECUTION
 
 

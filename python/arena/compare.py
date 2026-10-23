@@ -311,6 +311,10 @@ def main(argv: list[str] | None = None) -> int:
     if legend:
         print(legend + "\n")
     print(format_table(candidates, modes, outcomes, args.top))
+    same = [candidates[k].label for k, o in outcomes.items() if k and candidates[k].overrides and not o.failed and not outcomes[0].failed
+            and candidates[k].path == candidates[0].path and grid._fingerprint(o, modes) == grid._fingerprint(outcomes[0], modes)]
+    for label in same:
+        print(f"! {label} makes exactly the baseline's PnL: its settings may have no effect (a typo'd key, or a setting another one overrides)")
     products = format_products(candidates, modes[0], outcomes, args.top)
     if products:
         print("\n" + products)
