@@ -637,7 +637,12 @@ def _volume_at(order: _Live, books: dict[str, Book]) -> int:
 
 
 def _requeue(resting: list[_Live], books: dict[str, Book], model: QueueModel = QueueModel.BACK, power: float = 1.0) -> None:
-    """Moves resting orders up their queue from the new snapshot (see QueueModel)."""
+    """Moves resting orders up their queue from the new snapshot (see QueueModel).
+
+    It reads the recorded book, not _liquidity's --fill-ratio copy, as _volume_at does for a new
+    order: the volume queued ahead of an order is all of the visible volume at its price, the part
+    this bot couldn't have traded with included. _cross fills from the thinned copy instead, since
+    only the share available to the bot can trade with it."""
     for order in resting:
         book = books.get(order.product)
         if not book:

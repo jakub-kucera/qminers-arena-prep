@@ -83,7 +83,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--resting` | Unfilled orders rest on the book until filled or cancelled, with a queue model. See [Resting mode](#resting-mode). |
 | `--queue back\|prob\|front` | With `--resting`: where other orders' cancellations at your price fall (default `back`). `--queue-power N` sets `prob`'s power. See [Resting mode](#resting-mode). |
 | `--vs BOT` | Another bot in the same market, competing for fills and trading with yours. Repeatable. See [Shared market](#shared-market). |
-| `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. |
+| `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. With `--resting`, the volume queued ahead of your order is still all of the visible volume: the others are there whether or not you could trade with them. |
 | `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask and wall mid per tick), `<day>_fills.csv`, `<day>_orders.csv` and `<day>_trades.csv` (the data's market trades) |
 | `--print` | Show the bot's prints |
 | `--no-strict` | Let the bot swallow its own exceptions, as it does when submitted |
@@ -440,7 +440,7 @@ twin's code as last checked (comments, docstrings and the settings Rust reads fr
 ## Stress
 
 `arena.stress` reruns a bot on perturbed copies of each day: each product's whole book, trades and
-mark moved together, so only the price path changes. The perturbations: volatility ×2, a trend
+mark moved together, so only the price path changes. The perturbations: volatility ×2 (every move of the price doubled; the spread keeps its width, so the market is tighter relative to its moves), a trend
 each way, a level shift at mid-day each way, a 100-tick spike each way, and the walls removed for
 the middle fifth. Each is sized in the product's median spread and moves prices by whole ticks. It prints each product's PnL under each one, its largest plain-day drawdown
 (what a loss stop must leave room for) and its worst single day.

@@ -12,7 +12,9 @@ its market trades and its mark by the same offset at a tick, so the book's shape
 place in it are kept; only the price path changes. Sizes are in the product's median spread `s`
 over the day, times `--size`, and every offset is a whole number of the product's ticks:
 
-    vol2         every tick's distance from the day's first wall mid is doubled
+    vol2         every tick's distance from the day's first wall mid is doubled, so every move of the
+                 price and its volatility double; the book keeps its shape, so the spread doesn't widen
+                 with it, and the market is tighter relative to its moves
     trend_up     a steady drift adding up to 10 s over the day (trend_down: down)
     shift_up     the price moves 5 s at the middle of the day and stays (shift_down: down)
     spike_up     the price moves 5 s at the middle of the day and comes back 100 ticks later
