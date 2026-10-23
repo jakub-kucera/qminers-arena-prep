@@ -396,3 +396,27 @@ A read-through of `python/arena/`, `python/bots/template.py`, the tests and the 
   - The README's `--out` row names three CSVs; there are four (`_trades.csv`).
   - The README says `python/tests/test_parity.py` pins 15 comparisons; it pins 6 (2 days × 3 modes).
   - Done when: these are fixed, and the lint either checks that a cited `python/bots/template.py` range starts at a `def` or `class`, or the wiki cites template code by function name.
+
+## From the audit (2026-10-22)
+
+A whole-repository audit (design, code, docs, day-of readiness) found four high, eight medium and six low findings. The user chose which to fix (2026-10-22): all but M8, which is a decision of theirs, and M4 turned around, from freezing the Rust port to pushing it to search far more options. Each is listed with what was done and its commit.
+
+- [x] **H1: the per-tick shared market ignored price priority on market trades.** With two or more bots, leftover orders met each market trade in arrival order, so a bid at 99 could fill before one at 100 (96 of 200 seeds); the Rust twin did the same. Now best price first, ties by arrival (`engine._match_trades`, `e003e81`); one bot keeps prosperity3bt's order-list rule, so parity is unchanged. The per-tick rival results were re-run and re-recorded in `IDEAS.md`, `README.md` and the wiki (`9ba7999`).
+- [x] **H2: the organisers' schedule, the conditions and a plan for the day were missing.** `ON_THE_DAY.md` gained "The day: timeline and roles" (the schedule, per-round checkpoints, four roles, a sleep rota, a handover note) and the e-mail's facts in "Known so far" (`c08f739`). Open: the names and the rota (`TODO.md`, "Agree the roles and the sleep rota").
+- [x] **H3: no one-page runbook, and drifted figures.** `RUNBOOK.md`; the finished `TODO.md` items moved word for word here, with every reference repointed; `ON_THE_DAY.md`'s stale 81k/58k/28k replaced (`5244eac`).
+- [ ] **H4: the human mock round, the laptops and the choices before the day.** Out of the audit's scope: they stay open in `TODO.md` ("Run a mock round in the week of 26 Oct.", "Set up every teammate's laptop by 31 Oct.", the "Decisions").
+- [x] **M1: an exchange order built outside the template's per-product `try`.** A bad `Order(...)` for one product no longer drops every product's orders (`71c1d11`).
+- [x] **M2: a stale Rust twin only warned.** It now refuses to run unless `--allow-stale`, in every tool and experiment (`c1b81e9`); a twin never checked is named as such (`b6ca2dd`).
+- [x] **M3: the twin hash covered the file's text.** It hashes the code's syntax tree, without docstrings and without the settings Rust reads at run time (`f3a4e9d`).
+- [x] **M4: the Rust port couldn't reach the Arena's template without new Rust code; turned into "search far more options".** The template's Rust ADAPTER is one of six choices, so the Arena's template can be a twin by config (`3781440`); grids of 100,000 cells in five minutes, with `--halving` and `--sample` (`ecc86b8`); fill-model scenarios in the grid and compare, with the pick checked under every one (`81cad8c`); a taker archetype and the rival field (`b6ca2dd`).
+- [x] **M5: few experiments took the day's data.** The 14 that `ON_THE_DAY.md` or `IDEAS.md` re-run take `--data`, `--days`, `--format`, `--bot` and `--products`, and `python/experiments/README.md` lists every experiment (`1d29b12`).
+- [x] **M6: the determinism check ran in one process.** `arena.validate` replays the first day under two other hash seeds (`ad63e45`).
+- [x] **M7: the probe bot's fatal probes ran first, and it imported `importlib` and `time`.** They run last, in a block that can be deleted (`d66bf6a`).
+- [x] **M8: no fallback bot.** Suggested only, as the decision "Write a fallback bot against the Arena's API in the playground?" in `TODO.md` (`bd22ae7`).
+- [x] **L1: silent mode precedence and dead grid axes.** The template's `param_conflicts`, `arena.validate`'s warning, and the grid's and compare's dead-axis flags (`f947fe9`).
+- [x] **L2: the queue under `--fill-ratio`, and `vol2`'s spreads.** Both are as intended; documented (`ad2e216`).
+- [x] **L3: `arena.sim` imported the engine's private helpers.** They are public, in a section shared with the sim (`bc2cdf8`).
+- [x] **L4: CLAUDE.md was 5,300 words.** The architecture moved word for word to `ARCHITECTURE.md` (`f694120`).
+- [ ] **L5: `literature_md/` holds converted copies of copyrighted books and papers.** No action while the repository is private; `TODO.md`, "Keep the repository private".
+- [x] **L6: the organisers' conversation JSON sat at the root.** Moved to `references/` after its schedule went into `ON_THE_DAY.md` (`c08f739`).
+

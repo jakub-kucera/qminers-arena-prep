@@ -61,7 +61,7 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 **Only in Python**:
 - the format plug-ins (`python/arena/formats/`), which load the data for Python (Rust reads the Prosperity CSVs itself, above; the drill's days are exported);
 - `arena.validate`, which checks the Python file itself;
-- everything in `arena.grid` but the backtests and the heavy statistics: the axes, screening, the permutation test's shuffles (`arena.stress.permute`, 0.09 s a day), held-out days, and the DSR's own formula;
+- everything in `arena.grid` but the backtests, the heavy statistics and the permuted copies (`src/arena/stress.rs` makes those from each task's `transform`): the axes, `--sample`'s draw, the screen and `--halving`'s steps, the scenarios (each task carries its config and rivals), held-out days, and the DSR's own formula;
 - `arena.analysis`, `arena.diagnose`, `arena.stress`'s command line, and `arena.report`'s CSVs (written from the results Rust hands back);
 - `python/experiments/p4_levels.py` (other teams' bots, which have no twins) and `format_drill.py` (three simulated days);
 - `arena.sim`'s specs, presets, `--spec` overrides and regimes, and its command line, which prints from the results Rust hands back;

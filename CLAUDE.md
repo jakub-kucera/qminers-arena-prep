@@ -19,7 +19,7 @@ The Python code is in `python/` (`arena/`, `bots/`, `experiments/`, `tests/`, `n
 ```sh
 references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
 uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
-uv run pytest                       # all tests (~90 s; python/tests/test_rust.py's parity checks are most of it)
+uv run pytest                       # all tests (~110 s; python/tests/test_rust.py's parity checks are most of it)
 uv run pytest python/tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
 uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
@@ -33,8 +33,8 @@ uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_ed
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --grid PARAMS.KELP.take_edge=0..7 --modes all,worse --screen 0.25   # big grids: screen on the first day, the best quarter on all
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --grid PARAMS.KELP.skew=0..9 --sample 1000 --halving 0.5 --modes all,worse --engine rust   # huge grids: a random 1,000 cells, halved day by day
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --engine rust   # the same output, its backtests on rust/ (a bot with a Rust twin)
-uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/zoo/claude/*.py "python/bots/template.py@PARAMS.KELP.make_edge=1" --modes all,worse   # several bots or variants against a baseline
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0.5,1,2 --modes all,worse --scenario rest:resting,queue=prob --scenario war:vs=python/bots/template.py@PARAMS.KELP.make_edge=0 --engine rust   # fill-model scenarios, each with its own settings and rivals
+uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/zoo/claude/*.py "python/bots/template.py@PARAMS.KELP.make_edge=1" --modes all,worse   # several bots or variants against a baseline
 uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
 uv run python -m arena.stress python/bots/template.py 1                    # the bot on perturbed days (trend, shift, spike, vol x2, no wall)
 uv run python -m arena.sim generate data/sim --days 5              # simulated days in the Prosperity layout (--data data/sim)
@@ -58,7 +58,7 @@ uv run python -m experiments.p3_smile                             # P3's volcani
 uv run python -m experiments.imbalance                            # does the best-level imbalance predict the mid / the wall mid, per product and day
 uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
 uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls
-uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw
+uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw; part 2 across ten fill-model scenarios
 uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
 uv run python -m experiments.rust_bench                           # the Rust port (rust/, needs cargo) against ours: every twin's parity, then speed
 uv run python -m experiments.rust_bench --parity-only --record    # after changing a twin (rust/twins.json): check it, then record its hash
@@ -104,7 +104,7 @@ the parts consistent:
   - `references/algotrade2026-pitfa19/` contains its own `CLAUDE.md` and `AGENTS.md`. They describe that repo, not this one, so don't follow them.
   - `references/README.md` summarises what each repo is useful for.
   - **`references/wiki/` is the way into the clones and the literature.** It follows Karpathy's LLM-wiki pattern: read `references/wiki/index.md` first, then a concept page, then the source page, and only then the raw file at the cited line. Pages cite code as `path:line`, say what is a team's claim and what was checked, and say what was not read. `references/wiki/SCHEMA.md` has the conventions and the ingest / query / lint workflows. After editing the wiki run `python3 references/wiki/lint.py`; log changes in `references/wiki/log.md`.
-  - **Pages cite `python/bots/template.py` by line,** and the lint only checks that the line exists. After an edit shifts the template's lines, re-map those citations (`grep -rn 'template\.py:[0-9]' references/wiki`).
+  - **Pages cite our code by line** (`python/bots/template.py` most, and `python/arena/*.py`), and the lint only checks that the line exists (and that a range starts a definition). After an edit shifts a cited file's lines, re-map those citations (`grep -rn 'template\.py:[0-9]' references/wiki`, likewise for the file you changed).
 - **`literature_md/`:** market-microstructure papers and books, converted from `literature_raw/*.pdf` to markdown by `literature_md/convert.sh` (Marker). Committed (the source PDFs in `literature_raw/` are gitignored); `literature_md/README.md` indexes the documents. For the theory behind a strategy (market making, order-book imbalance, micro-price, price impact), go through the wiki first: the Literature section of `references/wiki/index.md`, then the concept page, and only then the raw text at the cited line.
   - **Verify formulas against the PDF.** Marker's equations are LaTeX but OCR-based, so they can contain slips (e.g. `S_{τ1}, S_{τ1}` where the paper has `I_{τ1}, S_{τ1}`). Before implementing any formula from `literature_md/`, check it against the original PDF page (`python3 literature_md/pdfpage.py <slug> <line>` finds the page and prints its text), and don't trust a formula that disagrees with the surrounding text or with its own derivation.
 - **Commits:** commit each finished step on its own, with the docs it changed, once the tests (and the wiki lint, if the wiki changed) pass. A request with several steps gets one commit per step. Author commits as the user (Jakub) only. Never put a `Co-Authored-By: Claude …` trailer, or any other Claude attribution, in commit messages or PR descriptions.

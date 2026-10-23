@@ -154,9 +154,11 @@ product of millions is never listed; `--permute`'s copies run the same sample.
 `--engine rust` runs the backtests and the statistics that grow with the cells (CSCV, the DSR's
 correlation, SPA and StepM) on the Rust port (`rust/`, needs `cargo`), on `--jobs` threads, and
 prints and writes the same results to the last digit. The axes, the screen and the permuted copies
-stay in Python. It takes a bot and rivals with a Rust twin
-(`rust/twins.json`: the template, the rivals, `mm`) in the Prosperity format, and refuses to run if
-a twin it uses was last checked against older Python code, since Rust would run that older code
+stay in Python, and so do the scenarios, whose settings and rivals each task carries. It takes a
+bot and rivals with a Rust twin for the run's format (`rust/twins.json`: the template in the
+Prosperity format and the drill template in the drill one, the rivals, `mm` and the zoo, all
+Prosperity), and refuses to run if a twin it uses was last checked against older Python code
+(or never), since Rust would run that older code
 (`--allow-stale` runs it anyway, with a warning; every tool and experiment with `--engine rust`
 does the same). Kelp's 256 cells (`make_edge` × `take_edge`, P3
 round 1, `--modes all,worse`, 1,542 backtests) took 1.3 s against 50.6 s, with the same CSV; the
