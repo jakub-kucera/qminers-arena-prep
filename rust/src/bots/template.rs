@@ -886,8 +886,58 @@ fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], out: &mut
 mod drill;
 use drill::Drill;
 
+/// How a template file's ADAPTER presents the engine's tick to STRATEGY and sends its plan back: the
+/// choices each format's template makes (rust/twins.json, a twin's `adapter`). Prosperity's template
+/// and the drill's are the two presets; a new format's template, written by the same conventions,
+/// is a twin by naming its choices (`Adapter::read`), checked by `experiments.rust_bench --twin`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Adapter {
+    pub units: bool,          // the engine's prices are in Day.info's unit: STRATEGY sees each product's ticks (the drill's)
+    pub names: bool,          // the market's trades name their traders, so `copy` can read them (Prosperity's)
+    pub own_trades: bool,     // our fills reach STRATEGY as Prosperity's own_trades: among the trades, signed by buyer == us
+    pub exchange_limit: bool, // each product's limit is the exchange's (Day.limits), not PARAMS' (the drill's)
+    pub exchange_order: bool, // products in the exchange's order (Day.limits'), those with a level; else the tick's (the drill's)
+    pub sorted_resting: bool, // resting orders sorted by (timestamp, id); else as the engine lists them, oldest first (Prosperity's)
+}
+
+impl Adapter {
+    pub const PROSPERITY: Adapter =
+        Adapter { units: false, names: true, own_trades: true, exchange_limit: false, exchange_order: false, sorted_resting: true };
+    pub const DRILL: Adapter =
+        Adapter { units: true, names: false, own_trades: false, exchange_limit: true, exchange_order: true, sorted_resting: false };
+
+    /// "prosperity", "drill", or {choice: bool, ...}, the choices left out taken from Prosperity's.
+    pub fn read(value: &Value) -> Result<Adapter, String> {
+        match value {
+            Value::Str(name) if name == "prosperity" => Ok(Adapter::PROSPERITY),
+            Value::Str(name) if name == "drill" => Ok(Adapter::DRILL),
+            Value::Object(choices) => {
+                let mut a = Adapter::PROSPERITY;
+                for (key, v) in choices {
+                    let on = match v {
+                        Value::Bool(b) => *b,
+                        _ => return Err(format!("adapter choice {key} must be true or false")),
+                    };
+                    match key.as_str() {
+                        "units" => a.units = on,
+                        "names" => a.names = on,
+                        "own_trades" => a.own_trades = on,
+                        "exchange_limit" => a.exchange_limit = on,
+                        "exchange_order" => a.exchange_order = on,
+                        "sorted_resting" => a.sorted_resting = on,
+                        other => return Err(format!("no adapter choice {other:?} (units, names, own_trades, exchange_limit, exchange_order, sorted_resting)")),
+                    }
+                }
+                Ok(a)
+            }
+            _ => Err("an adapter is \"prosperity\", \"drill\" or an object of choices".to_string()),
+        }
+    }
+}
+
 pub struct Template {
-    drill: Option<Drill>,             // the drill format's ADAPTER, else Prosperity's
+    adapter: Adapter,
+    units: Drill, // with adapter.units: each product's tick and unit, and its book in ticks
     settings: Vec<(String, P, bool)>, // PARAMS: product, its merged settings, and whether it depends on another (_depends)
     // Per product of the day, set by begin_day.
     params: Vec<Option<P>>,
@@ -924,7 +974,8 @@ impl Template {
             settings.push((product.clone(), p, depends));
         }
         Ok(Template {
-            drill: None,
+            adapter: Adapter::PROSPERITY,
+            units: Drill::default(),
             settings,
             params: Vec::new(),
             depends: Vec::new(),
@@ -939,6 +990,11 @@ impl Template {
             us: Name::MAX,
             symbols: Vec::new(),
         })
+    }
+
+    /// The same settings behind another ADAPTER.
+    pub fn with_adapter(self, adapter: Adapter) -> Template {
+        Template { adapter, ..self }
     }
 }
 
@@ -993,13 +1049,16 @@ impl Bot for Template {
         self.trades = vec![Vec::new(); n];
         self.fills = vec![Vec::new(); n];
         self.plans = (0..n).map(|_| None).collect();
-        if let Some(d) = self.drill.as_mut() {
-            // params_for: the limit comes from api.max_position
+        if self.adapter.exchange_limit {
+            // params_for: the limit comes from the exchange (the drill's api.max_position)
             for (k, p) in self.params.iter_mut().enumerate() {
                 if let Some(p) = p {
                     p.limit = day.limits[k];
                 }
             }
+        }
+        if self.adapter.units {
+            let d = &mut self.units;
             d.tick = day.info.iter().map(|i| i.map_or(0.01, |(tick, _)| tick)).collect();
             d.unit = day.info.iter().map(|i| i.map_or(0.01, |(_, unit)| unit)).collect();
             d.books = vec![None; n];
@@ -1008,24 +1067,44 @@ impl Bot for Template {
     }
 
     fn step(&mut self, tick: &TickView, positions: &[i64], own_fills: &[Fill], market_trades: &[Vec<MarketTrade>], open_orders: &[OpenOrder], out: &mut Vec<Action>) {
-        if self.drill.is_some() {
-            return self.drill_step(tick, positions, own_fills, market_trades, open_orders, out);
+        let a = self.adapter;
+        let d = &mut self.units;
+        if a.units {
+            // read_book in ticks; a product with no level on either side has no book
+            for (k, book) in tick.books.iter().enumerate() {
+                d.books[k] = book.as_ref().filter(|b| !b.bids.is_empty() || !b.asks.is_empty()).map(|b| {
+                    let side = |levels: &[(Price, i64)]| levels.iter().map(|&(price, volume)| (d.ticks(k, price), volume)).collect();
+                    Book { bids: side(&b.bids), asks: side(&b.asks) }
+                });
+            }
         }
-        // read_trades and read_fills: the other traders' trades, then our own fills with their counterparty.
+        let books: &[Option<Book>] = if a.units { &d.books } else { tick.books };
+        // read_trades: (buyer, seller, quantity), named or not; read_fills: our fills as (price in ticks, signed quantity)
         for (k, list) in self.trades.iter_mut().enumerate() {
             list.clear();
-            list.extend(market_trades[k].iter().map(|t| (t.buyer, t.seller, t.quantity)));
+            list.extend(market_trades[k].iter().map(|t| if a.names { (t.buyer, t.seller, t.quantity) } else { (0, 0, t.quantity) }));
             self.fills[k].clear();
         }
         for f in own_fills {
-            let (buyer, seller) = if f.quantity > 0 { (self.us, f.counterparty) } else { (f.counterparty, self.us) };
-            self.trades[f.product].push((buyer, seller, f.quantity.abs()));
-            // read_fills signs by `buyer == US`, so a sale to a trader named SUBMISSION counts as a buy there too
-            self.fills[f.product].push((f.price, if buyer == self.us { f.quantity.abs() } else { -f.quantity.abs() }));
+            let price = if a.units { d.ticks(f.product, f.price) } else { f.price };
+            if a.own_trades {
+                // our own fills with their counterparty among the trades; read_fills signs by `buyer == US`,
+                // so a sale to a trader named SUBMISSION counts as a buy there too
+                let (buyer, seller) = if f.quantity > 0 { (self.us, f.counterparty) } else { (f.counterparty, self.us) };
+                self.trades[f.product].push((buyer, seller, f.quantity.abs()));
+                self.fills[f.product].push((price, if buyer == self.us { f.quantity.abs() } else { -f.quantity.abs() }));
+            } else {
+                self.fills[f.product].push((price, f.quantity));
+            }
         }
-        // Products that follow or hedge another go last, so they see its plan.
+        // The products traded this tick, those that follow or hedge another last, so they see its plan.
         self.order.clear();
-        self.order.extend_from_slice(tick.order);
+        if a.exchange_order {
+            let has_level = |k: usize| books[k].as_ref().is_some_and(|b| !b.bids.is_empty() || !b.asks.is_empty());
+            self.order.extend(self.symbols.iter().copied().filter(|&k| has_level(k)));
+        } else {
+            self.order.extend_from_slice(tick.order);
+        }
         let depends = &self.depends;
         self.order.sort_by_key(|&k| depends[k]);
         for plan in self.plans.iter_mut() {
@@ -1035,9 +1114,9 @@ impl Bot for Template {
         for i in 0..self.order.len() {
             let product = self.order[i];
             let Some(p) = self.params[product].as_ref() else { continue };
-            let book = tick.books[product].as_ref().expect("a product in the tick's order has a book");
+            let Some(book) = books[product].as_ref() else { continue };
             let market = Market {
-                books: tick.books,
+                books,
                 trades: &self.trades[product],
                 fills: &self.fills[product],
                 timestamp: tick.timestamp,
@@ -1046,14 +1125,40 @@ impl Bot for Template {
                 weights: &self.weights[product],
             };
             let plan = trade_product(product, book, positions[product], p, &mut self.memory[product], &market);
-            // read_resting: oldest first, by (timestamp, id)
+            // read_resting: oldest first, by (timestamp, id), or as the engine lists them
             self.resting.clear();
-            self.resting.extend(open_orders.iter().filter(|o| o.product == product).map(|o| (o.timestamp, o.id, o.price, o.quantity)));
-            self.resting.sort_unstable_by_key(|&(ts, id, _, _)| (ts, id));
+            self.resting.extend(open_orders.iter().filter(|o| o.product == product).map(|o| {
+                (o.timestamp, o.id, if a.units { d.ticks(product, o.price) } else { o.price }, o.quantity)
+            }));
+            if a.sorted_resting {
+                self.resting.sort_unstable_by_key(|&(ts, id, _, _)| (ts, id));
+            }
             let resting: Vec<(u64, Price, i64)> = self.resting.iter().map(|&(_, id, price, q)| (id, price, q)).collect();
+            let start = out.len();
             execute(product, &plan, &resting, out);
+            if a.units {
+                for action in &mut out[start..] {
+                    if let Action::Order(order) = action {
+                        order.price = d.units(product, order.price);
+                    }
+                }
+            }
             self.plans[product] = Some(plan);
             self.plan_order.push(product);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_adapter_is_a_preset_or_its_choices() {
+        assert_eq!(Adapter::read(&Value::Str("drill".into())).unwrap(), Adapter::DRILL);
+        let choices = Value::Object(vec![("units".into(), Value::Bool(true)), ("names".into(), Value::Bool(false))]);
+        assert_eq!(Adapter::read(&choices).unwrap(), Adapter { units: true, names: false, ..Adapter::PROSPERITY });
+        assert!(Adapter::read(&Value::Object(vec![("unit".into(), Value::Bool(true))])).is_err());
+        assert!(Adapter::read(&Value::Str("qminers".into())).is_err());
     }
 }

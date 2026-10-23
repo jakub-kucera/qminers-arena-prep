@@ -11,11 +11,15 @@ use crate::arena::engine::{Bot, TickView};
 use crate::support::json::Value;
 use crate::arena::model::{Action, Day, Fill, MarketTrade, OpenOrder};
 
-/// A bot by its kind (rust/twins.json), built from its Python twin's globals.
-pub fn build(kind: &str, globals: &Value) -> Result<Box<dyn Bot + Send>, String> {
+/// A bot by its kind (rust/twins.json), built from its Python twin's globals. A template's twin may
+/// name its ADAPTER's choices (`adapter`: a preset or an object, template::Adapter::read).
+pub fn build(kind: &str, globals: &Value, adapter: Option<&Value>) -> Result<Box<dyn Bot + Send>, String> {
     Ok(match kind {
         "mm" => Box::new(mm::MarketMaker::from_globals(globals)?),
-        "template" => Box::new(template::Template::from_globals(globals)?),
+        "template" => {
+            let adapter = adapter.map(template::Adapter::read).transpose()?.unwrap_or(template::Adapter::PROSPERITY);
+            Box::new(template::Template::from_globals(globals)?.with_adapter(adapter))
+        }
         "drill_template" => Box::new(template::Template::drill(globals)?),
         "sniper" => Box::new(rivals::Sniper::from_globals(globals)?),
         "spoofer" => Box::new(rivals::Spoofer::from_globals(globals)?),

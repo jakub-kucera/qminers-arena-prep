@@ -103,23 +103,25 @@ pub fn load_all(paths: &[String]) -> Vec<Day> {
     })
 }
 
-/// A bot spec: {"kind": ..., "globals": {...}, "requote": bool}, built fresh for each day.
+/// A bot spec: {"kind": ..., "globals": {...}, "requote": bool, "adapter": ...}, built fresh for each day.
 #[derive(Clone)]
 pub struct Spec {
     kind: String,
     globals: Value,
     requote: bool,
+    adapter: Option<Value>, // a template twin's ADAPTER choices (rust/twins.json), Prosperity's without
 }
 
 impl Spec {
     pub fn read(value: &Value) -> Result<Spec, String> {
         let kind = value.get("kind").and_then(Value::as_str).ok_or("a bot spec needs a kind")?.to_string();
         let globals = value.get("globals").cloned().unwrap_or(Value::Object(Vec::new()));
-        Ok(Spec { kind, globals, requote: value.get("requote").is_some_and(Value::truthy) })
+        let adapter = value.get("adapter").filter(|v| !matches!(v, Value::Null)).cloned();
+        Ok(Spec { kind, globals, requote: value.get("requote").is_some_and(Value::truthy), adapter })
     }
 
     pub fn build(&self) -> Result<Box<dyn Bot + Send>, String> {
-        let bot = bots::build(&self.kind, &self.globals)?;
+        let bot = bots::build(&self.kind, &self.globals, self.adapter.as_ref())?;
         Ok(if self.requote { Box::new(Requote::new(bot)) } else { bot })
     }
 }

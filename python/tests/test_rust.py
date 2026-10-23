@@ -57,16 +57,18 @@ def test_the_twin_hash_counts_code_not_comments_docstrings_or_the_settings_rust_
 
 
 def test_every_twin_sits_at_its_python_files_path():
-    """rust/src/ mirrors python/: python/arena/engine.py's twin is rust/src/arena/engine.rs."""
+    """rust/src/ mirrors python/: python/arena/engine.py's twin is rust/src/arena/engine.rs. A template
+    twin by config (a row with an `adapter`) is the shared rust/src/bots/template.rs instead."""
     for path, twin in rust.twins().items():
-        assert twin["rust"] == "rust/src/" + path.removeprefix("python/").removesuffix(".py") + ".rs", path
+        own = "rust/src/" + path.removeprefix("python/").removesuffix(".py") + ".rs"
+        assert twin["rust"] == own or ("adapter" in twin and twin["rust"] == "rust/src/bots/template.rs"), path
         assert (rust.ROOT / twin["rust"]).is_file(), twin["rust"]
 
 
 def test_the_readme_table_lists_every_twin():
     readme = (rust.RUST / "README.md").read_text()
     for path, twin in rust.twins().items():
-        if not path.startswith("python/bots/zoo/"):  # the zoo's row gives the rule for all 32
+        if not path.startswith("python/bots/zoo/") and "adapter" not in twin:  # the zoo's row gives the rule for all 32; twins by config share the template's
             assert f"`{path}`" in readme and f"`{twin['rust'].removeprefix('rust/')}`" in readme, path
 
 
@@ -402,3 +404,32 @@ def test_the_stress_copies_are_the_same_in_rust(bench, tmp_path):
     results = bench.stress_parity(tmp_path, bench.stress_days(tmp_path, ticks=1500, real=False))
     assert {label: found for label, _, found in results} == {label: [] for label, *_ in results}
     assert len(results) == 2 * len(bench.stress_transforms())
+
+
+DRILL_CHOICES = {"units": True, "names": False, "own_trades": False, "exchange_limit": True, "exchange_order": True, "sorted_resting": False}
+
+
+def _as_config_twin(monkeypatch, tmp_path, adapter):
+    """A copy of the drill template, declared in rust/twins.json (for this test) as a template twin by
+    its adapter's choices alone: what the Arena's template becomes on the day."""
+    copy = tmp_path / "arena_template.py"
+    copy.write_text((rust.ROOT / "python/bots/drill/template.py").read_text())
+    rows = {**rust.twins(), str(copy): {"kind": "template", "format": "drill", "rust": "rust/src/bots/template.rs", "adapter": adapter}}
+    monkeypatch.setattr(rust, "_rows", lambda: rows)
+    for cached in (rust._kinds, rust._reads_settings):
+        cached.cache_clear()
+    return copy
+
+
+@needs_cargo
+@pytest.mark.parametrize("adapter, same", [(DRILL_CHOICES, True), ({**DRILL_CHOICES, "units": False}, False)], ids=["right choices", "a wrong one"])
+def test_a_template_twin_by_config_trades_as_its_python_file(bench, tmp_path, monkeypatch, adapter, same):
+    try:
+        copy = _as_config_twin(monkeypatch, tmp_path, adapter)
+        day = bench.drill_days(tmp_path, ticks=600)[0]
+        results = bench.parity(day, tmp_path, bench.twin_cases(copy, ["ALPHA", "BETA"], resting=True)[:7], jobs=1)
+    finally:
+        for cached in (rust._kinds, rust._reads_settings):
+            cached.cache_clear()
+    differing = [label for label, _, found in results if found]
+    assert (differing == []) is same, differing

@@ -71,25 +71,33 @@ def twins() -> dict[str, dict]:
 
 
 @functools.lru_cache(maxsize=None)
-def _kinds() -> dict[str, str]:
-    return {path: twin["kind"] for path, twin in twins().items() if "kind" in twin}
+def _rows() -> dict[str, dict]:
+    """twins(), read once per process for the lookups below."""
+    return twins()
 
 
 @functools.lru_cache(maxsize=None)
-def _formats() -> dict[str, str]:
-    """Per kind: the format its Python twin is written for (default prosperity)."""
-    return {twin["kind"]: twin.get("format", "prosperity") for twin in twins().values() if "kind" in twin}
+def _kinds() -> dict[str, str]:
+    return {path: twin["kind"] for path, twin in _rows().items() if "kind" in twin}
 
 
 def format_of(path: Path) -> str:
-    """The format plug-in a twinned bot file runs under."""
-    return _formats()[kind_of(path)]
+    """The format plug-in a twinned bot file runs under (its row's `format`, default prosperity)."""
+    kind_of(path)  # a ValueError for a file without a twin
+    return _rows()[_relative(path)].get("format", "prosperity")
+
+
+def adapter_of(path: Path) -> str | dict | None:
+    """A template twin's ADAPTER choices (its row's `adapter`): None for the kind's own, else a preset
+    ("prosperity", "drill") or the choices themselves (rust/src/bots/template.rs `Adapter::read`)."""
+    kind_of(path)
+    return _rows()[_relative(path)].get("adapter")
 
 
 @functools.lru_cache(maxsize=None)
 def _reads_settings() -> dict[str, bool]:
     """Per kind: whether the Rust bot reads its settings from the Python file's globals (the zoo's don't)."""
-    return {twin["kind"]: twin.get("settings", True) for twin in twins().values() if "kind" in twin}
+    return {twin["kind"]: twin.get("settings", True) for twin in _rows().values() if "kind" in twin}
 
 
 def code_hash(source: str, reads: list[str] | tuple[str, ...] = ()) -> str:
@@ -145,11 +153,13 @@ def stale_twins() -> list[str]:
     return [path for path, twin in twins().items() if file_hash(path, twin.get("reads", ())) != twin["sha256"]]
 
 
-def record_hashes() -> None:
-    """Writes each twin's current hash: run only after the parity check passed (python/experiments/rust_bench.py --record)."""
+def record_hashes(paths: list[str] | None = None) -> None:
+    """Writes the current hash of each twin, or of those in `paths`: run only after the parity check
+    passed (python/experiments/rust_bench.py --record, or --twin FILE --record for one)."""
     table = twins()
     for path, twin in table.items():
-        twin["sha256"] = file_hash(path, twin.get("reads", ()))
+        if paths is None or path in paths:
+            twin["sha256"] = file_hash(path, twin.get("reads", ()))
     TWINS.write_text(json.dumps(table, indent=2) + "\n")
 
 
@@ -193,7 +203,9 @@ def bot_spec(path: Path, overrides: dict[str, object], requote: bool = False) ->
     kind = kind_of(path)
     if overrides and not _reads_settings()[kind]:
         raise ValueError(f"{path}'s Rust twin doesn't read its settings from the file (a zoo bot runs as written): drop the --set or use --engine python")
-    return {"kind": kind, "globals": bot_globals(path, overrides) if _reads_settings()[kind] else {}, "requote": requote}
+    spec = {"kind": kind, "globals": bot_globals(path, overrides) if _reads_settings()[kind] else {}, "requote": requote}
+    adapter = adapter_of(path)
+    return spec if adapter is None else {**spec, "adapter": adapter}
 
 
 def config_json(config: EngineConfig) -> dict:

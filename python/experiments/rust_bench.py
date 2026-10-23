@@ -1,6 +1,7 @@
 """The Rust port (rust/) against ours: every twin trades the same, then how much faster.
 
 usage (from the repo root; needs cargo): uv run python -m experiments.rust_bench [--jobs N] [--parity-only] [--record]
+       uv run python -m experiments.rust_bench --twin FILE --data D --days ... [--format F] [--ticks N] [--record]
 
 rust/ ports python/arena/engine.py whole and the bots listed in rust/twins.json, each with its Python
 file as a twin (rust/README.md). Days are loaded by our format plug-ins and exported for it
@@ -19,6 +20,11 @@ file as a twin (rust/README.md). Days are loaded by our format plug-ins and expo
      against `arena-rs grid`; and the template's 256-cell Kelp grid, arena.grid end to end with
      --engine python against --engine rust (the same CSV).
 Results went into TODO_DONE.md (the decisions on the Rust port) and rust/README.md. python/tests/test_rust.py runs part 1, shorter.
+
+--twin FILE checks one template twin by config (a row of rust/twins.json with an `adapter`, such as the
+Arena's template on the day) on its own data: the committed settings in each engine mode and against a
+copy, and each part of STRATEGY (VARIANTS, on the twin's first two products), on the first --ticks of
+each day. With --record, and every case identical, it records that twin's hash alone.
 """
 
 from __future__ import annotations
@@ -244,6 +250,56 @@ def zoo_cases(paths: list[Path] | None = None) -> list[tuple[str, EngineConfig, 
         cases += [("the field: the template and every zoo twin, all", EngineConfig(), field),
                   ("the field, resting, the zoo requoted", EngineConfig(resting=True), [field[0]] + [(n, p, o, True) for n, p, o, _ in field[1:]])]
     return cases
+
+
+def twin_cases(path: Path, products: list[str], resting: bool) -> list[tuple[str, EngineConfig, list]]:
+    """A template twin by config on its own products: as committed in each engine mode and against a
+    copy, and each of VARIANTS with Kelp and Resin renamed to its first two products (one if it has
+    one), in the format's own mode (resting if its orders rest)."""
+    first, second = products[0], products[min(1, len(products) - 1)]
+
+    def renamed(overrides: dict) -> dict:
+        text = json.dumps(overrides).replace("KELP", "@FIRST@").replace("RAINFOREST_RESIN", second).replace("@FIRST@", first)
+        return {k: tuple(v) if isinstance(v, list) else v for k, v in json.loads(text).items()}
+
+    me = lambda o: ("you", path, o, False)
+    mode = EngineConfig(resting=resting)
+    cases = [("as committed, per tick", EngineConfig(), [me({})]),
+             ("as committed, per tick, worse", EngineConfig(trade_matching=WORSE), [me({})]),
+             ("as committed, resting, back", EngineConfig(resting=True), [me({})]),
+             ("as committed, resting, prob, fill ratio 0.7", EngineConfig(resting=True, queue=QueueModel.PROB, fill_ratio=0.7, seed=3), [me({})]),
+             ("as committed, resting, front", EngineConfig(resting=True, queue=QueueModel.FRONT), [me({})]),
+             ("against a copy", mode, [me({}), ("copy", path, {f"PARAMS.{first}.make_edge": 0}, False)])]
+    cases += [(label, mode, [me(renamed(o))]) for label, o in VARIANTS if label != "as committed"]
+    return cases
+
+
+def check_twin(path: Path, data: str, days: list[str], format_name: str, ticks: int, record: bool, jobs: int) -> bool:
+    """--twin: the twin's cases on its own days in both engines; records its hash if all are identical."""
+    from arena.cli import bot_params
+    from arena.formats import FORMATS
+
+    relative = rust._relative(path)
+    if relative not in rust.twins():
+        sys.exit(f"{relative} is not in rust/twins.json: add its row (kind template, format, adapter, rust/src/bots/template.rs) first")
+    fmt = FORMATS[format_name]
+    loaded = [replace(day, ticks=day.ticks[:ticks]) for day in fmt.load_days(fmt.resolve_data_dir(data), days)]
+    listed = bot_params(path, format_name)
+    products = [p for p in loaded[0].products if p in listed]
+    if not products:
+        sys.exit(f"{relative}'s PARAMS list none of the data's products")
+    same = True
+    with tempfile.TemporaryDirectory() as folder:
+        print(f"{relative} against rust/src/bots/template.rs with its adapter {rust.adapter_of(path)!r}, on {', '.join(d.name for d in loaded)} "
+              f"({ticks:,} ticks), its products {', '.join(products[:2])} for the variants:")
+        for day in loaded:
+            for label, counts, found in parity(day, Path(folder), twin_cases(path, products, getattr(fmt, "RESTING", False)), jobs):
+                same &= _report(f"{day.name}: {label}", counts, found, 80)
+    print("   all identical" if same else "   ! differences: the adapter's choices don't match the file's ADAPTER (rust/README.md, \"A new twin\")")
+    if record and same:
+        rust.record_hashes([relative])
+        print(f"   recorded {relative} in {rust.TWINS.relative_to(ROOT)}")
+    return same
 
 
 def _python_bot(path: Path, overrides: dict, requote: bool):
@@ -668,8 +724,17 @@ def main() -> None:
     parser.add_argument("--parity-only", action="store_true")
     parser.add_argument("--record", action="store_true",
                         help="with every case identical, record each twin's Python file as checked (rust/twins.json)")
+    parser.add_argument("--twin", type=Path, help="check one template twin by config on its own data (--data, --days, --format)")
+    parser.add_argument("--data", help="with --twin: its data folder")
+    parser.add_argument("--days", nargs="+", default=["all"], help="with --twin: day specs (default: all)")
+    parser.add_argument("--format", default="prosperity", help="with --twin: its format (default: prosperity)")
+    parser.add_argument("--ticks", type=int, default=2000, help="with --twin: the first ticks of each day (default: 2,000)")
     args = parser.parse_args()
     build()
+    if args.twin:
+        if not args.data:
+            sys.exit("--twin needs --data")
+        sys.exit(0 if check_twin(args.twin, args.data, args.days, args.format, args.ticks, args.record, args.jobs) else 1)
     days = prosperity.load_days(prosperity.resolve_data_dir("p3"), ["1"])
     with tempfile.TemporaryDirectory() as folder:
         scratch = Path(folder)

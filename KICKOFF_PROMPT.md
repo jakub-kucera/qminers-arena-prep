@@ -30,7 +30,7 @@ Rules for you:
 - I upload. Never upload, and never spend a submission. Before each upload, tell me what the bot is, its local result, and what it should score, so that the portal score can be checked against it (ON_THE_DAY.md, "Spend the round's submissions by a rule written before the first score").
 - The bot must be one self-contained .py file: standard library only (unless the rules allow more), deterministic, with its state kept the way the rules say the engine keeps it.
 - Ask me before doing anything the rules may forbid, any web search beyond the organisers' own pages, ON_THE_DAY.md's "Is the data a real series in disguise?" search (it needs my approval and a budget), or a run expected to take over 10 minutes.
-- --engine rust only works for bots with a Rust twin; the Arena's template has none until someone ports its ADAPTER (ON_THE_DAY.md, "Which backtest settings match the playground?"). Don't port it in round 1 unless grids are what is slowing us down, and then ask first.
+- --engine rust only works for bots with a Rust twin. The Arena's template gets one by config, with no Rust code, if its ADAPTER follows the drill's conventions: a row in rust/twins.json and `experiments.rust_bench --twin` (ON_THE_DAY.md, "Which backtest settings match the playground?"). Do it once grids are what is slowing us down; if the check shows differences, grid in Python and tell me.
 - Write what you learn where CLAUDE.md says (ON_THE_DAY.md, IDEAS.md, TODO.md), and commit each step that works. Nothing stays only in the chat.
 - Every hour, or when you are blocked, give me five lines: done, in progress, the bot's current local PnL, what you need from me, and the next step.
 ```
