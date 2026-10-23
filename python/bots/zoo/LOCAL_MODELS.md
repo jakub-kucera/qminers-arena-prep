@@ -1,6 +1,6 @@
 # Local models with llama.cpp
 
-How to run the zoo's prompts on a model served on the laptop (`TODO.md`, "(a, part 3)";
+How to run the zoo's prompts on a model served on the laptop (`TODO_DONE.md`, "(a, part 3)";
 `ON_THE_DAY.md`, "The round's zoo"). Measured on the M4 Max with 36 GB, 2026-10-17, llama.cpp
 build 11669.
 

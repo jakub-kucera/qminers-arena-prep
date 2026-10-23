@@ -18,7 +18,7 @@ file as a twin (rust/README.md). Days are loaded by our format plug-ins and expo
   3. every core: Kelp's 64-cell mm grid on the round's three days under all and worse, arena.grid
      against `arena-rs grid`; and the template's 256-cell Kelp grid, arena.grid end to end with
      --engine python against --engine rust (the same CSV).
-Results go into TODO.md (the decisions on the Rust port). python/tests/test_rust.py runs part 1, shorter.
+Results went into TODO_DONE.md (the decisions on the Rust port) and rust/README.md. python/tests/test_rust.py runs part 1, shorter.
 """
 
 from __future__ import annotations

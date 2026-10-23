@@ -1,6 +1,6 @@
 """The template, with its ADAPTER rewritten for the drill format (python/arena/formats/drill.py).
 
-The format drill (TODO.md): the same file as python/bots/template.py down to the end of EXECUTION,
+The format drill (TODO_DONE.md, "Practise the format swap"): the same file as python/bots/template.py down to the end of EXECUTION,
 except PARAMS. Only the imports, PARAMS and ADAPTER changed, which is the edit to make on the
 day for the Arena's real API. python/tests/test_drill.py checks that DEFAULTS, STRATEGY and
 EXECUTION still match python/bots/template.py word for word.
@@ -101,7 +101,7 @@ DEFAULTS = {
 # "Stress: what a regime change costs").
 # Prices in PARAMS are in each product's ticks (ALPHA: 0.05, BETA: 0.01, GAMMA: 0.25), and the
 # limit comes from api.max_position, so it can't drift from the exchange's. Set from
-# arena.diagnose on the drill data, as ON_THE_DAY.md says to (TODO.md, the format drill).
+# arena.diagnose on the drill data, as ON_THE_DAY.md says to (TODO_DONE.md, the format drill).
 PARAMS = {
     # wall mid filters the mid's noise
     "ALPHA": {"fair": "wall_mid", "make_edge": 1},

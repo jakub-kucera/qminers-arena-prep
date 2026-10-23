@@ -71,7 +71,7 @@ Measured on Prosperity data with throwaway scripts (not in the repo), recorded o
 - Kelp's mid varies 28 times more per tick at lag 1 than at lag 200, its wall mid 3 times;
 - lag-1 autocorrelation of mid changes −0.48 (Kelp), −0.50 (Resin), −0.17 (Squid Ink).
 
-New items: `TODO.md` "Markouts and fill edge against the wall mid"; `ON_THE_DAY.md` "Do our own trades move the market?" with probe 17. Overview findings 12–14.
+New items: `TODO_DONE.md` "Markouts and fill edge against the wall mid"; `ON_THE_DAY.md` "Do our own trades move the market?" with probe 17. Overview findings 12–14.
 
 ## [2026-10-12] lint | literature phase 4: formula statuses, exact pages, theory against practice
 - **Formula statuses.** A scan for formulas next to literature citations without `checked` or `unchecked` found 44 lines: 17 were `Traps` lines quoting OCR slips, about 11 were bare symbols or numbers, and 16 were real formulas. 15 of those were read on the page image and marked `checked`: Grossman–Miller, the static depth `1/κ`, Kyle's `x*` and `S`, (10.13) and (10.17) in Cartea et al.; DSR eq. (1); Avellaneda–Stoikov's intensities (2.8); Huang et al.'s Model I; Bouchaud's (2.1); Kelly's `g(f)` and uncorrelated case; Gould et al.'s `|ω|^α`; Guéant's `Σ_j Γ^{ij} q^j`. Cartea et al.'s (11.16) is marked `unchecked`. `lint.py` now warns on such a line (Traps exempt) and errors on an `unchecked` formula under "What it means for our code".
@@ -179,7 +179,7 @@ P3 round 3 treated as a first download, following `ON_THE_DAY.md`: diagnose, the
 - **Filed into:** `reading-the-data-on-day-one` (a P3 round 3 reading), `options-and-vouchers`, contradictions row 6; the repo's `TODO.md` (a rehearsal item), `IDEAS.md`, `ON_THE_DAY.md`.
 
 ## [2026-10-13] lint | fixes from the code review
-Five fixes from the code review (`TODO.md`, "From the code review"): the template's error handler, `level_exit` past the level, baskets pricing legs from untouched books, `make` keeping the bid below the ask, and `--resting` no longer filling from the same orders twice.
+Five fixes from the code review (`TODO_DONE.md`, "From the code review"): the template's error handler, `level_exit` past the level, baskets pricing legs from untouched books, `make` keeping the bid below the ask, and `--resting` no longer filling from the same orders twice.
 - **Numbers moved:** `baskets-and-fixed-sums` (held out 71k / 294k, was 83k / 281k) and `drift-and-regime-change` (210k held out, 152k with the day's mean, was 215k / 147k), both from re-running the experiments after the `level_exit` fix.
 - **Citations moved:** the template's line citations in 20 pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:420-458`). Contradictions rows 12 and 16 cited `python/bots/template.py:475-507` (`execute` and the ADAPTER) for the quoting rule; they now cite `make`.
 
@@ -356,3 +356,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-23] lint | arena.grid's lines moved
 - `arena.grid` flags an axis that never changes the PnL (`dead_axes`): the citations of `FINE_TICKS` and `format_snooping` re-mapped (`superior-predictive-ability`, `validation-and-overfitting`).
+
+## [2026-10-23] restructure | TODO's finished items moved to TODO_DONE.md
+- The repo's `TODO.md` keeps its open items; the 55 finished ones moved, word for word, to `TODO_DONE.md`. The pages that cite a finished item now cite `TODO_DONE.md` (22 places in 17 pages); `backtesting-and-tooling`'s status lines brought up to date (`--data p4` and the PnL split exist).

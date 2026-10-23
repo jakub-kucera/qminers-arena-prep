@@ -53,7 +53,7 @@ The Arena's first data download should decide the strategy for each product befo
   - the three impact notes are about what chance gives with 50 products.
 
   That fits the teams' finding that their edges came from structure across products and from round-number jumps, not from each product's own flow ([baskets](baskets-and-fixed-sums.md), [jumps](jumps-and-snap-back.md)).
-- **P3 round 3**, read in a dress rehearsal (2026-10-13, `TODO.md`):
+- **P3 round 3**, read in a dress rehearsal (2026-10-13, `TODO_DONE.md`):
   - Volcanic Rock, its vouchers and Squid Ink are noted "reverts to a level", but their daily means drift (the rock: 10,454 / 10,375 / 10,167). The note is about the day, not the level across days, so `level` must come from the day itself. That made money in-sample but lost on one day out of three at every band (`IDEAS.md`).
   - Most products also jump (8–56%).
   - The download reuses round 2's days 0–1 for every older product. The grid now flags that.

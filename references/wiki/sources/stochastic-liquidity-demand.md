@@ -29,7 +29,7 @@ A **discrete-time** market maker: each period it posts a bid and an ask around a
 |---|---|
 | period | a tick |
 | forecast of the price change | a drift or signal; the template's `target` holds a position against a known drift instead (`python/bots/template.py:48`) |
-| liquidation cost at the end of the day | the "flatten before the close" item in `TODO.md` |
+| liquidation cost at the end of the day | the "flatten before the close" item in `TODO_DONE.md` |
 
 ## Traps
 - The summary results are the authors' statements; the closed forms were not checked.

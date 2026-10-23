@@ -29,7 +29,7 @@ Not about the effect; only about its persistence (present in R1/R2, gone in late
 `python/bots/template.py` has no rule for an empty side. Our engine matches unfilled orders against the tick's recorded market trades at the order's own price (`--match-trades`), so whether a far quote would fill in a replay depends on a trade existing in the data at that price. That has not been tested.
 
 ## How to test it here
-Needs `--data p4` (`TODO.md`). Then: run Baguette Fromage's round 1 idea (quote ±98 from the last wall mid when a side is empty) on Prosperity 4 round 1 and see whether the engine produces fills. On the day: count empty sides and extreme-price trades in the Arena's public data before assuming any of this exists (`ON_THE_DAY.md`).
+Needs `--data p4` (`TODO_DONE.md`). Then: run Baguette Fromage's round 1 idea (quote ±98 from the last wall mid when a side is empty) on Prosperity 4 round 1 and see whether the engine produces fills. On the day: count empty sides and extreme-price trades in the Arena's public data before assuming any of this exists (`ON_THE_DAY.md`).
 
 ## Sources
 [Baguette Fromage](../sources/prosperity4-baguette-fromage.md), [DU Trading](../sources/prosperity4-du-trading.md), [Frankfurt](../sources/prosperity3-frankfurt-hedgehogs.md), [Alpha Search](../sources/prosperity4-alpha-search.md), [prosperity4btest](../sources/prosperity4-backtester.md), [AlgoTrade](../sources/algotrade2026-pitfa19.md) (the built-in market maker's ladder), [Balcau et al.](../sources/collective-liquidity-taking.md), [Mahfouz et al.](../sources/classify-trading-agents.md), [Zhao & Linetsky](../sources/mm-adverse-selection-rl.md), [Cartea, Jaimungal & Wang](../sources/optimal-spoofing.md), [Lee, Eom & Park](../sources/spoofing-traders-empirical.md).

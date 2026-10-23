@@ -22,7 +22,7 @@ A Quantitative Finance Stack Exchange thread whose one answer (by the user "leha
 Same as [Rigtorp](rigtorp-queue-position.md): FIFO, and an event feed rather than one snapshot per tick.
 
 ## In our notation
-`V̂₋` is our queue-ahead volume, `V̂₊` the visible level minus it. The risk-averse rule is `--resting` today; the neutral rule is the `prob` option of the `TODO.md` queue item.
+`V̂₋` is our queue-ahead volume, `V̂₊` the visible level minus it. The risk-averse rule is `--resting` today; the neutral rule is the `prob` option of the `TODO_DONE.md` queue item.
 
 ## Traps
 - **OCR:** the hats and the box symbol `□` (the level's size) are partly lost, and the risk-averse rule at `quant-se-order-position.md:74` (p. 3) has `V` for `V̂`. The prose between the formulas is garbled (`quant-se-order-position.md:49-70` (p. 2–3)); read it on the PDF.

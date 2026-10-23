@@ -18,7 +18,8 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 | `python/experiments/` | One-off studies whose results are in `IDEAS.md`; [its README](python/experiments/README.md) lists all of them, and the commands that run the re-tests on the day's data (`--data`, `--format`) |
 | `rust/` | The Rust twins of the engine, the simulator, the grid's statistics and the bots, laid out as `python/` is (`rust/src/arena/engine.rs` for `python/arena/engine.py`); see [rust/README.md](rust/README.md) |
 | [`ON_THE_DAY.md`](ON_THE_DAY.md) | What to find out about the real Arena at the event, and what each answer changes here |
-| [`TODO.md`](TODO.md) | Prep work left before the event |
+| [`RUNBOOK.md`](RUNBOOK.md) | One page for the day: the commands and checkpoints, in order, each pointing into `ON_THE_DAY.md` |
+| [`TODO.md`](TODO.md) | Prep work left before the event ([`TODO_DONE.md`](TODO_DONE.md): the finished items, with their evidence and decisions) |
 
 ## Setup
 
@@ -528,6 +529,8 @@ doesn't trade. `uv run python -m experiments.zoo_h2h` splits each pairing by pro
 mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head").
 
 ## On the day: adapting to the real format
+
+Start from [`RUNBOOK.md`](RUNBOOK.md), one page of the day's commands; the steps below are the format swap in detail.
 
 1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground. `python/bots/probe.py` runs most of the probes in one run: rewrite its ADAPTER like the template's, and read its `PROBE` lines (`uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict` shows what our engine answers).
 2. **Write `python/arena/formats/qminers.py`**, using `drill.py` as the model, and register it in `python/arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.

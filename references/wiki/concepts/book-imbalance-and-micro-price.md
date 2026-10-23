@@ -55,7 +55,7 @@ The volumes at the best bid and ask predict the direction of the next mid move, 
   - Stoikov's table (`mid + G*[bucket(ρ)][spread]`) was not built into the bot: as a forecast, the binned table did no better than the linear `b·ρ` (below).
 - **Quote filter** (Cartea's rule): skip a side when the expected markout of a passive fill on that side, in the current `ρ` bucket, is below zero. `python/arena/analysis.py` already computes markouts, as `sign × (mark later − fill price)` per unit, which is Cartea's `Δ/2 − ε±` at a short horizon. But it is per product and fill type, not per imbalance state (`python/arena/analysis.py:206-233`).
 - **OFI** is no fair-value input on this evidence. Its use is sizing our takes: taking `x` at a level of depth `D` moves the mid by about `x/(2D)` ticks.
-- `TODO.md`, "Try the literature's fair values and skew in the template", is where these land.
+- `TODO_DONE.md`, "Try the literature's fair values and skew in the template", is where these land.
 
 ## Tested here (2026-10-15)
 `uv run python -m experiments.imbalance` (P2 round 1, P3 rounds 1 and 5, P4 rounds 1–2); backtest numbers in `IDEAS.md`, from the row "Book imbalance `ρ` and the micro-price".

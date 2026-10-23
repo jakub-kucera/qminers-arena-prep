@@ -23,7 +23,7 @@ A market maker on a large-tick asset whose orders reach the book with a delay, a
 |---|---|
 | uninformed hit rate `λ±` | market trades at the best per tick (`Tick.trades`) |
 | jump rate | `arena.diagnose`'s "jumps" share |
-| latency | the engine option in `TODO.md` (harder-rounds C3) |
+| latency | the engine option in `TODO_DONE.md` (harder-rounds C3) |
 
 ## Traps
 - None found.

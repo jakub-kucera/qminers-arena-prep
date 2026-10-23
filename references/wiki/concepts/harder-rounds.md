@@ -166,7 +166,7 @@ Each entry gives:
   - takers that fade the obvious signal.
 
   Prep:
-  - the trapper and sniper rivals already in `TODO.md`, plus a spoofer that posts a large wall of the market maker's usual size and pulls it before it trades (`sized_mid` doesn't filter that);
+  - the trapper and sniper rivals already in `TODO_DONE.md`, plus a spoofer that posts a large wall of the market maker's usual size and pulls it before it trades (`sized_mid` doesn't filter that);
   - in the template, trust a wall only after it has persisted for N ticks.
 
   Evidence: [Wang & Wellman](../sources/spoofing-abm.md) model the spoofer as a 200-lot bid one tick behind the best, re-posted whenever the best bid moves. It reliably raised prices against book-reading traders, but added little to an exploiter's profit (206.1 against 201.8, `literature_md/spoofing-abm/spoofing-abm.md:237` (p. 7)): a fake wall is a cheap distortion, not a big earner. The sequels agree and add what to do about it:

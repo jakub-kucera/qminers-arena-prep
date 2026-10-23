@@ -211,7 +211,8 @@ lets editors resolve imports; it is never submitted. `python/bots/probe.py` runs
 
 ## Repo conventions
 
-- **`TODO.md`:** prep work left before the event, each item with a "done when". Tick items off when that holds, and add new ones as they come up.
+- **`TODO.md`:** prep work left before the event, each item with a "done when". When that holds, tick the item and move it, with its sub-bullets, to `TODO_DONE.md` under the same heading (cite it there as `TODO_DONE.md`, "<title>"); add new ones as they come up.
+- **`RUNBOOK.md`:** one page of the day's commands and checkpoints, each line naming the `ON_THE_DAY.md` section behind it. Keep it to a page: when a command or a time changes, change it here and in `ON_THE_DAY.md` together.
 - **`ON_THE_DAY.md`:** the checklist of what to find out about the real Arena. For each item it gives our current assumption and what to change if the Arena differs, and it ends with playground probes. When a session learns an answer, write it in under that item with its source. When a session adds an assumption about the real format, add an item.
 - **`IDEAS.md`:** every strategy idea tested on Prosperity data, with its result (date, data, command, numbers), and the ideas not yet tested. Results there are priors for the Arena, not verdicts: never remove an idea because it failed on Prosperity data; mark it `dropped here`, so it is re-tested on the day. Record every new test result in its row.
 - **`MANUAL_TODO.md`:** things only a person can obtain (organiser documents, web pages the agent's fetch tool is blocked from, books). Each item says where to save the file and what "done" means. When the user hands something over, ingest it as `references/wiki/SCHEMA.md` describes and tick the item.

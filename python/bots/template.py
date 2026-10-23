@@ -115,11 +115,11 @@ PARAMS = {
     "RAINFOREST_RESIN": {"limit": 50, "fair": "fixed", "fixed_fair": 10_000, "fixed_guard": 5, "stop_loss": 1000},
     # Kelp's make_edge 0.5 (half a tick from a half-integer wall mid) was tuned on Prosperity
     # data, not the Arena's: chosen 2026-10-15 for --match-trades worse and a market that reacts,
-    # over all, where make_edge 1 made more (TODO.md, "Tune Kelp and Squid Ink for worse fills?").
+    # over all, where make_edge 1 made more (TODO_DONE.md, "Tune Kelp and Squid Ink for worse fills?").
     # Re-grid make_edge on the day once the Arena's fill mode is known. Squid Ink isn't traded:
     # its quotes are picked off when orders rest (same TODO item). sized_mid since 2026-10-18: the
     # same PnL as wall_mid alone, and a rival's large order behind the best doesn't move it
-    # (TODO.md, "Move the Prosperity products' fair value to sized_mid?").
+    # (TODO_DONE.md, "Move the Prosperity products' fair value to sized_mid?").
     "KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200},
     # IMC Prosperity 3, round 2. The baskets trade their spread against the legs (level: its mean
     # over the three days, level_band about one sd; IDEAS.md). They only take: their price jumps
@@ -129,7 +129,7 @@ PARAMS = {
                        "level": 49, "level_band": 84, "clear_edge": 5},
     "PICNIC_BASKET2": {"limit": 100, "fair": "wall_mid", "make_size": 0, "basket": {"CROISSANTS": 4, "JAMS": 2},
                        "level": 30, "level_band": 54, "clear_edge": 3},
-    # IMC Prosperity 3, round 3 (set in the dress rehearsal, TODO.md). The rock keeps no level
+    # IMC Prosperity 3, round 3 (set in the dress rehearsal, TODO_DONE.md). The rock keeps no level
     # across days, so its level is the day's own running mean, and the vouchers follow it. Noisy:
     # every band lost on one of the three days (IDEAS.md). Squid Ink's like setting is left out so
     # the round 1 benchmarks stay Kelp and Resin's.
