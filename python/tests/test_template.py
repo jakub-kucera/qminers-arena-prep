@@ -519,6 +519,23 @@ def test_one_broken_product_doesnt_stop_the_others(capsys):
     assert "bogus" in capsys.readouterr().out
 
 
+def test_an_order_the_exchange_rejects_only_stops_its_own_product(capsys):
+    """Building the exchange's orders is part of each product's isolated step: an Order that raises,
+    as one without our `ioc` extension would, loses only that product's orders."""
+    lenient = BotFile(TEMPLATE, {"datamodel": dm}, strict=False).load()
+
+    def picky(symbol, price, quantity, ioc=False):
+        if symbol == "KELP":
+            raise TypeError("Order() got an unexpected keyword argument 'ioc'")
+        return dm.Order(symbol, price, quantity, ioc)
+
+    lenient.Order = picky
+    depths = {"KELP": depth([(2029, 25)], [(2031, 25)]), "RAINFOREST_RESIN": depth([(9996, 2)], [(10004, 2)])}
+    orders, _, _ = lenient.Trader().run(state(depths))
+    assert set(orders) == {"RAINFOREST_RESIN"} and orders["RAINFOREST_RESIN"]
+    assert "unexpected keyword argument 'ioc'" in capsys.readouterr().out
+
+
 def test_lenient_errors_cancel_the_products_resting_orders(capsys):
     lenient = BotFile(TEMPLATE, {"datamodel": dm}, strict=False).load()
     lenient.PARAMS["KELP"]["fair"] = "bogus"

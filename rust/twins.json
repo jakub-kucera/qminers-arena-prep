@@ -65,7 +65,7 @@
   "python/bots/template.py": {
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
-    "sha256": "91efd43b9c067f92d9d675d839abab5a3d9eb4cbb9da11d84acccd0010f27a47",
+    "sha256": "d4d26a23e60720e4582a683fd60f8ab37d7979e3ef62c8d29ce6abe0294f8386",
     "reads": [
       "DEFAULTS",
       "PARAMS"

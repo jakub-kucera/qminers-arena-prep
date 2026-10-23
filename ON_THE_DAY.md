@@ -69,6 +69,7 @@ Practised on the drill format (2026-10-17, `python/arena/formats/drill.py`, `pyt
    - Their order ids map to the engine's through `Order.tag`. The engine copies the tag to the order's `OpenOrder` and `Fill`s.
    - `begin_day(day)` gives the wrapper `Day.info`.
    - With `fresh_each_tick`, keep exactly the state their engine keeps between calls, and drop the rest (the validator compares the two runs).
+   - Provide the bot exactly their API: their classes, their constructor signatures, nothing of ours. `arena.validate` can only catch a call their exchange would reject if the provided module rejects it too. Our Prosperity datamodel has extensions (`Cancel`, `Order(..., ioc=True)`, `state.open_orders`), so a bot that passes against it could fail on IMC's real one.
 5. **The bot:** in a copy of `python/bots/template.py`, rewrite the imports, PARAMS and ADAPTER, and nothing else. `python/bots/drill/template.py` shows how:
    - Convert their prices to whole ticks of each product at the boundary, and back. STRATEGY's "one tick inside" means +1.
    - Pass resting orders oldest first.

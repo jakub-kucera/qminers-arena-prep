@@ -838,6 +838,10 @@ class Trader:
                 plan = trade_product(product, market.books[product], position, p, memory.setdefault(product, {}), market)
                 market.plans[product] = plan
                 cancels, new = execute(plan, read_resting(state, product))
+                # Built here, inside the try: an exchange's Order may reject what ours accepts.
+                orders[product] = [Cancel(order_id) for order_id in cancels] + [
+                    Order(product, int(price), int(quantity), ioc=ioc) for price, quantity, ioc in new
+                ]
             except Exception:
                 if STRICT:
                     raise
@@ -850,8 +854,4 @@ class Trader:
                     stale = []
                 if stale:
                     orders[product] = stale
-                continue
-            orders[product] = [Cancel(order_id) for order_id in cancels] + [
-                Order(product, int(price), int(quantity), ioc=ioc) for price, quantity, ioc in new
-            ]
         return orders, 0, json.dumps(memory)
