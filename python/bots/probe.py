@@ -7,12 +7,15 @@ Run it once in the playground (or the backtester: `--print`) and read its output
   PROBE <name>: <finding>
                    once per probe, what it found.
 
-The probes, in order (numbers as in ON_THE_DAY.md, "Probes"): imports (10), prints (9), state (7),
-resting orders (1) and whether the book shows them (2), self-trade (5), fill timing and price (3),
-cancelling a filled order (12), limits (4), queue position (11), an exception (6), the time limit
-(8), own impact (17), passive fills and their markout (18), and the mark (13: it buys one lot and
-holds it; compare the platform's PnL with the mids it prints). Probes 14-16 compare with data
-outside the bot. Between probes it cancels its orders and flattens.
+The probes, in order (numbers as in ON_THE_DAY.md, "Probes"): state (7), resting orders (1) and
+whether the book shows them (2), self-trade (5), fill timing and price (3), cancelling a filled
+order (12), limits (4), queue position (11), own impact (17), passive fills and their markout (18),
+the mark (13: it buys one lot and holds it to the end; compare the platform's PnL with the mids it
+prints), prints (9), and last the three that can stop the bot or get the file refused: imports
+(10), an exception (6) and the time limit (8). They sit in one block, RISKY PROBES: delete it for
+a sandbox that scans the source for dynamic imports or sleeps, or set RISKY = False to skip them. Probes
+14-16 compare with data outside the bot. Between probes it cancels its orders and flattens, except
+the lot the mark probe holds.
 
 Prosperity format, like python/bots/template.py: only ADAPTER (and PRODUCT, LIMIT) change on the day.
 State lives in traderData. Standard library only, except what probe 10 tries to import.
@@ -20,9 +23,7 @@ State lives in traderData. Standard library only, except what probe 10 tries to 
 
 from __future__ import annotations
 
-import importlib
 import json
-import time
 
 from datamodel import Cancel, Order, OrderDepth, TradingState
 
@@ -30,11 +31,11 @@ PRODUCT = None  # the product to probe; None: the first with a two-sided book
 LIMIT = 50  # its position limit, from the docs: probe 4 sends one more than it allows
 MODULE_STATE = {"calls": 0}  # probe 7: does module state survive between calls?
 
-# (name, ticks): each probe gets its own window, then one tick to cancel and flatten.
+# (name, ticks): each probe gets its own window, then one tick to cancel and flatten. The risky
+# probes are appended at the end of the PROBES section.
 SCHEDULE = [
-    ("imports", 1), ("prints", 1), ("state", 2), ("resting", 4), ("self_trade", 10), ("fill_timing", 4),
-    ("cancel_filled", 3), ("limits", 3), ("queue", 40), ("exception", 3), ("time_limit", 4),
-    ("own_impact", 22), ("markout", 300), ("mark", 1),
+    ("state", 2), ("resting", 4), ("self_trade", 10), ("fill_timing", 4), ("cancel_filled", 3), ("limits", 3),
+    ("queue", 40), ("own_impact", 22), ("markout", 300), ("mark", 1), ("prints", 1),
 ]
 
 
@@ -48,17 +49,6 @@ SCHEDULE = [
 
 def best(view):
     return (view.bids[0][0] if view.bids else None), (view.asks[0][0] if view.asks else None)
-
-
-def probe_imports(k, view, mem, act):
-    found = []
-    for name in ("numpy", "pandas", "scipy"):
-        try:
-            importlib.import_module(name)
-            found.append(name)
-        except Exception:
-            pass
-    return f"imports that load: {', '.join(found) or 'none'} (of numpy, pandas, scipy)"
 
 
 def probe_prints(k, view, mem, act):
@@ -187,28 +177,6 @@ def probe_queue(k, view, mem, act):
     return None
 
 
-def probe_exception(k, view, mem, act):
-    # The raising call's traderData is lost, so the next call arrives at k == 1 again: raise only on
-    # the call right after k == 0 (by the timestamp step), and report on any later one.
-    if k == 0:
-        mem["t0"], mem["step"] = view.time, view.time - (view.prev_time if view.prev_time is not None else view.time)
-        return None
-    if k == 1 and view.time <= mem["t0"] + mem["step"]:
-        raise RuntimeError("probe 6: an exception on purpose")
-    return (f"after an exception at {mem['t0'] + mem['step']} the bot was called again at {view.time}; the state it returned "
-            "before the exception was kept, and what the raising call changed was lost")
-
-
-def probe_time_limit(k, view, mem, act):
-    if k < 3:
-        pause = (0.05, 0.2, 0.5)[k]
-        start = time.perf_counter()
-        time.sleep(pause)
-        mem.setdefault("slept", []).append([pause, round(time.perf_counter() - start, 3)])
-        return None
-    return f"slept 50, 200 and 500 ms in three calls ({mem['slept']}) and was called again: check the log for warnings or skips"
-
-
 def probe_own_impact(k, view, mem, act):
     _, ask = best(view)
     if k == 0:
@@ -255,6 +223,56 @@ def probe_mark(k, view, mem, act):
     return "bought one lot and holds it from here: compare the platform's PnL with the mids in the SEEN lines"
 
 
+# ------------------------------------------------------------------------------ RISKY PROBES
+# Last in the schedule, since each can end the run: importing numpy, pandas and scipy can take
+# longer than a call is allowed (and importlib alone gets a file refused by a sandbox that scans the
+# source), an exception may stop the bot, and the sleeps go up to 500 ms. For a strict sandbox,
+# delete from this line to "END RISKY PROBES": the bot then runs only the probes above.
+RISKY = True
+
+
+def probe_imports(k, view, mem, act):
+    import importlib
+
+    found = []
+    for name in ("numpy", "pandas", "scipy"):
+        try:
+            importlib.import_module(name)
+            found.append(name)
+        except Exception:
+            pass
+    return f"imports that load: {', '.join(found) or 'none'} (of numpy, pandas, scipy)"
+
+
+def probe_exception(k, view, mem, act):
+    # The raising call's traderData is lost, so the next call arrives at k == 1 again: raise only on
+    # the call right after k == 0 (by the timestamp step), and report on any later one.
+    if k == 0:
+        mem["t0"], mem["step"] = view.time, view.time - (view.prev_time if view.prev_time is not None else view.time)
+        return None
+    if k == 1 and view.time <= mem["t0"] + mem["step"]:
+        raise RuntimeError("probe 6: an exception on purpose")
+    return (f"after an exception at {mem['t0'] + mem['step']} the bot was called again at {view.time}; the state it returned "
+            "before the exception was kept, and what the raising call changed was lost")
+
+
+def probe_time_limit(k, view, mem, act):
+    import time
+
+    if k < 3:
+        pause = (0.05, 0.2, 0.5)[k]
+        start = time.perf_counter()
+        time.sleep(pause)
+        mem.setdefault("slept", []).append([pause, round(time.perf_counter() - start, 3)])
+        return None
+    return f"slept 50, 200 and 500 ms in three calls ({mem['slept']}) and was called again: check the log for warnings or skips"
+
+
+if RISKY:
+    SCHEDULE += [("imports", 1), ("exception", 3), ("time_limit", 4)]
+# ------------------------------------------------------------------------------ END RISKY PROBES
+
+
 PROBES = {name: globals()[f"probe_{name}"] for name, _ in SCHEDULE}
 
 
@@ -298,9 +316,10 @@ def step(view, memory: dict, act: Act) -> list[str]:
             for order in view.open:
                 act.cancel(order[0])
             bid, ask = best(view)
-            if view.position > 0 and bid is not None and name != "mark":
+            holding = "mark" in memory  # the mark probe holds its lot to the end
+            if view.position > 0 and bid is not None and not holding:
                 act.sell(bid - 2, view.position, ioc=True)
-            elif view.position < 0 and ask is not None and name != "mark":
+            elif view.position < 0 and ask is not None and not holding:
                 act.buy(ask + 2, -view.position, ioc=True)
             return []
         start += length + 1

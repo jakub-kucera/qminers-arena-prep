@@ -254,8 +254,11 @@ From the organisers' e-mail of 7 Oct (saved as the first message of `references/
 ## Probes
 
 `python/bots/probe.py` answers most of the first-hour list in one playground run of about 420 ticks. It
-runs probes 10, 9, 7, 1–2, 5, 3, 12, 4, 11, 6, 8, 17, 18 and 13 in that order, each in its own window,
-cancelling and flattening between them. Each tick it prints a `SEEN` line with the book, position,
+runs probes 7, 1–2, 5, 3, 12, 4, 11, 17, 18, 13 and 9 in that order, each in its own window,
+cancelling and flattening between them (except the lot probe 13 holds to the end). The three that can end the run come
+last: 10 (importing numpy, pandas and scipy can be slow, and a sandbox that scans the source may refuse a file that uses
+`importlib`), 6 (an exception) and 8 (sleeps up to 500 ms). They sit in one marked block, RISKY PROBES: if their rules
+forbid dynamic imports or sleeps, or submissions are scarce, delete the block and upload the rest first. Each tick it prints a `SEEN` line with the book, position,
 open orders and fills, and each probe prints one `PROBE <name>: <finding>` line. Rewrite its ADAPTER
 for their API first, as for the template. In our own engine it finds:
 - per tick: orders don't rest, and limits reject every order for the product;
