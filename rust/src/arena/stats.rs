@@ -151,48 +151,65 @@ pub fn cscv(columns: &[Vec<f64>], max_splits: usize, seed: i64) -> Cscv {
         seen.into_iter().collect()
     };
     let totals: Vec<f64> = columns.iter().map(|c| py::sum(c.iter().copied())).collect();
-    let (mut overfit, mut losses) = (0usize, 0usize);
-    let mut ranks = Vec::with_capacity(halvings.len());
-    let mut inside = vec![0.0; n];
-    let mut outside = vec![0.0; n];
-    for train in &halvings {
-        for (k, column) in columns.iter().enumerate() {
-            inside[k] = py::sum(train.iter().map(|&i| column[i]));
-            outside[k] = totals[k] - inside[k];
-        }
-        let mut best = 0;
-        for k in 1..n {
-            if inside[k] > inside[best] {
-                best = k;
-            }
-        }
-        let mine = outside[best];
-        let below = outside.iter().filter(|&&v| v < mine).count();
-        let equal = outside.iter().filter(|&&v| v == mine).count();
-        let rank = below as f64 + (equal + 1) as f64 / 2.0;
-        let w = rank / (n + 1) as f64;
-        overfit += (ln(w / (1.0 - w)) <= 0.0) as usize;
-        losses += (mine < 0.0) as usize;
-        ranks.push(w);
-    }
+    // each halving on its own: in parallel, the results kept in the halvings' order
+    let scored: Vec<(bool, bool, f64)> = parallel(halvings.len(), |range| {
+        let mut inside = vec![0.0; n];
+        let mut outside = vec![0.0; n];
+        halvings[range]
+            .iter()
+            .map(|train| {
+                for (k, column) in columns.iter().enumerate() {
+                    inside[k] = py::sum(train.iter().map(|&i| column[i]));
+                    outside[k] = totals[k] - inside[k];
+                }
+                let mut best = 0;
+                for k in 1..n {
+                    if inside[k] > inside[best] {
+                        best = k;
+                    }
+                }
+                let mine = outside[best];
+                let below = outside.iter().filter(|&&v| v < mine).count();
+                let equal = outside.iter().filter(|&&v| v == mine).count();
+                let rank = below as f64 + (equal + 1) as f64 / 2.0;
+                let w = rank / (n + 1) as f64;
+                (ln(w / (1.0 - w)) <= 0.0, mine < 0.0, w)
+            })
+            .collect()
+    });
+    let overfit = scored.iter().filter(|s| s.0).count();
+    let losses = scored.iter().filter(|s| s.1).count();
+    let ranks: Vec<f64> = scored.iter().map(|s| s.2).collect();
     let count = halvings.len() as f64;
     Cscv { pbo: overfit as f64 / count, loss: losses as f64 / count, rank: fmean(&ranks), splits: halvings.len(), of }
 }
 
-/// `mean_correlation`: the mean over every pair of standardized columns of their correlation.
+/// `mean_correlation`: the mean over every pair of standardized columns of their correlation, as the
+/// identity (‖Σ z‖² − Σ ‖z‖²) / (S M (M − 1)) in O(M S), each sum exact (fsum) as Python's.
 pub fn mean_correlation(scaled: &[Vec<f64>]) -> Option<f64> {
     let m = scaled.len();
     if m < 2 {
         return None;
     }
-    let mut values = Vec::with_capacity(m * (m - 1) / 2);
-    for i in 0..m {
-        let a = &scaled[i];
-        for b in &scaled[i + 1..] {
-            values.push(py::sum(a.iter().zip(b).map(|(x, y)| x * y)) / a.len() as f64);
-        }
+    let s = scaled[0].len();
+    let column_sums: Vec<f64> = (0..s).map(|t| fsum(scaled.iter().map(|c| c[t]))).collect();
+    let total = fsum(column_sums.iter().map(|x| x * x));
+    let own = fsum(scaled.iter().flat_map(|c| c.iter().map(|x| x * x)));
+    Some((total - own) / (s as f64 * m as f64 * (m - 1) as f64))
+}
+
+/// f over 0..n cut into one range per core, each range's results in order, then concatenated.
+fn parallel<T: Send>(n: usize, f: impl Fn(std::ops::Range<usize>) -> Vec<T> + Sync) -> Vec<T> {
+    let threads = std::thread::available_parallelism().map_or(1, |k| k.get()).min(n.max(1));
+    if threads <= 1 || n < 64 {
+        return f(0..n);
     }
-    Some(fmean(&values))
+    let chunk = n.div_ceil(threads);
+    std::thread::scope(|scope| {
+        let f = &f;
+        let workers: Vec<_> = (0..n).step_by(chunk).map(|start| scope.spawn(move || f(start..(start + chunk).min(n)))).collect();
+        workers.into_iter().flat_map(|w| w.join().unwrap()).collect()
+    })
 }
 
 /// `omega2`: Hansen's variance of sqrt(n) times the mean under the stationary bootstrap.
@@ -214,24 +231,26 @@ pub fn omega2(d: &[f64], q: f64) -> f64 {
 
 /// `_scales`: each column's sqrt(omega2), floored at 1e-6.
 pub fn scales(d: &[Vec<f64>], q: f64) -> Vec<f64> {
-    d.iter().map(|c| py::max(omega2(c, q), 1e-12).sqrt()).collect()
+    parallel(d.len(), |range| d[range].iter().map(|c| py::max(omega2(c, q), 1e-12).sqrt()).collect())
 }
 
 /// `bootstrap_means`: each resample's mean of every column (Politis and Romano's stationary bootstrap).
 pub fn bootstrap_means(d: &[Vec<f64>], q: f64, boot: usize, seed: i64) -> Vec<Vec<f64>> {
     let n = d[0].len();
     let mut rng = PyRandom::from_int(seed);
-    let mut idx = vec![0usize; n];
-    (0..boot)
+    // every resample's indices first, in Python's order of draws; then the means, in parallel
+    let indices: Vec<Vec<usize>> = (0..boot)
         .map(|_| {
+            let mut idx = vec![0usize; n];
             let mut t = rng.randbelow(n as u64) as usize;
             for slot in idx.iter_mut() {
                 *slot = t;
                 t = if rng.random() < q { rng.randbelow(n as u64) as usize } else { (t + 1) % n };
             }
-            d.iter().map(|column| py::sum(idx.iter().map(|&i| column[i])) / n as f64).collect()
+            idx
         })
-        .collect()
+        .collect();
+    parallel(boot, |range| indices[range].iter().map(|idx| d.iter().map(|column| py::sum(idx.iter().map(|&i| column[i])) / n as f64).collect()).collect())
 }
 
 /// Python's `max` over a non-empty sequence of floats: the first of the largest.
@@ -275,11 +294,13 @@ pub fn stepm(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>], alpha: f64) -> 
     let root = n.sqrt();
     let means: Vec<f64> = d.iter().map(|c| fmean(c)).collect();
     let z: Vec<f64> = means.iter().zip(omegas).map(|(m, w)| root * m / w).collect();
-    let centred: Vec<Vec<f64>> = draws.iter().map(|draw| draw.iter().zip(&means).zip(omegas).map(|((x, m), w)| root * (x - m) / w).collect()).collect();
     let mut active: Vec<usize> = (0..d.len()).collect();
     let mut rejected = Vec::new();
     while !active.is_empty() {
-        let mut maxima: Vec<f64> = centred.iter().map(|draw| first_max(active.iter().map(|&k| draw[k]))).collect();
+        // each draw's centred, studentized values, computed as they are needed rather than kept
+        let mut maxima: Vec<f64> = parallel(draws.len(), |range| {
+            draws[range].iter().map(|draw| first_max(active.iter().map(|&k| root * (draw[k] - means[k]) / omegas[k]))).collect()
+        });
         maxima.sort_by(|a, b| a.partial_cmp(b).expect("no NaN"));
         let len = maxima.len();
         let c = maxima[(len - 1).min(((1.0 - alpha) * len as f64).ceil() as usize - 1)];

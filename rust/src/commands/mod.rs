@@ -120,9 +120,60 @@ impl Spec {
         Ok(Spec { kind, globals, requote: value.get("requote").is_some_and(Value::truthy), adapter })
     }
 
+    /// This spec with `--set`-style overrides applied to its globals (arena.botfile `_apply_override`).
+    pub fn with_set(&self, set: &[(String, Value)]) -> Result<Spec, String> {
+        let mut spec = self.clone();
+        for (target, value) in set {
+            apply_override(&mut spec.globals, target, value)?;
+        }
+        Ok(spec)
+    }
+
     pub fn build(&self) -> Result<Box<dyn Bot + Send>, String> {
         let bot = bots::build(&self.kind, &self.globals, self.adapter.as_ref())?;
         Ok(if self.requote { Box::new(Requote::new(bot)) } else { bot })
+    }
+}
+
+/// arena.botfile's `_apply_override` on a bot's globals: `NAME.key.key` set to the value. The global must
+/// exist, every key on the way must be an existing dict entry, and the last one may be new.
+pub fn apply_override(globals: &mut Value, target: &str, value: &Value) -> Result<(), String> {
+    let mut keys = target.split('.');
+    let name = keys.next().unwrap_or("");
+    let rest: Vec<&str> = keys.collect();
+    let Value::Object(items) = globals else { return Err("a bot's globals must be a dict".to_string()) };
+    let Some((_, slot)) = items.iter_mut().find(|(k, _)| k == name) else {
+        return Err(format!("--set {target}: the bot has no global named '{name}'"));
+    };
+    let mut container = slot;
+    let mut path = name.to_string();
+    for (depth, key) in rest.iter().enumerate() {
+        let Value::Object(entries) = container else { return Err(format!("--set {target}: {path} is not a dict (it's a {})", type_name(container))) };
+        if depth == rest.len() - 1 {
+            match entries.iter_mut().find(|(k, _)| k == key) {
+                Some((_, v)) => *v = value.clone(),
+                None => entries.push((key.to_string(), value.clone())),
+            }
+            return Ok(());
+        }
+        let Some((_, next)) = entries.iter_mut().find(|(k, _)| k == key) else { return Err(format!("--set {target}: '{key}' not found")) };
+        container = next;
+        path = format!("{path}.{key}");
+    }
+    *container = value.clone(); // a global set whole
+    Ok(())
+}
+
+/// A value's Python type name, for apply_override's messages.
+fn type_name(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "NoneType",
+        Value::Bool(_) => "bool",
+        Value::Int(_) => "int",
+        Value::Float(_) => "float",
+        Value::Str(_) => "str",
+        Value::List(_) => "list",
+        Value::Object(_) => "dict",
     }
 }
 

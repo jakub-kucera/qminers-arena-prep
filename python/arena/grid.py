@@ -75,10 +75,12 @@ import csv
 import itertools
 import math
 import os
+import random
 import statistics
 import sys
 import tempfile
 import time
+from array import array
 from collections import defaultdict
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -267,13 +269,14 @@ def _assemble(index: tuple, values: tuple, pieces: dict, days: list[Day], modes:
     outcome = Outcome(index, values)
     for mode_number, mode in enumerate(modes):
         day_pnl, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
-        blocks, fine = outcome.block_pnl.setdefault(mode, []), outcome.fine_pnl.setdefault(mode, [])
+        # arrays, not lists: a grid of 100,000 cells holds every cell's block PnL
+        blocks, fine = outcome.block_pnl.setdefault(mode, array("d")), outcome.fine_pnl.setdefault(mode, array("d"))
         for d, day in enumerate(days):
             piece = pieces[(d, mode)]
             more = extra[(d, mode)] if extra else None
             day_pnl[day.name] = piece.pnl + (more.pnl if more else 0.0)
-            blocks += [a + b for a, b in zip(piece.blocks, more.blocks)] if more else piece.blocks
-            fine += [a + b for a, b in zip(piece.fine, more.fine)] if more else piece.fine
+            blocks.extend([a + b for a, b in zip(piece.blocks, more.blocks)] if more else piece.blocks)
+            fine.extend([a + b for a, b in zip(piece.fine, more.fine)] if more else piece.fine)
             for source in (piece, more) if more else (piece,):
                 for product, value in source.products.items():
                     products[product] = products.get(product, 0.0) + value
@@ -308,13 +311,14 @@ class _Runner:
         self.init_args = (format_name, data_arg, day_specs, bot, s.overrides, [axis.target for axis in axes], modes, s.config, s.rivals,
                           s.requote, subset)
         self.jobs, self.days = jobs, s.days
-        self.s, self.bot, self.targets, self.subset = s, bot, [axis.target for axis in axes], subset
-        self.pool = self.scratch = None
+        self.s, self.bot, self.targets, self.subset, self.axes = s, bot, [axis.target for axis in axes], subset, axes
+        self.pool = self.scratch = self.base = None
 
     def __enter__(self):
         if self.s.engine == "rust":
             self.scratch = tempfile.TemporaryDirectory(prefix="arena-grid-")
             self.exported, self.specs = {}, {}
+            self.base = self._base()
         elif self.jobs <= 1:
             _init_worker(*self.init_args, days=self.days)  # reuse the days already loaded
         else:
@@ -327,9 +331,20 @@ class _Runner:
         if self.scratch:
             self.scratch.cleanup()
 
+    def _base(self) -> dict | None:
+        """One spec for every combination, each task carrying its combination as `set` for Rust to
+        apply as --set does, when every axis sets one of the spec's globals with values JSON can carry;
+        else None, and each combination's settings are read from the bot file."""
+        spec = rust.bot_spec(self.bot, self.s.overrides)
+        held = set(spec["globals"])
+        if all(axis.target.split(".")[0] in held for axis in self.axes) and all(rust._jsonable(v) for axis in self.axes for v in axis.values):
+            return spec
+        return None
+
     def _rust(self, tasks: list[tuple]) -> dict:
-        """The batch on the Rust engine: each day (restricted, permuted) exported once per run, each
-        combination's settings read from the bot file once."""
+        """The batch on the Rust engine: each day (restricted, permuted) exported once per run, and one
+        spec for the bot with each combination applied by Rust (_base), or each combination's settings
+        read from the bot file once; the results read back in binary."""
         s, folder = self.s, Path(self.scratch.name)
         names = participant_names(self.bot, s.rivals)
         paths: list[Path] = []
@@ -356,18 +371,33 @@ class _Runner:
                 specs.append(self.specs[key])
             return local_specs[key]
 
-        batch = []
+        # a grid's tasks share their configs, cells and product lists: each is sent, or made, once
+        batch, products, configs, cells = [], [], {}, {}
+        listed: dict[tuple, list[str]] = {}
+        rivals = [[names[k + 1], spec_index(("rival", k), lambda path=path: rust.bot_spec(path, {}, s.requote))] for k, path in enumerate(s.rivals)]
         for _key, values, d, mode, restricted, permutation in tasks:
             day, ticks = day_index(d, restricted)
-            overrides = {**s.overrides, **dict(zip(self.targets, values))}
-            bots = [[names[0], spec_index(("bot", repr(values)), lambda: rust.bot_spec(self.bot, overrides))]]
-            bots += [[names[k + 1], spec_index(("rival", k), lambda path=path: rust.bot_spec(path, {}, s.requote))] for k, path in enumerate(s.rivals)]
+            config = configs.setdefault(mode, len(configs))
+            if self.base is not None:
+                bots = [[names[0], spec_index(("base",), lambda: self.base)]]
+                cell = {"cell": cells.setdefault(repr(values), (len(cells), values))[0]} if values else {}  # repr: a value may be a dict
+            else:
+                overrides = {**s.overrides, **dict(zip(self.targets, values))}
+                bots = [[names[0], spec_index(("bot", repr(values)), lambda: rust.bot_spec(self.bot, overrides))]]
+                cell = {}
             transform = None if permutation is None else "permuted:{}:{}".format(*permutation)  # Rust makes the copy (rust/src/arena/stress.rs)
-            batch.append({"day": day, "transform": transform, "config": rust.config_json(replace(s.config, trade_matching=mode)), "bots": bots,
-                          "blocks": blocks_per_day(len(s.days)), "fine": ticks // FINE_TICKS})
-        results = rust.run_batch(paths, specs, batch, self.jobs, folder)
-        fields = Piece.__dataclass_fields__
-        return {key: Piece(**{k: v for k, v in found.items() if k in fields}) for (key, *_), found in zip(tasks, results)}
+            batch.append({"day": day, "transform": transform, "config": config, "bots": bots + rivals, "blocks": blocks_per_day(len(s.days)),
+                          "fine": ticks // FINE_TICKS, **cell})
+            if (d, restricted) not in listed:
+                listed[(d, restricted)] = [p for p in s.days[d].products if not restricted or p in self.subset]
+            products.append(listed[(d, restricted)])
+        results = rust.run_batch(paths, specs, batch, self.jobs, folder, products, [rust.config_json(replace(s.config, trade_matching=m)) for m in configs],
+                                 [[[target, value] for target, value in zip(self.targets, values)] for _, values in cells.values()])
+        fields, out = Piece.__dataclass_fields__, {}
+        for k, (key, *_) in enumerate(tasks):
+            found, results[k] = results[k], None  # each result's dict let go as its Piece is made
+            out[key] = Piece(**{f: v for f, v in found.items() if f in fields})
+        return out
 
     def run(self, tasks: list[tuple]) -> dict:
         """tasks: (key, values, day index, mode, restricted, permutation) -> {key: Piece}."""
@@ -387,9 +417,25 @@ class _Runner:
         return out
 
 
-def _cells(axes: list[Axis]) -> list[tuple[tuple, tuple]]:
-    combos = itertools.product(*(range(len(axis.values)) for axis in axes))
+def _cells(axes: list[Axis], sample: int | None = None, seed: int = 0) -> list[tuple[tuple, tuple]]:
+    """Every combination as (its index on each axis, its values); with `sample`, that many drawn at
+    random (seeded) by their place in the whole product, so a space of millions is never listed."""
+    sizes = [len(axis.values) for axis in axes]
+    total = math.prod(sizes)
+    if sample is None or sample >= total:
+        combos = itertools.product(*(range(n) for n in sizes))
+    else:
+        combos = sorted(_unrank(k, sizes) for k in random.Random(seed).sample(range(total), sample))
     return [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
+
+
+def _unrank(k: int, sizes: list[int]) -> tuple[int, ...]:
+    """The k-th combination in itertools.product's order (the last axis fastest)."""
+    index = []
+    for n in reversed(sizes):
+        k, j = divmod(k, n)
+        index.append(j)
+    return tuple(reversed(index))
 
 
 @dataclass
@@ -405,12 +451,25 @@ class Screen:
 
 
 @dataclass
+class Rung:
+    """One step of --halving: the cells alive ranked by their PnL on the (day, mode)s so far, a share kept."""
+
+    seen: str  # the (day, mode) this step added, e.g. "r1d-1 under all"
+    pnl: dict[tuple[int, ...], float]  # every alive cell's PnL over the (day, mode)s so far
+    failed: set[tuple[int, ...]]
+    kept: list[tuple[int, ...]]  # best first
+
+
+@dataclass
 class GridRun:
     baseline: Outcome
-    outcomes: dict[tuple[int, ...], Outcome]  # with a screen, only the cells it kept
+    outcomes: dict[tuple[int, ...], Outcome]  # with a screen or halving, only the cells it kept
     restricted: list[str] | None  # the products the cells ran on, when not every product
     note: str  # why the run was or wasn't restricted
     screen: Screen | None = None
+    rungs: list[Rung] | None = None  # --halving's steps
+    tried: int = 0  # cells that ran at all (all of them, or --sample's)
+    seen: set[int] = field(default_factory=set)  # the days (indices) the screen or a halving step ranked on
 
 
 def screened(cells: list[tuple[tuple, tuple]], found: dict, share: float) -> tuple[list[tuple[tuple, tuple]], dict, set]:
@@ -422,14 +481,17 @@ def screened(cells: list[tuple[tuple, tuple]], found: dict, share: float) -> tup
 
 def run_grid(
     s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str, day_specs: list[str],
-    all_products: bool = False, screen: float | None = None,
+    all_products: bool = False, screen: float | None = None, sample: int | None = None, sample_seed: int = 0, halving: float | None = None,
 ) -> GridRun:
     """The baseline (the bot with only --set applied) and every combination, one backtest per worker
     task. Unless `all_products`, when the axes set only some products, the combinations run on days
     holding only those, if the bot as is makes the same PnL on them with and without the others on
     every day and mode; the others' PnL is then added from the bot as is's run. With `screen`, every
     combination first runs on the first day under the first mode, and only that share of them, the
-    best there, runs on the other days and modes."""
+    best there, runs on the other days and modes. With `halving`, successive halving in steps: each
+    adds the next (day, mode), the first mode's days first, and keeps that share of the cells still
+    alive, ranked by their PnL so far; the last ones run everywhere. `sample` runs that many cells
+    drawn at random (seeded by `sample_seed`) instead of every combination."""
     products = sorted({p for day in s.days for p in day.products})
     traded = axis_products(axes, products)
     subset = traded if not all_products and len(traded) < len(products) else None
@@ -451,29 +513,46 @@ def run_grid(
                         "makes the same PnL there with or without the other products, so theirs is added from its run (--all-products to run them all)")
             else:
                 note = "the combinations ran on every product: the bot as is trades the axes' products differently without the others"
-        cells, first, chosen = _cells(axes), keys[0], None
-        if screen:
+        cells, first, chosen, rungs, seen = _cells(axes, sample, sample_seed), keys[0], None, None, set()
+        tried = len(cells)
+        if halving:
+            rungs, pieces = [], {}
+            for r, key in enumerate(keys):
+                pieces |= runner.run([((index, *key), values, *key, restricted is not None, None) for index, values in cells])
+                if r == len(keys) - 1 or len(cells) <= 1:
+                    continue
+                ranked = keys[: r + 1]
+                pnl = {index: sum(pieces[(index, *k)].pnl for k in ranked) for index, _ in cells}
+                failed = {index for index, _ in cells if any(pieces[(index, *k)].errors or pieces[(index, *k)].breaches for k in ranked)}
+                cells = sorted(cells, key=lambda cell: (cell[0] in failed, -pnl[cell[0]]))[: max(1, math.ceil(halving * len(cells)))]
+                rungs.append(Rung(f"{s.days[key[0]].name} under {key[1]}", pnl, failed, [index for index, _ in cells]))
+                alive = set(rungs[-1].kept)
+                pieces = {k: v for k, v in pieces.items() if k[0] in alive}
+            seen = {d for d, _ in keys[: len(rungs)]}
+        elif screen:
             found = runner.run([(index, values, *first, restricted is not None, None) for index, values in cells])
             cells, pnl, failed = screened(cells, found, screen)
-            chosen = Screen(screen, s.days[0].name, modes[0], pnl, failed, [index for index, _ in cells])
+            chosen, seen = Screen(screen, s.days[0].name, modes[0], pnl, failed, [index for index, _ in cells]), {0}
             pieces = {(index, *first): found[index] for index, _ in cells}
             pieces |= runner.run([((index, d, m), values, d, m, restricted is not None, None) for index, values in cells for d, m in keys[1:]])
         else:
             pieces = runner.run([((index, d, m), values, d, m, restricted is not None, None) for index, values in cells for d, m in keys])
     extra = {k: _difference(full[k], base[("part", *k)], set(restricted)) for k in keys} if restricted else None
-    outcomes = {index: _assemble(index, values, {k: pieces[(index, *k)] for k in keys}, s.days, modes, extra) for index, values in cells}
-    return GridRun(_assemble((), (), full, s.days, modes), outcomes, restricted, note, chosen)
+    # each cell's pieces let go once it is assembled: with many cells they are most of the memory
+    outcomes = {index: _assemble(index, values, {k: pieces.pop((index, *k)) for k in keys}, s.days, modes, extra) for index, values in cells}
+    return GridRun(_assemble((), (), full, s.days, modes), outcomes, restricted, note, chosen, rungs, tried, seen)
 
 
 def run_permutations(
     s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str,
     day_specs: list[str], copies: int, block: int, restricted: list[str] | None, screen: float | None = None,
+    sample: int | None = None, sample_seed: int = 0,
 ) -> list[dict[tuple[int, ...], Outcome]]:
     """The whole grid on `copies` permuted copies of the days (seeds 1..copies), under the first mode,
     on the products the grid itself ran on: for each copy, every combination, or with `screen` the
     share of them that the same screen keeps on the copy's first day."""
     mode, seeds, days = modes[0], range(1, copies + 1), range(len(s.days))
-    cells = _cells(axes)
+    cells = _cells(axes, sample, sample_seed)
     with _Runner(s, bot, axes, modes, jobs, format_name, data_arg, day_specs, restricted) as runner:
         if screen:
             found = runner.run([((seed, index, 0), values, 0, mode, restricted is not None, (seed, block)) for seed in seeds for index, values in cells])
@@ -751,6 +830,27 @@ def format_screen(axes: list[Axis], screen: Screen, outcomes: dict[tuple[int, ..
     return "\n".join(lines)
 
 
+def format_halving(axes: list[Axis], rungs: list[Rung], tried: int, share: float, outcomes: dict[tuple[int, ...], Outcome]) -> str:
+    """What each step of --halving kept and dropped."""
+    setting = lambda index: ", ".join(f"{a.label}={a.values[i]}" for a, i in zip(axes, index))
+    lines = [f"halving: {tried:,} cells, keeping {share:.0%} at each of {len(rungs)} steps (each adds a day under a mode, the PnL so far ranks)"]
+    for k, rung in enumerate(rungs, 1):
+        kept = set(rung.kept)
+        working = [index for index in rung.pnl if index not in kept and index not in rung.failed]
+        line = f"  {k}. through {rung.seen}: {len(rung.pnl):,} cells, kept {len(rung.kept):,}"
+        if working:
+            best = max(working, key=rung.pnl.get)
+            line += f"; best dropped {setting(best)} ({_num(rung.pnl[best])})"
+        failed = len(rung.failed - kept)
+        if failed:
+            line += f"; {failed:,} dropped with errors or limit breaches"
+        lines.append(line)
+    lines.append(f"  then every day and mode for the last {len(outcomes):,}")
+    lines.append(f"! the tests below see the {len(outcomes):,} kept cells only, chosen on the days they include: they understate the selection "
+                 f"bias of {tried:,} cells; the unseen-days section after them leaves out every day a step ranked on")
+    return "\n".join(lines)
+
+
 def _spearman(x: list[float], y: list[float]) -> float:
     def ranks(v):
         order = sorted(range(len(v)), key=v.__getitem__)
@@ -770,19 +870,28 @@ def _spearman(x: list[float], y: list[float]) -> float:
     return statistics.correlation(rx, ry)
 
 
-def without_first_day(outcome: Outcome, days: list[Day]) -> Outcome:
-    """The outcome on every day but the first: its day PnL and fine blocks (for SPA and StepM)."""
-    first, cut = days[0].name, len(days[0].ticks) // FINE_TICKS
-    return replace(outcome, day_pnl={m: {d: v for d, v in pnl.items() if d != first} for m, pnl in outcome.day_pnl.items()},
-                   fine_pnl={m: fine[cut:] for m, fine in outcome.fine_pnl.items()})
+def without_days(outcome: Outcome, days: list[Day], seen: set[int]) -> Outcome:
+    """The outcome on the days not in `seen` (indices into `days`): its day PnL and fine blocks (for SPA and StepM)."""
+    names, keep, start = {days[d].name for d in seen}, [], 0
+    for d, day in enumerate(days):
+        end = start + len(day.ticks) // FINE_TICKS
+        if d not in seen:
+            keep.append((start, end))
+        start = end
+    return replace(outcome, day_pnl={m: {d: v for d, v in pnl.items() if d not in names} for m, pnl in outcome.day_pnl.items()},
+                   fine_pnl={m: [x for a, b in keep for x in fine[a:b]] for m, fine in outcome.fine_pnl.items()})
 
 
 def format_unseen(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: list[Day],
-                  engine: str = "python") -> str:
-    """SPA, StepM and the pick on the days the screen didn't see: the screen's choice can't bias them."""
-    trimmed = {index: without_first_day(o, days) for index, o in outcomes.items()}
-    head = f"on the days the screen didn't see ({', '.join(d.name for d in days[1:])}), so free of its choice:"
-    return head + "\n" + format_snooping(axes, without_first_day(baseline, days), trimmed, modes, None, engine)
+                  seen: set[int], engine: str = "python", by: str = "screen") -> str:
+    """SPA, StepM and the pick on the days no screen or halving step ranked on: their choice can't bias them."""
+    unseen = [day.name for d, day in enumerate(days) if d not in seen]
+    if not unseen:
+        return (f"! every day was ranked on by a halving step, so no day is free of its choice: hold a day out of --days and score the pick on it, "
+                f"or halve under one mode (the last day is then never ranked on)")
+    trimmed = {index: without_days(o, days, seen) for index, o in outcomes.items()}
+    head = f"on the days the {by} didn't see ({', '.join(unseen)}), so free of its choice:"
+    return head + "\n" + format_snooping(axes, without_days(baseline, days, seen), trimmed, modes, None, engine)
 
 
 # ---------------------------------------------------------------------------- overfitting
@@ -806,6 +915,12 @@ def block_pnl(series: list[float], blocks: int) -> list[float]:
     return out
 
 
+def _key(values) -> bytes:
+    """Equal block PnL to 6 decimals as one dict key: the rounded values' bytes (-0.0 counted as 0.0),
+    far smaller than a tuple of floats for a grid of many cells."""
+    return array("d", (round(x, 6) + 0.0 for x in values)).tobytes()
+
+
 def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], dsr: float | None,
                     engine: str = "python") -> str:
     """SPA and StepM on each distinct cell's gain over the bot as is, per block of FINE_TICKS ticks,
@@ -813,21 +928,21 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
     With engine "rust" the bootstrap runs in rust/src/arena/stats.rs, the same to the bit."""
     mode = modes[0]
     base = baseline.fine_pnl.get(mode, [])
-    cells: dict[tuple, tuple[list[float], list[Outcome]]] = {}
+    cells: dict[bytes, tuple[array, list[Outcome]]] = {}
     for _, o in sorted(outcomes.items()):
         fine = o.fine_pnl.get(mode, [])
         if o.failed or len(fine) != len(base):
             continue
-        gain = [x - b for x, b in zip(fine, base)]
+        gain = array("d", (x - b for x, b in zip(fine, base)))
         if any(gain):
-            cells.setdefault(tuple(round(x, 6) for x in gain), (gain, []))[1].append(o)
+            cells.setdefault(_key(gain), (gain, []))[1].append(o)
     if baseline.failed or len(base) < MIN_FINE_BLOCKS or not cells:
         return f"  SPA, StepM: skipped (needs a working bot as is, a cell that differs from it, and {MIN_FINE_BLOCKS}+ blocks of {FINE_TICKS} ticks)"
     groups = list(cells.values())
     d = [gain for gain, _ in groups]
     p, winners = (rust.snooping if engine == "rust" else snooping)(d, SPA_Q, BOOTSTRAP)
     lines = [
-        f"  SPA on pnl({mode}) gains over the bot as is, {len(base)} blocks of {FINE_TICKS} ticks, {len(d)} distinct cells, "
+        f"  SPA on pnl({mode}) gains over the bot as is, {len(base):,} blocks of {FINE_TICKS} ticks, {len(d):,} distinct cells, "
         f"bootstrap blocks of {round(FINE_TICKS / SPA_Q):,} ticks on average, {BOOTSTRAP:,} resamples:",
         f"  p {p['c']:.3f} that no cell beats the bot as is (bounds {p['l']:.3f} to {p['u']:.3f}; the upper is the Reality Check)",
     ]
@@ -868,8 +983,8 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
                        engine: str = "python") -> str:
     mode = modes[0]
     usable = [o for _, o in sorted(outcomes.items()) if not o.failed]
-    columns = list({tuple(round(v, 6) for v in o.block_pnl[mode]): o.block_pnl[mode] for o in usable}.values())
-    lines = [f"overfitting: {len(outcomes)} cells × {len(modes)} modes = {len(outcomes) * len(modes)} trials on {days} days"]
+    columns = list({_key(o.block_pnl[mode]): o.block_pnl[mode] for o in usable}.values())
+    lines = [f"overfitting: {len(outcomes):,} cells × {len(modes)} modes = {len(outcomes) * len(modes):,} trials on {days} days"]
     blocks = len(columns[0]) if columns else 0
     if len(columns) < 2 or blocks < 2 or any(len(c) != blocks for c in columns):
         lines.append("  fewer than two distinct cells, or days too short to cut into blocks: no PBO or DSR")
@@ -879,7 +994,7 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     result = (rust.cscv if engine == "rust" else cscv)(columns)
     sampled = f"{result.splits:,} of {result.of:,}" if result.splits < result.of else f"all {result.of:,}"
     coarse = " (under 10: coarse ranks)" if len(columns) < 10 else ""
-    lines.append(f"  CSCV on pnl({mode}) in {blocks} blocks ({blocks // days} a day), {len(columns)} distinct cells{coarse}, {sampled} halvings:")
+    lines.append(f"  CSCV on pnl({mode}) in {blocks} blocks ({blocks // days} a day), {len(columns):,} distinct cells{coarse}, {sampled} halvings:")
     lines.append(f"  PBO {result.pbo:.0%}  ·  the pick's mean rank out of sample {result.rank:.2f} (1 top, 0.5 median)  ·  it loses money there in {result.loss:.0%}")
     base = baseline.block_pnl[mode]
     gains = [[x - b for x, b in zip(c, base)] for c in columns] if len(base) == blocks else []
@@ -976,6 +1091,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="shuffle the ticks in runs of this many, keeping the order inside a run (default: 1)")
     add_engine_argument(parser, "run the backtests and the statistics in Python, or on the Rust port (rust/: needs cargo, and a bot with a "
                         "Rust twin, rust/twins.json), with the same results about 100 times faster (default: python)")
+    parser.add_argument("--sample", type=int, metavar="N", help="run N cells drawn at random from the grid instead of every one (seeded by --sample-seed)")
+    parser.add_argument("--sample-seed", type=int, default=0, help="--sample's seed (default: 0)")
+    parser.add_argument("--halving", type=float, metavar="SHARE",
+                        help="successive halving in steps: each adds the next day (the first mode's days, then the others') and keeps this "
+                        "share of the cells still alive, by their PnL so far; the last ones run on every day and mode (e.g. 0.5)")
     parser.add_argument("--screen", type=float, metavar="SHARE",
                         help="successive halving: run every combination on the first day under the first mode, then only this share "
                         "of them, the best there, on every day and mode (e.g. 0.25)")
@@ -990,6 +1110,12 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--permute needs N >= 0 and --permute-block a run of at least 1 tick")
         if args.screen is not None and not 0 < args.screen < 1:
             raise ValueError("--screen needs a share between 0 and 1, e.g. 0.25")
+        if args.halving is not None and not 0 < args.halving < 1:
+            raise ValueError("--halving needs a share between 0 and 1, e.g. 0.5")
+        if args.halving is not None and (args.screen is not None or args.permute):
+            raise ValueError("--halving is a screen of its own: drop --screen, and --permute (it screens each copy with --screen only)")
+        if args.sample is not None and args.sample < 1:
+            raise ValueError("--sample needs a number of cells, e.g. 10000")
         if s.engine == "rust":
             rust.prepare(args.format, [args.bot, *s.rivals], args.allow_stale)
         smoke_test(s, args.bot, axes)
@@ -997,18 +1123,30 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(str(error))
 
     combos = math.prod(len(axis.values) for axis in axes)
+    if args.sample is not None and args.sample < combos:
+        print(f"{args.sample:,} of {combos:,} combinations, drawn at random (--sample-seed {args.sample_seed})")
+        combos = args.sample
     runs = (combos + 1) * len(s.days) * len(modes)
-    if args.screen:
+    if args.halving:
+        alive, runs, steps = combos, len(s.days) * len(modes), len(s.days) * len(modes)
+        for k in range(steps):
+            runs += alive
+            if k < steps - 1 and alive > 1:
+                alive = max(1, math.ceil(args.halving * alive))
+        print(f"{combos:,} combinations, one day under one mode at a time ({steps} steps), keeping {args.halving:.0%} after each but the last: "
+              f"{alive:,} at the end ({runs:,} backtests) on {args.jobs} workers")
+    elif args.screen:
         kept = max(1, math.ceil(args.screen * combos))
         runs = len(s.days) * len(modes) + combos + kept * (len(s.days) * len(modes) - 1)
         print(f"{combos} combinations screened on {s.days[0].name}, the best {kept} then × {len(s.days)} days × {len(modes)} modes "
               f"({runs} backtests) on {args.jobs} workers")
     else:
-        print(f"{combos} combinations × {len(s.days)} days × {len(modes)} modes ({runs} backtests) on {args.jobs} workers")
+        print(f"{combos:,} combinations × {len(s.days)} days × {len(modes)} modes ({runs:,} backtests) on {args.jobs} workers")
     if s.rivals:
         print(f"each against {', '.join(participant_names(args.bot, s.rivals)[1:])} in the same market")
     start = time.perf_counter()
-    run = run_grid(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.all_products, args.screen)
+    run = run_grid(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.all_products, args.screen, args.sample, args.sample_seed,
+                   args.halving)
     baseline, outcomes = run.baseline, run.outcomes
     print(f"done in {time.perf_counter() - start:.1f} s" + (f"; {run.note}" if run.note else "") + "\n")
 
@@ -1022,13 +1160,15 @@ def main(argv: list[str] | None = None) -> int:
         print("\n" + held_out)
     if run.screen:
         print("\n" + format_screen(axes, run.screen, outcomes))
+    if run.rungs:
+        print("\n" + format_halving(axes, run.rungs, run.tried, args.halving, outcomes))
     print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes, s.engine))
-    if run.screen and len(s.days) >= 2:
-        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days, s.engine))
+    if (run.screen or run.rungs) and len(s.days) >= 2:
+        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days, run.seen, s.engine, "halving" if run.rungs else "screen"))
     if args.permute > 0:
         start = time.perf_counter()
         copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block,
-                                  run.restricted, args.screen)
+                                  run.restricted, args.screen, args.sample, args.sample_seed)
         products = sorted({p for day in s.days for p in day.products})
         print(f"\n{format_permutations(axes, outcomes, copies, modes[0], args.permute_block, products)}  ({time.perf_counter() - start:.0f} s)")
     failed = [o for o in outcomes.values() if o.first_error]

@@ -104,11 +104,19 @@ def standardized(columns: list[list[float]]) -> list[list[float]]:
 
 
 def mean_correlation(scaled: list[list[float]]) -> float | None:
-    """The mean over every pair of standardized columns of their correlation; None with fewer than two."""
-    pairs = [(a, b) for i, a in enumerate(scaled) for b in scaled[i + 1 :]]
-    if not pairs:
+    """The mean over every pair of standardized columns of their correlation; None with fewer than two.
+
+    As the identity sum over pairs of z_i . z_j = (||sum of z_i||^2 - sum of ||z_i||^2) / 2, so it
+    costs O(cells x blocks) rather than a pass over every pair (a grid of 100,000 cells has 5e9),
+    each sum exact (math.fsum), so rust/src/arena/stats.rs gives the same to the bit."""
+    m = len(scaled)
+    if m < 2:
         return None
-    return statistics.fmean(sum(x * y for x, y in zip(a, b)) / len(a) for a, b in pairs)
+    s = len(scaled[0])
+    column_sums = [math.fsum(column[t] for column in scaled) for t in range(s)]
+    total = math.fsum(x * x for x in column_sums)
+    own = math.fsum(x * x for column in scaled for x in column)
+    return (total - own) / (s * m * (m - 1))
 
 
 def omega2(d: list[float], q: float) -> float:

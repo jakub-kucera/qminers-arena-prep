@@ -362,3 +362,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-23] restructure | the repo's architecture moved from CLAUDE.md to ARCHITECTURE.md
 - CLAUDE.md's Architecture, Bot files and Known gaps sections moved word for word to `ARCHITECTURE.md`; CLAUDE.md keeps the commands, the rules that keep the code consistent and the conventions. The pages citing those sections now cite `ARCHITECTURE.md` (12 places in 11 pages).
+
+## [2026-10-23] lint | arena.grid and arena.stats lines moved (halving, sampling, the O(cells × blocks) correlation)
+- `arena.grid` gains `--halving` and `--sample`, and `arena.stats.mean_correlation` becomes the identity (‖Σz‖² − Σ‖z‖²) / (S·M(M−1)) with exact sums: the citations of `FINE_TICKS`, `format_snooping`, `omega2`, `spa` and `stepm` re-mapped (`superior-predictive-ability`, `stepwise-multiple-testing`, `validation-and-overfitting`).

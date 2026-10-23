@@ -31,6 +31,7 @@ uv run python -m arena.backtest python/bots/template.py 1 --engine rust   # the 
 uv run python -m arena.validate python/bots/template.py 1                # pre-submission checks, exit 1 on FAIL
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --grid PARAMS.KELP.take_edge=0..7 --modes all,worse --screen 0.25   # big grids: screen on the first day, the best quarter on all
+uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --grid PARAMS.KELP.skew=0..9 --sample 1000 --halving 0.5 --modes all,worse --engine rust   # huge grids: a random 1,000 cells, halved day by day
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --engine rust   # the same output, its backtests on rust/ (a bot with a Rust twin)
 uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/zoo/claude/*.py "python/bots/template.py@PARAMS.KELP.make_edge=1" --modes all,worse   # several bots or variants against a baseline
 uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables

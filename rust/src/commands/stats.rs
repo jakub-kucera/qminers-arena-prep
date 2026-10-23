@@ -7,7 +7,20 @@ use std::fs;
 use arena_rs::arena::stats;
 use arena_rs::support::json::{self, Value};
 
+/// A matrix as JSON rows, or as {"file", "rows", "cols"}: the rows' f64s back to back, little-endian
+/// (python/arena/rust.py `_matrix`, for a grid of many cells).
 pub fn matrix(value: Option<&Value>, key: &str) -> Vec<Vec<f64>> {
+    if let Some(file) = value.and_then(|v| v.get("file")).and_then(Value::as_str) {
+        let v = value.unwrap();
+        let size = |k: &str| v.get(k).and_then(Value::as_i64).unwrap_or_else(|| fail(&format!("stats: {key}'s {k} must be an integer"))) as usize;
+        let (rows, cols) = (size("rows"), size("cols"));
+        let bytes = fs::read(file).unwrap_or_else(|e| fail(&format!("{file}: {e}")));
+        if bytes.len() != rows * cols * 8 {
+            fail(&format!("{file}: {} bytes, not {rows} x {cols} floats", bytes.len()));
+        }
+        let floats: Vec<f64> = bytes.chunks_exact(8).map(|b| f64::from_le_bytes(b.try_into().unwrap())).collect();
+        return floats.chunks(cols.max(1)).take(rows).map(<[f64]>::to_vec).collect();
+    }
     let rows = value.and_then(Value::as_list).unwrap_or_else(|| fail(&format!("stats: {key} must be a list of lists")));
     rows.iter()
         .map(|row| row.as_list().unwrap_or_else(|| fail(&format!("stats: {key} must be a list of lists"))).iter().map(|v| v.as_f64().unwrap_or_else(|| fail("stats: numbers only"))).collect())

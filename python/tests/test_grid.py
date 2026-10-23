@@ -2,6 +2,7 @@ import csv
 import random
 import statistics
 import textwrap
+from types import SimpleNamespace
 
 import pytest
 
@@ -415,6 +416,55 @@ def test_the_screen_works_with_the_permutation_test_and_rejects_a_bad_share(caps
     for share in ("0", "1", "1.5"):
         with pytest.raises(SystemExit):
             run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", "--screen", share)
+
+
+def test_a_sample_draws_distinct_cells_by_their_place_in_the_whole_grid():
+    import itertools
+    sizes = [3, 4, 5]
+    assert [grid._unrank(k, sizes) for k in range(60)] == list(itertools.product(range(3), range(4), range(5)))
+    axes = [grid.Axis(f"PARAMS.{n}", tuple(range(size))) for n, size in zip("abc", sizes)]
+    sample = grid._cells(axes, 7, seed=3)
+    assert len({index for index, _ in sample}) == 7 and sample == sorted(sample) and sample == grid._cells(axes, 7, seed=3)
+    assert set(sample) <= set(grid._cells(axes)) and sample != grid._cells(axes, 7, seed=4)
+    assert grid._cells(axes, 1000) == grid._cells(axes)
+
+
+def test_the_cli_samples_the_grid(capsys, bot, data_dir):
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..4", "--sample", "2", "--jobs", "1")
+    assert code == 0 and "2 of 4 combinations, drawn at random (--sample-seed 0)" in text and "2 combinations × 2 days" in text
+
+
+def test_halving_keeps_a_share_at_each_step_with_the_full_runs_numbers(capsys, bot, data_dir, tmp_path):
+    args = ["--grid", "PARAMS.size=1..4", "--modes", "all,worse", "--jobs", "1"]
+    code, text = run_main(capsys, bot, data_dir, *args, "--halving", "0.5", "--out", str(tmp_path / "halved.csv"))
+    assert code == 0
+    assert "4 combinations, one day under one mode at a time (4 steps), keeping 50% after each but the last: 1 at the end (12 backtests)" in text
+    assert "halving: 4 cells, keeping 50% at each of 2 steps" in text
+    assert "1. through r1d-1 under all: 4 cells, kept 2; best dropped size=3 (-6)" in text  # each day loses 2 per unit
+    assert "2. through r1d0 under all: 2 cells, kept 1; best dropped size=2 (-8)" in text
+    assert "! every day was ranked on by a halving step" in text  # both days, under all
+    run_main(capsys, bot, data_dir, *args, "--out", str(tmp_path / "full.csv"))
+    halved, full = _csv_rows(tmp_path / "halved.csv"), _csv_rows(tmp_path / "full.csv")
+    same = lambda row: {c: v for c, v in row.items() if not c.startswith("nbhd")}
+    assert list(halved) == ["1"] and same(halved["1"]) == same(full["1"])
+    # Under one mode the last step ranks the first day only, so the second stays unseen.
+    _, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..4", "--halving", "0.5", "--jobs", "1")
+    assert "on the days the halving didn't see (r1d0), so free of its choice:" in text
+
+
+def test_halving_rejects_a_bad_share_a_screen_and_a_permutation_test(capsys, bot, data_dir):
+    for extra in (["--halving", "1"], ["--halving", "0.5", "--screen", "0.5"], ["--halving", "0.5", "--permute", "2"], ["--sample", "0"]):
+        with pytest.raises(SystemExit):
+            run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", *extra)
+
+
+def test_without_days_drops_the_days_pnl_and_fine_blocks():
+    day = lambda name, ticks: SimpleNamespace(name=name, ticks=[None] * ticks)
+    days = [day("a", 200), day("b", 300), day("c", 100)]
+    outcome = grid.Outcome((), (), day_pnl={TradeMatching.ALL: {"a": 1.0, "b": 2.0, "c": 3.0}}, fine_pnl={TradeMatching.ALL: [1, 2, 3, 4, 5, 6]})
+    trimmed = grid.without_days(outcome, days, {1})
+    assert trimmed.day_pnl[TradeMatching.ALL] == {"a": 1.0, "c": 3.0} and trimmed.fine_pnl[TradeMatching.ALL] == [1, 2, 6]
+    assert grid.without_days(outcome, days, {0}).fine_pnl[TradeMatching.ALL] == [3, 4, 5, 6]
 
 
 def test_an_axis_that_never_changes_the_pnl_is_flagged(capsys, bot, data_dir):

@@ -340,18 +340,58 @@ def run_days(days: list[Day], bots: list[tuple[str, Path, dict, bool]], config: 
 # ---------------------------------------------------------------------------- batches
 
 
-def run_batch(day_paths: list[Path], specs: list[dict], tasks: list[dict], threads: int, scratch: Path) -> list[dict]:
-    """`arena-rs batch`: each task {day, config, bots: [[name, spec index], ...], blocks, fine} on
-    `threads` threads, returning per task the first participant's {pnl, blocks, fine, products,
-    drawdowns, fills, errors, breaches, races, first_error} (as arena.grid's Piece, plus each
-    product's report.max_drawdown) and "others", the other participants' {pnl, products, fills,
-    errors, breaches, races}, in task order."""
+def run_batch(day_paths: list[Path], specs: list[dict], tasks: list[dict], threads: int, scratch: Path,
+              products: list[list[str]] | None = None, configs: list[dict] | None = None, cells: list[list] | None = None) -> list[dict]:
+    """`arena-rs batch`: each task {day, config, bots: [[name, spec index], ...], blocks, fine, and
+    optionally set: [[path, value], ...], overrides of its first bot's globals} on `threads` threads,
+    where a task's config may be an index into `configs` and its set a `cell`, an index into `cells`,
+    returning per task the first participant's {pnl, blocks, fine, products, drawdowns, fills,
+    errors, breaches, races, first_error} (as arena.grid's Piece, plus each product's
+    report.max_drawdown) and "others", the other participants' {pnl, products, fills, errors,
+    breaches, races}, in task order. With `products` (each task's day's products, in its order) the
+    results come back in binary instead (read_pieces): just the Piece's fields, with its blocks as
+    arrays, for a grid too large for JSON."""
     path = scratch / "batch.json"
-    path.write_text(json.dumps({"days": [str(p) for p in day_paths], "bots": specs, "tasks": tasks}))
-    out = subprocess.run([str(BINARY), "batch", str(path), "--threads", str(threads)], stdout=subprocess.PIPE, text=True)
+    batch = {"days": [str(p) for p in day_paths], "bots": specs, "tasks": tasks}
+    batch |= {"configs": configs} if configs is not None else {}
+    batch |= {"cells": cells} if cells is not None else {}
+    with path.open("w") as file:
+        json.dump(batch, file)
+    command = [str(BINARY), "batch", str(path), "--threads", str(threads)]
+    if products is not None:
+        results = scratch / "pieces.bin"
+        if subprocess.run([*command, "--binary", str(results)]).returncode != 0:
+            raise RuntimeError("arena-rs batch failed; its message is above")
+        return read_pieces(results, products)
+    out = subprocess.run(command, stdout=subprocess.PIPE, text=True)
     if out.returncode != 0:
         raise RuntimeError(f"arena-rs batch failed (exit {out.returncode}); its message is above")
     return [json.loads(line) for line in out.stdout.splitlines()]
+
+
+def read_pieces(path: Path, products: list[list[str]]) -> list[dict]:
+    """`arena-rs batch --binary`'s file (commands/batch.rs `piece_binary`): per task, in the order they
+    finished, its index and the Piece's fields, the blocks as array('d'); returned in task order."""
+    import array
+    import struct
+
+    out: list[dict | None] = [None] * len(products)
+    with path.open("rb") as file:
+        def floats() -> array.array:
+            (n,) = struct.unpack("<I", file.read(4))
+            values = array.array("d")
+            values.frombytes(file.read(8 * n))
+            return values
+
+        for _ in products:
+            k, pnl = struct.unpack("<Id", file.read(12))
+            blocks, fine, pnls = floats(), floats(), floats()
+            fills, errors, breaches, races, length = struct.unpack("<5I", file.read(20))
+            out[k] = {"pnl": pnl, "blocks": blocks, "fine": fine, "products": dict(zip(products[k], pnls)), "fills": fills, "errors": errors,
+                      "breaches": breaches, "races": races, "first_error": file.read(length).decode()}
+    if any(piece is None for piece in out):
+        raise RuntimeError(f"{path}: arena-rs batch left out a task")
+    return out
 
 
 def _engine_args(config: EngineConfig) -> list[str]:
@@ -643,12 +683,33 @@ def run_sim(spec, seed: int, days: int = 1, bots: list[tuple[str, Path, dict, bo
 # ---------------------------------------------------------------------------- arena.stats
 
 
+def _matrix(rows: list, folder: Path, name: str) -> dict:
+    """A matrix for `arena-rs stats` as a binary file (rust/src/commands/stats.rs `matrix`): its rows'
+    floats back to back, little-endian, where JSON would hold a grid of many cells as text."""
+    import array
+    import sys
+
+    flat = array.array("d")
+    for row in rows:
+        flat.extend(row)
+    if sys.byteorder != "little":
+        flat.byteswap()
+    path = folder / f"{name}.bin"
+    with path.open("wb") as file:
+        flat.tofile(file)
+    return {"file": str(path), "rows": len(rows), "cols": len(rows[0]) if rows else 0}
+
+
 def _stats(request: dict):
+    """`arena-rs stats` on one request; a matrix under "matrices" goes as a binary file (_matrix)."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as folder:
+        for body in request.values():
+            for key in body.pop("matrices", ()):
+                body[key] = _matrix(body[key], Path(folder), key)
         path = Path(folder) / "stats.json"
-        path.write_text(json.dumps(request))
+        path.write_text(json.dumps(request, default=list))
         out = subprocess.run([str(BINARY), "stats", str(path)], stdout=subprocess.PIPE, text=True)
     if out.returncode != 0:
         raise RuntimeError(f"arena-rs stats failed (exit {out.returncode}); its message is above")
@@ -659,35 +720,35 @@ def cscv(columns: list[list[float]], max_splits: int | None = None, seed: int = 
     """arena.stats.cscv in rust/src/arena/stats.rs."""
     from arena import stats
 
-    found = _stats({"cscv": {"columns": columns, "max_splits": stats.MAX_SPLITS if max_splits is None else max_splits, "seed": seed}})
+    found = _stats({"cscv": {"columns": columns, "max_splits": stats.MAX_SPLITS if max_splits is None else max_splits, "seed": seed, "matrices": ["columns"]}})
     return stats.Cscv(found["pbo"], found["loss"], found["rank"], found["splits"], found["of"])
 
 
 def mean_correlation(scaled: list[list[float]]) -> float | None:
     """arena.stats.mean_correlation in rust/src/arena/stats.rs."""
-    return _stats({"correlation": {"scaled": scaled}})
+    return _stats({"correlation": {"scaled": scaled, "matrices": ["scaled"]}})
 
 
 def snooping(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 0) -> tuple[dict[str, float], list[int]]:
     """arena.stats.snooping in rust/src/arena/stats.rs."""
     from arena import stats
 
-    found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed}})
+    found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "matrices": ["d"]}})
     return found["spa"], found["stepm"]
 
 
 def spa(d: list[list[float]], q: float, boot: int, seed: int = 0) -> dict[str, float]:
     """arena.stats.spa (its own studentization and resamples) in rust/src/arena/stats.rs."""
-    return _stats({"spa": {"d": d, "q": q, "boot": boot, "seed": seed}})
+    return _stats({"spa": {"d": d, "q": q, "boot": boot, "seed": seed, "matrices": ["d"]}})
 
 
 def stepm(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 1) -> list[int]:
     """arena.stats.stepm (its own studentization and resamples) in rust/src/arena/stats.rs."""
     from arena import stats
 
-    return _stats({"stepm": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed}})
+    return _stats({"stepm": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "matrices": ["d"]}})
 
 
 def scales(d: list[list[float]], q: float) -> list[float]:
     """arena.stats._scales in rust/src/arena/stats.rs."""
-    return _stats({"scales": {"d": d, "q": q}})
+    return _stats({"scales": {"d": d, "q": q, "matrices": ["d"]}})

@@ -18,8 +18,12 @@ file as a twin (rust/README.md). Days are loaded by our format plug-ins and expo
      Prosperity adapter, loaded per backtest as arena.grid does) against Rust's; and per arena.sim day;
   3. every core: Kelp's 64-cell mm grid on the round's three days under all and worse, arena.grid
      against `arena-rs grid`; and the template's 256-cell Kelp grid, arena.grid end to end with
-     --engine python against --engine rust (the same CSV).
-Results went into TODO_DONE.md (the decisions on the Rust port) and rust/README.md. python/tests/test_rust.py runs part 1, shorter.
+     --engine python against --engine rust (the same CSV);
+  4. every core, --engine rust only: the template's 100,000-cell grid (BIG_GRID: six of Kelp's and
+     Resin's settings) on the three days under all and worse, whole, then with --halving 0.5, and a
+     random 100,000 of 1,000,000 cells halved the same way: wall time, peak memory, and the best cell
+     (about 8 minutes in all; 298 s, 96 s and 98 s on 14 cores, at most 1.9 GB).
+Results went into TODO_DONE.md (the decisions on the Rust port), rust/README.md, and README.md's "Grid search" (part 4). python/tests/test_rust.py runs part 1, shorter.
 
 --twin FILE checks one template twin by config (a row of rust/twins.json with an `adapter`, such as the
 Arena's template on the day) on its own data: the committed settings in each engine mode and against a
@@ -638,6 +642,23 @@ def _grid_wall(engine: str, jobs: int, out: Path) -> float:
     return time.perf_counter() - start
 
 
+BIG_GRID = ["--grid", "PARAMS.KELP.make_edge=0.5,1,1.5,2,2.5,3,3.5,4,4.5,5", "--grid", "PARAMS.KELP.take_edge=0..9", "--grid", "PARAMS.KELP.clear_edge=0..4",
+            "--grid", "PARAMS.KELP.skew=0..9", "--grid", "PARAMS.RAINFOREST_RESIN.make_edge=1..4", "--grid", "PARAMS.RAINFOREST_RESIN.take_edge=0..4"]
+HUGE_GRID = [*BIG_GRID, "--grid", "PARAMS.KELP.size_skew=0..0.9..0.1"]  # 1,000,000 cells
+
+
+def big_grid(jobs: int, extra: list[str], out: Path) -> tuple[float, float, str]:
+    """arena.grid on --engine rust in a process of its own: (wall seconds, peak resident GB of any of its
+    processes, the best cell by pnl)."""
+    code = ("import resource, subprocess, sys, time; start = time.perf_counter(); subprocess.run(sys.argv[1:], check=True, stdout=open(sys.argv[-1] + '.txt', 'w')); "
+            "print(time.perf_counter() - start, resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)")
+    command = [sys.executable, "-m", "arena.grid", str(TEMPLATE), "1", "--data", "p3", *extra, "--modes", "all,worse", "--engine", "rust",
+               "--jobs", str(jobs), "--out", str(out)]
+    seconds, peak = subprocess.run([sys.executable, "-c", code, *command], check=True, capture_output=True, text=True).stdout.split()
+    best = next(line for line in Path(f"{out}.txt").read_text().splitlines() if line.startswith("best by pnl"))
+    return float(seconds), int(peak) / (1 if sys.platform == "darwin" else 1 / 1024) / 1e9, best.removeprefix("best by pnl").strip()
+
+
 def field_time(day: Day, path: Path, config: EngineConfig, scratch: Path) -> tuple[int, float, float]:
     """The template and every zoo twin in one market: (participants, Python seconds, Rust seconds
     on one thread, 5 runs less 1 to leave out loading)."""
@@ -827,6 +848,14 @@ def main() -> None:
         ours, theirs = _grid_wall("python", args.jobs, scratch / "python.csv"), _grid_wall("rust", args.jobs, scratch / "rust.csv")
         same = (scratch / "python.csv").read_text() == (scratch / "rust.csv").read_text()
         print(f"   --engine python {ours:.1f} s, --engine rust {theirs:.1f} s ({ours / theirs:,.0f}x), the same CSV: {same}")
+
+        print(f"\n4. every core ({args.jobs}), --engine rust: the template's 100,000-cell grid (Kelp's make_edge, take_edge, clear_edge, skew; "
+              "Resin's make_edge, take_edge) on 3 days under all and worse:")
+        for label, extra in (("whole (600,006 backtests)", BIG_GRID), ("--halving 0.5", [*BIG_GRID, "--halving", "0.5"]),
+                             ("1,000,000 cells (+ size_skew), --sample 100000 --halving 0.5", [*HUGE_GRID, "--sample", "100000", "--halving", "0.5"])):
+            sys.stdout.flush()
+            seconds, peak, best = big_grid(args.jobs, extra, scratch / "big.csv")
+            print(f"   {label:<60} {seconds:6.0f} s, peak {peak:.1f} GB; best by pnl {best}")
 
 
 if __name__ == "__main__":

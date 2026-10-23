@@ -50,7 +50,8 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 | `python/arena/model.py` | `src/arena/model.rs` | the types; products are indices into the day's list (sorted by name), trader names into its name table |
 | `random.Random` (CPython 3.12) | `src/support/pyrandom.rs` | MT19937, int and str seeding, `random`, `shuffle`, `randint`, `uniform`, `gauss`, `binomialvariate`, draw for draw (`cargo test` has CPython's vectors) |
 | `arena.cli.Requote` | `Requote` in `src/bots/mod.rs` | `--requote` for rivals |
-| `arena.grid.block_pnl`, `report.total_pnl`, `product_stats`, `report.max_drawdown` | `block_pnl`, `piece`, `max_drawdown` in `src/commands/batch.rs` | what a grid task returns (`arena-rs batch`) |
+| `arena.grid.block_pnl`, `report.total_pnl`, `product_stats`, `report.max_drawdown` | `block_pnl`, `piece`, `piece_binary`, `max_drawdown` in `src/commands/batch.rs` | what a grid task returns (`arena-rs batch`; `--binary` for the grid) |
+| `arena.botfile._apply_override` | `apply_override` in `src/commands/mod.rs` | a grid cell's `--set` overrides applied in Rust, with the same errors |
 | `math.erf`, `x ** 2`, `math.exp`, `math.log` | libm's `erf`, `pow`, `exp`, `log` | CPython calls the C library for these, so the Rust does too. On macOS `pow(x, 2)` isn't always `x * x`. |
 | `math.fsum`, `statistics.fmean`, `random.sample` | `fsum`, `fmean`, `sample` in `src/arena/stats.rs` | Shewchuk's partials as `mathmodule.c` has them; `sample`'s two branches as `Lib/random.py` |
 | `sum()` of floats, and of ints and floats mixed; `round(x, n)`, `//`, `max`/`min`; numpy's `mean`, `std` | `src/support/py.rs` | CPython 3.12's `sum` is compensated (Neumaier), not a plain loop, and adds ints after the first float uncompensated; numpy's sums are pairwise from 0.0. Each checked against the real thing on random inputs, and `cargo test` holds CPython's vectors |
@@ -70,7 +71,7 @@ Supporting pieces that copy Python exactly but have no file of their own to hash
 
 Every tool that runs our bots takes `--engine rust`: `arena.backtest`, `arena.grid`, `arena.compare`, `arena.stress`, `arena.sim`, and the experiments, which go through `arena.cli.backtest` (one market on one day on either engine; `fields` limits what is read back, `arena.rust.sim_day_file` has Rust write a simulated day straight to a file, and `arena.rust.prosperity_day` a Prosperity day read from its CSVs, so a worker loads nothing in Python).
 
-**Only in Rust** (`src/support/`, `src/commands/`): the day-file reader (`src/support/dayfile.rs`, for days `python/arena/rust.py` exports after the plug-ins have loaded them: simulated, perturbed, permuted and drill days), the thread pools of `arena-rs run`, `batch`, `sim` and `grid` (and the days loaded on a thread each), SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
+**Only in Rust** (`src/support/`, `src/commands/`): the day-file reader (`src/support/dayfile.rs`, for days `python/arena/rust.py` exports after the plug-ins have loaded them: simulated, perturbed, permuted and drill days), the thread pools of `arena-rs run`, `batch`, `sim` and `grid` (and the days loaded on a thread each), the grid's batch protocol (one spec for every cell, each task a cell and an engine config by index into the batch's own tables, every distinct override checked before the run, and the results streamed to a binary file as they finish, each after its task's index: `rust.run_batch`, `rust.read_pieces`), the statistics' threads (CSCV's halvings, the bootstrap's means and StepM's steps, each in a fixed order so the numbers don't depend on the thread count), SHA-512 (string seeds, as CPython hashes them), and a JSON reader.
 
 ## Layout
 

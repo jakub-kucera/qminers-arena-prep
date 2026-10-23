@@ -155,6 +155,38 @@ def test_settings_the_rust_template_cant_hold_are_refused(bench, tmp_path):
         assert out.returncode != 0 and message in out.stderr, (overrides, out.stderr)
 
 
+@needs_cargo
+def test_the_rust_batch_applies_each_cells_overrides_as_set_does(bench, tmp_path):
+    """One spec for every cell, each task's `set` applied in Rust by botfile's rules: the same pieces as a
+    spec per cell, and a bad path or value in any task refused, before anything runs, in botfile's words."""
+    from arena.botfile import BotFile, OverrideError
+    from arena.formats import prosperity
+
+    day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN"]), 1).day
+    rust.export_day(replace(day, ticks=day.ticks[:400]), tmp_path / "day")
+    task = {"day": 0, "config": rust.config_json(bench.EngineConfig()), "blocks": 2, "fine": 4}
+    cells = [{"PARAMS.KELP.make_edge": 1}, {"PARAMS.KELP.make_edge": 3, "PARAMS.KELP.take_edge": 0},
+             {"PARAMS.RAINFOREST_RESIN": {"limit": 50, "fair": "wall_mid", "make_edge": 1}}]
+    products = [list(day.products)] * len(cells)
+    base = rust.bot_spec(bench.TEMPLATE, {})
+    one = rust.run_batch([tmp_path / "day"], [base], [{**task, "bots": [["you", 0]], "set": [[k, v] for k, v in c.items()]} for c in cells], 2,
+                         tmp_path, products)
+    each = rust.run_batch([tmp_path / "day"], [rust.bot_spec(bench.TEMPLATE, c) for c in cells],
+                          [{**task, "bots": [["you", k]]} for k in range(len(cells))], 2, tmp_path, products)
+    assert one == each and len({piece["pnl"] for piece in one}) == 3
+    for path, value in (("PARAMS.KELP.target", 1.5), ("PARAMS.NOPE.make_edge", 1), ("PARAMS.KELP.limit.x", 1), ("NOPE", 1)):
+        tasks = [{**task, "bots": [["you", 0]], "set": [["PARAMS.KELP.make_edge", 1]]}, {**task, "bots": [["you", 0]], "set": [[path, value]]}]
+        (tmp_path / "batch.json").write_text(json.dumps({"days": [str(tmp_path / "day")], "bots": [base], "tasks": tasks}))
+        out = subprocess.run([str(rust.BINARY), "batch", str(tmp_path / "batch.json"), "--binary", str(tmp_path / "x.bin")], capture_output=True, text=True)
+        assert out.returncode != 0 and not (tmp_path / "x.bin").exists(), path
+        if path != "PARAMS.KELP.target":  # the Rust template's own check of a value; the others are botfile's
+            with pytest.raises(OverrideError) as python:
+                BotFile(bench.TEMPLATE, {"datamodel": prosperity.dm}).load({path: value})
+            assert str(python.value) in out.stderr, (out.stderr, python.value)
+        else:
+            assert "target must be an integer" in out.stderr
+
+
 def _grid_output(capsys, argv) -> str:
     from arena import grid
 

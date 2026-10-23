@@ -142,6 +142,15 @@ on the days the screen didn't see, which its choice can't bias. Order the days s
 typical. A cell that only does well under a later mode can be dropped, and `nbhd` only counts
 kept neighbours. With `--permute`, each copy is screened the same way.
 
+`--halving SHARE` is the same with more steps: the cells run one day under one mode at a time (the
+first mode's days, then the next mode's), and after each step but the last only that share of the
+cells still alive, ranked by their PnL so far (failed ones last), goes on. The summary lists each
+step with the best cell it dropped. As with the screen, the tests see the kept cells only; the
+unseen-days section leaves out every day a step ranked on, so it appears only when a day is left
+(under one mode, the last). It doesn't combine with `--screen` or `--permute`. `--sample N` runs N
+cells drawn at random from the grid (`--sample-seed`, default 0) instead of all of them, so a
+product of millions is never listed; `--permute`'s copies run the same sample.
+
 `--engine rust` runs the backtests and the statistics that grow with the cells (CSCV, the DSR's
 correlation, SPA and StepM) on the Rust port (`rust/`, needs `cargo`), on `--jobs` threads, and
 prints and writes the same results to the last digit. The axes, the screen and the permuted copies
@@ -152,7 +161,14 @@ a twin it uses was last checked against older Python code, since Rust would run 
 does the same). Kelp's 256 cells (`make_edge` × `take_edge`, P3
 round 1, `--modes all,worse`, 1,542 backtests) took 1.3 s against 50.6 s, with the same CSV; the
 grid's own work is most of the 1.3 s. 1,024 cells (`make_edge` × `skew`, 337 of them distinct) took
-2.7 s against 226 s.
+2.7 s against 226 s. The template's 100,000 cells (six of Kelp's and Resin's settings, P3 round 1,
+`--modes all,worse`: 600,006 backtests) took 298 s on 14 cores, using at most 1.9 GB in any one
+process. With `--halving 0.5` it took 96 s and 0.5 GB. It found the same best cell by `pnl`, worst
+day and `worse`, and the same pick; only `nbhd` differed, since it counts only the kept neighbours. A
+random 100,000 of a million cells, halved the same way, took 98 s (`experiments.rust_bench`, part 4;
+`IDEAS.md`, "Kelp `make_edge` and `take_edge`"). The halved run's DSR was 1.00 against the whole
+grid's 0.19: the tests see only the 3,125 cells kept, so they understate the selection bias, as the
+summary says.
 
 The highest backtest PnL is usually overfit, so each combination is ranked on four measures:
 
