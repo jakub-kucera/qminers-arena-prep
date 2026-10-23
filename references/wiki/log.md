@@ -350,3 +350,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-21] lint | arena.grid's lines moved
 - `arena.grid --engine rust` hands Prosperity days to Rust as references to their CSVs: the citation of `format_snooping` re-mapped (`validation-and-overfitting`).
+
+## [2026-10-23] lint | per-tick market trades go best price first
+- `python/arena/engine.py` (`_match_trades`) and its Rust twin: with two or more bots, per tick, leftover orders meet the market trades in price-time priority, where they met them in arrival order. `shared-market-and-adversaries` gets the re-run undercut figures (repo `IDEAS.md`, "Against a rival that undercuts us"); the resting results it cites are unchanged.

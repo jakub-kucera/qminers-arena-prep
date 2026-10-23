@@ -390,13 +390,13 @@ This models a market shared by all teams much better than `--fill-ratio`:
 - **Rivals written for Prosperity:** their orders were meant to live one tick, so they never cancel, and under `--resting` their orders pile up until every new one breaches the limit. `--requote` makes every rival cancel its resting orders before each tick.
 - **Races:** another bot can fill one of your orders after your bot decided. If your new orders then no longer fit the limit, they are rejected and counted as a race, not a limit breach. A cancel for an order that filled in the meantime does nothing.
 
-Template against copies of itself, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5, `sized_mid`):
+Template against copies of itself, Prosperity 3 round 1, all three days (Kelp at `make_edge` 0.5, `sized_mid`; per tick re-run 2026-10-23 after market trades went best price first, when one copy made 42,033 + 42,304):
 
 | Market | per tick (default) | `--resting` |
 |---|---|---|
 | alone | 72,674 | 66,558 |
-| with one copy | 42,033 + 42,304 | 26,904 + 25,322 |
-| with two copies | | 13,161 + 14,568 + 19,044 |
+| with one copy | 41,352 + 41,848 | 26,904 + 25,322 |
+| with two copies | 27,460 + 28,970 + 29,515 | 13,161 + 14,568 + 19,044 |
 
 The two copies together make more than one alone in the default mode, because each has its
 own position limit. They also get extra fills: when one beats the other to an ask, the other's
