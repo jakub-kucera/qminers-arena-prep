@@ -6,24 +6,25 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 
 ## Before the doors open (Sat 08:00)
 - `git pull && uv sync && uv run pytest` on every laptop; `references/` was cloned at home.
-- Names in the roles and the sleep rota ["The day: timeline and roles"].
+- Names for A (driver, recorder) and B (data, research) ["The day: timeline and roles"].
 
 ## Opening and workshop (09:00–10:30)
 1. One person reads the Technical Rules in full and writes each answer into "First hour", with its source.
 2. Settle first: the entry point, the data format, whether orders rest, the limits, the Python version and
    allowed imports, the time limit, the submission cap and whether scores come back ["First hour"].
+3. By 10:30, a fallback bot or not: an agent writes one only if the cap leaves an extra round-1 upload and the
+   ADAPTER may not be validated by 13:00 ["Spend the round's submissions", "A fallback first?"].
 
 ## Playground (10:30–12:00): three tracks at once ["Splitting the first hour"]
-- **Probes:** rewrite `python/bots/probe.py`'s ADAPTER and set `PRODUCT` and `LIMIT`. Check it locally with
+- **Probes (A):** rewrite `python/bots/probe.py`'s ADAPTER and set `PRODUCT` and `LIMIT`. Check it locally with
   `uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict`, then run it in the
   playground and read the `PROBE` lines ["Probes"]. If their rules forbid dynamic imports or sleeps, or
   uploads are scarce, delete its RISKY PROBES block first.
-- **Data:** copy `python/arena/formats/drill.py` to `qminers.py` and register it ["The format swap, step by
+- **Data (B):** copy `python/arena/formats/drill.py` to `qminers.py` and register it ["The format swap, step by
   step"]; then run `uv run python -m arena.diagnose DAYS --format qminers --data D` ["What kind of market is
   each product?"].
-- **Bot:** in a copy of `python/bots/template.py`, rewrite only the imports, PARAMS and ADAPTER. Then
+- **Bot (A):** in a copy of `python/bots/template.py`, rewrite only the imports, PARAMS and ADAPTER. Then
   `uv run python -m arena.validate BOT DAYS --format qminers --data D --time-limit-ms <theirs> [--allow numpy]`.
-- A fallback bot first? A decision waiting in `TODO.md` ("Write a fallback bot against the Arena's API").
 
 ## Lunch (12:00–13:00)
 - Backtest in each fill mode (`--match-trades all|worse|none`, then `--resting`) and keep the one closest to
@@ -45,4 +46,6 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 ## Rules that hold all day
 - Never upload code `arena.validate` hasn't passed, and never spend a submission on untested code.
 - Never choose between two variants by portal score when they are within `T` of each other.
+- Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00; while A sleeps, B uploads
+  only from the written list ["The day: timeline and roles"].
 - Before round 4 (40%): decide in writing how much risk to keep, from the lead in weighted points ["How is PnL scored?"].

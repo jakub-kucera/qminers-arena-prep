@@ -9,11 +9,7 @@ its sub-bullets, to [`TODO_DONE.md`](TODO_DONE.md) under the same heading; add n
 
 Choices only the user can make, each with the options, the evidence and a recommendation.
 
-- [ ] **Write a fallback bot against the Arena's API in the playground?** Raised 2026-10-23 by the audit (M8): `ON_THE_DAY.md` says to upload the plain template early, as the first score and the measure of our engine's error, but that needs the template's ADAPTER rewritten for their API first, which on the drill took about 100 lines.
-  - Evidence: the playground lasts 90 minutes (10:30–12:00) and round 1 starts at 13:00; round 1 weighs 10% and is the "forgiving market"; one bug in a new ADAPTER blocks every upload. A plain market maker written straight against their API (fair at the mid or the largest level, quote one tick inside, cancel and requote each step, stay inside the limit) is 40–60 lines, has no STRATEGY to port, and an agent or the zoo's prompt (`python/bots/zoo/PROMPTS.md`, `market_maker`) can write one from the docs in minutes.
-  - Options: (a) no fallback: the template's ADAPTER is the first upload; (b) the data track writes the fallback during the playground, uploads it once it runs there, and the template replaces it when validated; (c) (b), and keep the fallback as a `--vs` rival and a sanity check of the loader: our engine and theirs should give it similar fills (probe 16).
-  - Recommendation: (c). It costs one person 20–30 minutes and one submission, and it turns the first upload into a known-good one whatever happens to the ADAPTER. Skip it if submissions are scarce (`ON_THE_DAY.md`, "How do submissions work?").
-  - Done when: the user has chosen, and if (b) or (c), `ON_THE_DAY.md`'s timeline names who writes it, and the mock round has tried it.
+None open.
 
 ## Harder-round prep
 
@@ -69,9 +65,10 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 ## Rehearsal and setup
 
-- [ ] **Run a mock round in the week of 26 Oct.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.
+- [ ] **Run a mock round before the event.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.
   - Data: `uv run python -m arena.sim generate <folder> --days 3 --seed <a seed the others don't know>`, with `--spec` changes so the products aren't the presets. Include at least one product type the template isn't tuned for: `ROBOT_DISHES` (jumps that snap back), `KELP_FLOW` (one-sided takers; raise `--spec KELP_FLOW.noise.persistence=0.5` for flow that persists), or `HYDROGEL_PACK` (a level). Then rename the products and rewrite the files into a layout of the preparer's own, so the others have to write a loader. Keep the fundamental files back: they are the answer key.
-  - Start the agent from the kickoff prompt (next item), so the round tests it too.
+  - Start the agent from the kickoff prompt (next item), so the round tests it too, and end with a handover note (`ON_THE_DAY.md`, "The day: timeline and roles").
+  - Postponed 2026-10-24 by the user ("mock not now"). With two of us, one prepares the data and the other runs the round alone, or an agent session prepares it in a folder neither of us opens and both run it.
   - Done when: the round is done, and whatever was slow or confusing is fixed in the tooling or the checklist.
 - [ ] **Write the competition day's kickoff prompt.** One prompt to paste into a fresh agent session at the start of each round, with the round's data or the real assignment attached, so the agent starts from the repo's own process instead of improvising.
   - It says:
@@ -84,9 +81,10 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
   - A variant for rounds 2–4 starts from the previous round's bot and the leaderboard, and asks first what changed in the data and rules.
   - Done when: the prompt is committed, the mock round's agent started from it, and whatever it got wrong there is fixed in it.
   - **Drafted 2026-10-23:** `KICKOFF_PROMPT.md`, linked from `ON_THE_DAY.md`'s "Splitting the first hour". It also holds a prompt without the repository, for a teammate's clean-room agent that sees only the organisers' files (a `Priors` block distils our Prosperity results, deleted for a fully clean run). Left: the mock round, where one teammate runs each and the two bots are compared.
-- [ ] **Agree the roles and the sleep rota.** `ON_THE_DAY.md`, "The day: timeline and roles", proposes four roles (driver, data, research, recorder), a rota that keeps round 4's driver asleep through most of round 3, and a handover note per round. The building allows no sleeping bags and at least one member must always be on site, so whoever sleeps needs a bed nearby.
-  - Done when: the names are in that section, accommodation is booked (or the team decides to stay awake), and the mock round has tried the rota's handover.
+- [ ] **Agree the roles and the sleep rota.** We are two (the user, 2026-10-24), both on site all night with no accommodation: no sleep is planned, and a nap on a table or the floor (sleeping bags and mats aren't allowed in the building) only in a round 2 or 3 that looks like the round before. `ON_THE_DAY.md`, "The day: timeline and roles", has the four roles in two pairs (A: driver and recorder; B: data and research), that nap rule and a handover note per round.
+  - Done when: the two names are in that section.
 - [ ] **Keep the repository private.** `literature_md/` holds Marker conversions of copyrighted books and papers, committed (the audit's L5, `TODO_DONE.md`, "From the audit (2026-10-22)"). Nothing to do while it stays private.
+  - The user may make it public after the event if we place well (2026-10-24). Before that: remove `literature_md/` from the whole history (`git filter-repo --path literature_md --invert-paths`, then a force-push; deleting it in a new commit leaves the text in the history) and keep it locally, gitignored; and decide about `references/algo_trade_arena_conversation.json` (the organisers' e-mail and a private chat) and `references/arena-site-snapshot.txt` (the Arena site's text).
   - Done when: the event is over and the repository is still private, or `literature_md/` was removed from the history before any change of visibility.
 - [ ] **Set up every teammate's laptop by 31 Oct.** Each needs `uv sync`, `references/clone.sh` (2 GB, so not on the venue wifi), cargo for `--engine rust` (`brew install rust`), a passing `uv run pytest` with no "needs cargo" or "needs references" skips (without either, the run still passes but skips every parity check), and the converted literature. Agree who takes which first-hour track in `ON_THE_DAY.md`, and who submits.
   - Done when: everyone has run the template backtest on their own machine, on both engines (`--engine rust`).

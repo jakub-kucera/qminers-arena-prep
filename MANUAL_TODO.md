@@ -25,7 +25,7 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
   "Download public backtest data" button, the result-file format, error messages. Save pages as PDF, data
   and result files unchanged, in `references/arena-docs/portal/`.
   - Why: it decides the bot interface, data format and limits (`ON_THE_DAY.md`, "First hour"). Note that the
-    "mock round in the week of 26 Oct" in `TODO.md` is **our own rehearsal**; we do not know that the
+    mock round in `TODO.md` ("Run a mock round before the event.") is **our own rehearsal**; we do not know that the
     organisers offer one.
   - Done when: the files are saved and the loader work (`python/arena/formats/qminers.py`, `ON_THE_DAY.md`) has what it needs, or the
     item is ticked as "nothing available before the event".

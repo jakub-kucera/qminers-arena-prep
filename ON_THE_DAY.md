@@ -17,16 +17,16 @@ The official times are from the organisers' e-mail of 7 Oct (`references/algo_tr
 |---|---|---|
 | Sat 08:00–09:00 | arrival, registration | Laptops on power and a connection (eduroam or our own); `git pull`, `uv run pytest` passes; `references/` was cloned at home (2 GB). |
 | 09:00–09:30 | opening ceremony | The Technical Rules are published and explained now: one person reads them in full and writes every answer they give into "First hour" below. |
-| 09:30–10:30 | workshop | The API and data format: start the three tracks of "Splitting the first hour" as soon as either is shown. |
+| 09:30–10:30 | workshop | The API and data format: start the three tracks of "Splitting the first hour" as soon as either is shown. By 10:30, decide on a fallback bot ("A fallback first?" in "Spend the round's submissions"). |
 | 10:30–12:00 | **playground (90 min)** | The probe bot first (its risky probes run last), then the plain template once its ADAPTER runs, to measure the engine's error. The loader and `arena.diagnose` on any data they give. |
 | 12:00–13:00 | lunch | The template's ADAPTER finished, `arena.validate` with their time limit, the round-1 candidates written down in order. |
 | 13:00–18:00 | **round 1 (10%)** | The round's protocol below. Round 1 is the "forgiving market": get a validated upload in early. |
-| 18:00–19:00 | dinner | Handover note; the first sleepers go. |
-| 19:00–24:00 | **round 2 (20%)** | The round's protocol. |
+| 18:00–19:00 | dinner | Handover note. |
+| 19:00–24:00 | **round 2 (20%)** | The round's protocol; B may nap if it looks like round 1 (Sleep, below). |
 | Sun 00:00–01:00 | coffee break | Handover note. |
-| 01:00–06:00 | **round 3 (30%)** | The round's protocol, with whoever drives round 4 asleep. |
+| 01:00–06:00 | **round 3 (30%)** | The round's protocol; A, round 4's driver, may nap if it looks like round 2 (Sleep, below). |
 | 06:00–07:00 | breakfast | Handover note. Before round 4, decide in writing how much risk to keep (the lead in weighted points; "How is PnL scored?"). |
-| 07:00–12:00 | **round 4 (40%)** | The most rested people at the keyboard. |
+| 07:00–12:00 | **round 4 (40%)** | Both at the keyboard; no naps. |
 | 12:00–14:00 | lunch, closing | |
 
 **Each round (5 hours, T = its start).** Each agent session starts from `KICKOFF_PROMPT.md`, which holds the same times:
@@ -36,13 +36,11 @@ The official times are from the organisers' e-mail of 7 Oct (`references/algo_tr
 - T+4:30: stop changing the strategy; validate the final candidate and upload it.
 - T−0:10: check which submission is marked final.
 
-**Roles** (one person can hold two; write the names in before the event):
-- **Driver** (<name>): owns the bot file and every upload. Nobody else uploads.
-- **Data** (<name>): the loader, `arena.diagnose`, backtests, grids, stress.
-- **Research** (<name>): the "Every round" items, re-tests from `IDEAS.md`, the round's zoo.
-- **Recorder** (<name>): writes each answer into this file with its source, keeps the round's submission list, and writes the handover note.
+**Roles.** We are two (2026-10-24), so each holds two of the four; write the names in before the event:
+- **A** (<name>), **driver** and **recorder**: owns the bot file and every upload (nobody else uploads, except as "Sleep" says); writes each answer into this file with its source, keeps the round's submission list, and writes the handover note. In the first hour: the checklist, then the probes.
+- **B** (<name>), **data** and **research**: the loader, `arena.diagnose`, backtests, grids, stress; the "Every round" items, re-tests from `IDEAS.md`, the round's zoo. In the first hour: the data track.
 
-**Sleep.** Sleeping bags and mats aren't allowed in the building, and at least one member must be on site at all times (Known so far). Round 4 weighs the most, so its driver should sleep through most of round 3 (somewhere nearby, booked before the event), and round 3's driver after it. A rota for four, to adjust: A and B off 18:00–23:00, C and D off 01:00–06:30; A or B drives rounds 1 and 3, C or D rounds 2 and 4.
+**Sleep.** Both of us stay on site all night, with no accommodation (the user, 2026-10-24). Sleeping bags and mats aren't allowed in the building (Known so far), so a nap is on a chair, a table or the floor. No sleep is planned. A nap of up to 90 minutes is taken only in round 2 or 3, and only when the round looks like the one before: no new products or rules at T+0:00, the same `arena.diagnose` notes at T+0:15, and the last round's bot backtesting about as well on the new days, validated and uploaded. Then one sleeps between T+0:30 and T+4:00 while the other runs the protocol: B in round 2, A in round 3, since A drives round 4 (40%). While A sleeps, B uploads only candidates already on the written list. Nobody naps in round 4, or in a round that brought anything new. Whoever wakes reads the round's notes so far before touching the bot.
 
 **Handover note** at the end of each round, in `data/arena/round<N>/HANDOVER.md` (kept with the round's data, not committed): what was uploaded and why, its portal score against the local backtest, the questions still open, and the next round's first three actions.
 
@@ -50,7 +48,7 @@ The official times are from the organisers' e-mail of 7 Oct (`references/algo_tr
 
 Each agent session starts from [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md): one prompt for round 1 and one for rounds 2–4, with the data, the rules, the deadline and the session's track filled in.
 
-Three tracks can run in parallel:
+Three tracks can run in parallel (with two of us: A the checklist, then the probes; B the data; "The day: timeline and roles"):
 - **Checklist:** read the docs and fill in every answer they give.
 - **Probes:** rewrite `python/bots/probe.py`'s ADAPTER for their API, set `PRODUCT` and `LIMIT`, and run it in the playground (see "Probes" below).
 - **Data:** write the loader in `python/arena/formats/qminers.py`, so the backtester runs on their data as soon as possible: follow "The format swap, step by step" below. Then run `arena.diagnose` on it (see "What kind of market is each product?").
@@ -202,7 +200,7 @@ From the organisers' e-mail of 7 Oct (saved as the first message of `references/
   - If scores come back but the public backtest is the downloaded data: the score checks our engine, not the strategy (it is in-sample). Use it as probe 16, not to choose between variants.
 - [ ] **Spend the round's submissions by a rule written before the first score.** From Dwork et al.'s reusable holdout (`references/wiki/sources/reusable-holdout.md`): a score checked again and again overfits the data behind it, and every look is a trial. The safe use answers from local evidence and lets the hidden score speak only when it disagrees, within a budget.
   - **Before any upload**, write down the round's candidates in order (no more than the cap), each with its local result. Each must pass `arena.validate` and come from the grid's `pick` under `--modes all,worse`, or from `python/experiments/selection_rules.py`'s rule for anything gridded by hand.
-  - **A fallback first?** A 40–60-line market maker written straight against their API could be the first upload while the template's ADAPTER is finished: a suggestion, waiting for a decision (`TODO.md`, "Write a fallback bot against the Arena's API in the playground?").
+  - **A fallback first? Decided on the day, by 10:30** (the user, 2026-10-24). A 40–60-line market maker written straight against their API (fair at the mid or the largest level, quote one tick inside, cancel and requote each step, stay inside the limit) could be the first upload while the template's ADAPTER is finished. Write it if both hold: the cap leaves room for an extra round-1 upload, and their API is far enough from Prosperity's that the ADAPTER may not be validated by 13:00 (on the drill it took about 100 lines). With two of us, an agent session writes it from their docs (the zoo's `market_maker` prompt, `python/bots/zoo/PROMPTS.md`), so neither of us leaves a track. Upload it once it runs in the playground, let the template replace it once validated, and keep it as a `--vs` rival and a check of our loader: both engines should give it similar fills (probe 16). The evidence and options: `TODO_DONE.md`, "Write a fallback bot against the Arena's API in the playground?".
   - **Upload the plain template first, early.** It catches format errors, and the gap between its portal score and our backtest on the same data is the engine's error, `T`. Measure it as a share of PnL, per product if the portal shows that.
   - **A later score agrees** if it is within `T`, plus a margin, of what the local backtest predicts. Then the local result decides, and the score only confirms.
   - **A score that disagrees beyond that** spends one unit of a budget of 2 per round. Find out why (probe 16: compare fills) before letting it change a choice. Once the budget is spent, stop reading scores for choices and decide locally.
