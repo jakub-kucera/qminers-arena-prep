@@ -51,7 +51,8 @@ def max_drawdown(series: list[float]) -> float:
     return drawdown
 
 
-def format_day(result: DayResult) -> str:
+def format_day(result: DayResult, penalty: float | None = None) -> str:
+    """The day's summary; `penalty` is the run's --limit-penalty, which changes what a breach is."""
     stats = [s for s in product_stats(result) if s.fills or s.max_position]
     lines = [f"{result.day} · {len(result.timestamps):,} ticks"]
     if stats:
@@ -78,7 +79,11 @@ def format_day(result: DayResult) -> str:
     if result.cancels:
         placed = len({order.id for _, order in result.orders})
         lines.append(f"  orders: {placed:,} placed · {len(result.cancels):,} cancelled")
-    if result.limit_breaches:
+    if result.limit_breaches and penalty is not None:
+        timestamp, product = result.limit_breaches[0]
+        lines.append(f"  ! {len(result.limit_breaches)} ticks over a limit (--limit-penalty), first {product} at {timestamp}, "
+                     f"charged {penalty_paid(result, penalty):,.0f} in all")
+    elif result.limit_breaches:
         timestamp, product = result.limit_breaches[0]
         lines.append(
             f"  ! {len(result.limit_breaches)} ticks with orders cancelled for breaching a limit, "
@@ -87,6 +92,11 @@ def format_day(result: DayResult) -> str:
     if result.races:
         lines.append(f"  {len(result.races)} ticks with orders rejected after another bot's fill moved your position (a race)")
     return "\n".join(lines)
+
+
+def penalty_paid(result: DayResult, rate: float) -> float:
+    """What --limit-penalty charged the bot: `rate` for each lot beyond a limit, each tick."""
+    return sum(rate * max(abs(p) - result.limits[product], 0) for product, series in result.positions.items() for p in series)
 
 
 def format_rivals(names: list[str], results: list[DayResult]) -> str:

@@ -56,6 +56,8 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 
 `--fill-ratio` thins out liquidity with binomial draws, seeded and independent of the bot's orders, so variants of a bot can be compared fairly.
 
+`--mark` (`EngineConfig.mark`) and `--limit-penalty` (`EngineConfig.limit_penalty`) score like an exchange other than Prosperity: positions valued at the touch (`touch`: a long at the best bid, a short at the best ask) or at the last market trade (`last`) instead of the mid, and a charge for each lot beyond a limit, each tick, in place of rejecting the orders (rule 2 is then off, so nothing is a race). Both are in the Rust twin, and `--scenario` takes them as `mark=` and `penalty=` (`python/arena/scenario.py`). `arena.sim`'s market keeps Prosperity's rules.
+
 **Shared market** (`run_market(day, [(name, bot), ...], config)`, CLI `--vs BOT`):
 - **One engine:** `run_day` is `run_market` with one participant. Every helper works on `_Live` orders carrying an `owner`, and fills are routed to their owner by `order_id`.
 - **Arrival:** all bots see the same tick and decide at once. Their actions are then processed in a seeded shuffle, drawn from its own random stream so the `--fill-ratio` draws don't depend on the number of bots.

@@ -88,6 +88,8 @@ def test_mm_records_what_our_engine_records_in_every_configuration(bench, tmp_pa
     fills = {name: counts for name, counts, _ in results}
     assert all(counts[0] > 0 for counts in fills.values())
     assert fills["two bots, resting"][1] > 0 and fills["two bots, resting"][2] > 0  # crosses and races happen
+    assert fills["limit penalty, a bot quoting past its limit"][3] > 0  # ticks over the limit, charged
+    assert fills["limit penalty, two bots, resting, mark touch"][2] == 0  # nothing rejected, so no races
 
 
 @needs_cargo
@@ -327,6 +329,26 @@ def test_backtest_compare_and_stress_print_the_same_on_either_engine(tmp_path, c
     assert "NameError: name 'Order' is not defined" in ours  # a bot that raises reads the same
     argv = ["python/bots/template.py", "1", "--data", data, "--only", "trend_up,no_wall", "--vs", "python/bots/rivals/spoofer.py", "--resting", "--jobs", "2"]
     assert _printed(capsys, stress.main, [*argv, "--engine", "rust"]) == _printed(capsys, stress.main, argv)
+
+
+@needs_cargo
+def test_the_marks_and_the_limit_penalty_print_the_same_on_either_engine(tmp_path, capsys):
+    """--mark and --limit-penalty through arena.backtest (one Rust run per day) and arena.grid's
+    scenarios (the batch's configs), with mm.py taking 3 through its fair, up to 80 against the days' limit of 50."""
+    from arena import backtest, grid
+
+    data = _sim_data(tmp_path)
+    greedy = '{"KELP": {"make_edge": 1, "take_edge": -3, "hold": False}, "RAINFOREST_RESIN": {"make_edge": 1, "take_edge": -3, "hold": False}}'
+    argv = ["python/bots/mm.py", "1", "--data", data, "--set", "LIMIT=80", "--set", f"PARAMS={greedy}", "--vs", "python/bots/template.py", "--resting",
+            "--mark", "touch", "--limit-penalty", "2"]
+    ours = _printed(capsys, backtest.main, argv)
+    assert _printed(capsys, backtest.main, [*argv, "--engine", "rust"]) == ours
+    assert "ticks over a limit (--limit-penalty)" in ours
+    argv = ["python/bots/template.py", "1", "--data", data, "--grid", "PARAMS.KELP.make_edge=0.5,1", "--modes", "all",
+            "--scenario", "portal:mark=last,penalty=1,vs=python/bots/mm.py@LIMIT=80", "--scenario", "touch:mark=touch,resting", "--jobs", "2"]
+    ours = _printed(capsys, grid.main, argv)
+    assert _printed(capsys, grid.main, [*argv, "--engine", "rust"]) == ours
+    assert "portal: match all, per tick, mark last, limit penalty 1; against python/bots/mm.py@LIMIT=80" in ours
 
 
 @needs_cargo

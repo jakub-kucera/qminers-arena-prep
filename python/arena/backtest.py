@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             result, *rivals = run_with_rivals(s.format, day, args.bot, s.overrides, s.rivals, config, strict=not args.no_strict, requote=s.requote)
         results.append(result)
         rival_results.append(rivals)
-        print(report.format_day(result))
+        print(report.format_day(result, config.limit_penalty))
         if rivals:
             print(report.format_rivals(names[1:], rivals))
         print()

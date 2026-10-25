@@ -45,7 +45,7 @@ from dataclasses import fields
 from pathlib import Path
 
 from arena.botfile import BotFile
-from arena.engine import DayResult, EngineConfig, TradeMatching
+from arena.engine import DayResult, EngineConfig, Mark, TradeMatching
 from arena.formats import prosperity
 from arena.model import Book, Day, Fill, MarketTrade, OpenOrder, Tick
 
@@ -209,7 +209,7 @@ def bot_spec(path: Path, overrides: dict[str, object], requote: bool = False) ->
 
 
 def config_json(config: EngineConfig) -> dict:
-    return {f.name: (str(getattr(config, f.name)) if f.name in ("trade_matching", "queue") else getattr(config, f.name)) for f in fields(config)}
+    return {f.name: (str(getattr(config, f.name)) if f.name in ("trade_matching", "queue", "mark") else getattr(config, f.name)) for f in fields(config)}
 
 
 # ---------------------------------------------------------------------------- days
@@ -402,6 +402,8 @@ def read_pieces(path: Path, products: list[list[str]]) -> list[dict]:
 def _engine_args(config: EngineConfig) -> list[str]:
     args = ["--match-trades", str(config.trade_matching), "--queue", str(config.queue), "--queue-power", repr(config.queue_power),
             "--fill-ratio", repr(config.fill_ratio), "--seed", str(config.seed)]
+    args += [] if config.mark is Mark.MID else ["--mark", str(config.mark)]
+    args += [] if config.limit_penalty is None else ["--limit-penalty", repr(float(config.limit_penalty))]
     return args + (["--resting"] if config.resting else [])
 
 

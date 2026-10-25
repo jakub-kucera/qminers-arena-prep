@@ -1,8 +1,9 @@
 //! python/arena/engine.py's `run_market`, ported function for function (the Python names are kept, so
 //! each piece can be read next to its original). The rules are in that module's docstring: the
 //! default mode (orders live one tick), resting mode with the back / prob / front queue models,
-//! the fill ratio's seeded liquidity draws, and several bots in one market with their arrival
-//! shuffle, races and limit breaches. Everything a DayResult records per tick is recorded here too.
+//! the fill ratio's seeded liquidity draws, several bots in one market with their arrival
+//! shuffle, races and limit breaches, and the marks and the limit penalty of another exchange's
+//! scoring. Everything a DayResult records per tick is recorded here too.
 //!
 //! Not ported: order tags (a format's own ids), the bot's exceptions, prints and step timings
 //! (a Rust bot can't raise or print into the result), and `begin_day`'s per-product info.
@@ -17,6 +18,14 @@ pub enum TradeMatching {
     All,
     Worse,
     None,
+}
+
+/// The price a position is valued at each tick (engine.py's `Mark`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mark {
+    Mid,   // the data's mark, else the book's mid
+    Touch, // long at the best bid, short at the best ask
+    Last,  // the product's last market trade in the data
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,11 +43,22 @@ pub struct EngineConfig {
     pub queue_power: f64,
     pub fill_ratio: f64,
     pub seed: i64,
+    pub mark: Mark,
+    pub limit_penalty: Option<f64>, // None: rule 2's rejection; a rate: charged for each lot beyond a limit, each tick
 }
 
 impl Default for EngineConfig {
     fn default() -> Self {
-        EngineConfig { trade_matching: TradeMatching::All, resting: false, queue: QueueModel::Back, queue_power: 1.0, fill_ratio: 1.0, seed: 0 }
+        EngineConfig {
+            trade_matching: TradeMatching::All,
+            resting: false,
+            queue: QueueModel::Back,
+            queue_power: 1.0,
+            fill_ratio: 1.0,
+            seed: 0,
+            mark: Mark::Mid,
+            limit_penalty: None,
+        }
     }
 }
 
@@ -205,6 +225,8 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
         bot.begin_day(day, &names);
     }
     let mut mark = vec![0.0f64; n];
+    let mut last: Vec<Option<f64>> = vec![None; n]; // Mark::Last: each product's last market trade
+    let mut valued = vec![0.0f64; n];
     let mut resting: Vec<Live> = Vec::new();
     let mut working: Vec<Live> = Vec::new();
     let mut next_id: u64 = 1;
@@ -257,18 +279,20 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
                 working.retain(|o| !s.cancelled.contains(&o.id));
             }
             known(&mut s.orders, n, ts, &mut player.result, &*bots[i].1);
-            let cancelled = &s.cancelled;
-            let seen_left = player.decided_open.iter().filter(|o| !cancelled.contains(&o.id)).map(|o| (o.product, o.quantity));
-            breaches(&s.orders, &player.decided_position, seen_left, &day.limits, &mut s.buys, &mut s.sells, &mut s.breached);
-            let kept = working.iter().filter(|o| o.owner == i).map(|o| (o.product, o.quantity));
-            breaches(&s.orders, &player.position, kept, &day.limits, &mut s.buys, &mut s.sells, &mut s.raced);
-            let breached = &s.breached;
-            s.raced.retain(|p| !breached.contains(p));
-            player.result.limit_breaches.extend(s.breached.iter().map(|&p| (ts, p)));
-            player.result.races.extend(s.raced.iter().map(|&p| (ts, p)));
-            if !s.breached.is_empty() || !s.raced.is_empty() {
-                let (breached, raced) = (&s.breached, &s.raced);
-                s.orders.retain(|o| !breached.contains(&o.product) && !raced.contains(&o.product));
+            if config.limit_penalty.is_none() {
+                let cancelled = &s.cancelled;
+                let seen_left = player.decided_open.iter().filter(|o| !cancelled.contains(&o.id)).map(|o| (o.product, o.quantity));
+                breaches(&s.orders, &player.decided_position, seen_left, &day.limits, &mut s.buys, &mut s.sells, &mut s.breached);
+                let kept = working.iter().filter(|o| o.owner == i).map(|o| (o.product, o.quantity));
+                breaches(&s.orders, &player.position, kept, &day.limits, &mut s.buys, &mut s.sells, &mut s.raced);
+                let breached = &s.breached;
+                s.raced.retain(|p| !breached.contains(p));
+                player.result.limit_breaches.extend(s.breached.iter().map(|&p| (ts, p)));
+                player.result.races.extend(s.raced.iter().map(|&p| (ts, p)));
+                if !s.breached.is_empty() || !s.raced.is_empty() {
+                    let (breached, raced) = (&s.breached, &s.raced);
+                    s.orders.retain(|o| !breached.contains(&o.product) && !raced.contains(&o.product));
+                }
             }
             s.placed.clear();
             s.placed.extend(s.orders.iter().enumerate().map(|(k, o)| Live {
@@ -312,12 +336,53 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
 
         for p in 0..n {
             mark[p] = mark_of(tick, &current, p, mark[p]);
+            if let Some(trade) = tick.trades[p].last() {
+                last[p] = Some(trade.price as f64);
+            }
         }
         for player in players.iter_mut() {
-            record(player, tick, &current, &mark);
+            if let Some(rate) = config.limit_penalty {
+                charge(player, &day.limits, rate, ts);
+            }
+            if config.mark == Mark::Mid {
+                record(player, tick, &current, &mark);
+            } else {
+                valued_at(&player.position, &current, &mark, &last, config.mark, &mut valued);
+                record(player, tick, &current, &valued);
+            }
         }
     }
     players.into_iter().map(|p| p.result).collect()
+}
+
+/// EngineConfig.limit_penalty: each lot of a position beyond its limit costs `rate`, this tick.
+fn charge(player: &mut Participant, limits: &[i64], rate: f64, ts: i64) {
+    for p in 0..limits.len() {
+        let over = player.position[p].abs() - limits[p];
+        if over > 0 {
+            player.cash[p] -= rate * over as f64;
+            player.result.limit_breaches.push((ts, p));
+        }
+    }
+}
+
+/// The prices one participant's positions are valued at this tick, by EngineConfig.mark (into `out`).
+fn valued_at(position: &[i64], books: &[Option<Book>], mark: &[f64], last: &[Option<f64>], how: Mark, out: &mut [f64]) {
+    for p in 0..mark.len() {
+        out[p] = match how {
+            Mark::Mid => mark[p],
+            Mark::Last => last[p].unwrap_or(mark[p]),
+            Mark::Touch => {
+                let book = books[p].as_ref();
+                let best = match position[p] {
+                    q if q > 0 => book.and_then(|b| b.bids.first()),
+                    q if q < 0 => book.and_then(|b| b.asks.first()),
+                    _ => None,
+                };
+                best.map_or(mark[p], |level| level.0 as f64)
+            }
+        };
+    }
 }
 
 fn settle(players: &mut [Participant], fills: &mut Vec<(usize, Fill)>) {

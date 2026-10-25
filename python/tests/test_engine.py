@@ -2,7 +2,8 @@ from dataclasses import replace
 
 import pytest
 
-from arena.engine import EngineConfig, QueueModel, TradeMatching, run_day, run_market
+from arena import report
+from arena.engine import EngineConfig, Mark, QueueModel, TradeMatching, run_day, run_market
 from arena.model import Book, Cancel, Day, Fill, MarketTrade, OpenOrder, Order, Tick
 
 
@@ -113,6 +114,53 @@ def test_pnl_values_position_at_the_mark():
     result = run_day(d, ScriptedBot({0: [Order("X", 101, 2)]}))
     assert result.positions["X"] == [2, 2]
     assert result.pnl["X"] == [-2, 6]
+
+
+def test_mark_touch_values_a_long_at_the_bid_a_short_at_the_ask_and_else_the_mark():
+    d = day(tick(0, bids=[(99, 5)], asks=[(101, 5)], mark=100), tick(1, bids=[(98, 5)], asks=[(103, 5)], mark=100),
+            tick(2, asks=[(103, 5)], mark=100))  # no bids at the last tick
+    touch = EngineConfig(mark=Mark.TOUCH)
+    long = run_day(d, ScriptedBot({0: [Order("X", 101, 2)]}), touch)
+    assert long.marks["X"] == [99, 98, 100]  # the bid while long, the mark when there is none
+    assert long.pnl["X"] == [-4, -6, -2]
+    short = run_day(d, ScriptedBot({0: [Order("X", 99, -2)]}), touch)
+    assert short.marks["X"] == [101, 103, 103] and short.pnl["X"] == [-4, -8, -8]
+    assert run_day(d, ScriptedBot(), touch).marks["X"] == [100, 100, 100]  # flat: the mark
+    assert run_day(d, ScriptedBot({0: [Order("X", 101, 2)]})).marks["X"] == [100, 100, 100]  # the default
+
+
+def test_mark_last_values_positions_at_the_last_market_trade_and_the_mark_before_any():
+    trades = [MarketTrade("X", 103, 1, timestamp=1), MarketTrade("X", 105, 1, timestamp=1)]
+    d = day(tick(0, asks=[(101, 5)], mark=100), tick(1, mark=100, trades=trades), tick(2, mark=100))
+    result = run_day(d, ScriptedBot({0: [Order("X", 101, 2)]}), EngineConfig(mark=Mark.LAST))
+    assert result.marks["X"] == [100, 105, 105] and result.pnl["X"] == [-2, 8, 8]
+
+
+def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_limit_each_tick():
+    d = day(tick(0, asks=[(101, 20)], mark=100), tick(1, mark=100), tick(2, bids=[(99, 20)], mark=100), limits={"X": 10})
+    script = {0: [Order("X", 101, 6), Order("X", 101, 6)], 2: [Order("X", 99, -12)]}
+    rejected = run_day(d, ScriptedBot(script))
+    assert rejected.fills == [] and rejected.limit_breaches == [(0, "X"), (2, "X")]  # Prosperity's rule
+    charged = run_day(d, ScriptedBot(script), EngineConfig(limit_penalty=2.5))
+    assert charged.positions["X"] == [12, 12, 0]
+    assert charged.limit_breaches == [(0, "X"), (1, "X")]  # the ticks it ended over the limit
+    assert charged.pnl["X"] == [-12 - 5, -12 - 10, -24 - 10]  # 2 lots over, 2.5 each, on two ticks
+    assert report.penalty_paid(charged, 2.5) == 10
+    assert "2 ticks over a limit (--limit-penalty), first X at 0, charged 10 in all" in report.format_day(charged, 2.5)
+    assert "ticks with orders cancelled for breaching a limit" in report.format_day(rejected)
+
+
+def test_with_a_limit_penalty_nothing_is_rejected_so_no_bot_loses_a_race():
+    quiet = dict(bids=[(98, 5)], asks=[(104, 5)])
+    d = day(tick(0, **quiet), tick(1, **quiet), limits={"X": 10})
+    for seed in range(10):  # test_losing_a_race_is_not_a_limit_breach's case, where some seeds race
+        a, b = market(
+            d,
+            ScriptedBot({0: [Order("X", 100, 6)], 1: [Cancel(1), Order("X", 99, 10)]}),
+            ScriptedBot({1: [Order("X", 100, -6)]}),
+            config=EngineConfig(resting=True, seed=seed, limit_penalty=1.0),
+        )
+        assert a.races == [] and a.limit_breaches == [] and b.races == []
 
 
 def test_wall_mid_takes_the_largest_level_on_each_side():

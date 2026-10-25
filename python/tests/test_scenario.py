@@ -3,7 +3,7 @@ import textwrap
 import pytest
 
 from arena import compare, grid
-from arena.engine import EngineConfig, QueueModel, TradeMatching
+from arena.engine import EngineConfig, Mark, QueueModel, TradeMatching
 from arena.scenario import Rival, Scenario, config_for, parse_scenario, plain, rivals_for, scenarios_from
 
 RIVAL = "python/bots/rivals/sniper.py"
@@ -19,6 +19,9 @@ def test_a_scenario_changes_only_the_settings_it_names():
     assert config_for(EngineConfig(resting=True), off) == EngineConfig() and rivals_for(["x"], off) == []
     assert rivals_for(["x"], parse_scenario("half:fill=0.5")) == ["x"]
     assert parse_scenario("match=none").name == "match=none"  # named by its items
+    scored = parse_scenario("portal:mark=touch,penalty=2.5")
+    assert config_for(EngineConfig(seed=4), scored) == EngineConfig(seed=4, mark=Mark.TOUCH, limit_penalty=2.5)
+    assert config_for(EngineConfig(mark=Mark.LAST, limit_penalty=1.0), parse_scenario("x:fill=0.5")) == EngineConfig(fill_ratio=0.5, mark=Mark.LAST, limit_penalty=1.0)
 
 
 def test_modes_are_plain_scenarios_and_names_are_unique():
@@ -32,7 +35,7 @@ def test_modes_are_plain_scenarios_and_names_are_unique():
 
 
 @pytest.mark.parametrize("text", ["x:fill=0", "x:fill=1.5", "x:queue=middle", "x:match=some", "x:speed=2", "x:seed=1,seed=2",
-                                  "x:resting=maybe", "x:fill", "x:vs=no/such/bot.py", "x:"])
+                                  "x:resting=maybe", "x:fill", "x:vs=no/such/bot.py", "x:", "x:mark=close", "x:penalty=-1", "x:penalty=a", "x:penalty"])
 def test_a_bad_scenario_is_refused(text):
     with pytest.raises(ValueError):
         parse_scenario(text)

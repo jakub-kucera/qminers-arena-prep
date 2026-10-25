@@ -12,6 +12,20 @@ def test_participant_names_number_repeated_files():
     assert names == ["template", "template#2", "other", "template#3"]
 
 
+def test_the_mark_and_the_limit_penalty_reach_the_engine_config(tmp_path, data_dir):
+    import argparse
+
+    from arena.cli import add_common_arguments, setup
+    from arena.engine import Mark
+
+    parser = argparse.ArgumentParser()
+    add_common_arguments(parser)
+    s = setup(parser.parse_args(["bot.py", "1", "--data", str(data_dir), "--mark", "touch", "--limit-penalty", "2"]))
+    assert s.config.mark is Mark.TOUCH and s.config.limit_penalty == 2.0
+    s = setup(parser.parse_args(["bot.py", "1", "--data", str(data_dir)]))
+    assert s.config.mark is Mark.MID and s.config.limit_penalty is None
+
+
 def test_backtest_reports_rivals(capsys, tmp_path, data_dir):
     path = tmp_path / "bot.py"
     path.write_text(BOT)

@@ -108,8 +108,9 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
         checks.append(
             Check(
                 FAIL,
-                f"{len(breaches)} times orders were cancelled for breaching a position limit; "
-                f"first {product} on {day} at {timestamp}",
+                (f"{len(breaches)} ticks over a position limit (--limit-penalty charges each); " if s.config.limit_penalty is not None
+                 else f"{len(breaches)} times orders were cancelled for breaching a position limit; ")
+                + f"first {product} on {day} at {timestamp}",
             )
         )
     else:

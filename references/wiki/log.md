@@ -383,3 +383,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-25] lint | make_inside: quoting nearer fair against rivals
 - The template's `make_inside` and `python/experiments/quote_inside.py`: `concepts/shared-market-and-adversaries` gets the result, `concepts/optimal-quoting-models` names the setting. The template's lines moved (one setting, a longer `make` docstring): 57 citations to `python/bots/template.py` re-mapped.
+
+## [2026-10-25] lint | --mark and --limit-penalty in the engine
+- `python/arena/report.py` gained the penalty's line, so `sources/probability-of-backtest-overfitting`'s citation of it moved (134 → 144). No page cites the engine's lines.

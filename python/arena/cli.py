@@ -10,7 +10,7 @@ from pathlib import Path
 from types import ModuleType
 
 from arena.botfile import parse_override
-from arena.engine import DayResult, EngineConfig, QueueModel, TradeMatching, run_market
+from arena.engine import DayResult, EngineConfig, Mark, QueueModel, TradeMatching, run_market
 from arena.formats import FORMATS
 from arena.model import Cancel, Day
 
@@ -70,6 +70,22 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--seed", type=int, default=0, help="seed for --fill-ratio draws (default: 0)")
     parser.add_argument(
+        "--mark",
+        type=Mark,
+        choices=list(Mark),
+        default=Mark.MID,
+        help="the price positions are valued at each tick: the data's mid (mid), the best bid for a long position and "
+        "the best ask for a short one (touch), or the last market trade (last) (default: mid)",
+    )
+    parser.add_argument(
+        "--limit-penalty",
+        type=float,
+        default=None,
+        metavar="RATE",
+        help="no order is rejected for a position limit: each lot beyond it costs RATE every tick instead "
+        "(default: Prosperity's rule, every order for a product rejected if they could breach)",
+    )
+    parser.add_argument(
         "--set",
         dest="overrides",
         action="append",
@@ -118,6 +134,8 @@ def setup(args: argparse.Namespace) -> Setup:
         queue_power=args.queue_power,
         fill_ratio=args.fill_ratio,
         seed=args.seed,
+        mark=args.mark,
+        limit_penalty=args.limit_penalty,
     )
     overrides = dict(parse_override(text) for text in args.overrides)
     return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False), getattr(args, "engine", "python"))

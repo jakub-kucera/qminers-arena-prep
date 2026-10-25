@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 use std::{fs, process, thread};
 
-use arena_rs::arena::engine::{Bot, DayResult, EngineConfig, QueueModel, TradeMatching};
+use arena_rs::arena::engine::{Bot, DayResult, EngineConfig, Mark, QueueModel, TradeMatching};
 use arena_rs::arena::model::Day;
 use arena_rs::bots::{self, Requote};
 use arena_rs::support::dayfile;
@@ -52,6 +52,8 @@ impl Args {
             queue_power: number(self.get("--queue-power").unwrap_or("1")),
             fill_ratio: number(self.get("--fill-ratio").unwrap_or("1")),
             seed: self.get("--seed").unwrap_or("0").parse().unwrap_or_else(|_| fail("--seed needs an integer")),
+            mark: mark(self.get("--mark").unwrap_or("mid")),
+            limit_penalty: self.get("--limit-penalty").map(number),
         }
     }
 }
@@ -72,6 +74,15 @@ pub fn queue(text: &str) -> QueueModel {
 
 pub fn number(text: &str) -> f64 {
     text.parse().unwrap_or_else(|_| fail(&format!("not a number: {text}")))
+}
+
+pub fn mark(text: &str) -> Mark {
+    match text {
+        "mid" => Mark::Mid,
+        "touch" => Mark::Touch,
+        "last" => Mark::Last,
+        other => fail(&format!("unknown mark {other}")),
+    }
 }
 
 pub fn matching(text: &str) -> TradeMatching {
@@ -343,6 +354,12 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
         queue_power: number("queue_power", 1.0)?,
         fill_ratio: number("fill_ratio", 1.0)?,
         seed: value.get("seed").map_or(Some(0), Value::as_i64).ok_or("config seed must be an integer")?,
+        mark: mark(text("mark", "mid")?),
+        limit_penalty: match value.get("limit_penalty") {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(v.as_f64().ok_or("config limit_penalty must be a number or null")?),
+        },
     })
 }
 

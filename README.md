@@ -86,6 +86,8 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--queue back\|prob\|front` | With `--resting`: where other orders' cancellations at your price fall (default `back`). `--queue-power N` sets `prob`'s power. See [Resting mode](#resting-mode). |
 | `--vs BOT` | Another bot in the same market, competing for fills and trading with yours. Repeatable. See [Shared market](#shared-market). |
 | `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. With `--resting`, the volume queued ahead of your order is still all of the visible volume: the others are there whether or not you could trade with them. |
+| `--mark mid\|touch\|last` | The price positions are valued at each tick: the data's mid (default), the best bid for a long position and the best ask for a short one (`touch`, what closing it would fetch), or the last market trade (`last`). For an exchange that marks the close unlike Prosperity: the Arena's portal shows a "mark-out price" |
+| `--limit-penalty RATE` | No order is rejected for a position limit; instead every lot beyond it costs RATE, every tick, and each such tick counts as a breach. The default is Prosperity's rule (every order for a product cancelled if they could breach). The Arena's portal shows a "position-limit penalty" |
 | `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask and wall mid per tick), `<day>_fills.csv`, `<day>_orders.csv` and `<day>_trades.csv` (the data's market trades) |
 | `--print` | Show the bot's prints |
 | `--no-strict` | Let the bot swallow its own exceptions, as it does when submitted |
@@ -479,7 +481,7 @@ front of the quotes it sees (`IDEAS.md`, "Quoting nearer fair than one tick insi
 `rust/` is a Rust port of the engine, `arena.sim`'s market, the template, the rivals, every zoo bot and `python/bots/mm.py`, each with its Python file as a twin that must trade the
 same (`rust/README.md` has the table of what is in Python, in Rust, and in both). `uv run python -m experiments.rust_bench` builds it
 (needs `cargo`), then checks every recorded field against our engine:
-- 15 engine configurations with `mm`;
+- 19 engine configurations with `mm`, `--mark` and `--limit-penalty` among them;
 - every part of the template's STRATEGY, alone and with a rival;
 - 10 real days from P2 to P4;
 - the rivals;

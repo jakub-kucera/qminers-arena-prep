@@ -33,7 +33,15 @@ aren't in the recorded data:
     crossing snapshots fill it whatever is ahead.
   - The limit check (rule 2) counts resting orders, and only rejects that tick's new orders.
   - Your own orders never trade with each other.
-Positions are valued at each tick's mark price.
+Positions are valued at each tick's mark price: the data's, else the book's mid (EngineConfig.mark
+"mid"). For an exchange that scores another way (the Arena's portal shows a "mark-out price" and a
+"position-limit penalty", ON_THE_DAY.md, "Known so far"), two settings change rule 2 and the mark:
+  - mark "touch": a long position is valued at the best bid, a short one at the best ask, what it
+    would fetch at once (the mark when that side is empty); "last": at the product's last market
+    trade in the data (the mark until its first).
+  - limit_penalty: no order is rejected for the limit (rule 2 is off). After each tick's fills,
+    every lot of a position beyond its limit costs this much, charged to that product, and the
+    tick counts as a breach.
 """
 
 from __future__ import annotations
@@ -59,6 +67,14 @@ class QueueModel(StrEnum):
     FRONT = "front"  # the others re-post every tick, behind it: nothing ahead after one snapshot
 
 
+class Mark(StrEnum):
+    """The price a position is valued at each tick (EngineConfig.mark; see the module docstring)."""
+
+    MID = "mid"  # the data's mark, else the book's mid
+    TOUCH = "touch"  # long at the best bid, short at the best ask: what closing it would fetch
+    LAST = "last"  # the product's last market trade in the data
+
+
 class TradeMatching(StrEnum):
     """Which market trades an order can fill against once the visible book is exhausted."""
 
@@ -79,6 +95,8 @@ class EngineConfig:
     # same liquidity and can be compared fairly.
     fill_ratio: float = 1.0
     seed: int = 0
+    mark: Mark = Mark.MID  # the price positions are valued at (see the module docstring)
+    limit_penalty: float | None = None  # None: rule 2, as Prosperity; a number: charge each lot beyond a limit this much a tick
     capture_output: bool = True  # hide the bot's prints (their size is still measured)
 
 
@@ -195,6 +213,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         if hasattr(bot, "begin_day"):
             bot.begin_day(day)
     mark = dict.fromkeys(day.products, 0.0)
+    last: dict[str, float | None] = dict.fromkeys(day.products)  # Mark.LAST: each product's last market trade
     resting: list[_Live] = []
     owner: dict[int, int] = {}  # order id -> participant index
     next_id = 1
@@ -236,14 +255,15 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             orders, cancelled, kept = _cancel(actions[i], mine, {o.id for o in seen}, config.resting, tick.timestamp, player.result)
             working = [order for order in working if order.id not in cancelled]
             orders = known(orders, day.limits, tick.timestamp, player.result)
-            # Orders that don't fit the position the bot saw are its bug. Orders that did fit, but
-            # no longer do because another bot filled one of its orders since, lost a race.
-            # Both are rejected, as Prosperity does: every new order for that product.
-            breached = breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], day.limits)
-            raced = breaches(orders, player.position, kept, day.limits) - breached
-            player.result.limit_breaches.extend((tick.timestamp, product) for product in sorted(breached))
-            player.result.races.extend((tick.timestamp, product) for product in sorted(raced))
-            orders = [order for order in orders if order.product not in breached | raced]
+            if config.limit_penalty is None:
+                # Orders that don't fit the position the bot saw are its bug. Orders that did fit, but
+                # no longer do because another bot filled one of its orders since, lost a race.
+                # Both are rejected, as Prosperity does: every new order for that product.
+                breached = breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], day.limits)
+                raced = breaches(orders, player.position, kept, day.limits) - breached
+                player.result.limit_breaches.extend((tick.timestamp, product) for product in sorted(breached))
+                player.result.races.extend((tick.timestamp, product) for product in sorted(raced))
+                orders = [order for order in orders if order.product not in breached | raced]
             placed = [_Live(next_id + k, o.product, o.price, o.quantity, tick.timestamp, i, tag=o.tag) for k, o in enumerate(orders)]
             next_id += len(placed)
             owner.update((order.id, i) for order in placed)
@@ -270,10 +290,35 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
 
         for product in day.products:
             mark[product] = _mark(tick, product, mark[product])
+            if tick.trades.get(product):
+                last[product] = float(tick.trades[product][-1].price)
         for player in players:
-            record(player, tick, mark)
+            if config.limit_penalty is not None:
+                _charge(player, day.limits, config.limit_penalty, tick.timestamp)
+            record(player, tick, mark if config.mark is Mark.MID else _valued(player.position, tick, mark, last, config.mark))
 
     return [player.result for player in players]
+
+
+def _charge(player: _Participant, limits: dict[str, int], rate: float, timestamp: int) -> None:
+    """EngineConfig.limit_penalty: each lot of a position beyond its limit costs `rate`, this tick."""
+    for product in sorted(player.position):
+        over = abs(player.position[product]) - limits[product]
+        if over > 0:
+            player.cash[product] -= rate * over
+            player.result.limit_breaches.append((timestamp, product))
+
+
+def _valued(position: dict[str, int], tick: Tick, mark: dict[str, float], last: dict[str, float | None], how: Mark) -> dict[str, float]:
+    """The prices one participant's positions are valued at this tick, by EngineConfig.mark."""
+    if how is Mark.LAST:
+        return {p: mark[p] if last[p] is None else last[p] for p in mark}
+    out = {}
+    for p, value in mark.items():
+        book = tick.books.get(p)
+        levels = (book.bids if position[p] > 0 else book.asks if position[p] < 0 else ()) if book is not None else ()
+        out[p] = float(levels[0][0]) if levels else value
+    return out
 
 
 # Public, since arena.sim's market runs bots with them too (python/arena/sim.py): new_result, record,

@@ -47,7 +47,7 @@ from pathlib import Path
 
 from arena import grid, rust
 from arena.cli import Requote
-from arena.engine import EngineConfig, QueueModel, TradeMatching, run_day, run_market
+from arena.engine import EngineConfig, Mark, QueueModel, TradeMatching, run_day, run_market
 from arena.formats import prosperity
 from arena.model import Day
 
@@ -73,6 +73,7 @@ ONE = [("you", BOT, mm({"KELP": (1, 1, False), "RAINFOREST_RESIN": (2, 1, False)
 TWO = ONE + [("rival", BOT, mm({"KELP": (0, 1, False), "RAINFOREST_RESIN": (1, 2, False)}), False)]
 HOLD = [("you", BOT, mm({"KELP": (1, 1, True), "RAINFOREST_RESIN": (2, 1, True)}), False)]
 HOLD_TWO = HOLD + [("rival", BOT, mm({"KELP": (0, 1, True), "RAINFOREST_RESIN": (1, 2, False)}), False)]
+OVER = [("you", BOT, {**mm({"KELP": (1, 1, False), "RAINFOREST_RESIN": (1, 1, False)}), "LIMIT": 80}, False)]  # quotes up to 80 against a limit of 50
 ALL, WORSE, NONE = TradeMatching.ALL, TradeMatching.WORSE, TradeMatching.NONE
 CONFIGS = [
     ("default, all", EngineConfig(), ONE),
@@ -90,6 +91,10 @@ CONFIGS = [
     ("two bots, worse", EngineConfig(trade_matching=WORSE), TWO),
     ("two bots, resting", EngineConfig(resting=True), TWO),
     ("two bots, resting, holding, prob, fill ratio 0.6", EngineConfig(resting=True, queue=QueueModel.PROB, fill_ratio=0.6, seed=3), HOLD_TWO),
+    ("mark touch", EngineConfig(mark=Mark.TOUCH), ONE),
+    ("mark last, resting, holding", EngineConfig(resting=True, mark=Mark.LAST), HOLD),
+    ("limit penalty, a bot quoting past its limit", EngineConfig(limit_penalty=2.5), OVER),
+    ("limit penalty, two bots, resting, mark touch", EngineConfig(resting=True, limit_penalty=1.0, mark=Mark.TOUCH), OVER + TWO[1:]),
 ]
 
 # The template's settings, each turning on one part of STRATEGY, on a day of KELP (about 2,030)

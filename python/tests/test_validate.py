@@ -72,6 +72,20 @@ def test_limit_breaches_fail(check):
     assert "FAIL  4 times orders were cancelled for breaching a position limit" in out
 
 
+def test_with_a_limit_penalty_a_breach_is_a_tick_over_the_limit(tmp_path, capsys):
+    folder = tmp_path / "deep" / "round1"
+    folder.mkdir(parents=True)
+    header = "day;timestamp;product;bid_price_1;bid_volume_1;bid_price_2;bid_volume_2;bid_price_3;bid_volume_3;ask_price_1;ask_volume_1;ask_price_2;ask_volume_2;ask_price_3;ask_volume_3;mid_price;profit_and_loss"
+    rows = [f"0;{ts};KELP;2028;100;;;;;2032;100;;;;;2030.0;0.0" for ts in (0, 100, 200)]
+    (folder / "prices_round_1_day_0.csv").write_text("\n".join([header, *rows]) + "\n")
+    bot = tmp_path / "bot.py"
+    bot.write_text("from datamodel import Order\n\nclass Trader:\n    def run(self, state):\n"
+                   "        return ({'KELP': [Order('KELP', 2032, 60)]} if state.timestamp == 0 else {}), 0, ''\n")
+    code = validate.main([str(bot), "1", "--data", str(tmp_path / "deep"), "--limit-penalty", "1"])
+    out = capsys.readouterr().out
+    assert code == 1 and "FAIL  3 ticks over a position limit (--limit-penalty charges each); first KELP on" in out
+
+
 def test_imports_and_environment_are_checked(check):
     code, out = check(
         """
