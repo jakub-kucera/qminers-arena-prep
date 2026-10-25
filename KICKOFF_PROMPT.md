@@ -43,7 +43,7 @@ This is the Qminers Algo Trade Arena, round <N> of 4 (weight <20|30|40>%). The r
 What you have:
 - This round's public data: data/arena/round<N>/; earlier rounds' data: data/arena/round<1..N-1>/
 - This round's rules or announcement: <path, or pasted below>
-- Our final bot from round <N-1>: python/bots/<file>.py. Its portal score: <score>, our local prediction was <number>. Leaderboard: <our place, the top scores, anything visible about other teams>.
+- Our final bot from round <N-1>: python/bots/<file>.py. Its portal score: <score>, our local prediction was <number>. Leaderboard: <our place, the top scores, anything visible about other teams>. Its private run: <PnL> against its public run's <PnL>; the leaderboard curves' verdict (experiments.leaderboard_curves --read): <verdict>. The handover note: data/arena/round<N-1>/HANDOVER.md.
 - What we learned last round: ON_THE_DAY.md (the answers written in), IDEAS.md's Arena rows, and git log since the round started.
 
 Your track: <...>. Teammates have <...>.

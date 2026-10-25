@@ -44,6 +44,7 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 | T+2:00 | A validated bot at least as good as the last one, uploaded; its portal score against our backtest is the engine's error `T`. |
 | T+4:30 | Stop changing the strategy. Validate the final candidate and upload it. |
 | T−0:10 | Check which submission is marked final. Write the handover note. |
+| After | Once the private run is done: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
 
 ## Rules that hold all day
 - Never upload code `arena.validate` hasn't passed, and never spend a submission on untested code.
