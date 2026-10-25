@@ -462,6 +462,12 @@ matrix, the best reply to each field, and the max-min and mean choices. On P3 ro
 reply changed with the field, and the reply to one copy was neither of the two robust choices
 (`IDEAS.md`, "Our settings against a field of rival archetypes").
 
+`uv run python -m experiments.leaderboard_curves --engine rust` asks whether the leaderboard's PnL curves, which
+the portal shows for every team after each deadline, tell how the private run was played: each team on data
+of its own, alone on the same data, or in one market. On simulated fields whose answer was known, the
+correlations of pairs of curves' changes told them apart in 88 of 90 cases; on the day, `--read FILE --team NAME`
+reads the saved leaderboard (`IDEAS.md`, "Reading the leaderboard's curves").
+
 ## The engine in Rust
 
 `rust/` is a Rust port of the engine, `arena.sim`'s market, the template, the rivals, every zoo bot and `python/bots/mm.py`, each with its Python file as a twin that must trade the

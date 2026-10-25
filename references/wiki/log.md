@@ -377,3 +377,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-25] lint | the Arena site's code read in full: the weights are unconfirmed
 - The bundle's code, not just its strings: the 10/20/30/40% round weights are in translation strings no page uses, and the shown leaderboard is per round by PnL. `concepts/harder-rounds`, `concepts/risk-and-protecting-a-lead` and `sources/kelly-criterion` now call the weights unconfirmed; the rest is in `ON_THE_DAY.md`, "Known so far".
+
+## [2026-10-25] lint | reading the leaderboard's curves for a shared market
+- `python/experiments/leaderboard_curves.py`: `concepts/shared-market-and-adversaries` gets the result (co-movement of one sign: alone on the same data; of both signs: one market; none: data of each team's own; 88 of 90 simulated cases right).

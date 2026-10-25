@@ -52,6 +52,7 @@ uv run python -m experiments.zoo                                  # scores every
 uv run python -m experiments.zoo_h2h                              # the template against each zoo bot, per product, under all and worse
 uv run python -m experiments.adversaries                          # the template against a trapper, spoofers and a sniper (python/bots/rivals/), --resting
 uv run python -m experiments.rival_field --engine rust            # candidate settings against fields of rival archetypes (mm at three edges, taker, sniper, spoofer, trapper, a copy)
+uv run python -m experiments.leaderboard_curves --engine rust     # can the leaderboard's PnL curves tell a shared market? On the day: --read FILE --team NAME
 uv run python -m experiments.undercut                             # the template against a copy of itself at make_edge 0 (Wang et al.), per tick and --resting
 uv run python -m experiments.quote_size                           # make_size caps against rivals: a copy, the trapper, spoofer and sniper
 uv run python -m experiments.p3_smile                             # P3's volcanic vouchers: the smile by held-out days, its residual, and the template's smile fair traded on it (~3 min)
