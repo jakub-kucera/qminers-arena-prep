@@ -7,6 +7,8 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 ## Before the doors open (Sat 08:00)
 - `git pull && uv sync && uv run pytest` on every laptop; `references/` was cloned at home.
 - Names for A (driver, recorder) and B (data, research) ["The day: timeline and roles"].
+- Every laptop on Europe/Prague time, and logged in to the portal during the playground: the e-mailed links are
+  single-use ["Known so far"].
 
 ## Opening and workshop (09:00–10:30)
 1. One person reads the Technical Rules in full and writes each answer into "First hour", with its source.
@@ -34,7 +36,7 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 ## Each round (T = its start; rounds at 13:00, 19:00, 01:00, 07:00)
 | When | Do |
 |---|---|
-| T+0:00 | Download the data and the round's rules; write what changed into "Rule changes" and "Products". |
+| T+0:00 | Reload the dashboard; download the data (its link goes with the round) and the round's rules; note the submission deadline, which may come before the end. Write what changed into "Rule changes" and "Products". |
 | T+0:15 | `arena.diagnose` on the new days; backtest last round's bot on them in each mode; `arena.validate` it: the first candidate. |
 | T+0:30 | New products into PARAMS, by `references/wiki/concepts/reading-the-data-on-day-one.md`. Options, baskets, named traders or jumps: the experiment for each (`python/experiments/README.md`). |
 | T+1:00 | `uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>.make_edge=0.5,1,1.5,2 --modes <closest>,worse [--screen 0.25]`. Change a setting only to the summary's `pick` ["Evaluation data"]. Fill model unsure: add a `--scenario` for each one left possible ["Which backtest settings match the playground?"]. |
@@ -50,4 +52,5 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
   chosen one final again after any exploratory upload ["How do submissions work?"].
 - Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00; while A sleeps, B uploads
   only from the written list ["The day: timeline and roles"].
-- Before round 4 (40%): decide in writing how much risk to keep, from the lead in weighted points ["How is PnL scored?"].
+- Before round 4: decide in writing how much risk to keep, from the lead (in weighted points if the rounds are
+  weighted; the 10/20/30/40% are unconfirmed) ["How is PnL scored?"].

@@ -44,7 +44,7 @@ Thorp's practitioner survey of the Kelly criterion: bet the fraction of capital 
 - **Conclusion:** use Kelly or less, never more, and limit the fraction further when the probabilities are uncertain (`kelly-criterion.md:815` (p. 38)).
 
 ## Assumptions against the Arena
-- **Kelly maximises the long-run growth of capital that is reinvested.** The Arena scores a fixed number of rounds, weighted 10/20/30/40%, probably by PnL or rank against other teams. PnL is not reinvested, and the position limit, not capital, caps the size. So `f*` has no direct meaning here, and maximising log growth is not maximising rank *(inferred)*.
+- **Kelly maximises the long-run growth of capital that is reinvested.** The Arena scores a fixed number of rounds, perhaps weighted 10/20/30/40% (unconfirmed, `ON_THE_DAY.md`, "Known so far"), each ranked by PnL. PnL is not reinvested, and the position limit, not capital, caps the size. So `f*` has no direct meaning here, and maximising log growth is not maximising rank *(inferred)*.
 - **What does carry over** *(inferred)*:
   - **Size scales with edge over variance.** A product or signal with a thin edge and a volatile price deserves less of its position limit than one with a fat edge and a quiet price.
   - **Oversizing is as costly as undersizing and riskier.** The `c(2 − c)` curve is flat near the top, so shading the size down costs little.

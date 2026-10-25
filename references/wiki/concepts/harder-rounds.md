@@ -19,7 +19,7 @@ Speed is most likely a budget we already meet, not a race (section E).
 ## What the sources say
 
 **What the Arena says about itself** (`arena-site-snapshot.txt`, read 2026-10-10):
-- **The rounds get harder by design.** "Starting with a forgiving market to learn the basics, building up to a sophisticated finale where the best performers will stand out" (`arena-site-snapshot.txt:153`). The weights rise with it: 10/20/30/40% (`ON_THE_DAY.md`, "Known so far").
+- **The rounds get harder by design.** "Starting with a forgiving market to learn the basics, building up to a sophisticated finale where the best performers will stand out" (`arena-site-snapshot.txt:153`). The weights may rise with it: 10/20/30/40% in strings the site never shows, so unconfirmed (`ON_THE_DAY.md`, "Known so far", 2026-10-25).
 - **A simulator, not a recording.** It "will simulate a realistic exchange", which "mimics a limit order book, without many real-world operational complexities" (`arena-site-snapshot.txt:151-152`). That argues against network latency, disconnects and multi-venue routing (*inferred*).
 - **Four skills, each a lever the organisers can pull:**
   - "Read price action, order flow, and market microstructure" (`arena-site-snapshot.txt:174-175`).

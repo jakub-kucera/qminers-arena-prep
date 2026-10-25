@@ -67,7 +67,7 @@ Those mechanics won't apply to the Arena, but the way they analysed the market w
 
 **What the Arena site says about itself is the best evidence.** `ON_THE_DAY.md` ("Known so far") lists it:
 a web portal where you upload one `.py` file per round, a capped number of submissions, a backtest on
-public data, and a leaderboard weighted 10/20/30/40% over the four rounds. That looks much closer to
+public data, and a leaderboard per round ranked by PnL (strings for weights of 10/20/30/40% exist, but no page shows them). That looks much closer to
 Prosperity's "submit a file, we run it" than to a live connection. The text is only in the site's
 JavaScript bundle, which is why a plain page fetch found nothing.
 

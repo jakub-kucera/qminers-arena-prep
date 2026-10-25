@@ -374,3 +374,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-25] lint | the Arena site changed: the portal's metrics and leaderboard
 - `references/check_arena_site.py` found new portal text (submission metrics including a mark-out price, a position-limit penalty and a PnL standard error; one evaluation at a time; a submission final only once it completes; a leaderboard of each team's final submission on the private backtest). Recorded in `ON_THE_DAY.md` ("Known so far" and the items it answers); `arena-site-snapshot.txt` re-saved. Every line added sits after line 260, so the citations into it (`concepts/harder-rounds.md`, lines 151–188) are unchanged.
+
+## [2026-10-25] lint | the Arena site's code read in full: the weights are unconfirmed
+- The bundle's code, not just its strings: the 10/20/30/40% round weights are in translation strings no page uses, and the shown leaderboard is per round by PnL. `concepts/harder-rounds`, `concepts/risk-and-protecting-a-lead` and `sources/kelly-criterion` now call the weights unconfirmed; the rest is in `ON_THE_DAY.md`, "Known so far".
