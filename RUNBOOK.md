@@ -46,6 +46,8 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 ## Rules that hold all day
 - Never upload code `arena.validate` hasn't passed, and never spend a submission on untested code.
 - Never choose between two variants by portal score when they are within `T` of each other.
+- One evaluation at a time, and an upload that completes becomes final: time the first evaluation, and mark the
+  chosen one final again after any exploratory upload ["How do submissions work?"].
 - Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00; while A sleeps, B uploads
   only from the written list ["The day: timeline and roles"].
 - Before round 4 (40%): decide in writing how much risk to keep, from the lead in weighted points ["How is PnL scored?"].

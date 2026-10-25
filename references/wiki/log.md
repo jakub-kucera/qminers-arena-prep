@@ -371,3 +371,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-23] lint | a rival field: the taker archetype and the payoff matrix
 - `python/bots/rivals/taker.py` (with a Rust twin) and `python/experiments/rival_field.py`: `shared-market-and-adversaries` gets the field result (the best reply depends on the field; Resin's edge 2 collapses against makers nearer fair when orders rest).
+
+## [2026-10-25] lint | the Arena site changed: the portal's metrics and leaderboard
+- `references/check_arena_site.py` found new portal text (submission metrics including a mark-out price, a position-limit penalty and a PnL standard error; one evaluation at a time; a submission final only once it completes; a leaderboard of each team's final submission on the private backtest). Recorded in `ON_THE_DAY.md` ("Known so far" and the items it answers); `arena-site-snapshot.txt` re-saved. Every line added sits after line 260, so the citations into it (`concepts/harder-rounds.md`, lines 151–188) are unchanged.
