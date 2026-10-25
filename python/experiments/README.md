@@ -47,6 +47,7 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `cross_product_timing` | Do a basket's legs lead it, and do one product's trades lead another | "Legs leading the basket" | Data only, Prosperity's baskets hard-coded; read it if the Arena has baskets |
 | `format_drill` | Makes drill-format data (and `--sync` copies the template into the drill bot) | — | A tool, not a study |
 | `p4_levels` | How much of the teams' P4 PnL survives without their hard-coded levels | "Trading toward a known level", "What the P4 vouchers are" | Runs other teams' Prosperity bots |
+| `quote_inside` | `make_inside` (quoting nearer fair than one tick inside the book) against rivals that quote nearer fair, per tick and resting, and its cost alone | "Quoting nearer fair than one tick inside the book, against rivals that do" | Runs the Prosperity zoo on P3; on the day grid `PARAMS.<P>.make_inside=1,2,3,None` with `arena.grid --scenario` and a `vs=` rival |
 | `rust_bench` | Every Rust twin against its Python file, then the speed | — | The parity check (`--parity-only --record`) |
 | `selection_rules_sim` | The selection rules on fresh `arena.sim` days; part 2 across the scenarios | "Selection rules on unseen days", "Choosing a cell by its worst case over fill-model scenarios" | Simulated days; calibrate `arena.sim` to the download first (`--spec`) |
 | `sim_regimes` | The template's stops and guards when `arena.sim`'s regime changes mid-day | "Regime changes in a market that reacts" | Simulated days |

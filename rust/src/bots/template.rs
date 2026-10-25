@@ -84,6 +84,7 @@ struct P {
     take_edge: f64,
     clear_edge: f64,
     make_edge: f64,
+    make_inside: Option<i64>,
     skew: f64,
     size_skew: f64,
     target: i64,
@@ -236,6 +237,7 @@ impl P {
             take_edge: r.num("take_edge")?,
             clear_edge: r.num("clear_edge")?,
             make_edge: r.num("make_edge")?,
+            make_inside: r.opt_int("make_inside")?,
             skew: r.num("skew")?,
             size_skew: r.num("size_skew")?,
             target: r.int("target")?,
@@ -812,11 +814,11 @@ fn make(book: &Levels, fair: f64, p: &P, e: &Eff, plan: &mut Plan) {
 
     let mut bid = (fair - p.make_edge).floor() as i64;
     let mut ask = (fair + p.make_edge).ceil() as i64;
-    if let Some(best) = best_bid {
-        bid = bid.min(best + 1);
+    if let (Some(best), Some(inside)) = (best_bid, p.make_inside) {
+        bid = bid.min(best + inside);
     }
-    if let Some(best) = best_ask {
-        ask = ask.max(best - 1);
+    if let (Some(best), Some(inside)) = (best_ask, p.make_inside) {
+        ask = ask.max(best - inside);
     }
 
     let shift = round(p.skew * (plan.net() - e.target) as f64 / plan.limit as f64);

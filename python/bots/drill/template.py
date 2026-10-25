@@ -32,6 +32,7 @@ DEFAULTS = {
     "take_edge": 1,  # take book orders priced at least this much better than fair
     "clear_edge": 0,  # cut inventory at prices up to this much worse than fair
     "make_edge": 2,  # quote at least this far from fair
+    "make_inside": 1,  # ...and this many ticks inside the best book quote, if that is further out; None: at make_edge whatever the book
     "skew": 0.0,  # move quotes this far against inventory when at the full position limit
     "size_skew": 0.0,  # scale each quote by max(1 +/- size_skew * gap / limit, 0): the side that adds to the gap shrinks
     "target": 0,  # position to hold: clear and skew work inventory toward it (e.g. long with a steady drift)
@@ -631,8 +632,10 @@ def clear(book: Book, fair: float, p: dict, plan: Plan) -> None:
 def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
     """Quote both sides around fair, then shift both quotes against inventory.
 
-    Each quote sits make_edge from fair, or one tick inside the best remaining book quote if
-    that's further out (no point quoting better than needed). skew then moves both quotes down
+    Each quote sits make_edge from fair, or make_inside ticks inside the best remaining book quote
+    if that's further out (no point quoting better than needed). With make_inside None it sits at
+    make_edge whatever the book: for a market shared with rivals whose quotes we may not see (per
+    tick nobody's orders rest), and the nearer one to fair takes each trade first. skew then moves both quotes down
     when above target and up when below, by up to skew ticks a full limit away, to work the
     position back toward target. Quotes never cross the book, and the bid stays below the ask:
     if they meet, the side that would add to inventory steps back (the bid, at or above target).
@@ -647,10 +650,10 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
 
     bid = math.floor(fair - p["make_edge"])
     ask = math.ceil(fair + p["make_edge"])
-    if best_bid is not None:
-        bid = min(bid, best_bid + 1)
-    if best_ask is not None:
-        ask = max(ask, best_ask - 1)
+    if best_bid is not None and p["make_inside"] is not None:
+        bid = min(bid, best_bid + p["make_inside"])
+    if best_ask is not None and p["make_inside"] is not None:
+        ask = max(ask, best_ask - p["make_inside"])
 
     shift = round(p["skew"] * (plan.net - p["target"]) / plan.limit)
     bid, ask = bid - shift, ask - shift

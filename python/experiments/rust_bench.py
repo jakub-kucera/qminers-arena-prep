@@ -101,6 +101,7 @@ VARIANTS = [
     ("mid", {K + "fair": "mid"}),
     ("wall_mid, smoothing", {K + "fair": "wall_mid", K + "smoothing": 0.6}),
     ("outer_mid", {K + "fair": "outer_mid", K + "make_edge": 1}),
+    ("make_inside: at make_edge, and three ticks in", {K + "make_inside": None, K + "make_edge": 1, R + "make_inside": 3, R + "make_edge": 1}),
     ("weighted_mid, imbalance", {K + "fair": "weighted_mid", K + "imbalance": 0.7, K + "take_edge": 0.5}),
     ("skew, size_skew, target, make_size", {K + "skew": 3, K + "size_skew": 0.8, K + "target": 12, K + "make_size": 9, K + "clear_edge": 1}),
     ("level: the day's mean, exit", {K + "level": "day", K + "level_band": 2, K + "level_exit": 0, K + "clear_edge": 2}),

@@ -412,6 +412,18 @@ def test_make_steps_inside_a_wide_book(bot):
     assert plan.quotes == [(96, 10), (104, -10)]
 
 
+def test_make_inside_steps_further_into_a_wide_book_and_none_quotes_at_the_edge(bot):
+    book = bot.Book([[95, 5]], [[105, 5]])
+    quotes = lambda **kw: (plan := bot.Plan(0, 10), bot.make(book, 100, params(bot, make_edge=2, **kw), plan))[0].quotes
+    assert quotes() == quotes(make_inside=1) == [(96, 10), (104, -10)]  # the default: one tick inside
+    assert quotes(make_inside=3) == [(98, 10), (102, -10)]  # three ticks in, as far as make_edge allows
+    assert quotes(make_inside=4) == quotes(make_inside=None) == [(98, 10), (102, -10)]  # never nearer fair than make_edge
+    tight = bot.Book([[99, 5]], [[101, 5]])
+    plan = bot.Plan(0, 10)
+    bot.make(tight, 100, params(bot, make_edge=0, make_inside=None), plan)
+    assert plan.quotes == [(99, 10), (100, -10)]  # both at fair would meet: the bid steps back, as make's other quotes do
+
+
 def test_make_keeps_its_edge_in_a_tight_book(bot):
     plan = bot.Plan(0, 10)
     bot.make(bot.Book([[99, 5]], [[101, 5]]), 100, params(bot, make_edge=2), plan)
