@@ -161,7 +161,7 @@ The free ones (Tao et al. on arXiv, the two Cartea et al. papers on SSRN, Li et 
   - Done when (each): converted with a source page, or ticked as "not needed".
   - 2026-10-14: everything else on the spoofing and harder-round lists was fetched or split out by the agent and ingested (12 papers, `references/SEARCH_LOG.md`). Lee et al.'s spoof criterion is known second-hand (`references/wiki/sources/optimal-spoofing.md`), so that paper is optional now.
 
-## G. Overfitting, second pass (`TODO.md`, "Second pass on overfitting")
+## G. Overfitting, second pass (`TODO_DONE.md`, "Second pass on overfitting")
 
 Five papers were fetched and ingested by the agent on 2026-10-19 (Hansen's SPA, Romano–Wolf, Harvey & Liu, Dwork et al., Carr & López de Prado). These need a person:
 
