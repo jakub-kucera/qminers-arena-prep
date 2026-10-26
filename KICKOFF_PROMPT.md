@@ -51,7 +51,7 @@ Your track: <...>. Teammates have <...>.
 Work in this order:
 1. What changed. Compare this round's rules, products, limits and data with round <N-1>'s: new products, removed ones, changed limits, fees, matching, scoring, news or other new inputs. Go through references/wiki/concepts/harder-rounds.md and say which mechanisms this round shows. Stop and show me this list before changing code.
 2. Does last round's bot still run? Run validate on the new data, and backtest it on the new days. That is the baseline, and an upload candidate as soon as it passes.
-3. Changes, in this order: the format plug-in and ADAPTER for anything new in the API; then PARAMS for the new products; then re-tuning the old products only where the new data disagrees with the old (diagnose both). Check that a day isn't repeated from an earlier round before treating it as held out (the grid's repeated-day check).
+3. Changes, in this order: the format plug-in and ADAPTER for anything new in the API; then PARAMS for the new products; then the old products' settings, gridded again on this round's data rather than kept from last round (diagnose both). The rounds get harder by design, so last round's choices (strategy, modes, settings, fill model) are a baseline to beat, not a default: by <T+1h, HH:MM>, put at least one alternative against last round's approach, the one this round's diagnose notes point to, and say which of last round's choices you kept without testing. Check that a day isn't repeated from an earlier round before treating it as held out (the grid's repeated-day check).
 4. By <T+2h, HH:MM>: a validated bot at least as good as the baseline on this round's data.
 5. At <T+4h30, HH:MM>: stop changing strategy, run validate, and give me the file.
 
@@ -104,5 +104,5 @@ Priors from practice on similar exchanges (IMC Prosperity), to test on this data
 For rounds 2–4, add this to the prompt above, after the list of files:
 
 ```text
-This is not the first round. Also in this folder: our final bot from round <N-1> (<file>), its portal score (<score>) against what our backtester predicted (<number>), the leaderboard (<what it shows>), and last round's notes (rules_summary.md, data_notes.md, changes.md). Start with step 1 as a diff: what changed in the rules, products, limits and data since last round, and stop to show me. Then run last round's bot on the new data as the baseline and first upload candidate, and change only what the new data contradicts.
+This is not the first round. Also in this folder: our final bot from round <N-1> (<file>), its portal score (<score>) against what our backtester predicted (<number>), the leaderboard (<what it shows>), and last round's notes (rules_summary.md, data_notes.md, changes.md). Start with step 1 as a diff: what changed in the rules, products, limits and data since last round, and stop to show me. Then run last round's bot on the new data as the baseline and first upload candidate. The rounds get harder by design, so treat its choices as priors: test them again on this round's data, and try at least one other approach, rather than keeping what worked last round.
 ```
