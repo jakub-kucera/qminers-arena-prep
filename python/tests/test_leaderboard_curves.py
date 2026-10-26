@@ -86,6 +86,40 @@ def test_the_leaderboard_is_aligned_on_every_time_with_the_last_value_carried(tm
     assert lc.aligned(teams) == {"A": [1.0, 1.0, 3.0], "B": [0.0, 2.0, 2.0]}
 
 
+def test_the_total_clock_and_field_readings(tmp_path):
+    teams = lc.load_leaderboard(_write_board(tmp_path, leaderboard(random.Random(7))))
+    total = lc.read_total(teams)
+    assert total.curves == 4 and total.verdict
+    assert "total PnL across 4 curves" in lc.format_total(total) and "verdict:" in lc.format_total(total)
+    clock = lc.read_clock(teams)
+    assert clock.curves == 4 and clock.resets == 0 and not clock.common_grid
+    assert "resets 0" in lc.format_clock(clock) and "different grids" in lc.format_clock(clock)
+    field = lc.read_field(teams)
+    assert field.teams == 5 and len(field.top) == 5 and "field: 5 teams" in lc.format_field(field)
+    assert "third place" in lc.format_field(field) and "max drawdowns" in lc.format_field(field)
+
+
+def test_a_zero_sum_total_is_flat_and_a_rising_one_is_not():
+    flat = [lc.Team("A", 1, False, 10.0, [(0.0, 0.0), (10.0, 10.0)]),
+            lc.Team("B", 2, False, -10.0, [(0.0, 0.0), (10.0, -10.0)])]
+    assert lc.read_total(flat).end == 0.0 and lc.read_total(flat).verdict.startswith("about flat")
+    rising = [lc.Team("A", 1, False, 10.0, [(0.0, 0.0), (10.0, 10.0)]),
+              lc.Team("B", 2, False, 10.0, [(0.0, 0.0), (10.0, 10.0)])]
+    assert lc.read_total(rising).end == 20.0 and lc.read_total(rising).verdict.startswith("the total rises")
+
+
+def test_a_clock_that_goes_backwards_is_flagged():
+    reset = lc.Team("R", 1, False, 0.0, [(0.0, 0.0), (10.0, 1.0)], [(0.0, 0.0), (10.0, 1.0), (0.0, 2.0)])
+    clock = lc.read_clock([reset])
+    assert clock.resets == 1 and "goes backwards" in clock.verdict and "resets 1" in lc.format_clock(clock)
+
+
+def _write_board(tmp_path, rows):
+    path = tmp_path / "leaderboard.json"
+    path.write_text(json.dumps(rows))
+    return path
+
+
 def test_read_prints_the_standing_and_the_verdict(tmp_path, capsys, monkeypatch):
     path = tmp_path / "leaderboard.json"
     path.write_text(json.dumps(leaderboard(random.Random(6))))

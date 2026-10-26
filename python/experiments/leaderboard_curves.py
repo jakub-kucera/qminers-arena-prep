@@ -150,7 +150,8 @@ class Team:
     rank: int | None
     tie: bool
     pnl: float
-    series: list[tuple[float, float]]  # (elapsed seconds, pnl)
+    series: list[tuple[float, float]]  # (elapsed seconds, pnl), sorted for alignment
+    raw: list[tuple[float, float]] = field(default_factory=list)  # as received, for the clock's resets
 
 
 def load_leaderboard(path: Path) -> list[Team]:
@@ -163,9 +164,10 @@ def load_leaderboard(path: Path) -> list[Team]:
         data = lists[0]
     teams = []
     for row in data:
-        series = sorted((float(p["elapsedS"]), float(p["pnl"])) for p in row.get("pnlSeries") or [])
+        raw = [(float(p["elapsedS"]), float(p["pnl"])) for p in row.get("pnlSeries") or []]
+        series = sorted(raw)
         teams.append(Team(str(row.get("teamName") or row.get("teamId")), row.get("rank"), bool(row.get("isTie")),
-                          float(row.get("pnl") or (series[-1][1] if series else 0.0)), series))
+                          float(row.get("pnl") or (series[-1][1] if series else 0.0)), series, raw))
     return teams
 
 
@@ -194,6 +196,156 @@ def format_reading(r: Reading) -> str:
             f"verdict: {r.verdict}")
 
 
+@dataclass
+class Total:
+    curves: int
+    start: float
+    end: float
+    low: float
+    high: float
+    scale: float  # mean of each curve's largest |PnL|, the scale the total's move is judged against
+    verdict: str
+
+
+def read_total(teams: list[Team]) -> Total:
+    """The sum of every team's PnL at each time, and what it says about the market.
+
+    A shared market is zero-sum between its participants, so their curves' total should stay
+    roughly flat (the house bots' PnL is not shown). A total that rises means the field is taking
+    from the house bots, or that the teams did not trade one market. This is a hint, not a proof:
+    one shared market with generous house bots can rise too.
+    """
+    with_series = [team for team in teams if team.series]
+    if not with_series:
+        return Total(0, 0.0, 0.0, 0.0, 0.0, 0.0, "no curves")
+    times = sorted({t for team in with_series for t, _ in team.series})
+    curves = aligned(with_series)
+    totals = [sum(curve[i] for curve in curves.values()) for i in range(len(times))]
+    start, end = totals[0], totals[-1]
+    scale = statistics.fmean(max(abs(pnl) for _, pnl in team.series) for team in with_series)
+    net = end - start
+    if scale <= 0:
+        verdict = "every curve is flat: no PnL to read"
+    elif abs(net) <= 0.1 * scale:
+        verdict = ("about flat: consistent with one shared zero-sum market, or every team alone on the same data "
+                   "with no house edge")
+    elif net > 0:
+        verdict = ("the total rises: the field is taking from the house bots, or the teams did not trade one "
+                   "shared market")
+    else:
+        verdict = ("the total falls: the house bots are winning in aggregate, or the teams did not trade one "
+                   "shared market")
+    return Total(len(with_series), start, end, min(totals), max(totals), scale, verdict)
+
+
+def format_total(t: Total) -> str:
+    if not t.curves:
+        return "total across teams: no curves"
+    return (f"total PnL across {t.curves} curves: {t.start:,.0f} at the first point, {t.end:,.0f} at the last "
+            f"(range {t.low:,.0f} to {t.high:,.0f}); mean peak |team PnL| {t.scale:,.0f}.\n"
+            f"verdict: {t.verdict}.")
+
+
+@dataclass
+class Clock:
+    curves: int
+    points_min: int
+    points_max: int
+    points_median: float
+    last_min: float
+    last_max: float
+    spacing: float | None
+    resets: int
+    common_grid: bool
+    verdict: str
+
+
+def read_clock(teams: list[Team]) -> Clock:
+    """The private run's clock, as the curves show it: length, tick spacing, resets, common grid.
+
+    The page merges every curve on `elapsedS`, so a curve whose time goes backwards (a new day
+    with the clock restarted) would be drawn on top of the previous one. That also decides how
+    the ADAPTER should map the run onto the template's timeline and whether `loss_stop` resets.
+    """
+    curves = [team for team in teams if team.raw or team.series]
+    if not curves:
+        return Clock(0, 0, 0, 0.0, 0.0, 0.0, None, 0, False, "no curves")
+    raw = [team.raw or team.series for team in curves]
+    counts = [len(points) for points in raw]
+    last = [points[-1][0] for points in raw]
+    spacings, resets = [], 0
+    for points in raw:
+        diffs = [b[0] - a[0] for a, b in zip(points, points[1:])]
+        spacings.extend(d for d in diffs if d > 0)
+        resets += sum(d < 0 for d in diffs)
+    grids = [tuple(t for t, _ in points) for points in raw]
+    common = all(grid == grids[0] for grid in grids)
+    if resets:
+        verdict = ("the clock goes backwards within a curve: the run may be split into days; check the ADAPTER's "
+                   "flatten timing and whether loss_stop resets")
+    elif common:
+        verdict = ("one continuous clock on a common grid: map the ADAPTER to the whole run, flatten once at the "
+                   "end, and size loss_stop for the whole run")
+    else:
+        verdict = "one clock, but the curves are sampled on different grids"
+    return Clock(len(curves), min(counts), max(counts), statistics.median(counts), min(last), max(last),
+                 statistics.median(spacings) if spacings else None, resets, common, verdict)
+
+
+def format_clock(c: Clock) -> str:
+    if not c.curves:
+        return "clock: no curves"
+    spacing = "-" if c.spacing is None else f"{c.spacing:g} s"
+    grids = "common" if c.common_grid else "different"
+    return (f"clock: {c.curves} curves, {c.points_min:,}-{c.points_max:,} points (median {c.points_median:g}), "
+            f"last point at {c.last_min:g}-{c.last_max:g} s, spacing {spacing}, resets {c.resets}, {grids} grids.\n"
+            f"verdict: {c.verdict}.")
+
+
+@dataclass
+class Field:
+    teams: int
+    median: float
+    mean: float
+    sd: float | None
+    positive: float
+    top: list[Team]
+    drawdowns: list[float]
+    third: float
+
+
+def read_field(teams: list[Team]) -> Field:
+    """The field's PnL distribution and the top teams' drawdowns: how much risk paid, and the bar to beat."""
+    ranked = sorted(teams, key=lambda t: -t.pnl)
+    pnls = [t.pnl for t in ranked]
+    top = ranked[:5]
+    return Field(len(teams), statistics.median(pnls) if pnls else 0.0, statistics.fmean(pnls) if pnls else 0.0,
+                 statistics.stdev(pnls) if len(pnls) > 1 else None,
+                 sum(p > 0 for p in pnls) / len(pnls) if pnls else 0.0,
+                 top, [_drawdown([pnl for _, pnl in team.series]) for team in top],
+                 pnls[min(2, len(pnls) - 1)] if pnls else 0.0)
+
+
+def format_field(f: Field) -> str:
+    if not f.teams:
+        return "field: no teams"
+    sd = "-" if f.sd is None else f"{f.sd:,.0f}"
+    lines = [f"field: {f.teams} teams, median PnL {f.median:,.0f}, mean {f.mean:,.0f}, sd {sd}, "
+             f"{f.positive:.0%} positive; third place {f.third:,.0f}."]
+    if f.top:
+        lines.append("  top teams' max drawdowns: " + " · ".join(
+            f"{team.name} {drawdown:,.0f} (PnL {team.pnl:,.0f})" for team, drawdown in zip(f.top, f.drawdowns)))
+    return "\n".join(lines)
+
+
+def _drawdown(pnls: list[float]) -> float:
+    peak, worst = float("-inf"), 0.0
+    for value in pnls:
+        peak = max(peak, value)
+        worst = max(worst, peak - value)
+    return worst
+
+
 def read_main(path: Path, team: str | None) -> None:
     teams = load_leaderboard(path)
     ranked = sorted(teams, key=lambda t: -t.pnl)
@@ -210,6 +362,10 @@ def read_main(path: Path, team: str | None) -> None:
         third = pnls[min(2, len(pnls) - 1)]
         print(f"{team}: rank {k + 1} of {len(teams)}, PnL {pnls[k]:,.0f}; behind the first by {pnls[0] - pnls[k]:,.0f}, "
               f"{'ahead of' if pnls[k] >= third else 'behind'} the third by {abs(pnls[k] - third):,.0f}.")
+    print()
+    print(format_field(read_field(teams)))
+    print(format_total(read_total(teams)))
+    print(format_clock(read_clock(teams)))
     print(format_reading(read_curves(aligned(teams))))
 
 
