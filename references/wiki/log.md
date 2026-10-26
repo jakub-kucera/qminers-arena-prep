@@ -395,3 +395,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-26] lint | Kelp's long position: the flow, not a bias
 - `concepts/informed-counterparties` gets both tests' result on Kelp (`python/experiments/kelp_drift.py`): Harris's correlation near zero, the one-sided flow the whole cause (each day mirrored flips the position exactly). 0 errors.
+
+## [2026-10-26] lint | the market maker's size in arena.diagnose, after the second audit
+- `concepts/reading-the-data-on-day-one` gains the `wall_size` note's row (the audit's A8), and its citation of the thresholds moved (`python/arena/diagnose.py:55-83` → `58-88`). The stale line saying a level that has to be estimated isn't supported is replaced: the `level` mode and `level: "day"` exist (A14).

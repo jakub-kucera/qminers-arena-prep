@@ -2,7 +2,7 @@
 
 A Rust port of `python/arena/engine.py`, `python/arena/sim.py`'s market, the grid's statistics, the Prosperity
 loader and every bot we run, kept apart from the Python code. It gives the same results as the
-Python, to the bit, about 100–200 times faster per backtest. Every tool that runs our bots takes
+Python, to the bit, about 130 times faster per backtest on one core (a whole grid 40–80 times; README.md, "The engine in Rust"). Every tool that runs our bots takes
 `--engine rust` (`arena.backtest`, `grid`, `compare`, `stress`, `sim`, and the experiments); the
 reports, the plots and the format plug-ins stay Python. The submitted bot is still a Python file:
 a Rust bot is a twin for searching, never for submitting.

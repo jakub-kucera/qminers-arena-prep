@@ -110,8 +110,8 @@ Most of the default PnL comes from assuming bots would have traded with your res
 instead of with each other. When comparing variants, check that the better one also wins under
 `--match-trades worse`; if the ranking flips, the gain is probably a backtest artefact.
 
-With `--resting`, a quote that joins an existing level waits behind it, so `all` loses about a
-sixth. Under `worse` and `none`, fills don't depend on the queue, so the two modes are close.
+With `--resting`, a quote that joins an existing level waits behind it, so `all` loses about 8%
+(72,674 to 66,558). Under `worse` and `none`, fills don't depend on the queue, so the two modes are close.
 
 ## Grid search
 
@@ -187,13 +187,13 @@ The highest backtest PnL is usually overfit, so each combination is ranked on fo
 
 ```
 rank  KELP.make_edge  KELP.take_edge  pnl(all)  min day    nbhd  pnl(worse)   fills
-   1               1               1    81,292   25,912  75,695      57,774  19,310
-   2               1               2    80,256   25,418  74,064      54,776  18,467
+   1               1               1    81,366   25,998  75,693      57,764  19,294
+   2               1               2    80,246   25,424  74,077      54,772  18,454
    ...
-best by pnl      KELP.make_edge=1, KELP.take_edge=1  (81,292)
-best by nbhd     KELP.make_edge=1, KELP.take_edge=1  (75,695)
-best by min-day  KELP.make_edge=1, KELP.take_edge=1  (25,912)
-best by worse    KELP.make_edge=0, KELP.take_edge=1  (63,054)
+best by pnl      KELP.make_edge=1, KELP.take_edge=1  (81,366)
+best by nbhd     KELP.make_edge=1, KELP.take_edge=1  (75,693)
+best by min-day  KELP.make_edge=1, KELP.take_edge=1  (25,998)
+best by worse    KELP.make_edge=0, KELP.take_edge=1  (63,072)
 measures disagree: prefer a setting near the top on every measure over the single best pnl
 ```
 
@@ -252,7 +252,20 @@ Then two bootstrap tests, on each cell's gain over the bot as is per block of 10
   it was the only one that never lost money under either fill mode. On fresh simulated days
   (`python/experiments/selection_rules_sim.py`) it lost in 2 of 120 runs, where the rules that gained as
   much lost in 10 to 22. From the template's defaults it found most of the gain the best cell on
-  those days had.
+  those days had. From the committed settings, though, it moved in none of the eight studies.
+
+On null grids (no cell with an edge) SPA and StepM name a cell in about 10% of grids, not the
+nominal 5%, and in 22% when the gains are strongly autocorrelated (`python/experiments/snooping_null_rates.py`).
+Two options change the pick:
+
+- `--holdout last|DAY|SHARE%` chooses the pick without that data (a day, or the last share of the
+  data for a download of one long day), then keeps it only if it also beats the bot as is there.
+  That halves the false positives (4.7–12.3%), and adds a last section to the summary.
+- `--gate first` makes the pick beat the bot as is under the first mode only, the other modes
+  shown as columns to read: for once the playground has shown which mode the Arena's fills
+  follow (`TODO.md`, the decision on it). The `worse` gate removes few noise cells, since a cell's
+  noise under `all` and `worse` is nearly the same, and it blocks every real edge change that
+  only pays under `all`.
 
 ```
 overfitting: 64 cells × 2 modes = 128 trials on 3 days

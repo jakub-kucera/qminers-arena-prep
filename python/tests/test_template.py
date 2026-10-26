@@ -548,6 +548,19 @@ def test_an_order_the_exchange_rejects_only_stops_its_own_product(capsys):
     assert "unexpected keyword argument 'ioc'" in capsys.readouterr().out
 
 
+def test_a_broken_product_prints_each_error_once(capsys):
+    """A product broken all day would print a traceback every tick; it prints again only when the error changes."""
+    lenient = BotFile(TEMPLATE, {"datamodel": dm}, strict=False).load()
+    lenient.PARAMS["KELP"]["fair"] = "bogus"
+    data = ""
+    for n in range(3):
+        _, _, data = lenient.Trader().run(state({"KELP": depth([(2029, 25)], [(2031, 25)])}, trader_data=data))
+    assert capsys.readouterr().out.count("Traceback") == 1
+    lenient.PARAMS["KELP"]["fair"] = "other"
+    lenient.Trader().run(state({"KELP": depth([(2029, 25)], [(2031, 25)])}, trader_data=data))
+    assert capsys.readouterr().out.count("Traceback") == 1
+
+
 def test_lenient_errors_cancel_the_products_resting_orders(capsys):
     lenient = BotFile(TEMPLATE, {"datamodel": dm}, strict=False).load()
     lenient.PARAMS["KELP"]["fair"] = "bogus"

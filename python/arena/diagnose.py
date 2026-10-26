@@ -11,6 +11,9 @@ first data download as soon as its format module exists. For each product, poole
   book is empty, and how often the wall mid jumps: moves by more than half the spread (and at
   least a tick) from one tick to the next. Where orders rest, quotes near the touch of a product
   that jumps get filled at their stale price.
+- **The market maker's size:** the median size of each side's largest level, and the share of
+  sides with a level of at least `WALL_SIZE` lots, the template's default `wall_size`. Where that
+  share is low, `sized_mid` falls back to the best level, i.e. the plain mid, on most ticks.
 - **Jumps that snap back:** the wall mid's moves of at least `SNAP_SPREADS` times the day's median
   spread, and the share that went the opposite way to the one before. Where that share is high,
   fading each jump pays (the template's `jump` mode); elsewhere it is a coin flip.
@@ -57,6 +60,8 @@ LONG_LAG = 1000  # ticks: the horizon for slow reversion to a level
 REFERENCES = ("mid", "wall")
 LARGE_TICK_SHARE = 0.5  # share of two-sided ticks at a one-tick spread from which a product is large-tick
 EMPTY_SIDE_SHARE = 0.02  # share of ticks with one side empty from which it gets a note
+WALL_SIZE = 15  # the template's DEFAULTS wall_size: the smallest level sized_mid counts as the market maker's
+WALL_SEEN = 0.8  # share of book sides with a level of WALL_SIZE below which wall_size gets a note
 # Share of ticks on which the wall mid jumps from which resting quotes get picked off: under --resting, the
 # template's market making lost 140k-1.5M on P2/P3 products at 10-63% and still made 18k on Kelp at 0-0.1%.
 JUMPY = 0.05
@@ -92,6 +97,7 @@ class _Acc:
     one_empty: int = 0
     tick_size: float | None = None
     spreads: list[float] = field(default_factory=list)
+    largest: list[int] = field(default_factory=list)  # each side's largest level, per two-sided tick
     wall_moves: list[tuple[float, float]] = field(default_factory=list)  # (|wall mid change|, half the spread) a tick
     mids: list[float] = field(default_factory=list)
     walls: list[float] = field(default_factory=list)
@@ -135,6 +141,7 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
             continue
         acc.two_sided += 1
         acc.spreads.append(book.asks[0][0] - book.bids[0][0])
+        acc.largest += [max(v for _, v in book.bids), max(v for _, v in book.asks)]
         if series["wall"] and series["wall"][-1] is not None and book.wall_mid is not None:
             acc.wall_moves.append((abs(book.wall_mid - series["wall"][-1]), acc.spreads[-1] / 2))
         series["mid"].append(book.mid)
@@ -208,6 +215,8 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "wall_sd": statistics.pstdev(acc.walls) if acc.walls else None,
         "spread_ticks_median": statistics.median(spread_ticks) if spread_ticks else None,
         "spread_ticks_mean": _mean(spread_ticks),
+        "wall_size": statistics.median(acc.largest) if acc.largest else None,
+        "wall_seen": _share(sum(1 for v in acc.largest if v >= WALL_SIZE), len(acc.largest)),
         "at_one_tick": _share(sum(1 for s in spread_ticks if s <= 1 + 1e-9), len(spread_ticks)),
         "jump_share": _share(sum(1 for move, half in acc.wall_moves if move > max(half, tick) + 1e-9), len(acc.wall_moves)),
         "snap_jumps": sum(n for _, n, _, _ in acc.snaps),
@@ -246,6 +255,11 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
             notes.append(f"large-tick (one-tick spread {row['at_one_tick']:.0%} of the time)")
         else:
             notes.append(f"small-tick (median spread {row['spread_ticks_median']:g} ticks)")
+    if row["wall_seen"] is not None and row["wall_seen"] < WALL_SEEN:
+        notes.append(
+            f"a level of {WALL_SIZE}+ on only {row['wall_seen']:.0%} of sides (largest level median {row['wall_size']:g}): "
+            "set wall_size near it, or sized_mid falls back to the mid"
+        )
     if (row["one_side_empty"] or 0) >= EMPTY_SIDE_SHARE:
         notes.append(f"a side empty {row['one_side_empty']:.0%} of ticks")
     if (row["jump_share"] or 0) >= JUMPY:
@@ -367,6 +381,8 @@ COLUMNS = (  # (key, header, format)
     ("spread_ticks_median", "spread", "{:g}t"),
     ("at_one_tick", "1 tick", "{:.0%}"),
     ("one_side_empty", "empty", "{:.0%}"),
+    ("wall_size", "wall", "{:g}"),
+    ("wall_seen", f"{WALL_SIZE}+", "{:.0%}"),
     ("jump_share", "jumps", "{:.0%}"),
     ("snap_back", "snap", "{:.0%}"),
     ("mid_lag1_autocorr", "mid AC1", "{:+.2f}"),
@@ -386,6 +402,7 @@ COLUMNS = (  # (key, header, format)
 
 LEGEND = (
     "spread: median, in ticks. 1 tick: share of two-sided ticks at a one-tick spread. empty: share of ticks with one side empty.\n"
+    f"wall: median size of each side's largest level. {WALL_SIZE}+: share of sides with a level of {WALL_SIZE} or more (the template's wall_size).\n"
     "jumps: share of ticks on which the wall mid moves more than half the spread (and at least a tick).\n"
     f"snap: share of the wall mid's jumps of {SNAP_SPREADS}+ median spreads that went the opposite way to the one before "
     f"(with {MIN_JUMPS} or more; a day at {SNAP_BACK:.0%} gets a note).\n"

@@ -832,7 +832,13 @@ class Bot:
             except Exception:
                 if STRICT:
                     raise
-                print(f"{api.time} {product}: {traceback.format_exc()}")
+                # Each error once while it repeats: a product broken all day would otherwise print
+                # a traceback every tick, and a platform may cap or slow down on that much output.
+                error = traceback.format_exc()
+                last = self.memory.setdefault("errors", {})
+                if last.get(product) != error.splitlines()[-1]:
+                    last[product] = error.splitlines()[-1]
+                    print(f"{api.time} {product}: {error}")
                 # Don't leave stale quotes resting while this product is broken.
                 try:
                     for order in api.orders(product):

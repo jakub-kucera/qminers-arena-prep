@@ -52,6 +52,7 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `rust_bench` | Every Rust twin against its Python file, then the speed | — | The parity check (`--parity-only --record`) |
 | `selection_rules_sim` | The selection rules on fresh `arena.sim` days; part 2 across the scenarios | "Selection rules on unseen days", "Choosing a cell by its worst case over fill-model scenarios" | Simulated days; calibrate `arena.sim` to the download first (`--spec`) |
 | `sim_regimes` | The template's stops and guards when `arena.sim`'s regime changes mid-day | "Regime changes in a market that reacts" | Simulated days |
+| `snooping_null_rates` | How often SPA, StepM and the pick name a cell on null grids, with the `worse` and holdout gates (the second audit's A4) | "Bootstrap tests of the best cell" | A check of the statistics, on simulated gains |
 | `snooping_tests` | SPA and StepM next to the DSR on two grids and null controls | "Bootstrap tests of the best cell" | A check of the statistics; `arena.grid` runs them on any data |
 | `stops_held_out` | Do the loss stops hold on days they weren't sized on | "A loss stop per product" | `arena.stress` on the day's data does the same check |
 | `trade_clustering` | Do the market trades cluster in time (Hawkes) | "Quoting from clustered order flow" | Data only; untested idea |

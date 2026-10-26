@@ -66,6 +66,18 @@ def test_an_empty_side_is_counted():
     assert row["two_sided"] == pytest.approx(0.5)
 
 
+def test_a_market_maker_smaller_than_wall_size_is_flagged():
+    big = diagnose.diagnose([make_day([100] * 50)])["X"]  # walls of 20
+    assert big["wall_size"] == 20 and big["wall_seen"] == 1.0 and "wall_size" not in big["notes"]
+    day = make_day([100] * 50)
+    small = Day(day.name, day.products, day.limits, [
+        Tick(t.timestamp, {"X": Book(((99, 10),), ((101, 10),))}, {}, {}) for t in day.ticks
+    ])
+    row = diagnose.diagnose([small])["X"]
+    assert row["wall_size"] == 10 and row["wall_seen"] == 0.0
+    assert "a level of 15+ on only 0% of sides (largest level median 10)" in row["notes"]
+
+
 def test_a_wall_mid_that_jumps_past_half_the_spread_is_flagged():
     jumpy = diagnose.diagnose([make_day([100, 104] * 20)])["X"]  # moves of 4 against a half-spread of 1
     assert jumpy["jump_share"] == 1

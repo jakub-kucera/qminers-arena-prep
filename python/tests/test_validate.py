@@ -173,6 +173,16 @@ def test_settings_that_cant_matter_warn(check, tmp_path):
     assert "WARN  settings that can't matter: KELP: level sets the target, so jump_min is ignored" in out
 
 
+def test_a_limit_unlike_the_datas_warns(check):
+    kelp = '"KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200},'
+    wrong = TEMPLATE.read_text().replace(kelp, kelp.replace('"limit": 50', '"limit": 20'))
+    code, out = check(wrong)
+    assert code == 0 and "WARN  position limits differ from the data's: KELP 20, the data's 50" in out
+    missing = TEMPLATE.read_text().replace(kelp, kelp.replace('"limit": 50, ', "")).replace('"limit": 50,  # position', '"limit": 80,  # position')
+    code, out = check(missing)
+    assert "KELP 80 (no limit in PARAMS, so DEFAULTS'), the data's 50" in out
+
+
 @pytest.mark.parametrize("text, size", [("102400", 102400), ("100KB", 102348), ("100 kB", 102348), ("100KiB", 102348),
                                         ("100k", 102348), ("1.5MB", 1520435), ("1 MB", 996147)])
 def test_max_size_reads_the_dashboards_figure_at_the_least_it_could_be(text, size):

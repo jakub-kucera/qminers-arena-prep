@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import inspect
 import os
 import statistics
 import subprocess
@@ -218,10 +219,31 @@ def conflict_checks(path: Path, s: Setup) -> list[Check]:
     conflicts, params = getattr(module, "param_conflicts", None), getattr(module, "PARAMS", None)
     if not callable(conflicts) or not isinstance(params, dict):
         return []
+    checks = limit_checks(module, s.days)
     found = [f"{product}: {reason}" for product in params for reason in conflicts(product)]
     if not found:
-        return [Check(PASS, "no setting in PARAMS is overridden by another or left without its mode")]
-    return [Check(WARN, "settings that can't matter: " + "; ".join(found))]
+        return checks + [Check(PASS, "no setting in PARAMS is overridden by another or left without its mode")]
+    return checks + [Check(WARN, "settings that can't matter: " + "; ".join(found))]
+
+
+def limit_checks(module, days) -> list[Check]:
+    """A WARN for each traded product whose limit in the bot isn't the data's: a PARAMS entry
+    without "limit" silently gets DEFAULTS'. Only for a bot whose params_for(product) takes the
+    product alone; one that also takes the exchange's API (the drill template) reads the limit
+    from it."""
+    params_for = getattr(module, "params_for", None)
+    if not callable(params_for) or len(inspect.signature(params_for).parameters) != 1:
+        return []
+    limits = {product: limit for day in days for product, limit in day.limits.items()}
+    found = []
+    for product in sorted(set(getattr(module, "PARAMS", {})) & set(limits)):
+        ours = params_for(product)["limit"]
+        if ours != limits[product]:
+            source = "" if "limit" in module.PARAMS[product] else " (no limit in PARAMS, so DEFAULTS')"
+            found.append(f"{product} {ours}{source}, the data's {limits[product]}")
+    if not found:
+        return [Check(PASS, "every traded product's limit is the data's")]
+    return [Check(WARN, "position limits differ from the data's: " + "; ".join(found))]
 
 
 def fills_digest(fills) -> str:

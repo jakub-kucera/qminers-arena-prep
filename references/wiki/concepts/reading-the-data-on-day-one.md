@@ -1,7 +1,7 @@
 ---
 title: Reading the data on day one
 type: concept
-updated: 2026-10-14
+updated: 2026-10-26
 ---
 
 # Reading the data on day one
@@ -17,13 +17,14 @@ The Arena's first data download should decide the strategy for each product befo
   - Against the mid the two agree when trades are at the touch. Against the wall mid they don't, and mixing them had overstated the margins on [Bouchaud et al.](../sources/trades-quotes-prices.md) (see the log, 2026-10-13).
 - **The signature ratio** is the variance per tick of one-tick changes over that of 50-tick changes. It is flat (1) for a random walk and above 1 for noise that reverts (eq. 2.9 and 2.13, `literature_md/trades-quotes-prices/trades-quotes-prices.md:685` (p. 44, checked)). The `slow rev` column is the same ratio for the wall mid at 50 against 1,000 ticks.
 
-**The decision table.** Examples are `arena.diagnose` output on the Prosperity data *(checked: ran it, 2026-10-13)*. The thresholds are module constants (`python/arena/diagnose.py:55-83`).
+**The decision table.** Examples are `arena.diagnose` output on the Prosperity data *(checked: ran it, 2026-10-13)*. The thresholds are module constants (`python/arena/diagnose.py:58-88`).
 
 | Note | Reading | What to do | Prosperity example | Grounds |
 |---|---|---|---|---|
 | `large-tick` (a one-tick spread on at least half the two-sided ticks) | The mid moves only when a best queue empties; queue position and book imbalance carry information | Test the imbalance or the micro-price as a fair-value adjustment ([book imbalance](book-imbalance-and-micro-price.md)). In `--resting`, the queue decides fills. Stepping in front costs a full tick | P4 round 3, `VEV_5400` (62%) and `VEV_5500` (85%) | Imbalance predicts the next move with ROC area 0.75–0.81 at a one-tick spread, against 0.58–0.64 for wider spreads (`literature_md/queue-imbalance-predictor/queue-imbalance-predictor.md:356-369` (p. 20, checked)) |
 | `small-tick` | A new order inside the spread can move the mid, and the imbalance can't see it coming | Quote one tick inside the best, as the template's `make` does. Don't expect much from imbalance | P3 round 1 (median spread 3–8 ticks), P4 rounds 1–2 (13–16 ticks) | At a 4-tick spread the micro-price "is indistinguishable from the mid-price" (`literature_md/micro-price/micro-price.md:308` (p. 8)) |
 | `a side empty X% of ticks` | The generator removes quotes. Hidden takers may lift a quote far from fair on the empty side | Run probe 14 (`ON_THE_DAY.md`). If far quotes fill, quote about 100 from fair on the empty side. The template keeps its last fair, but quotes close to it (`python/bots/template.py:295`, `python/bots/template.py:684`) | P4 rounds 1–2, Osmium and Pepper Root (7–8%); none in P3 round 1 | About 18.6k a day on Osmium, *their claim* (`prosperity4-baguette-fromage/README.md:356-365`); DU measured ±100 and ±120 (`prosperity4-du-trading/README.md:55`). [Hidden takers](hidden-takers-and-empty-sides.md) |
+| `a level of 15+ on only X% of sides (largest level median N): set wall_size near it, or sized_mid falls back to the mid` (fewer than 80% of book sides hold a level of the template's `wall_size`) | The market maker quotes smaller than the template assumes | Set `wall_size` per product (or in `DEFAULTS`) to about the `wall` column's median before trusting `sized_mid`; otherwise every untuned product quotes around the plain mid, the noisiest price | None on Prosperity data: P3 round 1's walls are 25–26 lots (99–100% of sides), P4 round 1's 19–24 (83–86%) | The template's `_sized` falls back to the best level (`python/bots/template.py:364-366`); raised by the 2026-10-26 audit (A8) |
 | `wall mid jumps past half the spread on X% of ticks: if orders rest, take only` | Between snapshots the price moves through any quote near the touch | Default (Prosperity) mode: no effect, since quotes die each tick. If orders rest: no resting quotes on it, take only (`make_size` 0), and backtest with `--resting` | P2 Roses 63%, Chocolate 20%; P3 baskets 23–25%, Squid Ink 16%; all 50 P4 round 5 products, 51–76%. Not Kelp (0%) or P4 rounds 1–4 | Under `--resting`, the template's market making lost 140k–1.5M on P2/P3 products at 10–63% (`IDEAS.md`), and 0.7–2.4M each on six P4 round 5 products that made 2–27k in the default mode |
 | `jumps of 6+ spreads snap back (<day> X% of N reversed the one before): fade them, the template's jump mode` (a day with 20 or more wall-mid moves of 6+ median spreads, 75% of them reversing the one before) | The price sits on a grid and steps off it and straight back (round-number discretisation) | Switch the template's `jump` mode on for **every** product, with `jump_min` about half the jump size and `jump_edge` above half the spread: its gate keeps it off where jumps don't reverse. Backtest each day against plain market making; `experiments.p4_jumps` part 1 gives the jump size and the grid ([jumps](jumps-and-snap-back.md)) | P4 round 5 only: ROBOT_DISHES day 4 (87% of 743), ROBOT_IRONING and Oxygen Shake Evening Breath on day 2 (98% of 58, 88% of 66), Chocolate day 4 (86% of 57) *(checked: ran it on every P2–P4 round, 2026-10-26)* | The four product-days the jump mode made money on (`IDEAS.md`, "Fading jumps that snap back"), so the threshold is in-sample; the next highest day anywhere reverses 67% (a P3 voucher, 22 jumps), and the simulator's `ROBOT_DISHES` preset passes, its other presets don't |
 | `mid mean-reverts at one tick` and `wall mid filters the mid's noise` | The top of the book is noise around the market maker's quote | `fair: wall_mid`, not `mid`. Takes against the raw mid catch noise. Resting quotes gain from the reversion | P3 Kelp: lag-1 autocorrelation −0.48, signature 17.9 for the mid against 2.8 for the wall mid. P4 Pepper Root: 5.4 against 2.6 | A resting order's cost is `φ_exec·d·ρ`, so negative `ρ` favours limit orders (eq. 21.18, `literature_md/trades-quotes-prices/trades-quotes-prices.md:7820-7822` (p. 415, checked)). [Fair value](fair-value-and-wall-mid.md) |
@@ -66,7 +67,7 @@ The Arena's first data download should decide the strategy for each product befo
 - **Does quoting at the touch lose?** Cartea et al. say yes on NASDAQ. The margin column measures it here ([contradictions](../contradictions.md), row 12).
 
 ## What it means for our code
-- **`python/arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `python/arena/diagnose.py:55-83`, so if the Arena's data needs other cut-offs, change them there and in this table together.
+- **`python/arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `python/arena/diagnose.py:58-88`, so if the Arena's data needs other cut-offs, change them there and in this table together.
 - **The table maps to the template's parameters:**
   - `fair` (fixed / `mid` / `wall_mid`, `python/bots/template.py:35`);
   - `smoothing`;
@@ -74,7 +75,7 @@ The Arena's first data download should decide the strategy for each product befo
   - `make_edge` for a thin margin.
 
   Two rows have no template support yet: a quote far from fair on an empty side, and one-sided quoting. Both are untested in `IDEAS.md`.
-  Fading a level works only with a fixed level, through `fair: fixed`; a level that has to be estimated is not supported.
+  Fading a level is the template's `level` mode: a level from history (`level: <price>`) or the day's own running mean (`level: "day"`, for a level that drifts across days).
 - **On the day,** run it on each new download before the first backtest (`ON_THE_DAY.md`, "First hour"). Run it again on the first days of a shared market, because a margin that shrinks toward zero is the sign of competing teams (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6358` (p. 332)) *(inferred)*.
 
 ## How to test it here

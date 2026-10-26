@@ -25,6 +25,9 @@ RULES:
   DSR gate    the best PnL cell if its DSR (as arena.grid computes it) is 0.95 or more, else the base
   SPA gate    the best of StepM's cells if SPA's p is under 5%, else the base
   SPA+worse   the same, among StepM's cells that also beat the base under worse
+  SPA+holdout SPA and StepM without the last training day (the last quarter of a single one), the
+              best of StepM's cells kept only if it also beats the base there under all: arena.grid's
+              --gate first --holdout last (the 2026-10-26 audit's A1 and A4)
 Two baselines: the bot as committed, whose settings were partly tuned on these very days (so it
 starts ahead), and the template's DEFAULTS for the two gridded parameters, the position of a
 product first seen on the day. The oracle (the best cell on the test days themselves) gives the
@@ -77,7 +80,7 @@ for _name in list(STUDIES):  # the same grids the other way round: train on the 
     _data, _train, _test, _product, _axes = STUDIES[_name]
     STUDIES[f"{_name} (reversed)"] = (_data, _test, _train, _product, _axes)
 DEFAULTS = BotFile(Path(TEMPLATE), {"datamodel": prosperity.dm}, {}, False).load().DEFAULTS
-RULES = ["base", "pnl", "nbhd", "min day", "worse", "both modes", "top-5 mean", "DSR gate", "SPA gate", "SPA+worse"]
+RULES = ["base", "pnl", "nbhd", "min day", "worse", "both modes", "top-5 mean", "DSR gate", "SPA gate", "SPA+worse", "SPA+holdout"]
 SCENARIO_RULES = ["base", "pnl", "pick", "max-min", "max-min gain", "low quantile"]
 SCENARIO_STUDIES = ["Kelp", "Resin", "Kelp (reversed)", "Resin (reversed)"]  # part 2 (--data: every study)
 
@@ -293,7 +296,29 @@ def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
     out["SPA gate"] = max(winners, key=pnl[all_].__getitem__) if winners else None
     holding = [k for k in winners if gain[worse][k] > 0]
     out["SPA+worse"] = max(holding, key=pnl[all_].__getitem__) if holding else None
+    out["SPA+holdout"] = holdout_pick(base, results)
     return out
+
+
+def holdout_pick(base: dict, results: list[dict]) -> int | None:
+    """SPA+holdout's cell: SPA and StepM under all on the training blocks before the last training
+    day (or the last quarter of the only one), then the best of StepM's cells on those blocks, kept
+    only if it also beats the base on the blocks held out. None: the base."""
+    total, n_days = len(base["fine"]), len(base["train"][MODES[0]])
+    cut = total - (total // n_days if n_days >= 2 else total // 4)
+    columns, owners = [], []
+    for k, r in enumerate(results):
+        g = [x - b for x, b in zip(r["fine"][:cut], base["fine"][:cut])]
+        if any(g):
+            columns.append(g)
+            owners.append(k)
+    if not columns or grid.spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] >= grid.ALPHA:
+        return None
+    winners = [owners[j] for j in grid.stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
+    if not winners:
+        return None
+    best = max(winners, key=lambda k: sum(results[k]["fine"][:cut]))
+    return best if sum(results[best]["fine"][cut:]) > sum(base["fine"][cut:]) else None
 
 
 def main() -> None:

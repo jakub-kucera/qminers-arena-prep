@@ -585,10 +585,17 @@ def run_permutations(
              for index, values in kept[seed]} for seed in seeds]
 
 
+LINKING_KEYS = ("basket", "follow", "hedge", "underlying")  # settings that tie a product to another's book or plan
+
+
 def axis_products(axes: list[Axis], products: list[str]) -> list[str]:
-    """The products the axes set (PARAMS.<product>.<key>); every product if an axis sets something else."""
+    """The products the axes set (PARAMS.<product>.<key>); every product if an axis sets something
+    else, or a setting that ties a product to another (LINKING_KEYS): the check that a restricted
+    run gives the same PnL is made on the bot as is, which an axis value could link differently."""
     named = [axis.target.split(".")[1] if axis.target.startswith("PARAMS.") and axis.target.count(".") >= 2 else None for axis in axes]
-    return products if any(n not in products for n in named) else sorted(set(named))
+    if any(n not in products for n in named) or any(axis.target.rsplit(".", 1)[-1] in LINKING_KEYS for axis in axes):
+        return products
+    return sorted(set(named))
 
 
 def search_stats(outcomes: dict[tuple[int, ...], Outcome], mode: TradeMatching, products: list[str]) -> tuple[float, float] | None:
@@ -917,7 +924,7 @@ def without_days(outcome: Outcome, days: list[Day], seen: set[int]) -> Outcome:
 
 
 def format_unseen(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: list[Day],
-                  seen: set[int], engine: str = "python", by: str = "screen") -> str:
+                  seen: set[int], engine: str = "python", by: str = "screen", gate: str = "every") -> str:
     """SPA, StepM and the pick on the days no screen or halving step ranked on: their choice can't bias them."""
     unseen = [day.name for d, day in enumerate(days) if d not in seen]
     if not unseen:
@@ -925,7 +932,65 @@ def format_unseen(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int,
                 f"or halve under one mode (the last day is then never ranked on)")
     trimmed = {index: without_days(o, days, seen) for index, o in outcomes.items()}
     head = f"on the days the {by} didn't see ({', '.join(unseen)}), so free of its choice:"
-    return head + "\n" + format_snooping(axes, without_days(baseline, days, seen), trimmed, modes, None, engine)
+    return head + "\n" + format_snooping(axes, without_days(baseline, days, seen), trimmed, modes, None, engine, gate)
+
+
+def parse_holdout(text: str, days: list[Day]) -> tuple[str, int | float]:
+    """--holdout: "last" or a day's name (a day), or a share of the data ("25%" or 0.25: its last
+    blocks of FINE_TICKS ticks, for a download of one long day). Returns (description, day index or share)."""
+    names = [day.name for day in days]
+    if text == "last" or text in names:
+        if len(days) < 2:
+            raise ValueError("--holdout of a day needs two or more days: hold out a share of the data instead, e.g. --holdout 25%")
+        d = len(days) - 1 if text == "last" else names.index(text)
+        return f"day {names[d]}", d
+    try:
+        share = float(text.removesuffix("%")) / (100 if text.endswith("%") else 1)
+    except ValueError:
+        raise ValueError(f"--holdout takes last, a day's name ({', '.join(names)}) or a share of the data such as 25%, not {text!r}") from None
+    if not 0 < share < 1:
+        raise ValueError(f"--holdout's share must be between 0 and 1 (e.g. 25%), not {text!r}")
+    return f"the last {share:.0%} of the data", share
+
+
+def split_holdout(outcome: Outcome, days: list[Day], part: int | float) -> tuple[Outcome, Outcome]:
+    """The outcome on the data a --holdout keeps for the search, and on the data it holds out. A day
+    is split exactly; a share splits the FINE_TICKS blocks (days in order), each part's PnL then
+    being its blocks' sum."""
+    if isinstance(part, int):
+        return without_days(outcome, days, {part}), without_days(outcome, days, set(range(len(days))) - {part})
+    total = max((len(fine) for fine in outcome.fine_pnl.values()), default=0)
+    cut = total - max(1, round(part * total))
+    halves = []
+    for name, sl in (("kept", slice(None, cut)), ("held out", slice(cut, None))):
+        fine = {m: array("d", f[sl]) for m, f in outcome.fine_pnl.items()}
+        halves.append(replace(outcome, day_pnl={m: {name: sum(f)} for m, f in fine.items()}, fine_pnl=fine))
+    return halves[0], halves[1]
+
+
+def format_holdout(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: list[Day],
+                   holdout: tuple[str, int | float], engine: str = "python", gate: str = "every") -> str:
+    """SPA, StepM and the pick on the data --holdout keeps, then that pick checked on the data it
+    holds out: it is kept only if it beats the bot as is there too, under the gate's modes. On noise
+    the check passes about half the time, so it halves the bootstrap tests' false positives, which
+    run above their nominal 5% (IDEAS.md, "Bootstrap tests of the best cell")."""
+    described, part = holdout
+    kept = {index: split_holdout(o, days, part)[0] for index, o in outcomes.items()}
+    base_kept, base_held = split_holdout(baseline, days, part)
+    lines, pick = snooping_pick(axes, base_kept, kept, modes, None, engine, gate)
+    head = f"held out {described}: SPA, StepM and the pick on the rest, then the pick checked on {described}:"
+    if pick is None:
+        return "\n".join([head, *lines, "  pick, held out: the bot as is: nothing to check"])
+    held = split_holdout(outcomes[pick.index], days, part)[1]
+    gains = {m: held.pnl(m) - base_held.pnl(m) for m in modes}
+    shown = " · ".join(f"{m} {g:+,.0f}" for m, g in gains.items())
+    setting = ", ".join(f"{a.label}={v}" for a, v in zip(axes, pick.values))
+    gating = modes if gate == "every" else modes[:1]
+    if all(gains[m] > 0 for m in gating):
+        verdict = f"  pick, held out: {setting}: it also beats the bot as is on {described} ({shown})"
+    else:
+        verdict = f"  pick, held out: the bot as is: {setting} doesn't beat it on {described} ({shown})"
+    return "\n".join([head, *lines, verdict])
 
 
 # ---------------------------------------------------------------------------- overfitting
@@ -956,10 +1021,18 @@ def _key(values) -> bytes:
 
 
 def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], dsr: float | None,
-                    engine: str = "python") -> str:
+                    engine: str = "python", gate: str = "every") -> str:
     """SPA and StepM on each distinct cell's gain over the bot as is, per block of FINE_TICKS ticks,
     under the first mode; StepM's cells are then checked against the bot as is under the others.
     With engine "rust" the bootstrap runs in rust/src/arena/stats.rs, the same to the bit."""
+    return "\n".join(snooping_pick(axes, baseline, outcomes, modes, dsr, engine, gate)[0])
+
+
+def snooping_pick(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], dsr: float | None,
+                  engine: str = "python", gate: str = "every") -> tuple[list[str], Outcome | None]:
+    """format_snooping's lines, and its pick (None for the bot as is). With gate "every" the pick
+    must beat the bot as is under every mode; with "first" only under the first, the others shown
+    as columns to read (for once the playground has shown which mode the Arena's fills follow)."""
     mode = modes[0]
     base = baseline.fine_pnl.get(mode, [])
     cells: dict[bytes, tuple[array, list[Outcome]]] = {}
@@ -971,7 +1044,7 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
         if any(gain):
             cells.setdefault(_key(gain), (gain, []))[1].append(o)
     if baseline.failed or len(base) < MIN_FINE_BLOCKS or not cells:
-        return f"  SPA, StepM: skipped (needs a working bot as is, a cell that differs from it, and {MIN_FINE_BLOCKS}+ blocks of {FINE_TICKS} ticks)"
+        return [f"  SPA, StepM: skipped (needs a working bot as is, a cell that differs from it, and {MIN_FINE_BLOCKS}+ blocks of {FINE_TICKS} ticks)"], None
     groups = list(cells.values())
     d = [gain for gain, _ in groups]
     p, winners = (rust.snooping if engine == "rust" else snooping)(d, SPA_Q, BOOTSTRAP)
@@ -1007,19 +1080,21 @@ def format_snooping(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[in
     if p["c"] < ALPHA and len(modes) == 1:
         lines.append("  a gain under one matching mode still has to hold under the others: rerun with --modes all,worse")
     found = [o for k in winners for o in groups[k][1]]
-    holding = [o for o in found if all(o.pnl(m) > baseline.pnl(m) for m in modes[1:])]
+    gating = modes[1:] if gate == "every" else []
+    holding = [o for o in found if all(o.pnl(m) > baseline.pnl(m) for m in gating)]
+    under = "under every mode" if gate == "every" or len(modes) == 1 else f"under {mode} (--gate first: the other modes are columns to read)"
     if holding:
         best = max(holding, key=lambda o: o.pnl(mode))
         setting = ", ".join(f"{a.label}={v}" for a, v in zip(axes, best.values))
         gains = " · ".join(f"{m} {best.pnl(m) - baseline.pnl(m):+,.0f}" for m in modes)
-        lines.append(f"  pick: {setting} ({gains}): StepM's best cell that beats the bot as is under every mode")
-    else:
-        lines.append("  pick: the bot as is: no StepM cell beats it under every mode")
-    return "\n".join(lines)
+        lines.append(f"  pick: {setting} ({gains}): StepM's best cell that beats the bot as is {under}")
+        return lines, best
+    lines.append(f"  pick: the bot as is: no StepM cell beats it {under}")
+    return lines, None
 
 
 def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcome], modes: list[TradeMatching], days: int, axes: list[Axis] | None = None,
-                       engine: str = "python") -> str:
+                       engine: str = "python", gate: str = "every") -> str:
     mode = modes[0]
     usable = [o for _, o in sorted(outcomes.items()) if not o.failed]
     columns = list({_key(o.block_pnl[mode]): o.block_pnl[mode] for o in usable}.values())
@@ -1028,7 +1103,7 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     if len(columns) < 2 or blocks < 2 or any(len(c) != blocks for c in columns):
         lines.append("  fewer than two distinct cells, or days too short to cut into blocks: no PBO or DSR")
         if axes is not None:
-            lines.append(format_snooping(axes, baseline, outcomes, modes, None, engine))
+            lines.append(format_snooping(axes, baseline, outcomes, modes, None, engine, gate))
         return "\n".join(lines)
     result = (rust.cscv if engine == "rust" else cscv)(columns)
     sampled = f"{result.splits:,} of {result.of:,}" if result.splits < result.of else f"all {result.of:,}"
@@ -1058,7 +1133,7 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     if result.pbo >= 0.5:
         lines.append("! PBO >= 50%: the best cell in one half of the blocks is as likely as not to be below the median in the other")
     if axes is not None:
-        lines.append(format_snooping(axes, baseline, outcomes, modes, dsr, engine))
+        lines.append(format_snooping(axes, baseline, outcomes, modes, dsr, engine, gate))
     return "\n".join(lines)
 
 
@@ -1131,12 +1206,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--permute-block", type=int, default=1, metavar="TICKS",
                         help="shuffle the ticks in runs of this many, keeping the order inside a run (default: 1)")
     add_engine_argument(parser, "run the backtests and the statistics in Python, or on the Rust port (rust/: needs cargo, and a bot with a "
-                        "Rust twin, rust/twins.json), with the same results about 100 times faster (default: python)")
+                        "Rust twin, rust/twins.json), with the same results: a backtest about 130 times faster on one core, a whole grid 40-80 times (default: python)")
     parser.add_argument("--sample", type=int, metavar="N", help="run N cells drawn at random from the grid instead of every one (seeded by --sample-seed)")
     parser.add_argument("--sample-seed", type=int, default=0, help="--sample's seed (default: 0)")
     parser.add_argument("--halving", type=float, metavar="SHARE",
                         help="successive halving in steps: each adds the next day (the first mode's days, then the others') and keeps this "
                         "share of the cells still alive, by their PnL so far; the last ones run on every day and mode (e.g. 0.5)")
+    parser.add_argument("--holdout", metavar="DAY|SHARE",
+                        help="choose the pick without this data, then keep it only if it also beats the bot as is there: last, a day's name, "
+                        "or a share of the data's end such as 25%% (for a download of one day)")
+    parser.add_argument("--gate", choices=("every", "first"), default="every",
+                        help="the modes the pick must beat the bot as is under: every one of --modes (default), or only the first, the others "
+                        "shown as columns (once the playground has shown which mode the Arena's fills follow)")
     parser.add_argument("--screen", type=float, metavar="SHARE",
                         help="successive halving: run every combination on the first day under the first mode, then only this share "
                         "of them, the best there, on every day and mode (e.g. 0.25)")
@@ -1157,6 +1238,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--halving is a screen of its own: drop --screen, and --permute (it screens each copy with --screen only)")
         if args.sample is not None and args.sample < 1:
             raise ValueError("--sample needs a number of cells, e.g. 10000")
+        holdout = parse_holdout(args.holdout, s.days) if args.holdout else None
         if s.engine == "rust":
             rust.prepare(args.format, [args.bot, *every_rival(s.rivals, modes)], args.allow_stale)
             for mode in modes:
@@ -1209,9 +1291,11 @@ def main(argv: list[str] | None = None) -> int:
         print("\n" + format_screen(axes, run.screen, outcomes))
     if run.rungs:
         print("\n" + format_halving(axes, run.rungs, run.tried, args.halving, outcomes))
-    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes, s.engine))
+    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes, s.engine, args.gate))
     if (run.screen or run.rungs) and len(s.days) >= 2:
-        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days, run.seen, s.engine, "halving" if run.rungs else "screen"))
+        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days, run.seen, s.engine, "halving" if run.rungs else "screen", args.gate))
+    if holdout:
+        print("\n" + format_holdout(axes, baseline, outcomes, modes, s.days, holdout, s.engine, args.gate))
     if args.permute > 0:
         start = time.perf_counter()
         copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block,

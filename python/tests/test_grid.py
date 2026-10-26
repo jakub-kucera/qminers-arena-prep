@@ -299,6 +299,52 @@ def test_snooping_names_the_cells_and_checks_them_under_the_other_modes():
     assert "pick: edge=1 (all +" in text and "worse +1)" in text
 
 
+def test_gate_first_lets_the_first_mode_decide():
+    all_, worse = TradeMatching.ALL, TradeMatching.WORSE
+    axes = [grid.Axis("PARAMS.edge", [0, 1, 2])]
+    columns = _gains(3, 3, 100, edge=0.5, planted=1)
+    baseline = _outcome((), [0.0] * 100, {all_: 0.0, worse: 0.0})
+    outcomes = {(k,): _outcome((k,), columns[k], {all_: sum(columns[k]), worse: -1.0}) for k in range(3)}
+    text = grid.format_snooping(axes, baseline, outcomes, [all_, worse], dsr=0.5, gate="first")
+    assert "under worse: 0 of StepM's 1 cells" in text  # still shown, as a column to read
+    assert "pick: edge=1 (all +" in text and "worse -1)" in text and "--gate first" in text
+
+
+def test_parse_holdout():
+    days = [SimpleNamespace(name=name) for name in ("r1d0", "r1d1")]
+    assert grid.parse_holdout("last", days) == ("day r1d1", 1)
+    assert grid.parse_holdout("r1d0", days) == ("day r1d0", 0)
+    assert grid.parse_holdout("25%", days) == ("the last 25% of the data", 0.25)
+    assert grid.parse_holdout("0.1", days)[1] == 0.1
+    for bad in ("r9", "0", "100%", "1.5"):
+        with pytest.raises(ValueError, match="--holdout"):
+            grid.parse_holdout(bad, days)
+    with pytest.raises(ValueError, match="two or more days"):
+        grid.parse_holdout("last", days[:1])
+
+
+def test_a_held_out_share_splits_the_fine_blocks():
+    all_ = TradeMatching.ALL
+    o = _outcome((0,), [1.0] * 6 + [-1.0] * 2, {all_: 4.0})
+    kept, held = grid.split_holdout(o, [], 0.25)
+    assert list(kept.fine_pnl[all_]) == [1.0] * 6 and kept.pnl(all_) == 6.0
+    assert list(held.fine_pnl[all_]) == [-1.0] * 2 and held.pnl(all_) == -2.0
+
+
+def test_the_pick_must_also_win_on_the_held_out_data():
+    all_ = TradeMatching.ALL
+    axes = [grid.Axis("PARAMS.edge", [0, 1, 2])]
+    columns = _gains(3, 3, 100, edge=0.5, planted=1)
+    baseline = _outcome((), [0.0] * 120, {all_: 0.0})
+    # cell 1 wins on the first 100 blocks; on the last 20 (held out) it either keeps winning or loses
+    for tail, kept in ((1.0, True), (-1.0, False)):
+        outcomes = {(k,): _outcome((k,), columns[k] + [tail if k == 1 else 0.0] * 20, {all_: 0.0}) for k in range(3)}
+        text = grid.format_holdout(axes, baseline, outcomes, [all_], [], ("the last 20 blocks", 20 / 120))
+        assert "StepM at 5%: 1 cells beat the bot as is: edge=1" in text
+        assert ("pick, held out: edge=1: it also beats" in text) is kept
+        assert ("pick, held out: the bot as is: edge=1 doesn't beat it" in text) is not kept
+
+
 def test_snooping_skips_short_days(capsys, bot, data_dir):
     code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3")
     assert "SPA, StepM: skipped" in text
@@ -316,6 +362,8 @@ def test_axis_products_are_the_products_the_axes_set():
     axes = [grid.Axis("PARAMS.KELP.make_edge", [1]), grid.Axis("PARAMS.KELP.take_edge", [1])]
     assert grid.axis_products(axes, ["KELP", "RESIN"]) == ["KELP"]
     assert grid.axis_products([grid.Axis("PARAMS.size", [1])], ["KELP", "RESIN"]) == ["KELP", "RESIN"]
+    # an axis that can tie a product to another runs on full days: the restricted check saw only the bot as is
+    assert grid.axis_products([grid.Axis("PARAMS.KELP.follow", [None, "RESIN"])], ["KELP", "RESIN"]) == ["KELP", "RESIN"]
     assert grid.axis_products([grid.Axis("DEFAULTS.make_edge", [1])], ["KELP"]) == ["KELP"]
 
 

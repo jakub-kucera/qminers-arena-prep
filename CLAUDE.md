@@ -19,7 +19,7 @@ The Python code is in `python/` (`arena/`, `bots/`, `experiments/`, `tests/`, `n
 ```sh
 references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
 uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
-uv run pytest                       # all tests (~110 s; python/tests/test_rust.py's parity checks are most of it)
+uv run pytest                       # all tests (~2–3 min; python/tests/test_rust.py's parity checks are most of it)
 uv run pytest python/tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
 
 uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
@@ -65,6 +65,7 @@ uv run python -m experiments.p3_smile                             # P3's volcani
 uv run python -m experiments.imbalance                            # does the best-level imbalance predict the mid / the wall mid, per product and day
 uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
 uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls
+uv run python -m experiments.snooping_null_rates --engine rust    # how often SPA, StepM and the pick name a cell on null grids, with the worse and holdout gates
 uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw; part 2 across ten fill-model scenarios
 uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
 uv run python -m experiments.rust_bench                           # the Rust port (rust/, needs cargo) against ours: every twin's parity, then speed
