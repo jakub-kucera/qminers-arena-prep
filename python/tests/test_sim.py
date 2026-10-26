@@ -211,6 +211,14 @@ def test_the_robot_dishes_preset_looks_like_prosperity_4s_jumping_day():
     assert 180 <= row["trades"] / 3 <= 330
 
 
+def test_the_noisy_maker_preset_hides_the_price_in_the_walls():
+    # KELP's walls filter the mid's noise; KELP_NOISY's are as noisy as the mid, and diagnose says so.
+    rows = {name: diagnose.diagnose([sim.run(sim.preset_market([name]), seed).day for seed in range(3)])[name] for name in ("KELP", "KELP_NOISY")}
+    assert rows["KELP"]["wall_signature"] < rows["KELP"]["mid_signature"] / 4
+    assert rows["KELP_NOISY"]["wall_signature"] > rows["KELP_NOISY"]["mid_signature"] / 2
+    assert "mid and wall mid both noisy" in rows["KELP_NOISY"]["notes"] and "wall mid filters" in rows["KELP"]["notes"]
+
+
 def test_the_kelp_flow_preset_has_prosperity_3s_one_sided_takers():
     # P3 round 1 Kelp: 35% of the trades at the touch are buys (42% of the volume), C(1) 0.127;
     # the rest as KELP (the same bands).

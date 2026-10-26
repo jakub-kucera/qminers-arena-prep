@@ -479,3 +479,25 @@ def test_breaching_the_position_you_saw_is_still_a_breach():
 def test_market_names_must_be_unique():
     with pytest.raises(ValueError, match="unique"):
         run_market(day(tick(0)), [("a", ScriptedBot()), ("a", ScriptedBot())])
+
+
+def test_a_delay_sends_orders_to_a_later_ticks_book():
+    # A buy at 101 decided on tick 0 meets tick 1's book, where the ask has moved to 103: no fill.
+    d = day(tick(0, asks=[(101, 5)]), tick(100, asks=[(103, 5)]), tick(200, asks=[(101, 5)]))
+    script = {0: [Order("X", 101, 2)]}
+    assert fills(run_day(d, ScriptedBot(script))) == [(101, 2, "book")]
+    late = ScriptedBot(script)
+    result = run_day(d, late, EngineConfig(delay=1))
+    assert fills(result) == [] and result.orders[0][0] == 100  # placed when it reached the exchange
+    # Two ticks late it meets tick 2's ask at 101 again, and the bot learns of the fill on no earlier tick.
+    later = ScriptedBot(script)
+    assert fills(run_day(d, later, EngineConfig(delay=2))) == [(101, 2, "book")]
+    assert [len(own) for _, own, _ in later.seen] == [0, 0, 0]
+
+
+def test_a_delayed_order_meets_that_ticks_market_trades():
+    # A bid at 100 decided on tick 0, which has no trades; a sell prints at 100 on tick 1.
+    d = day(tick(0, bids=[(99, 5)], asks=[(102, 5)]), tick(100, bids=[(99, 5)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 3)]))
+    script = {0: [Order("X", 100, 3)]}
+    assert fills(run_day(d, ScriptedBot(script))) == []
+    assert fills(run_day(d, ScriptedBot(script), EngineConfig(delay=1))) == [(100, 3, "trade")]

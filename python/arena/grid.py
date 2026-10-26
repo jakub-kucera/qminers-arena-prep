@@ -1242,6 +1242,8 @@ def main(argv: list[str] | None = None) -> int:
         if s.engine == "rust":
             rust.prepare(args.format, [args.bot, *every_rival(s.rivals, modes)], args.allow_stale)
             for mode in modes:
+                rust.config_json(config_for(s.config, mode))  # a scenario's delay: refused on Rust
+            for mode in modes:
                 for rival in rivals_for([], mode):
                     rust.bot_spec(rival.path, rival.overrides)  # settings on a twin that takes none: refused
         smoke_test(s, args.bot, axes, modes)

@@ -89,12 +89,8 @@ A second whole-repository audit, by another agent session (read-only, at `6797c1
 - [ ] **A2: the format swap has never been done against a clock** (high; the first audit's H4). The playground is 90 minutes for the probe ADAPTER, `qminers.py` (the drill plug-in is 322 lines) and the template's ADAPTER.
   - Fix: `qminers.py` skeletons for the API shapes the site makes likely (a Prosperity-like step function, a callback class as in the drill, a flat event log), so the day's work is renaming fields; and a timed dry run of both kickoff prompts by agents on data prepared out of their sight ("Run a mock round before the event" above).
   - Done when: the skeletons are in `python/arena/formats/` with a test each, and the dry run's times and what it tripped on are written into the mock-round item.
-- [ ] **A6: no next-tick matching** (medium). Every mode matches orders against the snapshot the bot saw; if the Arena applies them a step later, takes at the touch and inside quotes are flattered and nothing reproduces it.
-  - Fix: `EngineConfig.delay` / `--delay 1` in the Python engine (tick t's actions meet tick t+1's book and trades), with `--engine rust` refusing it.
-  - Done when: it is in, with a test, the README's row, and probe 3's "then" pointing to it.
-- [ ] **A7: `arena.sim`'s market maker quotes around the true fundamental** (medium). Every preset has `noise` 0 and `skew` 0, so its wall mid is the fundamental to the tick, and the simulator can't rank a wall-mid fair against others.
-  - Fix: a preset whose maker quotes with noise and skew, a band in `python/tests/test_sim.py`, and the limitation in the README's known gaps.
-  - Done when: those are in, and `IDEAS.md`'s simulator rows say which of their results the noisy maker changes, if any.
+  - **Skeletons done 2026-10-26:** `python/arena/formats/snapshots.py` (book snapshots in CSV, a bot answering a state with orders, a stand-in `api` module) and `orderlog.py` (an order-by-order log rebuilt into a book a step, with the drill's bot API), registered, with `python/tests/test_skeletons.py`; `ON_THE_DAY.md`'s swap step 1 picks among them and `drill.py`. Left: the dry run.
 - [ ] **A10: the day plan depends on one agent vendor** (medium). Nothing says what two people do if Claude is down or rate-limited for an hour.
   - Fix: a by-hand page of the format swap (the skeletons of A2 make it short), and a second provider logged in on the other laptop; the clean-room prompt already works with any agent.
   - Done when: the page is in `ON_THE_DAY.md` and the second provider is named in "The day: timeline and roles".
+  - **Page done 2026-10-26:** `ON_THE_DAY.md`, "If no agent is available" (the skeleton, the ADAPTER, validate, and a 40-line market maker by hand). Left: the user names the second provider there.

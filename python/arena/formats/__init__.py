@@ -21,12 +21,15 @@ Optional:
         True if the competition's orders rest until cancelled; the tools then run as with
         --resting.
 
-To support a new competition, copy drill.py (a format deliberately unlike Prosperity's, with
-the differences marked) and rewrite it for the new format.
+To support a new competition, copy the format whose shape is nearest the new one and rewrite it:
+drill.py (book changes, a callback API, decimal prices, orders that rest; the differences from
+Prosperity marked), or one of the skeletons, whose loaders and wrappers are built so that the
+day's work is renaming fields: snapshots.py (book snapshots in CSV, a bot answering a state with
+orders) and orderlog.py (an order-by-order event log, with the drill's bot API).
 """
 
 from types import ModuleType
 
-from arena.formats import drill, prosperity
+from arena.formats import drill, orderlog, prosperity, snapshots
 
-FORMATS: dict[str, ModuleType] = {"prosperity": prosperity, "drill": drill}
+FORMATS: dict[str, ModuleType] = {"prosperity": prosperity, "drill": drill, "snapshots": snapshots, "orderlog": orderlog}

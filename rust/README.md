@@ -89,6 +89,7 @@ no Python file of its own is in `support/` and `commands/`.
 
 - **The engine.** Ported: every rule in `python/arena/engine.py`'s docstring, in the same order of operations. Not ported:
   - order tags (a format's own ids);
+  - the decision delay (`EngineConfig.delay`, `--delay`): Rust refuses a config with one (`python/arena/rust.py`, `_no_delay`), so a delayed run stays in Python;
   - a bot's exceptions, prints and step timings;
   - fractional prices (the day file holds whole prices, as Prosperity's are; a format with decimal prices loads them as whole units, as the drill's does);
   - CPython's own `lgamma`: `binomialvariate` calls the C library's. They differ by a few ulps, which could flip a fill-ratio draw only when its test lands that close to the bound.

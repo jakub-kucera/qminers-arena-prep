@@ -42,6 +42,11 @@ Positions are valued at each tick's mark price: the data's, else the book's mid 
   - limit_penalty: no order is rejected for the limit (rule 2 is off). After each tick's fills,
     every lot of a position beyond its limit costs this much, charged to that product, and the
     tick counts as a breach.
+Latency (EngineConfig.delay, Python only): with delay n, what a bot returns at tick t reaches the
+exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there),
+and its limit check uses the position the bot saw when it decided. The bot is called before that
+tick's late orders are matched, so it never learns of a tick's trades before the next. For an
+exchange that applies orders a step late (probe 3); 0 is Prosperity's rule.
 """
 
 from __future__ import annotations
@@ -50,7 +55,7 @@ import io
 import random
 import time
 import traceback
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import nullcontext, redirect_stdout
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
@@ -98,6 +103,7 @@ class EngineConfig:
     mark: Mark = Mark.MID  # the price positions are valued at (see the module docstring)
     limit_penalty: float | None = None  # None: rule 2, as Prosperity; a number: charge each lot beyond a limit this much a tick
     capture_output: bool = True  # hide the bot's prints (their size is still measured)
+    delay: int = 0  # ticks between a bot's decision and its orders reaching the exchange (see the module docstring)
 
 
 class Bot(Protocol):
@@ -217,6 +223,8 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
     resting: list[_Live] = []
     owner: dict[int, int] = {}  # order id -> participant index
     next_id = 1
+    # With a delay, each tick's decisions wait here until they reach the exchange.
+    late = deque(([[] for _ in players], [(dict(p.position), []) for p in players]) for _ in range(config.delay)) if config.delay else None
 
     def settle(fills: list[Fill]) -> None:
         for fill in fills:
@@ -243,6 +251,9 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             actions.append(call_bot(player.bot, seen, player.position, player.unseen_fills, player.market_trades, mine, config, player.result))
             decided.append((dict(player.position), mine))  # what the bot based its orders on
             player.unseen_fills = []
+        if late is not None:
+            late.append((actions, decided))
+            actions, decided = late.popleft()  # what was decided config.delay ticks ago arrives now
 
         working = list(resting)  # every order on the book this tick, oldest first
         between: list[MarketTrade] = []  # trades between participants

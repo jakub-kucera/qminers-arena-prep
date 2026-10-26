@@ -209,7 +209,15 @@ def bot_spec(path: Path, overrides: dict[str, object], requote: bool = False) ->
 
 
 def config_json(config: EngineConfig) -> dict:
-    return {f.name: (str(getattr(config, f.name)) if f.name in ("trade_matching", "queue", "mark") else getattr(config, f.name)) for f in fields(config)}
+    _no_delay(config)
+    return {f.name: (str(getattr(config, f.name)) if f.name in ("trade_matching", "queue", "mark") else getattr(config, f.name))
+            for f in fields(config) if f.name != "delay"}
+
+
+def _no_delay(config: EngineConfig) -> None:
+    """The Rust engine has no EngineConfig.delay (a Python-only option): refuse rather than run without it."""
+    if config.delay:
+        raise ValueError("--delay runs on the Python engine only: drop --engine rust")
 
 
 # ---------------------------------------------------------------------------- days
@@ -400,6 +408,7 @@ def read_pieces(path: Path, products: list[list[str]]) -> list[dict]:
 
 
 def _engine_args(config: EngineConfig) -> list[str]:
+    _no_delay(config)
     args = ["--match-trades", str(config.trade_matching), "--queue", str(config.queue), "--queue-power", repr(config.queue_power),
             "--fill-ratio", repr(config.fill_ratio), "--seed", str(config.seed)]
     args += [] if config.mark is Mark.MID else ["--mark", str(config.mark)]

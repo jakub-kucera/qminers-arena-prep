@@ -398,3 +398,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-26] lint | the market maker's size in arena.diagnose, after the second audit
 - `concepts/reading-the-data-on-day-one` gains the `wall_size` note's row (the audit's A8), and its citation of the thresholds moved (`python/arena/diagnose.py:55-83` → `58-88`). The stale line saying a level that has to be estimated isn't supported is replaced: the `level` mode and `level: "day"` exist (A14).
+
+## [2026-10-26] lint | a market maker that doesn't know the price
+- `concepts/reading-the-data-on-day-one`'s "both noisy" row gets `arena.sim`'s `KELP_NOISY` result (the second audit's A7): there, smoothing the wall mid pays and the plain wall mid is the worst fair; with an exact maker smoothing costs.

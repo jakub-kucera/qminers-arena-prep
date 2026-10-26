@@ -65,7 +65,11 @@ Three tracks can run in parallel (with two of us: A the checklist, then the prob
 
 Practised on the drill format (2026-10-17, `python/arena/formats/drill.py`, `python/bots/drill/template.py`), which differs from Prosperity's in every way we could think of. The plug-in took about 300 lines and the bot's ADAPTER about 100. Running the tools on it found four Prosperity habits, now fixed; the steps below avoid the rest.
 
-1. **Copy `python/arena/formats/drill.py` to `qminers.py`** and register it in `FORMATS`. Set `RESTING = True` if their orders rest until cancelled.
+1. **Copy the format nearest their shape to `qminers.py`** and register it in `FORMATS`. Set `RESTING = True` if their orders rest until cancelled. Three start points (`python/arena/formats/__init__.py`):
+   - book snapshots in CSV, a bot answering a state with orders: `snapshots.py` (rename `FILES`, `COLUMNS`, `ENTRY`, set `PRICE_SCALE`; its `api` module is a stand-in for theirs);
+   - an order-by-order log (orders added, changed, cancelled, executed by id): `orderlog.py` (rename `EVENTS`, `COLUMNS`), with the drill's bot API until theirs replaces it;
+   - book changes or a callback API with order ids: `drill.py`, the one practised end to end.
+   The skeletons load and run a bot (`python/tests/test_skeletons.py`), but no template has their ADAPTER: write it as `python/bots/drill/template.py`'s (step 5).
 2. **The loader** fills `Day`, `Tick`, `Book` and `MarketTrade`:
    - Books best price first, with positive volumes. If they send book changes, keep the book and publish it once a step, as `drill.py` does.
    - **Prices as integers of one unit for every product**, the smallest their prices use (cents). Prices then compare exactly, and PnL adds up across products. Per-product tick sizes go in `Day.info`, limits in `Day.limits`, and the loader must raise on a product without one.
@@ -82,6 +86,14 @@ Practised on the drill format (2026-10-17, `python/arena/formats/drill.py`, `pyt
    - Pass resting orders oldest first.
    - Take the limit from their API if it gives one.
 6. **Run every tool once on their data** (`backtest`, `validate`, `grid`, `stress`, `analysis`), then compare a few fills by hand with their example or the playground.
+
+## If no agent is available
+
+For an hour of an outage or a rate limit (the second audit, A10). Everything below runs without an agent; the second laptop keeps another provider logged in (<which: ChatGPT, Gemini, ...>), and `KICKOFF_PROMPT.md`'s prompt without the repository works with any agent.
+1. **Format:** copy the nearest skeleton (step 1 of the swap above) and rename its field names to theirs: the column or event names, the entry point, `PRICE_SCALE`. Then `uv run python -m arena.diagnose all --format qminers --data D`: if it prints a table, the loader works.
+2. **Bot:** copy `python/bots/drill/template.py` to `python/bots/qminers/template.py` and rewrite only its imports and ADAPTER (`read_book`, `read_trades`, `read_fills`, `params_for`, the entry class) to their API; give every product a PARAMS entry (`fair: "sized_mid"`, the limit) from diagnose.
+3. **Check:** `uv run python -m arena.validate BOT all --format qminers --data D --time-limit-ms <theirs> --max-size <the dashboard's>`; fix every FAIL, then upload by the round's rule.
+4. **If step 2 won't run in time:** a plain market maker straight against their API, about 40 lines: each step, for each product, fair = the mid of the largest bid and ask; cancel your resting orders; bid at best bid + 1 tick and ask at best ask − 1 tick, if still inside fair ± 1 tick, sized to the room left under the limit; take any ask below fair − 1 or bid above fair + 1. Seed nothing, read no clock.
 
 ## Known so far
 
@@ -321,7 +333,7 @@ So any other answer on the platform is a difference to act on. Probes 14–16 co
 
 1. **Resting:** at tick 1, bid well below the best bid. At tick 2, send nothing. If the order is still listed, or fills later, orders rest.
 2. **Own orders in the book:** with that bid resting, check the book for a level at its price and size.
-3. **Fill timing and price:** send a buy at the best ask. Is the fill reported in the same call, the next call, or later, and at which price?
+3. **Fill timing and price:** send a buy at the best ask. Is the fill reported in the same call, the next call, or later, and at which price? If the order traded against a later book than the one the bot saw (its price was gone, or it filled at a later price), the exchange applies orders late: backtest with `--delay 1` (or the delay measured), which on P3 round 1 halves the template's PnL (`IDEAS.md`, "Orders that arrive a tick late")
 4. **Limits:** send two buys that together exceed the limit by one. Is one rejected, both, or every order for the product? Is there an error message?
 5. **Self-trade:** send a bid and an ask at the same price. Do they trade with each other?
 6. **Exceptions:** raise an exception in one tick. Does the bot get called again?

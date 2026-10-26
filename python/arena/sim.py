@@ -231,6 +231,21 @@ PRESETS: dict[str, ProductSpec] = {
         NoiseTakers(rate=0.25, size=(2, 6), sell_size=(1, 5), buy_share=0.35, persistence=0.02),
         ValueTakers(rate=0.04, size=(1, 5), noise=0.5, threshold=1.0),
     ),
+    # KELP whose market maker doesn't know the price: its centre is the fundamental plus a tick of
+    # noise each re-quote, skewed 0.02 ticks against each lot it holds, so the walls no longer give
+    # the price away (every other preset's maker quotes around the fundamental exactly). Not
+    # calibrated to a Prosperity product: arena.diagnose notes it "mid and wall mid both noisy"
+    # (wall signature 36 against KELP's 3), where the wall mid needs smoothing (IDEAS.md, "A market
+    # maker that doesn't know the price"). From the second audit (2026-10-26, A7).
+    "KELP_NOISY": ProductSpec(
+        "KELP_NOISY",
+        50,
+        Fundamental(2030, sd=0.12),
+        Maker(half_spread=1.75, size=(20, 30), noise=1.0, skew=0.02),
+        LimitTraders(rate=1.0, offset=(-0.5, 1.0), size=(1, 6), life=1),
+        NoiseTakers(rate=0.25, size=(1, 5)),
+        ValueTakers(rate=0.04, size=(1, 5), noise=0.5, threshold=1.0),
+    ),
     # P4 round 5's ROBOT_DISHES on day 4, from tick 1,153: the value sits on multiples of 100 and
     # jumps by 100, mostly straight back (87% of jumps reverse the one before), in bursts (a jump
     # follows another one tick later 29% of the time, against 3% a tick when quiet), behind walls

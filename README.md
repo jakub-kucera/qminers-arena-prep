@@ -89,6 +89,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--fill-ratio R` | Only this share of each book level and market trade is available to you, a rough stand-in for other teams competing for fills. Seeded with `--seed`. With `--resting`, the volume queued ahead of your order is still all of the visible volume: the others are there whether or not you could trade with them. |
 | `--mark mid\|touch\|last` | The price positions are valued at each tick: the data's mid (default), the best bid for a long position and the best ask for a short one (`touch`, what closing it would fetch), or the last market trade (`last`). For an exchange that marks the close unlike Prosperity: the Arena's portal shows a "mark-out price" |
 | `--limit-penalty RATE` | No order is rejected for a position limit; instead every lot beyond it costs RATE, every tick, and each such tick counts as a breach. The default is Prosperity's rule (every order for a product cancelled if they could breach). The Arena's portal shows a "position-limit penalty" |
+| `--delay TICKS` | Orders reach the exchange this many ticks after the bot decides: they meet that tick's book and market trades, and the limit check uses the position the bot saw. For an exchange that applies orders a step late (probe 3). Python engine only. On P3 round 1, one tick of delay takes the template from 72,674 to 40,472 (`IDEAS.md`, "Orders that arrive a tick late") |
 | `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask and wall mid per tick), `<day>_fills.csv`, `<day>_orders.csv` and `<day>_trades.csv` (the data's market trades) |
 | `--metrics` | Also print the figures the Arena's portal shows on a submission, per product and in total: fills (and the orders they filled), traded volume, end position, cash, the price the end position is valued at, the limit penalty, two standard errors of the day's PnL (per-tick changes taken as independent, and 20 blocks' sums), and the 50/68/95/99.7% quantiles of \|position\|, then the PnL they add up to. For comparing with the first upload's page (`backtest` only) |
 | `--print` | Show the bot's prints |
@@ -544,10 +545,11 @@ its walls and small limit traders post near the fundamental. Then the book is sn
 the bots trade. Then noise, value and momentum takers arrive and trade against the book, bots'
 orders included. Its module docstring has the details. Three presets, `KELP`, `RAINFOREST_RESIN`
 and `SQUID_INK`, are calibrated so that `arena.diagnose` sees P3 round 1 in them, and named so the
-template trades them as it is; they are the default market. Three more are chosen with `--products`:
+template trades them as it is; they are the default market. Four more are chosen with `--products`:
 `HYDROGEL_PACK` returns to a level as P4's Hydrogel does; `KELP_FLOW` is Kelp with P3 round 1's
 one-sided takers (35% of trades are buys, larger than the sells), which push a two-sided quote long;
-`ROBOT_DISHES` jumps by 100 in bursts that mostly go straight back, as on P4 round 5's day 4. `--regime shift_up` (or `shift_down`,
+`ROBOT_DISHES` jumps by 100 in bursts that mostly go straight back, as on P4 round 5's day 4;
+`KELP_NOISY` is Kelp whose market maker quotes around a noisy view of the price, so its walls don't give it away. `--regime shift_up` (or `shift_down`,
 `trend_up`, `trend_down`; `--regime-at`, default mid-day) changes every product's regime during the
 day, as Qminers' 2024 final did: a shift of 5 wall spreads, or a trend of 10 over the rest of the
 day. Unlike `arena.stress`'s moved recordings, the market reacts to it.
@@ -612,7 +614,7 @@ mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head"
 Start from [`RUNBOOK.md`](RUNBOOK.md), one page of the day's commands; the steps below are the format swap in detail.
 
 1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground. `python/bots/probe.py` runs most of the probes in one run: rewrite its ADAPTER like the template's, and read its `PROBE` lines (`uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict` shows what our engine answers).
-2. **Write `python/arena/formats/qminers.py`**, using `drill.py` as the model, and register it in `python/arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
+2. **Write `python/arena/formats/qminers.py`**, from the format nearest their shape: the skeletons `snapshots.py` (book snapshots in CSV, a bot answering a state with orders) and `orderlog.py` (an order-by-order event log), whose names to change sit in tables at the top, or `drill.py`, and register it in `python/arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
 3. **Update the bot:** rewrite its imports, PARAMS and ADAPTER section, and leave DEFAULTS, STRATEGY and EXECUTION alone. `python/bots/drill/template.py` is the worked example: it is the template with only those parts rewritten for the drill API, and on the same simulated days it makes the same PnL as the template, to the cent (`python/tests/test_drill.py`).
 4. **Validate** with `--format qminers`, their time limit, `--allow` for their libraries, and `--max-size` from the dashboard.
 
@@ -620,7 +622,7 @@ Practise it: `uv run python -m experiments.format_drill <folder>` makes drill da
 
 ## Known gaps
 
-- **The simulated market is one guess at a design** (`arena.sim`). Its agents are the literature's minimal set, calibrated to P3 round 1's statistics, not to how the Arena's bots behave.
+- **The simulated market is one guess at a design** (`arena.sim`). Its agents are the literature's minimal set, calibrated to P3 round 1's statistics, not to how the Arena's bots behave. Its market makers quote around the true price exactly, except `KELP_NOISY`'s, so on the other presets the walls give the price away, and results that favour a wall-mid fair hold only where `arena.diagnose` says the wall mid filters the mid's noise (`IDEAS.md`, "A market maker that doesn't know the price").
 - **The queue model is an estimate.** By default you join the back of the queue and only move up when the visible volume shrinks. `--queue prob` and `--queue front` bracket it, but none of them sees individual orders, so a level re-posted at the same size looks unchanged to `prob`. Orders priced beyond the visible depth keep their last queue estimate.
 - **No conversions.** Trading with another island isn't supported (Prosperity 2 Orchids, Prosperity 3 Macarons).
 - **Rivals are only the bots you bring.** `--vs` shows how bots like yours interact, but real teams will quote, size and react differently.
