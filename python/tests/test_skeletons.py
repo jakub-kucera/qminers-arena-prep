@@ -54,13 +54,13 @@ def test_snapshots_run_a_strategy_in_decimal_prices(tmp_path):
             def on_tick(self, state):
                 self.seen.append(state.books["GOLD"].asks[0])
                 if state.timestamp == 100:
-                    return [Order("GOLD", 100.05, 2)]  # the best ask, in their prices
+                    return [Order("GOLD", 100.05, 1), Order("GOLD", 2001 * 0.05, 1)]  # the best ask, the second with a float's error
                 return []
     """}) / "bot.py"
     (day,) = snapshots.load_days(data, ["d1"])
     bot = snapshots.load_bot(bot_path, {}, strict=True)
     result = run_day(day, bot, EngineConfig())
-    assert [(f.price, f.quantity) for f in result.fills] == [(10005, 2)]
+    assert [(f.price, f.quantity) for f in result.fills] == [(10005, 1), (10005, 1)]
     assert bot._bot.seen == [(100.1, 4), (100.05, 2)] and not result.errors
 
 

@@ -43,3 +43,6 @@ python/experiments/mock_round/private/hidden_data/
 
 # Agent worktrees (Claude Code)
 .claude/worktrees/
+
+# ...but the mock round's results are the rehearsal's record (python/experiments/mock_round/README.md)
+!python/experiments/mock_round/results/

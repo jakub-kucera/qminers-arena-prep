@@ -90,7 +90,7 @@ def format_day(result: DayResult, penalty: float | None = None) -> str:
             f"first {product} at {timestamp}"
         )
     if result.races:
-        lines.append(f"  {len(result.races)} ticks with orders rejected after another bot's fill moved your position (a race)")
+        lines.append(f"  {len(result.races)} ticks with orders rejected because a fill since the bot decided moved its position (a race: another bot's fill, or with --delay its own late orders')")
     return "\n".join(lines)
 
 
@@ -150,12 +150,15 @@ def format_metrics_total(results: list[DayResult], penalty: float | None = None)
     """The portal's figures for a whole submission, with the days added up.
 
     The portal shows one set of metrics per submission, not one per day. This table adds each
-    day's fills, volume, cash and penalty, takes the last day's end position and mark, pools the
+    day's fills, volume and penalty, takes the last day's end position and mark, pools the
     |position| quantiles over every day's ticks, and adds a third standard error from the daily
     PnLs (`s.e. days`, stdev x sqrt(days)). `pnl` is the sum of the days; the line below the table
-    gives the sum and the mean, so either can be compared with the portal's `score`. If the
-    evaluation runs the days as one continuous session instead of summing them, the end position
-    and cash can differ: the first upload's page says which.
+    gives the sum and the mean, so either can be compared with the portal's `score`. Cash counts
+    each earlier day's end position at that day's last mark, as if sold there, so that
+    cash + position x mark - penalty = pnl holds here as on the portal (adding the days' own cash
+    would value only the last day's position). If the evaluation runs the days as one continuous
+    session instead of summing them, the end position and cash can differ: the first upload's page
+    says which.
     """
     rate = penalty or 0.0
     products: list[str] = []
@@ -176,7 +179,7 @@ def format_metrics_total(results: list[DayResult], penalty: float | None = None)
     for product in products:
         fills = orders = volume = 0
         position = 0
-        cash = mark = paid = pnl = 0.0
+        mark = paid = pnl = 0.0
         abs_positions: list[int] = []
         series_by_day: list[list[float]] = []
         day_totals: list[float] = []
@@ -198,12 +201,12 @@ def format_metrics_total(results: list[DayResult], penalty: float | None = None)
             volume += stats.volume
             position = end_position
             mark = end_mark
-            cash += day_pnl - end_position * end_mark + day_paid
             paid += day_paid
             pnl += day_pnl
             abs_positions.extend(abs(p) for p in positions)
             series_by_day.append(series)
             day_totals.append(day_pnl)
+        cash = pnl - position * mark + paid  # earlier days' end positions are in it at their last marks
         quantiles = " / ".join(f"{q:g}" for q in _quantiles(abs_positions, QUANTILES)) if abs_positions else "-"
         rows.append([product, f"{fills:,} ({orders:,})", f"{volume:,}", f"{position:,}", f"{cash:,.2f}",
                      f"{mark:,.2f}", f"{paid:,.2f}", *_total_standard_errors(series_by_day, day_totals),

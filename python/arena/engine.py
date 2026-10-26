@@ -43,8 +43,12 @@ Positions are valued at each tick's mark price: the data's, else the book's mid 
     every lot of a position beyond its limit costs this much, charged to that product, and the
     tick counts as a breach.
 Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
-exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there),
-and its limit check uses the position the bot saw when it decided. The bot is called before that
+exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there).
+Its limits are checked twice, as without a delay: against the position the bot saw when it decided
+(a breach), then against the position when it arrives, which the fills of its own earlier late
+orders have moved since (a race). Either rejects every new order for that product, as Prosperity
+does, so a bot that quotes all the room under its limit loses many ticks to races: one tick late,
+the template races on 3,248 of day 0's 10,000 ticks on P3 round 1. The bot is called before that
 tick's late orders are matched, so it never learns of a tick's trades before the next. For an
 exchange that applies orders a step late (probe 3); 0 is Prosperity's rule.
 """

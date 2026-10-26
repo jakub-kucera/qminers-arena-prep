@@ -114,9 +114,10 @@ def _units(text: str, where: str) -> int:
         units = Decimal(text) * PRICE_SCALE
     except InvalidOperation:
         raise ValueError(f"{where}: bad price {text!r}") from None
-    if units != units.to_integral_value():
+    whole = units.to_integral_value()
+    if abs(units - whole) > Decimal("1e-6"):  # a float's error (2001 * 0.05 = 100.05000000000001) passes, as in the drill
         raise ValueError(f"{where}: price {text} is finer than 1/{PRICE_SCALE}: raise PRICE_SCALE")
-    return int(units)
+    return int(whole)
 
 
 def _tick(ticks: list[Tick], product: str) -> int:
