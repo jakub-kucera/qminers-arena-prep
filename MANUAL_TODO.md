@@ -21,12 +21,21 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
     sleeping rules) is the first message of `references/algo_trade_arena_conversation.json`, which is
     committed, and its facts are in `ON_THE_DAY.md`, "Known so far". Left: the last e-mail, due about
     a week before the event (around 31 Oct), with travel, parking and the final instructions.
-- [ ] **Anything the portal shows before the event**: a playground or practice round, an example bot, the
-  "Download public backtest data" button, the result-file format, error messages. Save pages as PDF, data
-  and result files unchanged, in `references/arena-docs/portal/`.
-  - Why: it decides the bot interface, data format and limits (`ON_THE_DAY.md`, "First hour"). Note that the
-    mock round in `TODO.md` ("Run a mock round before the event.") is **our own rehearsal**; we do not know that the
-    organisers offer one.
+- [ ] **Anything the portal shows before the event, and on each submission**: a playground or practice round,
+  an example bot, the "Download public backtest data" button, the result-file format, error messages. Save
+  pages as PDF, data and result files unchanged, in `references/arena-docs/portal/`.
+  - **The public site was read in full again on 2026-10-26 and is still the 23 Oct build**
+    (`index-E19sYWMS.js`, SHA-256 `45dacdbc…a4bc`, Last-Modified 23 Oct 17:41 GMT): no new pages, no playground,
+    no example bot, no API documentation and no extra endpoint; the old bundle is gone and there is no Wayback
+    copy. The remaining website material is behind our team login, below.
+  - **On the first upload (2026-10-26):** save the submission page and its `resultFileZip` unchanged, list
+    the ZIP's contents, and compare any fills or orders in it with `arena.backtest --out` on the same data.
+    That is the portal's only detailed record of the public run and the best calibration of our engine.
+  - **After each deadline:** save the leaderboard's JSON (the page's own response for `rounds/<id>/leaderboard`,
+    from the browser's Network tab) and the PRIVATE evaluation's `resultFileZip`; both are our own team's pages.
+  - Why: it decides the bot interface, data format and limits (`ON_THE_DAY.md`, "First hour"), and the ZIPs
+    are the only per-fill detail the portal gives. Note that the mock round in `TODO.md` ("Run a mock round
+    before the event.") is **our own rehearsal**; we do not know that the organisers offer one.
   - Done when: the files are saved and the loader work (`python/arena/formats/qminers.py`, `ON_THE_DAY.md`) has what it needs, or the
     item is ticked as "nothing available before the event".
 - [x] **Material from earlier Qminers Quant Hackathons**, if a teammate or friend took part (2022 or 2024 problem
