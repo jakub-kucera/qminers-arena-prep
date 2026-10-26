@@ -17,7 +17,7 @@
   },
   "python/arena/stress.py": {
     "rust": "rust/src/arena/stress.rs",
-    "sha256": "752a26248ef4e76cbb0b2441bd76f33867da9355e5ba9e6006528773240b2b31"
+    "sha256": "7e00fe1230878e9de87b9f8d6e84e2fd9d10a82d1e56f4d537c299589604ad09"
   },
   "python/bots/mm.py": {
     "kind": "mm",

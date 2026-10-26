@@ -184,13 +184,14 @@ def _init(format_name, data_arg, day_specs, bot, overrides, rivals, config, requ
     _WORKER.update(fmt=fmt, days=days, bot=bot, overrides=overrides, rivals=rivals, config=config, requote=requote)
 
 
-def _run(task: tuple[int, str | None, float]) -> tuple[str, str | None, dict[str, float], int, dict[str, float]]:
+def _run(task: tuple[int, str | None, float]) -> tuple[str, str | None, dict[str, float], int, dict[str, float], str]:
     k, name, size = task
     w = _WORKER
     day = w["days"][k] if name is None else perturb(w["days"][k], name, size)
     result = run_with_rivals(w["fmt"], day, w["bot"], w["overrides"], w["rivals"], w["config"], requote=w["requote"])[0]
     pnl = {p: series[-1] for p, series in result.pnl.items() if series}
-    return w["days"][k].name, name, pnl, len(result.errors), {p: report.max_drawdown(series) for p, series in result.pnl.items()}
+    first = result.errors[0][1].strip().splitlines()[-1] if result.errors else ""
+    return w["days"][k].name, name, pnl, len(result.errors), {p: report.max_drawdown(series) for p, series in result.pnl.items()}, first
 
 
 def _run_rust(args, s, tasks: list[tuple[int, str | None, float]]) -> list[tuple]:
@@ -203,7 +204,7 @@ def _run_rust(args, s, tasks: list[tuple[int, str | None, float]]) -> list[tuple
         batch = [{"day": k, "transform": None if name is None else f"{name}:{size!r}", "config": rust.config_json(s.config),
                   "bots": [[n, j] for j, (n, *_) in enumerate(bots)], "blocks": 1, "fine": 1} for k, name, size in tasks]
         found = rust.run_batch(paths, specs, batch, args.jobs or os.cpu_count() or 1, scratch)
-    return [(s.days[k].name, name, r["products"], r["errors"], r["drawdowns"]) for (k, name, _), r in zip(tasks, found)]
+    return [(s.days[k].name, name, r["products"], r["errors"], r["drawdowns"], r.get("first_error", "")) for (k, name, _), r in zip(tasks, found)]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -234,12 +235,12 @@ def main(argv: list[str] | None = None) -> int:
         with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.format, args.data, args.days, args.bot, s.overrides, s.rivals, s.config, s.requote)) as pool:
             runs = list(pool.map(_run, tasks))
 
-    products = sorted({p for _, _, pnl, _, _ in runs for p, v in pnl.items() if v})
+    products = sorted({p for _, _, pnl, *_ in runs for p, v in pnl.items() if v})
     columns = ["plain", *names]
     totals = {(p, c): 0.0 for p in products for c in columns}
     worst: dict[str, tuple[float, str]] = {}
     drawdown: dict[str, float] = {}
-    for day, name, pnl, _, drawdowns in runs:
+    for day, name, pnl, _, drawdowns, _ in runs:
         if name is None:
             for p, value in drawdowns.items():
                 drawdown[p] = max(drawdown.get(p, 0.0), value)
@@ -257,9 +258,12 @@ def main(argv: list[str] | None = None) -> int:
         value, where = worst[p]
         print(f"{p:<{width}}" + "".join(f"  {totals[(p, c)]:>11,.0f}" for c in columns) + f"  {drawdown.get(p, 0):>14,.0f}  {value:,.0f} ({where})")
     print(f"{'total':<{width}}" + "".join(f"  {sum(totals[(p, c)] for p in products):>11,.0f}" for c in columns))
-    errors = sum(e for _, _, _, e, _ in runs)
+    errors = sum(e for _, _, _, e, *_ in runs)
     if errors:
-        print(f"\n! {errors} bot errors across the runs")
+        print(f"\n! {errors} bot errors across the runs; each run's first:")
+        for day, name, _, n, _, first in runs:
+            if n:  # a perturbation can push prices where the bot fails, e.g. below zero
+                print(f"  {day} {name or 'plain'}: {n:,} errors, first: {first or '(no message)'}")
     return 1 if errors else 0
 
 

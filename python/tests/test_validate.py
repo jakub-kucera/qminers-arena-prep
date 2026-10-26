@@ -183,10 +183,10 @@ def test_a_limit_unlike_the_datas_warns(check):
     assert "KELP 80 (no limit in PARAMS, so DEFAULTS'), the data's 50" in out
 
 
-@pytest.mark.parametrize("text, size", [("102400", 102400), ("100KB", 102348), ("100 kB", 102348), ("100KiB", 102348),
-                                        ("100k", 102348), ("1.5MB", 1520435), ("1 MB", 996147)])
+@pytest.mark.parametrize("text, size", [("102400", 102400), ("100KB", 99950), ("100 kB", 99950), ("100KiB", 102348),
+                                        ("100k", 99950), ("1.5MB", 1450000), ("1 MB", 950000), ("1MiB", 996147)])
 def test_max_size_reads_the_dashboards_figure_at_the_least_it_could_be(text, size):
-    assert validate.max_size(text) == size  # 100 kB on the dashboard is anything from 99.95 kB: 102,348.8 bytes
+    assert validate.max_size(text) == size  # 100 kB is anything from 99.95 kB, decimal unless it says KiB: 99,950 bytes
 
 
 @pytest.mark.parametrize("text", ["abc", "KB", "-5", "0", "10 GB"])
@@ -208,6 +208,6 @@ def test_the_file_checks_are_the_upload_forms(tmp_path):
 
 def test_a_file_over_max_size_fails_and_names_the_compact_command(check):
     code, out = check(None, "--max-size", "10KB")
-    assert code == 1 and "over the cap of 10,188: upload a compact copy (uv run python -m arena.compact" in out
+    assert code == 1 and "over the cap of 9,950: upload a compact copy (uv run python -m arena.compact" in out
     code, out = check(None, "--max-size", "1MB")
     assert code == 0 and "PASS  file size" in out

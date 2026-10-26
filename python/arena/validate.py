@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import gc
 import hashlib
 import inspect
 import os
@@ -47,6 +48,7 @@ PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
 RISKY_MODULES = {"subprocess", "socket", "urllib", "http", "requests"}
 HASH_SEEDS = ("1", "2")  # PYTHONHASHSEED of the two other processes the first day is replayed in
 UNITS = {"": 1, "b": 1, "k": 1024, "kb": 1024, "kib": 1024, "m": 1024**2, "mb": 1024**2, "mib": 1024**2}  # the portal's are binary
+DECIMAL = {"k": 1000, "kb": 1000, "m": 1000**2, "mb": 1000**2}  # but rules may write kB for 1,000 bytes
 
 
 @dataclass(frozen=True)
@@ -57,8 +59,9 @@ class Check:
 
 def max_size(text: str) -> int:
     """--max-size as bytes: a number of bytes, or the dashboard's figure with its unit ("100 kB", "1.5MB").
-    The dashboard shows the cap in binary units to one decimal, so a figure with a unit is taken as the
-    least it could be rounded from: 100 kB is 100 × 1,024 bytes less 0.05 kB."""
+    The dashboard shows the cap in binary units to one decimal, but a rules document may mean 1,000
+    bytes by kB, so a figure with a unit is taken as the least it could be: rounded from 0.05 below,
+    in decimal units unless it says KiB or MiB. 100 kB is 99,950 bytes (the 2026-10-26 dry run)."""
     number = text.strip().rstrip("bBiI").rstrip()
     unit = text.strip()[len(number):].strip().lower()
     number, letter = (number[:-1], number[-1].lower()) if number[-1:].isalpha() else (number, "")
@@ -71,7 +74,9 @@ def max_size(text: str) -> int:
         raise argparse.ArgumentTypeError(f"not a size: {text!r} (e.g. 102400, 100KB or 1.5MB)") from None
     if value <= 0:
         raise argparse.ArgumentTypeError(f"--max-size must be positive, not {text!r}")
-    return int(value) if UNITS[key] == 1 else int((value - 0.05) * UNITS[key])
+    if UNITS[key] == 1:
+        return int(value)
+    return int((value - 0.05) * min(UNITS[key], DECIMAL.get(key, UNITS[key])))
 
 
 def file_checks(path: Path, size: int, limit: int | None) -> list[Check]:
@@ -128,6 +133,10 @@ def static_checks(source: str, fmt, allow: set[str]) -> tuple[list[Check], bool]
 def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None) -> list[Check]:
     """argv, this run's arguments, lets the first day be replayed in other processes (hash_seed_check)."""
     results, bots = [], []
+    # The loaded days are long-lived: freeze them out of the collector, or its pauses land inside
+    # the bot's timed calls (43-53 ms against the bot's own 0.3 ms in the 2026-10-26 dry run).
+    gc.collect()
+    gc.freeze()
     for day in s.days:
         bot = s.format.load_bot(path, s.overrides, strict=True)
         results.append(run_day(day, bot, s.config))
@@ -160,10 +169,11 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
 
     step_ms = [seconds * 1000 for r in results for seconds in r.step_seconds]
     slowest = max(step_ms, default=0.0)
+    p99 = statistics.quantiles(step_ms, n=100)[98] if len(step_ms) >= 100 else slowest
     checks.append(
         Check(
             FAIL if slowest > time_limit_ms else PASS,
-            f"slowest tick {slowest:.1f} ms (limit {time_limit_ms:g} ms), mean {statistics.fmean(step_ms or [0]):.2f} ms",
+            f"slowest tick {slowest:.1f} ms (limit {time_limit_ms:g} ms), 99th percentile {p99:.2f} ms, mean {statistics.fmean(step_ms or [0]):.2f} ms",
         )
     )
 

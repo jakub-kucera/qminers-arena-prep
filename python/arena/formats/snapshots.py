@@ -46,7 +46,7 @@ COLUMNS = {"timestamp": "timestamp", "product": "product", "bid_price": "bid_pri
 DELIMITER = ","
 DEPTH = 10  # book levels a side to look for (bid_price_1 .. bid_price_DEPTH)
 PRICE_SCALE = 100  # price units a currency unit: 100 keeps cents
-ENTRY = ("Strategy", "on_tick")  # the class the bot file defines, and the method called once a step
+ENTRY = ("Strategy", "on_tick")  # the class the bot file defines and the method called once a step; (None, "trade") for a module-level function
 
 # ---------------------------------------------------------------------------- data
 
@@ -134,6 +134,9 @@ def load_bot(path: Path, overrides: dict[str, object], strict: bool, fresh_each_
 
 def check_source(tree: ast.Module) -> list[str]:
     cls, method = ENTRY
+    if cls is None:
+        found = any(isinstance(node, ast.FunctionDef) and node.name == method for node in tree.body)
+        return [] if found else [f"no top-level function {method}"]
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and node.name == cls:
             if any(isinstance(item, ast.FunctionDef) and item.name == method for item in node.body):
@@ -149,14 +152,17 @@ class SnapshotBot:
 
     def __init__(self, bot_file: BotFile, fresh_each_tick: bool = False):
         self._file, self._fresh = bot_file, fresh_each_tick
-        self._bot = getattr(bot_file.load(), ENTRY[0])()
+        module = bot_file.load()
+        self._bot = module if ENTRY[0] is None else getattr(module, ENTRY[0])()  # a module-level function's "instance" is its module
         self._limits: dict[str, int] = {}
 
     def begin_day(self, day: Day) -> None:
         self._limits = day.limits
 
     def step(self, tick: Tick, positions, own_fills, market_trades, open_orders: list[OpenOrder]) -> list[Order | Cancel]:
-        if self._fresh:  # as the drill's: keep the instance's state, lose module globals
+        if self._fresh and ENTRY[0] is None:  # a function API keeps nothing between calls but what it is handed
+            self._bot = self._file.load()
+        elif self._fresh:  # as the drill's: keep the instance's state, lose module globals
             module = self._file.load()
             bot = getattr(module, ENTRY[0]).__new__(getattr(module, ENTRY[0]))
             bot.__dict__ = self._bot.__dict__

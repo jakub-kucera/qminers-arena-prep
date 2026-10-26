@@ -131,3 +131,20 @@ def test_the_snapshot_example_reproduces_prosperitys_books(tmp_path):
     for a, b in zip(ours.ticks, theirs.ticks[:50]):
         for product, book in b.books.items():
             assert a.books[product].bids == tuple((p * 10, v) for p, v in book.bids)  # prices / 10, in cents
+
+
+def test_snapshots_can_call_a_module_level_function(tmp_path, monkeypatch):
+    data = write(tmp_path, {"limits.json": json.dumps({"GOLD": 20, "SILVER": 10}), "d1_book.csv": BOOK})
+    bot_path = write(tmp_path / "bot", {"bot.py": """
+        from api import Order
+
+        def trade(state):
+            return [Order("GOLD", 100.05, 2)] if state.timestamp == 100 else []
+    """}) / "bot.py"
+    monkeypatch.setattr(snapshots, "ENTRY", (None, "trade"))
+    (day,) = snapshots.load_days(data, ["d1"])
+    result = run_day(day, snapshots.load_bot(bot_path, {}, strict=True), EngineConfig())
+    assert [(f.price, f.quantity) for f in result.fills] == [(10005, 2)]
+    import ast
+    assert snapshots.check_source(ast.parse("def trade(state): return []")) == []
+    assert snapshots.check_source(ast.parse("class Strategy: pass")) == ["no top-level function trade"]

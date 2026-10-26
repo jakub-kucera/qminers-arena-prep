@@ -633,7 +633,7 @@ def smoke_test(s: Setup, bot: Path, axes: list[Axis], modes: list | None = None)
     matching (its own rivals load then), so a typo fails fast instead of in every run."""
     overrides = {**s.overrides, **{axis.target: axis.values[0] for axis in axes}}
     day = s.days[0]
-    sample = Day(day.name, day.products, day.limits, day.ticks[:SMOKE_TEST_TICKS])
+    sample = replace(day, ticks=day.ticks[:SMOKE_TEST_TICKS])  # info too: a format's ticks and units
     runs = [(s.config, s.rivals, "")] + [(config_for(s.config, m), rivals_for(s.rivals, m), f" under {m}") for m in modes or []
                                           if isinstance(m, Scenario) and not m.plain]
     for config, rivals, where in runs:

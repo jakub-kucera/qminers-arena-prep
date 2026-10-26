@@ -100,3 +100,22 @@ def test_permute_shuffles_in_runs_and_is_seeded():
     assert all(b - a == 1 for run in range(6) for a, b in zip(order[run * 5 : run * 5 + 4], order[run * 5 + 1 : run * 5 + 5]))
     assert order == [t.trades["X"][0].quantity - 1 for t in permute(day, seed=1, block=5).ticks]
     assert [t.trades["X"][0].quantity for t in permute(day, seed=1, block=30).ticks] == list(range(1, 31))
+
+
+def test_the_cli_prints_each_failing_runs_first_error(data_dir, tmp_path, capsys):
+    """The 2026-10-26 dry run saw only a count of errors; the cause (a perturbation pushing a price
+    where the bot fails) took a script to find."""
+    from arena import stress
+
+    bot = tmp_path / "bot.py"
+    bot.write_text(
+        "from datamodel import Order\n"
+        "class Trader:\n"
+        "    def run(self, state):\n"
+        "        if min(state.order_depths['KELP'].sell_orders) > 2040:\n"
+        "            raise ValueError('ask too high')\n"
+        "        return {}, 0, ''\n"
+    )
+    code = stress.main([str(bot), "1", "--data", str(data_dir), "--only", "trend_up", "--jobs", "1"])
+    out = capsys.readouterr().out
+    assert code == 1 and "trend_up: 1 errors, first: ValueError: ask too high" in out and "plain:" not in out

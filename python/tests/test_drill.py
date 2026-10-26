@@ -141,10 +141,11 @@ def _sections(text: str) -> tuple[str, str]:
     return defaults, core
 
 
-def test_the_drill_template_keeps_the_templates_strategy_and_execution_word_for_word():
+@pytest.mark.parametrize("path", sorted((ROOT / "bots").glob("*/template.py")), ids=lambda p: p.parent.name)
+def test_every_formats_template_keeps_the_templates_strategy_and_execution_word_for_word(path):
+    # The drill's, and on the day the Arena's (python/bots/qminers/template.py): only imports, PARAMS and ADAPTER differ.
     template = (ROOT / "bots" / "template.py").read_text()
-    drill_template = (ROOT / "bots" / "drill" / "template.py").read_text()
-    assert _sections(drill_template) == _sections(template), "copy DEFAULTS, STRATEGY and EXECUTION from python/bots/template.py"
+    assert _sections(path.read_text()) == _sections(template), "uv run python -m experiments.format_drill --sync"
 
 
 def test_the_drill_template_trades_like_the_template_on_the_same_days(tmp_path):
@@ -169,3 +170,21 @@ def test_the_drill_template_trades_like_the_template_on_the_same_days(tmp_path):
     assert b.pnl["ALPHA"][-1] == pytest.approx(5 * a.pnl["KELP"][-1])
     assert b.pnl["BETA"][-1] == pytest.approx(a.pnl["RAINFOREST_RESIN"][-1])
     assert len(a.fills) == len(b.fills)
+
+
+def test_the_grids_smoke_test_keeps_the_days_tick_sizes(tmp_path, capsys):
+    """A grid's 200-tick smoke test used to rebuild the day without Day.info, so a format's per-product
+    ticks fell back to 0.01 there (found in the 2026-10-26 dry run)."""
+    from arena import grid
+
+    data = write_data(tmp_path / "data", EVENTS)
+    bot = tmp_path / "bot.py"
+    bot.write_text(textwrap.dedent("""
+        SIZE = 1
+
+        class Bot:
+            def on_tick(self, api):
+                assert api.tick_size("ALPHA") == 0.05, api.tick_size("ALPHA")
+    """))
+    code = grid.main([str(bot), "all", "--format", "drill", "--data", str(data), "--grid", "SIZE=1,2", "--jobs", "1"])
+    assert code == 0, capsys.readouterr().out
