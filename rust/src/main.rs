@@ -25,6 +25,7 @@
 //!       threads, R times over for timing: a CSV row per backtest, the timing on stderr
 //! ENGINE: --match-trades all|worse|none  --resting  --queue back|prob|front  --queue-power X
 //!         --fill-ratio X  --seed N  --mark mid|touch|last  --limit-penalty RATE  --delay TICKS
+//!         --fee PER_LOT  --fee-bps BPS
 //!         --product NAME (grid only: the product it varies and trades; default KELP)
 
 mod commands;

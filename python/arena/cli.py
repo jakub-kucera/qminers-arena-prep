@@ -93,6 +93,10 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         help="orders reach the exchange this many ticks after the bot decides, meeting that tick's book and trades, as on an "
         "exchange that applies them a step late (default: 0, Prosperity's)",
     )
+    parser.add_argument("--fee", type=float, default=0.0, metavar="PER_LOT",
+                        help="charge every fill this much a lot, in the data's price units (default: 0, Prosperity's)")
+    parser.add_argument("--fee-bps", type=float, default=0.0, metavar="BPS",
+                        help="charge every fill this many basis points of its value (default: 0)")
     parser.add_argument(
         "--set",
         dest="overrides",
@@ -145,9 +149,13 @@ def setup(args: argparse.Namespace) -> Setup:
         mark=args.mark,
         limit_penalty=args.limit_penalty,
         delay=args.delay,
+        fee=args.fee,
+        fee_bps=args.fee_bps,
     )
     if config.delay < 0:
         raise ValueError("--delay needs 0 or more ticks")
+    if config.fee < 0 or config.fee_bps < 0:
+        raise ValueError("--fee and --fee-bps need 0 or more (a rebate isn't modelled)")
     overrides = dict(parse_override(text) for text in args.overrides)
     return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False), getattr(args, "engine", "python"))
 

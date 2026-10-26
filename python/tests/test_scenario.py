@@ -22,6 +22,7 @@ def test_a_scenario_changes_only_the_settings_it_names():
     scored = parse_scenario("portal:mark=touch,penalty=2.5")
     assert config_for(EngineConfig(seed=4), scored) == EngineConfig(seed=4, mark=Mark.TOUCH, limit_penalty=2.5)
     assert config_for(EngineConfig(mark=Mark.LAST, limit_penalty=1.0), parse_scenario("x:fill=0.5")) == EngineConfig(fill_ratio=0.5, mark=Mark.LAST, limit_penalty=1.0)
+    assert config_for(EngineConfig(), parse_scenario("fees:fee=0.5,bps=2")) == EngineConfig(fee=0.5, fee_bps=2.0)
 
 
 def test_modes_are_plain_scenarios_and_names_are_unique():
@@ -35,7 +36,7 @@ def test_modes_are_plain_scenarios_and_names_are_unique():
 
 
 @pytest.mark.parametrize("text", ["x:fill=0", "x:fill=1.5", "x:queue=middle", "x:match=some", "x:speed=2", "x:seed=1,seed=2",
-                                  "x:resting=maybe", "x:fill", "x:vs=no/such/bot.py", "x:", "x:mark=close", "x:penalty=-1", "x:penalty=a", "x:penalty"])
+                                  "x:resting=maybe", "x:fill", "x:vs=no/such/bot.py", "x:", "x:mark=close", "x:penalty=-1", "x:penalty=a", "x:penalty", "x:fee=-1", "x:bps=a"])
 def test_a_bad_scenario_is_refused(text):
     with pytest.raises(ValueError):
         parse_scenario(text)

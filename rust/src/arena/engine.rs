@@ -3,7 +3,7 @@
 //! default mode (orders live one tick), resting mode with the back / prob / front queue models,
 //! the fill ratio's seeded liquidity draws, several bots in one market with their arrival
 //! shuffle, races and limit breaches, the marks and the limit penalty of another exchange's
-//! scoring, and the delay between a bot's decision and its orders reaching the exchange.
+//! scoring, the delay between a bot's decision and its orders reaching the exchange, and fees.
 //! Everything a DayResult records per tick is recorded here too.
 //!
 //! Not ported: order tags (a format's own ids), the bot's exceptions, prints and step timings
@@ -48,6 +48,8 @@ pub struct EngineConfig {
     pub mark: Mark,
     pub limit_penalty: Option<f64>, // None: rule 2's rejection; a rate: charged for each lot beyond a limit, each tick
     pub delay: usize,               // ticks between a bot's decision and its orders reaching the exchange
+    pub fee: f64,                   // charged per lot filled
+    pub fee_bps: f64,               // charged per fill, in basis points of its value
 }
 
 impl Default for EngineConfig {
@@ -62,6 +64,8 @@ impl Default for EngineConfig {
             mark: Mark::Mid,
             limit_penalty: None,
             delay: 0,
+            fee: 0.0,
+            fee_bps: 0.0,
         }
     }
 }
@@ -256,7 +260,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
                 current = Cow::Owned(without(&tick.books, &s.taken));
             }
             resting.retain(|order| order.quantity != 0);
-            settle(&mut players, &mut s.fills);
+            settle(&mut players, &mut s.fills, config);
         }
 
         for (i, (player, (_, bot))) in players.iter_mut().zip(bots.iter_mut()).enumerate() {
@@ -323,7 +327,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             for k in 0..s.orders.len() {
                 let (ioc, mut live) = (s.orders[k].ioc, s.placed[k].clone());
                 take(&mut live, &mut books, &mut working, &ids, ts, &mut s.between, &mut s.queue, &mut s.fills);
-                settle(&mut players, &mut s.fills);
+                settle(&mut players, &mut s.fills, config);
                 if live.quantity != 0 && !(config.resting && ioc) {
                     let volume = volume_at(&live, &current);
                     live.ahead = volume;
@@ -335,7 +339,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
 
         if config.resting {
             fill_resting(&mut working, &mut trades, config.trade_matching, ts, &mut s);
-            settle(&mut players, &mut s.fills);
+            settle(&mut players, &mut s.fills, config);
             working.retain(|o| o.quantity != 0);
             std::mem::swap(&mut working, &mut resting);
         } else if players.len() == 1 {
@@ -343,10 +347,10 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             for order in working.iter_mut() {
                 take_trades(order, &mut trades, config.trade_matching, ts, &mut s.fills);
             }
-            settle(&mut players, &mut s.fills);
+            settle(&mut players, &mut s.fills, config);
         } else {
             match_trades(&mut working, &mut trades, config.trade_matching, ts, &mut s);
-            settle(&mut players, &mut s.fills);
+            settle(&mut players, &mut s.fills, config);
         }
         working.clear();
         remaining_trades(&trades, &mut s.remaining);
@@ -405,11 +409,17 @@ fn valued_at(position: &[i64], books: &[Option<Book>], mark: &[f64], last: &[Opt
     }
 }
 
-fn settle(players: &mut [Participant], fills: &mut Vec<(usize, Fill)>) {
+fn settle(players: &mut [Participant], fills: &mut Vec<(usize, Fill)>, config: &EngineConfig) {
     for (owner, fill) in fills.drain(..) {
         let player = &mut players[owner];
         player.position[fill.product] += fill.quantity;
         player.cash[fill.product] -= (fill.price * fill.quantity) as f64;
+        if config.fee != 0.0 {
+            player.cash[fill.product] -= config.fee * fill.quantity.abs() as f64;
+        }
+        if config.fee_bps != 0.0 {
+            player.cash[fill.product] -= config.fee_bps * (fill.price * fill.quantity).abs() as f64 / 10_000.0;
+        }
         player.result.fills.push(fill);
         player.unseen_fills.push(fill);
     }

@@ -116,6 +116,8 @@ def _load_day(path: Path, name: str, limits: dict[str, int]) -> Day:
                     if quantity > size:
                         orders[order_id] = (product, buy, price, quantity - size)
             elif kind == e["trade"]:
+                if row[c["product"]] not in limits:  # an add checks its product; a trade can name one no order did
+                    raise ValueError(f"{where}: {row[c['product']]!r} has no limit in {FILES['limits']}")
                 product, aggressor_buys = row[c["product"]], _buy(row[c["side"]], where)
                 buyer, seller = (TAKER, "") if aggressor_buys else ("", TAKER)
                 trades[product].append(MarketTrade(product, _units(row[c["price"]], where), int(float(row[c["quantity"]])), buyer, seller, timestamp))

@@ -110,7 +110,7 @@ def test_an_order_log_rebuilds_the_book_each_step(tmp_path):
 
 def test_an_order_log_rejects_unknown_orders_and_events(tmp_path):
     for line, message in (("0,delete,zz,,,,", "unknown order 'zz'"), ("0,cross,x,GOLD,buy,1,1", "unknown event 'cross'"),
-                          ("0,add,x,GOLD,long,1,1", "side 'long'")):
+                          ("0,add,x,GOLD,long,1,1", "side 'long'"), ("0,trade,,SILVER,buy,1,1", "'SILVER' has no limit")):
         data = write(tmp_path / message[:5].replace(" ", ""), {"limits.json": json.dumps({"GOLD": 20}),
                                                                 "d1.csv": "timestamp,event,order_id,product,side,price,quantity\n" + line + "\n"})
         with pytest.raises(ValueError, match=message):

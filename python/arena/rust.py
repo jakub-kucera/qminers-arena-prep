@@ -420,6 +420,8 @@ def _engine_args(config: EngineConfig) -> list[str]:
     args += [] if config.mark is Mark.MID else ["--mark", str(config.mark)]
     args += [] if config.limit_penalty is None else ["--limit-penalty", repr(float(config.limit_penalty))]
     args += ["--delay", str(config.delay)] if config.delay else []
+    args += ["--fee", repr(float(config.fee))] if config.fee else []
+    args += ["--fee-bps", repr(float(config.fee_bps))] if config.fee_bps else []
     return args + (["--resting"] if config.resting else [])
 
 

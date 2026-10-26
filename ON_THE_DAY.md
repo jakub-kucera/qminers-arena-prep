@@ -285,6 +285,8 @@ From the organisers' e-mail of 7 Oct (saved as the first message of `references/
   - How are the rounds combined into a ranking? Is there a penalty for risk or drawdown?
   - If the ranking is relative, size the risk for the chance of placing, not for PnL. Qminers' 2024 winner simulated the other finalists to pick their stake, then halved it in the last round while far ahead and kept first (`references/wiki/concepts/risk-and-protecting-a-lead.md`). Before round 4 (40%), compute the lead in weighted points and decide in writing how much risk to keep.
 - [ ] **Are there fees, rate limits or caps?** Fees or rebates per trade, the maximum number of orders per call or per second, and the maximum number of open orders. AlgoTrade closed your connection above 500 messages a second, and allowed 6,000 open orders.
+  - We assume: no fees (Prosperity's rule).
+  - If there are fees (2026-10-26): backtest and grid with `--fee PER_LOT` (in the data's price units) and/or `--fee-bps BPS` (on a fill's value), or a scenario's `fee=` / `bps=`; `--engine rust` runs them too. Then re-grid `make_edge` first, then `take_edge`: a fee is a fixed cost per lot, so thin quotes lose first. On P3 round 1, 0.5 a lot (about 2.5 bps of Kelp's price) took the template from 72,674 to 45,788 and made a wider Kelp quote worth 32% more than the committed one; the takes held up (`IDEAS.md`, "Fees"). The engine charges passive and aggressive fills alike; if their maker and taker rates differ, or makers get a rebate, `settle` in `python/arena/engine.py` and its Rust twin need the fill's side.
 
 ## Every round
 

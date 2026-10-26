@@ -1,7 +1,7 @@
 {
   "python/arena/engine.py": {
     "rust": "rust/src/arena/engine.rs",
-    "sha256": "2b6f5c9ca470abc589f69b130dc4f6a74bbd659db9bcea61f30ad17747f70a5f"
+    "sha256": "8173835c13f66ba921a7e58d97ca11a147b298773fb444c9752033b1c6821f6d"
   },
   "python/arena/formats/prosperity.py": {
     "rust": "rust/src/arena/formats/prosperity.rs",

@@ -136,6 +136,15 @@ def test_mark_last_values_positions_at_the_last_market_trade_and_the_mark_before
     assert result.marks["X"] == [100, 105, 105] and result.pnl["X"] == [-2, 8, 8]
 
 
+def test_fees_charge_every_fill_per_lot_and_on_its_value():
+    d = day(tick(0, asks=[(100, 5)], mark=100), tick(1, bids=[(100, 5)], mark=100))
+    script = {0: [Order("X", 100, 2)], 1: [Order("X", 100, -2)]}
+    assert run_day(d, ScriptedBot(script)).pnl["X"] == [0, 0]
+    # each fill of 2 lots at 100: 0.5 a lot is 1, 10 bps of its 200 is 0.2
+    charged = run_day(d, ScriptedBot(script), EngineConfig(fee=0.5, fee_bps=10))
+    assert charged.pnl["X"] == pytest.approx([-1.2, -2.4])
+
+
 def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_limit_each_tick():
     d = day(tick(0, asks=[(101, 20)], mark=100), tick(1, mark=100), tick(2, bids=[(99, 20)], mark=100), limits={"X": 10})
     script = {0: [Order("X", 101, 6), Order("X", 101, 6)], 2: [Order("X", 99, -12)]}

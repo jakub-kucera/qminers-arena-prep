@@ -31,6 +31,7 @@ uv run python -m arena.backtest python/bots/template.py 1 --engine rust   # the 
 uv run python -m arena.backtest python/bots/template.py 1 --mark touch --limit-penalty 5   # positions valued at the touch; a breach charged per lot a tick, not rejected
 uv run python -m arena.backtest python/bots/template.py 1 --metrics      # also the figures the Arena's portal shows on a submission, to compare with it
 uv run python -m arena.backtest python/bots/template.py 1 --delay 1      # orders reach the exchange a tick after the bot decides (--engine rust too)
+uv run python -m arena.backtest python/bots/template.py 1 --fee 0.1 --fee-bps 1   # every fill pays 0.1 a lot and 1 bp of its value (--engine rust too)
 uv run python -m arena.validate python/bots/template.py 1                # pre-submission checks, exit 1 on FAIL
 uv run python -m arena.validate python/bots/template.py 1 --max-size 100KB   # ...and the dashboard's file-size cap
 uv run python -m arena.compact python/bots/template.py submit/template.py   # over the cap: the same code without comments or docstrings (~26 KB)

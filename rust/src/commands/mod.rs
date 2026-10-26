@@ -55,6 +55,8 @@ impl Args {
             mark: mark(self.get("--mark").unwrap_or("mid")),
             limit_penalty: self.get("--limit-penalty").map(number),
             delay: self.get("--delay").unwrap_or("0").parse().unwrap_or_else(|_| fail("--delay needs a whole number of ticks, 0 or more")),
+            fee: number(self.get("--fee").unwrap_or("0")),
+            fee_bps: number(self.get("--fee-bps").unwrap_or("0")),
         }
     }
 }
@@ -365,6 +367,8 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
             Some(d) if d >= 0 => d as usize,
             _ => return Err("config delay must be a whole number of ticks, 0 or more".to_string()),
         },
+        fee: number("fee", 0.0)?,
+        fee_bps: number("fee_bps", 0.0)?,
     })
 }
 

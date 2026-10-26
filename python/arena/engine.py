@@ -42,6 +42,9 @@ Positions are valued at each tick's mark price: the data's, else the book's mid 
   - limit_penalty: no order is rejected for the limit (rule 2 is off). After each tick's fills,
     every lot of a position beyond its limit costs this much, charged to that product, and the
     tick counts as a breach.
+Fees (EngineConfig.fee, fee_bps): each fill costs `fee` a lot and `fee_bps` basis points of its
+value (price x lots, in the engine's price units), charged to the product's cash as it settles, the
+same for every participant and for passive and aggressive fills alike. 0 is Prosperity's rule.
 Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
 exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there).
 Its limits are checked twice, as without a delay: against the position the bot saw when it decided
@@ -108,6 +111,8 @@ class EngineConfig:
     limit_penalty: float | None = None  # None: rule 2, as Prosperity; a number: charge each lot beyond a limit this much a tick
     capture_output: bool = True  # hide the bot's prints (their size is still measured)
     delay: int = 0  # ticks between a bot's decision and its orders reaching the exchange (see the module docstring)
+    fee: float = 0.0  # charged per lot filled (see the module docstring)
+    fee_bps: float = 0.0  # charged per fill, in basis points of its value
 
 
 class Bot(Protocol):
@@ -235,6 +240,10 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             player = players[owner[fill.order_id]]
             player.position[fill.product] += fill.quantity
             player.cash[fill.product] -= fill.price * fill.quantity
+            if config.fee:
+                player.cash[fill.product] -= config.fee * abs(fill.quantity)
+            if config.fee_bps:
+                player.cash[fill.product] -= config.fee_bps * abs(fill.price * fill.quantity) / 10_000
             player.result.fills.append(fill)
             player.unseen_fills.append(fill)
 
