@@ -191,3 +191,29 @@ def test_cli_prints_the_table_and_writes_the_csv(data_dir, tmp_path, capsys):
 def test_cli_rejects_a_bad_day(data_dir):
     with pytest.raises(SystemExit):
         diagnose.main(["x", "--data", str(data_dir)])
+
+
+def _day_with_an_open(wide: bool, name: str) -> Day:
+    """1,000 ticks; with `wide`, the first 100 have a spread of 6 and a wall mid that moves 2 a tick,
+    the rest a spread of 2 and a rise of 1 every fourth tick."""
+    ticks, wall = [], 100
+    for i in range(1000):
+        opening = wide and i < 100
+        wall += (2 if i % 2 else -2) if opening else (1 if i % 4 == 0 else 0)  # a trend, so the wall mid isn't "nearly fixed"
+        half = 3 if opening else 1
+        ticks.append(Tick(i * 100, {"X": Book(((wall - half, 20),), ((wall + half, 20),))}, {}, {}))
+    return Day(name, ["X"], {"X": 10}, ticks)
+
+
+def test_an_open_that_is_wider_and_faster_every_day_gets_a_note_and_a_profile():
+    days = [_day_with_an_open(True, f"d{n}") for n in range(2)]
+    row = diagnose.diagnose(days)["X"]
+    assert row["open_spread"] == pytest.approx(3.0) and row["open_move"] == pytest.approx(8.0, rel=0.05)
+    assert "the open (first tenth): spread 3.0x, volatility 8.0x the day's middle" in row["notes"]
+    assert "the close" not in row["notes"]
+    profile = diagnose.time_profile(days)["X"]
+    assert len(profile["spread"]) == diagnose.PARTS and profile["spread"][0] == pytest.approx(6) and profile["spread"][5] == pytest.approx(2)
+    assert "0-10%" in diagnose.format_profile({"X": profile})
+    # One ordinary day among them: the days disagree, so no note, though the pooled ratio is still past the threshold.
+    mixed = diagnose.diagnose([*days, _day_with_an_open(False, "d2")])["X"]
+    assert mixed["open_spread"] > diagnose.PROFILE_RATIO and "the open" not in mixed["notes"]

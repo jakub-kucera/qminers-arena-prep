@@ -2,6 +2,7 @@
 
     uv run python -m arena.diagnose 1 --data p4        # every day of round 1
     uv run python -m arena.diagnose 3-0 --data p4 --csv results/diag.csv
+    uv run python -m arena.diagnose 1 --data p3 --profile   # ...and each product by tenth of the day
 
 No bot is needed: it reads the days through the format plug-in, so it works on the Arena's
 first data download as soon as its format module exists. For each product, pooled over the days:
@@ -34,6 +35,11 @@ first data download as soon as its format module exists. For each product, poole
     (2018), eqs. 17.13–17.14: slow `−edge − R(LAG)` and fast `−edge × (1 − C(1)) − R(1)`. The
     book writes `s/2` for `−edge`, which is the same against the mid when trades are at the touch;
     measuring it keeps the margin consistent with the reference.
+- **Time of day:** the spread, the wall mid's mean move a tick and the market trades per 1,000
+  ticks in each tenth of the day (`PARTS`), pooled over the days. When the first or the last tenth
+  is `PROFILE_RATIO` times the middle's median, or less than its inverse, the notes say so: an open
+  that is wider or faster than the day is a reason to quote wider there, a close that is to flatten
+  earlier (`flatten_from`). `--profile` prints the whole table.
 - **Notes:** which regime the numbers point to, using the thresholds below. They are rules of
   thumb calibrated on Prosperity data, not verdicts.
   `references/wiki/concepts/reading-the-data-on-day-one.md` says what each one means for the
@@ -86,6 +92,19 @@ PERSISTENT_SIGNS = 0.5  # C(1) from which trade signs persist
 INFORMED_SHARE = 0.25  # |R(LAG)| against the wall mid, as a share of the taker's cost, from which the move gets a note
 THIN_MARGIN_SHARE = 0.1  # slow margin against the wall mid, as a share of the spread, below which it is thin
 T_STAT = 2.0  # |mean / standard error| from which a mean counts as non-zero (rough: overlapping horizons)
+PARTS = 10  # the time-of-day profile splits each day into this many parts
+PROFILE_RATIO = 1.5  # the first or last part, over the middle parts' median, from which (or below whose inverse) it gets a note
+
+
+@dataclass
+class _Parts:
+    """One day's time-of-day profile, per tenth (PARTS): ticks, the sum and count of spreads and of
+    |wall mid moves|, and market trades."""
+
+    ticks: list[int] = field(default_factory=lambda: [0] * PARTS)
+    spreads: list[list[float]] = field(default_factory=lambda: [[0.0, 0] for _ in range(PARTS)])
+    moves: list[list[float]] = field(default_factory=lambda: [[0.0, 0] for _ in range(PARTS)])
+    trades: list[int] = field(default_factory=lambda: [0] * PARTS)
 
 
 @dataclass
@@ -115,23 +134,39 @@ class _Acc:
     moves: dict[tuple[str, int], list[float]] = field(default_factory=dict)  # (reference, horizon)
     slow_gains: dict[str, list[float]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
     snaps: list[tuple[str, int, int, int]] = field(default_factory=list)  # (day, jumps, pairs, pairs reversed) per day
+    parts: list[_Parts] = field(default_factory=list)  # per day, for the time-of-day profile
 
 
 def diagnose(days: list[Day]) -> dict[str, dict[str, float | str | None]]:
     """Per product, the diagnostics in the module docstring, pooled over the days."""
+    return {product: _summarise(acc) for product, acc in _accumulate(days).items()}
+
+
+def time_profile(days: list[Day]) -> dict[str, dict[str, list[float | None]]]:
+    """Per product, per tenth of the day: the mean spread in ticks, the wall mid's mean |move| a tick
+    in ticks, and market trades per 1,000 ticks."""
+    return {product: _profile(acc) for product, acc in _accumulate(days).items()}
+
+
+def _accumulate(days: list[Day]) -> dict[str, _Acc]:
     accs: dict[str, _Acc] = {}
     for day in days:
         for product in day.products:
             _add_day(accs.setdefault(product, _Acc()), day, product)
-    return {product: _summarise(acc) for product, acc in sorted(accs.items())}
+    return dict(sorted(accs.items()))
 
 
 def _add_day(acc: _Acc, day: Day, product: str) -> None:
     series: dict[str, list[float | None]] = {r: [] for r in REFERENCES}
     prices: set[float] = set()
-    for tick in day.ticks:
+    parts = _Parts()
+    acc.parts.append(parts)
+    for i, tick in enumerate(day.ticks):
         book = tick.books.get(product)
         acc.ticks += 1
+        part = i * PARTS // len(day.ticks)
+        parts.ticks[part] += 1
+        parts.trades[part] += len(tick.trades.get(product, []))
         if book is not None:
             prices.update(p for p, _ in book.bids + book.asks)
         if book is None or not (book.bids and book.asks):
@@ -142,8 +177,12 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         acc.two_sided += 1
         acc.spreads.append(book.asks[0][0] - book.bids[0][0])
         acc.largest += [max(v for _, v in book.bids), max(v for _, v in book.asks)]
+        parts.spreads[part][0] += acc.spreads[-1]
+        parts.spreads[part][1] += 1
         if series["wall"] and series["wall"][-1] is not None and book.wall_mid is not None:
             acc.wall_moves.append((abs(book.wall_mid - series["wall"][-1]), acc.spreads[-1] / 2))
+            parts.moves[part][0] += acc.wall_moves[-1][0]
+            parts.moves[part][1] += 1
         series["mid"].append(book.mid)
         series["wall"].append(book.wall_mid)
     acc.mids += [m for m in series["mid"] if m is not None]
@@ -244,8 +283,40 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         row[f"slow_{name}"] = _mean(acc.slow_gains[name])
         row[f"slow_{name}_t"] = _t_stat(acc.slow_gains[name])
         row[f"fast_{name}"] = -edge * (1 - c1) - r1 if None not in (edge, r1, c1) else None
+    pooled = _edges(_profile(acc))
+    row.update(pooled)
+    # A note needs every day to agree: the pooled ratio past PROFILE_RATIO, and each day's on its side.
+    daily = [_edges(_profile(acc, [parts])) for parts in acc.parts]
+    for key, ratio in pooled.items():
+        agree = ratio is not None and all(d[key] is not None and (d[key] >= PROFILE_RATIO if ratio >= 1 else d[key] <= 1 / PROFILE_RATIO) for d in daily)
+        row[f"{key}_every_day"] = agree
     row["notes"] = "; ".join(_notes(row, acc)) or "-"
     return row
+
+
+def _profile(acc: _Acc, days: list[_Parts] | None = None) -> dict[str, list[float | None]]:
+    """Per tenth of the day, over `days` (default: all of them): the mean spread in ticks, the wall mid's
+    mean |move| a tick in ticks, and market trades per 1,000 ticks."""
+    tick, days = acc.tick_size or 1.0, acc.parts if days is None else days
+    spreads = [[sum(d.spreads[k][j] for d in days) for j in (0, 1)] for k in range(PARTS)]
+    moves = [[sum(d.moves[k][j] for d in days) for j in (0, 1)] for k in range(PARTS)]
+    trades = [(sum(d.trades[k] for d in days), sum(d.ticks[k] for d in days)) for k in range(PARTS)]
+    return {
+        "spread": [total / n / tick if n else None for total, n in spreads],
+        "move": [total / n / tick if n else None for total, n in moves],
+        "trades": [1000 * t / n if n else None for t, n in trades],
+    }
+
+
+def _edges(profile: dict[str, list[float | None]]) -> dict[str, float | None]:
+    """The first and the last tenth of each profile row over the median of the tenths between."""
+    out = {}
+    for edge, k in (("open", 0), ("close", PARTS - 1)):
+        for name, values in profile.items():
+            middle = [v for v in values[1:-1] if v is not None]
+            base = statistics.median(middle) if middle else None
+            out[f"{edge}_{name}"] = values[k] / base if values[k] is not None and base else None
+    return out
 
 
 def _notes(row: dict, acc: _Acc) -> list[str]:
@@ -287,6 +358,13 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
         notes.append(f"drifts {'up' if ratios[0] > 0 else 'down'} every day ({row['drift_per_day']:+,.0f} a day)")
     elif drifting:
         notes.append(f"drifts on {len(drifting)} of {len(ratios)} days")
+
+    names = {"spread": "spread", "move": "volatility", "trades": "trades"}
+    for edge, label in (("open", "the open (first tenth)"), ("close", "the close (last tenth)")):
+        unusual = [f"{names[name]} {row[f'{edge}_{name}']:.1f}x" for name in names
+                   if row[f"{edge}_{name}_every_day"] and (name != "trades" or acc.trades >= MIN_TRADES * PARTS) and (name != "move" or not fixed)]
+        if unusual:
+            notes.append(f"{label}: {', '.join(unusual)} the day's middle (--profile)")
 
     if acc.trades < MIN_TRADES:
         notes.append(f"{acc.trades} market trades: too few for trade statistics")
@@ -428,6 +506,19 @@ def format_report(rows: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
+def format_profile(profiles: dict[str, dict[str, list[float | None]]]) -> str:
+    heads = [f"{100 * k // PARTS}-{100 * (k + 1) // PARTS}%" for k in range(PARTS)]
+    rows = (("spread", "spread (ticks)", "{:.2f}"), ("move", "wall mid |move| a tick (ticks)", "{:.3f}"), ("trades", "market trades per 1,000 ticks", "{:.0f}"))
+    width = max(len(label) for _, label, _ in rows)
+    lines = ["By tenth of the day, pooled over the days:"]
+    for product, profile in profiles.items():
+        cells = [[_cell(v, fmt) for v in profile[key]] for key, _, fmt in rows]
+        widths = [max(len(h), *(len(c[k]) for c in cells)) for k, h in enumerate(heads)]
+        lines += ["", f"{product:<{width}}  " + "  ".join(f"{h:>{w}}" for h, w in zip(heads, widths))]
+        lines += [f"{label:<{width}}  " + "  ".join(f"{c:>{w}}" for c, w in zip(row, widths)) for (_, label, _), row in zip(rows, cells)]
+    return "\n".join(lines)
+
+
 def _cell(value, fmt: str) -> str:
     return "-" if value is None else fmt.format(value)
 
@@ -448,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--format", default="prosperity", choices=sorted(FORMATS), help="competition format (default: prosperity)")
     parser.add_argument("--data", default="p3", help="data folder, or p2 / p3 / p4 for the Prosperity data in references/ (default: p3)")
     parser.add_argument("--csv", type=Path, help="also write every diagnostic, against both references, to this CSV")
+    parser.add_argument("--profile", action="store_true", help="also print each product's spread, volatility and trades by tenth of the day")
     args = parser.parse_args(argv)
     fmt = FORMATS[args.format]
     try:
@@ -457,6 +549,8 @@ def main(argv: list[str] | None = None) -> int:
     rows = diagnose(days)
     print(f"{len(days)} day(s): {', '.join(d.name for d in days)}\n")
     print(format_report(rows))
+    if args.profile:
+        print("\n" + format_profile(time_profile(days)))
     if args.csv:
         write_csv(rows, args.csv)
         print(f"\nwritten to {args.csv}")

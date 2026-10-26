@@ -407,3 +407,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-26] lint | a citation into report.py re-mapped
 - `sources/probability-of-backtest-overfitting` cited `python/arena/report.py:213` for the timeline's `pnl` column; the all-days `--metrics` table (61f15f9) moved it, so it is `316` now.
+
+## [2026-10-26] lint | the day's shape in arena.diagnose
+- `concepts/reading-the-data-on-day-one` gets a row for the new open/close note (`arena.diagnose --profile`: spread, wall-mid volatility and trades by tenth of the day; a note at 1.5x the middle on every day). Every P2–P4 round is flat by tenths, so it has no Prosperity example. The thresholds citation moved (`python/arena/diagnose.py:58-88` → `64-96`).

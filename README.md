@@ -36,6 +36,7 @@ uv run --group analysis jupyter lab python/notebooks/analysis.ipynb   # optional
 ```sh
 uv run python -m arena.diagnose 1                      # Prosperity 3 round 1, every day
 uv run python -m arena.diagnose 1 --data p4 --csv results/diag.csv
+uv run python -m arena.diagnose 1 --profile            # ...and each product's spread, volatility and trades by tenth of the day
 ```
 
 ```
