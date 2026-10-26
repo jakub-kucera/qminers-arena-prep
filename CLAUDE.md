@@ -29,6 +29,7 @@ uv run python -m arena.backtest python/bots/template.py 1 --set PARAMS.KELP.make
 uv run python -m arena.backtest python/bots/template.py 1 --resting --vs python/bots/template.py   # orders rest; a rival copy shares the market
 uv run python -m arena.backtest python/bots/template.py 1 --engine rust   # the same report and CSVs, on rust/ (compare, stress, sim and the experiments take it too)
 uv run python -m arena.backtest python/bots/template.py 1 --mark touch --limit-penalty 5   # positions valued at the touch; a breach charged per lot a tick, not rejected
+uv run python -m arena.backtest python/bots/template.py 1 --metrics      # also the figures the Arena's portal shows on a submission, to compare with it
 uv run python -m arena.validate python/bots/template.py 1                # pre-submission checks, exit 1 on FAIL
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --grid PARAMS.KELP.take_edge=0..7 --modes all,worse --screen 0.25   # big grids: screen on the first day, the best quarter on all

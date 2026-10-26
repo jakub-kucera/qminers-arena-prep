@@ -386,3 +386,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-25] lint | --mark and --limit-penalty in the engine
 - `python/arena/report.py` gained the penalty's line, so `sources/probability-of-backtest-overfitting`'s citation of it moved (134 → 144). No page cites the engine's lines.
+
+## [2026-10-26] lint | the portal metrics in arena.backtest
+- `python/arena/report.py` gained `format_metrics` above `write_csvs`, so `sources/probability-of-backtest-overfitting`'s citation of it moved (144 → 213). 0 errors.

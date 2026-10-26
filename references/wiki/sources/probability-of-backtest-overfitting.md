@@ -38,7 +38,7 @@ A 34-page paper that defines the **probability of backtest overfitting (PBO)**: 
 - **Example** (`probability-of-backtest-overfitting.md:298-316` (p. 25–27)): the 8,800-cell seasonal rule on a random walk (in-sample Sharpe 1.27) gets PBO 55%. With a real planted monthly effect, PBO is 13%.
 
 ## Assumptions against the Arena
-- **Needs a per-period PnL for every configuration tried.** `arena.grid` already runs every cell × day × mode in parallel, but keeps totals and `min day`. Per-block PnL is the difference of the `pnl` column at block boundaries in each run's timeline (`python/arena/report.py:144`). CSCV itself is a few dozen lines of standard library *(inferred)*.
+- **Needs a per-period PnL for every configuration tried.** `arena.grid` already runs every cell × day × mode in parallel, but keeps totals and `min day`. Per-block PnL is the difference of the `pnl` column at block boundaries in each run's timeline (`python/arena/report.py:213`). CSCV itself is a few dozen lines of standard library *(inferred)*.
 - **Few days.** Three Prosperity days cut into blocks of about 1,250 ticks give S = 24. That is enough combinations, but the blocks are not independent within a day, and a day-level effect (one trending day) moves several blocks together. Blocks should not straddle days. *(Inferred.)*
 - **The test sees only the data it is given.** If the Arena's scored data is a different regime from the public data, PBO on the public data can be low and the choice still wrong (limitation 3).
 - **The portal is a second, hidden selection loop.** Every public-backtest submission compared by its score is a trial that CSCV over our grid does not see.

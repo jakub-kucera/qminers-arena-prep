@@ -89,6 +89,7 @@ Days are `ROUND` (all of its days) or `ROUND-DAY`, e.g. `1`, `1-0` or `1--1`.
 | `--mark mid\|touch\|last` | The price positions are valued at each tick: the data's mid (default), the best bid for a long position and the best ask for a short one (`touch`, what closing it would fetch), or the last market trade (`last`). For an exchange that marks the close unlike Prosperity: the Arena's portal shows a "mark-out price" |
 | `--limit-penalty RATE` | No order is rejected for a position limit; instead every lot beyond it costs RATE, every tick, and each such tick counts as a breach. The default is Prosperity's rule (every order for a product cancelled if they could breach). The Arena's portal shows a "position-limit penalty" |
 | `--out DIR` | Write `<day>_timeline.csv` (position, mark, PnL, best bid/ask and wall mid per tick), `<day>_fills.csv`, `<day>_orders.csv` and `<day>_trades.csv` (the data's market trades) |
+| `--metrics` | Also print the figures the Arena's portal shows on a submission, per product and in total: fills (and the orders they filled), traded volume, end position, cash, the price the end position is valued at, the limit penalty, two standard errors of the day's PnL (per-tick changes taken as independent, and 20 blocks' sums), and the 50/68/95/99.7% quantiles of \|position\|, then the PnL they add up to. For comparing with the first upload's page (`backtest` only) |
 | `--print` | Show the bot's prints |
 | `--no-strict` | Let the bot swallow its own exceptions, as it does when submitted |
 

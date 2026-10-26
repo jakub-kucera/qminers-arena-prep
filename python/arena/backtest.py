@@ -5,6 +5,7 @@
     uv run python -m arena.backtest python/bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
     uv run python -m arena.backtest python/bots/template.py 1 --vs python/bots/template.py   # against a copy of itself
     uv run python -m arena.backtest python/bots/template.py 1 --engine rust            # the same results, on rust/ (bots with a Rust twin)
+    uv run python -m arena.backtest python/bots/template.py 1 --metrics                # also the figures the Arena's portal shows
 """
 
 from __future__ import annotations
@@ -26,6 +27,12 @@ def main(argv: list[str] | None = None) -> int:
     add_engine_argument(parser)
     parser.add_argument("--out", type=Path, help="write <day>_timeline.csv, _fills.csv and _orders.csv to this folder")
     parser.add_argument("--print", action="store_true", help="show the bot's prints")
+    parser.add_argument(
+        "--metrics",
+        action="store_true",
+        help="also print the figures the Arena's portal shows on a submission: fills, volume, end position, cash, "
+        "mark-out price, limit penalty, PnL standard error, |position| quantiles",
+    )
     parser.add_argument(
         "--no-strict",
         action="store_true",
@@ -55,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
         results.append(result)
         rival_results.append(rivals)
         print(report.format_day(result, config.limit_penalty))
+        if args.metrics:
+            print(report.format_metrics(result, config.limit_penalty))
         if rivals:
             print(report.format_rivals(names[1:], rivals))
         print()

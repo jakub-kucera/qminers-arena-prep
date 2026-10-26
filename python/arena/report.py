@@ -94,9 +94,78 @@ def format_day(result: DayResult, penalty: float | None = None) -> str:
     return "\n".join(lines)
 
 
-def penalty_paid(result: DayResult, rate: float) -> float:
-    """What --limit-penalty charged the bot: `rate` for each lot beyond a limit, each tick."""
-    return sum(rate * max(abs(p) - result.limits[product], 0) for product, series in result.positions.items() for p in series)
+def penalty_paid(result: DayResult, rate: float, product: str | None = None) -> float:
+    """What --limit-penalty charged the bot: `rate` for each lot beyond a limit, each tick (one product's, or all)."""
+    products = result.positions if product is None else [product]
+    return sum(rate * max(abs(p) - result.limits[name], 0) for name in products for p in result.positions[name])
+
+
+QUANTILES = (0.5, 0.68, 0.95, 0.997)  # the portal's |position| quantiles
+BLOCKS = 20  # the batch-means standard error splits the day into this many blocks
+
+
+def format_metrics(result: DayResult, penalty: float | None = None) -> str:
+    """The figures the Arena's portal shows on each submission, in its order (ON_THE_DAY.md, "Known so far"),
+    per product and in total, then our PnL, which should be cash + position × mark − penalty.
+
+    fills: our fills, and in brackets the orders they filled (the portal's "filled orders" may count either).
+    volume: lots traded. position: the end position. cash: what trading left, the penalty not taken off.
+    mark: the price the end position is valued at (--mark). penalty: what --limit-penalty charged, 0 without it.
+    s.e. ticks: the standard error of the day's PnL from its per-tick changes taken as independent,
+    stdev × √ticks. s.e. blocks: the same from the sums of BLOCKS consecutive blocks, stdev × √BLOCKS
+    (batch means, which allows for correlated changes). The portal doesn't say how it computes its own,
+    so compare both with the first upload's. |position|: quantiles over the day's ticks, interpolated
+    linearly between ranks (numpy's default).
+    """
+    rate = penalty or 0.0
+    stats = [s for s in product_stats(result) if s.fills or s.max_position]
+    if not stats:
+        return "  portal metrics: no trades"
+    header = ["", "fills", "volume", "position", "cash", "mark", "penalty", "s.e. ticks", "s.e. blocks",
+              "|position| q50/68/95/99.7", "pnl"]
+    rows = []
+    for s in stats:
+        fills = [fill for fill in result.fills if fill.product == s.product]
+        position, mark, pnl = result.positions[s.product][-1], result.marks[s.product][-1], result.pnl[s.product][-1]
+        paid = penalty_paid(result, rate, s.product)
+        quantiles = " / ".join(f"{q:g}" for q in _quantiles([abs(p) for p in result.positions[s.product]], QUANTILES))
+        rows.append([s.product, f"{s.fills:,} ({len({f.order_id for f in fills}):,})", f"{s.volume:,}", f"{position:,}",
+                     f"{pnl - position * mark + paid:,.2f}", f"{mark:,.2f}", f"{paid:,.2f}",
+                     *_standard_errors(result.pnl[s.product]), quantiles, f"{pnl:,.2f}"])
+    if len(stats) > 1:
+        total = total_pnl(result)
+        paid = sum(penalty_paid(result, rate, s.product) for s in stats)
+        cash = sum(result.pnl[s.product][-1] - result.positions[s.product][-1] * result.marks[s.product][-1] for s in stats)
+        orders = len({f.order_id for f in result.fills})
+        rows.append(["total", f"{sum(s.fills for s in stats):,} ({orders:,})", f"{sum(s.volume for s in stats):,}", "-",
+                     f"{cash + paid:,.2f}", "-", f"{paid:,.2f}", *_standard_errors(total), "-", f"{total[-1]:,.2f}"])
+    widths = [max(len(row[k]) for row in [header, *rows]) for k in range(len(header))]
+    lines = ["  portal metrics (--metrics):"]
+    for row in [header, *rows]:
+        lines.append("    " + "  ".join(cell.ljust(w) if k == 0 else cell.rjust(w) for k, (cell, w) in enumerate(zip(row, widths))))
+    return "\n".join(lines)
+
+
+def _standard_errors(pnl: list[float]) -> list[str]:
+    """format_metrics' two standard errors of a PnL series' last value, as text ("-" if too short)."""
+    changes = [b - a for a, b in zip([0.0, *pnl], pnl)]
+    ticks = statistics.stdev(changes) * len(changes) ** 0.5 if len(changes) > 1 else None
+    blocks = None
+    if len(changes) >= 2 * BLOCKS:
+        edges = [len(changes) * k // BLOCKS for k in range(BLOCKS + 1)]
+        blocks = statistics.stdev(sum(changes[a:b]) for a, b in zip(edges, edges[1:])) * BLOCKS**0.5
+    return ["-" if v is None else f"{v:,.2f}" for v in (ticks, blocks)]
+
+
+def _quantiles(values: list[float], qs: tuple[float, ...]) -> list[float]:
+    """Each quantile of `values`, interpolated linearly between ranks (numpy.quantile's default)."""
+    xs = sorted(values)
+    out = []
+    for q in qs:
+        h = (len(xs) - 1) * q
+        lo = int(h)
+        out.append(xs[lo] + (h - lo) * (xs[min(lo + 1, len(xs) - 1)] - xs[lo]))
+    return out
 
 
 def format_rivals(names: list[str], results: list[DayResult]) -> str:

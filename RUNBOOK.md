@@ -30,7 +30,7 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 
 ## Lunch (12:00–13:00)
 - Backtest in each fill mode (`--match-trades all|worse|none`, then `--resting`; `--mark` and `--limit-penalty` to match the
-  first upload's PnL and metrics) and keep the one closest to
+  first upload's PnL and metrics, printed by `--metrics`) and keep the one closest to
   the playground for every later run ["Which backtest settings match the playground?"].
 - Write round 1's candidates down in order, with the local result of each ["Spend the round's submissions"].
 
