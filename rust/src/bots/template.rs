@@ -957,6 +957,18 @@ pub struct Template {
     symbols: Vec<usize>, // the day's products in its limits' order (the drill's api.symbols())
 }
 
+/// `params_for`'s check that each PARAMS entry names its limit, for an ADAPTER that takes the limit
+/// from PARAMS (Prosperity's): DEFAULTS' is a placeholder.
+pub fn require_limits(globals: &Value) -> Result<(), String> {
+    let params = globals.get("PARAMS").and_then(Value::as_object).ok_or("the template's PARAMS must be a dict")?;
+    for (product, own) in params {
+        if !own.as_object().is_some_and(|own| own.iter().any(|(k, _)| k == "limit")) {
+            return Err(format!("no limit for {product}: set the competition's in PARAMS"));
+        }
+    }
+    Ok(())
+}
+
 impl Template {
     /// From the Python file's globals (python/arena/rust.py `bot_globals`): DEFAULTS and PARAMS.
     pub fn from_globals(globals: &Value) -> Result<Template, String> {

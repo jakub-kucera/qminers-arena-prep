@@ -229,11 +229,38 @@ def conflict_checks(path: Path, s: Setup) -> list[Check]:
     conflicts, params = getattr(module, "param_conflicts", None), getattr(module, "PARAMS", None)
     if not callable(conflicts) or not isinstance(params, dict):
         return []
-    checks = limit_checks(module, s.days)
+    checks = limit_checks(module, s.days) + wall_checks(module, s.days)
     found = [f"{product}: {reason}" for product in params for reason in conflicts(product)]
     if not found:
         return checks + [Check(PASS, "no setting in PARAMS is overridden by another or left without its mode")]
     return checks + [Check(WARN, "settings that can't matter: " + "; ".join(found))]
+
+
+WALL_FALLBACK = 0.2  # share of book sides without a level of wall_size above which sized_mid is mostly the plain mid
+
+
+def wall_checks(module, days) -> list[Check]:
+    """A WARN for each traded product on `fair: "sized_mid"` whose book sides lack a level of its
+    wall_size more than WALL_FALLBACK of the time: there sized_mid falls back to the best level, the
+    noisiest price (the second audit, A8). arena.diagnose's `wall` column is the size to set."""
+    defaults, params = getattr(module, "DEFAULTS", None), getattr(module, "PARAMS", None)
+    if not isinstance(defaults, dict) or not isinstance(params, dict) or "wall_size" not in defaults:
+        return []
+    found = []
+    for product in sorted(params):
+        p = {**defaults, **params[product]}
+        if p.get("fair") != "sized_mid":
+            continue
+        sides = [levels for day in days for tick in day.ticks if (book := tick.books.get(product)) for levels in (book.bids, book.asks) if levels]
+        if not sides:
+            continue
+        short = sum(1 for levels in sides if max(v for _, v in levels) < p["wall_size"]) / len(sides)
+        if short > WALL_FALLBACK:
+            largest = sorted(max(v for _, v in levels) for levels in sides)[len(sides) // 2]
+            found.append(f"{product} on {short:.0%} of book sides (no level of {p['wall_size']}; the largest's median is {largest})")
+    if not found:
+        return []
+    return [Check(WARN, "sized_mid falls back to the plain mid, so set wall_size near the market maker's size: " + "; ".join(found))]
 
 
 def limit_checks(module, days) -> list[Check]:
@@ -245,15 +272,18 @@ def limit_checks(module, days) -> list[Check]:
     if not callable(params_for) or len(inspect.signature(params_for).parameters) != 1:
         return []
     limits = {product: limit for day in days for product, limit in day.limits.items()}
-    found = []
+    found, missing = [], []
     for product in sorted(set(getattr(module, "PARAMS", {})) & set(limits)):
+        if "limit" not in module.PARAMS[product]:  # the template's params_for refuses it, so the product never trades
+            missing.append(f"{product} (the data's {limits[product]})")
+            continue
         ours = params_for(product)["limit"]
         if ours != limits[product]:
-            source = "" if "limit" in module.PARAMS[product] else " (no limit in PARAMS, so DEFAULTS')"
-            found.append(f"{product} {ours}{source}, the data's {limits[product]}")
-    if not found:
-        return [Check(PASS, "every traded product's limit is the data's")]
-    return [Check(WARN, "position limits differ from the data's: " + "; ".join(found))]
+            found.append(f"{product} {ours}, the data's {limits[product]}")
+    checks = [Check(FAIL, "no limit in PARAMS for " + "; ".join(missing))] if missing else []
+    if found:
+        checks.append(Check(WARN, "position limits differ from the data's: " + "; ".join(found)))
+    return checks or [Check(PASS, "every traded product's limit is the data's")]
 
 
 def fills_digest(fills) -> str:

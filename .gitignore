@@ -40,3 +40,6 @@ python/experiments/mock_round/public/data/
 python/experiments/mock_round/private/raw_public/
 python/experiments/mock_round/private/raw_hidden/
 python/experiments/mock_round/private/hidden_data/
+
+# Agent worktrees (Claude Code)
+.claude/worktrees/

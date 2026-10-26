@@ -18,6 +18,9 @@ pub fn build(kind: &str, globals: &Value, adapter: Option<&Value>) -> Result<Box
         "mm" => Box::new(mm::MarketMaker::from_globals(globals)?),
         "template" => {
             let adapter = adapter.map(template::Adapter::read).transpose()?.unwrap_or(template::Adapter::PROSPERITY);
+            if !adapter.exchange_limit {
+                template::require_limits(globals)?; // params_for raises without one, so the cell fails before it starts
+            }
             Box::new(template::Template::from_globals(globals)?.with_adapter(adapter))
         }
         "drill_template" => Box::new(template::Template::drill(globals)?),

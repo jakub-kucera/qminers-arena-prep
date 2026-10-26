@@ -150,7 +150,8 @@ def test_settings_the_rust_template_cant_hold_are_refused(bench, tmp_path):
     task = {"day": 0, "config": rust.config_json(bench.EngineConfig()), "bots": [["you", 0]], "blocks": 1, "fine": 0}
     for overrides, message in (({"PARAMS.KELP.target": 1.5}, "target must be an integer"),
                                ({"PARAMS.KELP.fair": "best_guess"}, "fair must be a known fair value method"),
-                               ({"PARAMS.KELP.make_egde": 1}, "unknown params for KELP: make_egde")):
+                               ({"PARAMS.KELP.make_egde": 1}, "unknown params for KELP: make_egde"),
+                               ({"PARAMS.NEW": {"fair": "mid"}}, "no limit for NEW: set the competition's in PARAMS")):
         path = tmp_path / "batch.json"
         path.write_text(json.dumps({"days": [str(tmp_path / "day")], "bots": [rust.bot_spec(bench.TEMPLATE, overrides)], "tasks": [task]}))
         out = subprocess.run([str(rust.BINARY), "batch", str(path)], capture_output=True, text=True)

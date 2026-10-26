@@ -561,6 +561,16 @@ def test_a_broken_product_prints_each_error_once(capsys):
     assert capsys.readouterr().out.count("Traceback") == 1
 
 
+def test_a_product_without_a_limit_is_refused_and_the_others_trade(capsys):
+    """DEFAULTS' limit is a placeholder (the second audit, A12): a PARAMS entry without one fails, alone."""
+    lenient = BotFile(TEMPLATE, {"datamodel": dm}, strict=False).load()
+    del lenient.PARAMS["KELP"]["limit"]
+    depths = {"KELP": depth([(2029, 25)], [(2031, 25)]), "RAINFOREST_RESIN": depth([(9996, 2)], [(10004, 2)])}
+    orders, _, _ = lenient.Trader().run(state(depths))
+    assert "KELP" not in orders and orders["RAINFOREST_RESIN"]
+    assert "no limit for KELP" in capsys.readouterr().out
+
+
 def test_lenient_errors_cancel_the_products_resting_orders(capsys):
     lenient = BotFile(TEMPLATE, {"datamodel": dm}, strict=False).load()
     lenient.PARAMS["KELP"]["fair"] = "bogus"

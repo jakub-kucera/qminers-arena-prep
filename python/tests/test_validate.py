@@ -180,7 +180,14 @@ def test_a_limit_unlike_the_datas_warns(check):
     assert code == 0 and "WARN  position limits differ from the data's: KELP 20, the data's 50" in out
     missing = TEMPLATE.read_text().replace(kelp, kelp.replace('"limit": 50, ', "")).replace('"limit": 50,  # position', '"limit": 80,  # position')
     code, out = check(missing)
-    assert "KELP 80 (no limit in PARAMS, so DEFAULTS'), the data's 50" in out
+    assert code == 1 and "FAIL  no limit in PARAMS for KELP (the data's 50)" in out
+
+
+def test_a_wall_size_above_the_market_makers_warns(check):
+    # The fixture's KELP walls hold 20-25 lots; a wall_size of 30 leaves sized_mid on the plain mid.
+    kelp = '"KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200},'
+    code, out = check(TEMPLATE.read_text().replace(kelp, kelp.replace('"make_edge": 0.5', '"make_edge": 0.5, "wall_size": 30')))
+    assert code == 0 and "WARN  sized_mid falls back to the plain mid" in out and "KELP on 100% of book sides" in out
 
 
 @pytest.mark.parametrize("text, size", [("102400", 102400), ("100KB", 99950), ("100 kB", 99950), ("100KiB", 102348),

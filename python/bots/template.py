@@ -825,6 +825,9 @@ def params_for(product: str) -> dict | None:
     unknown = set(PARAMS[product]) - set(DEFAULTS)
     if unknown:
         raise ValueError(f"unknown params for {product}: {', '.join(sorted(unknown))}")
+    if "limit" not in PARAMS[product]:
+        # DEFAULTS' limit is a placeholder: a product traded on it breaches, or under-uses, the real one
+        raise ValueError(f"no limit for {product}: set the competition's in PARAMS")
     return {**DEFAULTS, **PARAMS[product]}
 
 

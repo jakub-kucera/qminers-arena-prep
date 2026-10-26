@@ -378,6 +378,7 @@ It fails (exit code 1) on:
 - any exception, or malformed orders (e.g. float prices)
 - orders the engine cancels for possibly breaching a position limit
 - a tick slower than `--time-limit-ms`
+- a traded product with no `limit` in PARAMS (the template refuses it: DEFAULTS' is a placeholder)
 
 Over the cap, `arena.compact` writes a copy without comments or docstrings (the template's 49 KB become about 26 KB) and checks that it parses back to the same code; it trades exactly as the original (`python/tests/test_compact.py`). Validate and upload the copy, and keep editing the original. Delete the probe bot's RISKY PROBES block before compacting it, since its markers are comments.
 
@@ -386,6 +387,7 @@ It warns about:
 - results that change on a repeat run, or when the first day is replayed in two other Python processes with other hash seeds (`PYTHONHASHSEED`), which catches a bot that iterates a set of strings: the organisers rerun the top bots, and such a bot wouldn't reproduce
 - results that change when the bot is reloaded every tick, which means it keeps state outside `traderData` that the real engine may not preserve
 - settings that can't matter, if the bot lists them (the template's `param_conflicts`): two target modes on one product (the first in `trade_product`'s order wins), a static `target` that a mode replaces, or a mode's own setting while the mode is off
+- a product's limit in PARAMS unlike the data's, and a product on `fair: "sized_mid"` whose book sides lack a level of its `wall_size` more than 20% of the time, where it falls back to the plain mid (set `wall_size` near `arena.diagnose`'s `wall` column)
 
 ## How the engine works
 
