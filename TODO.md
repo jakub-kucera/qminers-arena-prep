@@ -9,7 +9,10 @@ its sub-bullets, to [`TODO_DONE.md`](TODO_DONE.md) under the same heading; add n
 
 Choices only the user can make, each with the options, the evidence and a recommendation.
 
-None open.
+- [ ] **A second zoo spec with what the Arena's site shows?** Raised by the user 2026-10-26: given the site's new facts, would the models write different bots?
+  - Options: (a) keep `python/bots/zoo/SPEC.md` (Prosperity's rules) for every prep-time zoo bot, and put the Arena's real rules into the round's spec on the day (`ON_THE_DAY.md`, "The round's zoo"); (b) add a second spec now, beside it (a used spec is never edited), with our guesses at the Arena's scoring: the end position valued at the touch, a fine per lot over the limit instead of Prosperity's rejection, maybe one product. Run the same models and prompts through it and score the bots under `--mark touch --limit-penalty` (`experiments.zoo` would need those two options).
+  - Evidence: of the site's facts, only two would reach a bot's code: the price the end position is valued at (`markPrice`) and what a breach costs (`breachPenalty`). Neither one's value is known (`ON_THE_DAY.md`, "Known so far"). The rest (the submission cap, one evaluation at a time, the leaderboard, the metrics' names) is portal mechanics that changes how a team works, not what the model writes. The other teams' models will get the Technical Rules on the day, not the site's code, so a spec built on our guesses can make the zoo less like the field. What (b) could show: whether the template's lead over the zoo depends on those two rules. Cost: the user's time for 2 models × 4 prompts × 2 samples, and the two options in `experiments.zoo`.
+  - Recommendation: (a). Spend the model time on the open Gemini and ChatGPT prompts with the current spec ("Zoo bots from other LLM providers" below: `mean_reversion` and `momentum`, the older models), which keeps them comparable with the 59 bots so far. The day's spec gets the real rules.
 
 ## Harder-round prep
 
