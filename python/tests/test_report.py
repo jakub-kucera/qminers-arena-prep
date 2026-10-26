@@ -44,10 +44,26 @@ def test_two_products_get_a_total_row():
     assert total[1:4] == ["0", "(0)", "0"] and total[5] == "-15.50" and total[-1] == "1.50"
 
 
+def test_the_portal_metrics_total_sums_the_days():
+    first = DayResult("d0", ["X"], {"X": 10}, timestamps=[0, 1], positions={"X": [1, 2]},
+                      marks={"X": [10.0, 11.0]}, pnl={"X": [0.0, 1.0]})
+    second = DayResult("d1", ["X"], {"X": 10}, timestamps=[0, 1], positions={"X": [3, 4]},
+                       marks={"X": [12.0, 13.0]}, pnl={"X": [0.0, 2.0]})
+    text = report.format_metrics_total([first, second])
+    (row,) = [line.split() for line in text.splitlines() if line.strip().startswith("X ")]
+    # cash: day 0 1 - 2 x 11 = -21; day 1 2 - 4 x 13 = -50
+    assert row[1:8] == ["0", "(0)", "0", "4", "-71.00", "13.00", "0.00"] and row[-1] == "3.00"
+    assert "s.e. days" in text and "days: 2" in text and "sum 3.00" in text and "mean 1.50" in text
+    empty = DayResult("d", ["X"], {"X": 1}, positions={"X": []}, marks={"X": []}, pnl={"X": []})
+    assert report.format_metrics_total([empty]) == "  portal metrics over 1 day: no trades"
+
+
 def test_backtest_prints_the_portal_metrics_on_request(capsys, tmp_path, data_dir):
     path = tmp_path / "bot.py"
     path.write_text(BOT)
     assert backtest.main([str(path), "1", "--data", str(data_dir)]) == 0
     assert "portal metrics" not in capsys.readouterr().out
     assert backtest.main([str(path), "1", "--data", str(data_dir), "--metrics"]) == 0
-    assert "portal metrics (--metrics):" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "portal metrics (--metrics):" in out
+    assert "portal metrics over 2 days" in out

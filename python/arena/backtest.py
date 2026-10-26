@@ -70,6 +70,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.out:
             report.write_csvs(result, args.out)
 
+    if args.metrics and len(results) > 1:
+        print(report.format_metrics_total(results, config.limit_penalty))
+        print()
     if len(results) > 1:
         print(report.format_overall(results))
         if s.rivals:

@@ -146,6 +146,105 @@ def format_metrics(result: DayResult, penalty: float | None = None) -> str:
     return "\n".join(lines)
 
 
+def format_metrics_total(results: list[DayResult], penalty: float | None = None) -> str:
+    """The portal's figures for a whole submission, with the days added up.
+
+    The portal shows one set of metrics per submission, not one per day. This table adds each
+    day's fills, volume, cash and penalty, takes the last day's end position and mark, pools the
+    |position| quantiles over every day's ticks, and adds a third standard error from the daily
+    PnLs (`s.e. days`, stdev x sqrt(days)). `pnl` is the sum of the days; the line below the table
+    gives the sum and the mean, so either can be compared with the portal's `score`. If the
+    evaluation runs the days as one continuous session instead of summing them, the end position
+    and cash can differ: the first upload's page says which.
+    """
+    rate = penalty or 0.0
+    products: list[str] = []
+    for result in results:
+        for product in result.products:
+            if product in products:
+                continue
+            stats = next((s for s in product_stats(result) if s.product == product), None)
+            if stats and (stats.fills or stats.max_position):
+                products.append(product)
+    label = f"{len(results)} day" + ("" if len(results) == 1 else "s")
+    if not products:
+        return f"  portal metrics over {label}: no trades"
+
+    rows: list[list[str]] = []
+    sum_fills = sum_orders = sum_volume = 0
+    sum_cash = sum_paid = sum_pnl = 0.0
+    for product in products:
+        fills = orders = volume = 0
+        position = 0
+        cash = mark = paid = pnl = 0.0
+        abs_positions: list[int] = []
+        series_by_day: list[list[float]] = []
+        day_totals: list[float] = []
+        for result in results:
+            if product not in result.products:
+                continue
+            stats = next((s for s in product_stats(result) if s.product == product), None)
+            if stats is None:
+                continue
+            positions = result.positions.get(product, [])
+            marks = result.marks.get(product, [])
+            series = result.pnl.get(product, [])
+            day_paid = penalty_paid(result, rate, product)
+            day_pnl = series[-1] if series else 0.0
+            end_position = positions[-1] if positions else 0
+            end_mark = marks[-1] if marks else 0.0
+            fills += stats.fills
+            orders += len({fill.order_id for fill in result.fills if fill.product == product})
+            volume += stats.volume
+            position = end_position
+            mark = end_mark
+            cash += day_pnl - end_position * end_mark + day_paid
+            paid += day_paid
+            pnl += day_pnl
+            abs_positions.extend(abs(p) for p in positions)
+            series_by_day.append(series)
+            day_totals.append(day_pnl)
+        quantiles = " / ".join(f"{q:g}" for q in _quantiles(abs_positions, QUANTILES)) if abs_positions else "-"
+        rows.append([product, f"{fills:,} ({orders:,})", f"{volume:,}", f"{position:,}", f"{cash:,.2f}",
+                     f"{mark:,.2f}", f"{paid:,.2f}", *_total_standard_errors(series_by_day, day_totals),
+                     quantiles, f"{pnl:,.2f}"])
+        sum_fills += fills
+        sum_orders += orders
+        sum_volume += volume
+        sum_cash += cash
+        sum_paid += paid
+        sum_pnl += pnl
+
+    total_series = [series for series in (total_pnl(result) for result in results) if series]
+    total_days = [series[-1] for series in total_series]
+    if len(products) > 1:
+        rows.append(["total", f"{sum_fills:,} ({sum_orders:,})", f"{sum_volume:,}", "-", f"{sum_cash:,.2f}", "-",
+                     f"{sum_paid:,.2f}", *_total_standard_errors(total_series, total_days), "-", f"{sum_pnl:,.2f}"])
+
+    header = ["", "fills", "volume", "position", "cash", "mark", "penalty", "s.e. ticks", "s.e. blocks",
+              "s.e. days", "|position| q50/68/95/99.7", "pnl"]
+    widths = [max(len(row[k]) for row in [header, *rows]) for k in range(len(header))]
+    lines = [f"  portal metrics over {label} (--metrics):"]
+    for row in [header, *rows]:
+        lines.append("    " + "  ".join(cell.ljust(w) if k == 0 else cell.rjust(w) for k, (cell, w) in enumerate(zip(row, widths))))
+    finals = [series[-1] for series in total_series]
+    mean = statistics.fmean(finals) if finals else 0.0
+    lines.append(f"  days: {len(results)} · sum {sum(finals):,.2f} · mean {mean:,.2f}")
+    return "\n".join(lines)
+
+
+def _total_standard_errors(series_by_day: list[list[float]], day_totals: list[float]) -> list[str]:
+    """The two within-run standard errors over all days' tick changes, and one across the daily totals."""
+    changes = [b - a for series in series_by_day for a, b in zip([0.0, *series], series)]
+    ticks = statistics.stdev(changes) * len(changes) ** 0.5 if len(changes) > 1 else None
+    blocks = None
+    if len(changes) >= 2 * BLOCKS:
+        edges = [len(changes) * k // BLOCKS for k in range(BLOCKS + 1)]
+        blocks = statistics.stdev(sum(changes[a:b]) for a, b in zip(edges, edges[1:])) * BLOCKS**0.5
+    days = statistics.stdev(day_totals) * len(day_totals) ** 0.5 if len(day_totals) > 1 else None
+    return ["-" if v is None else f"{v:,.2f}" for v in (ticks, blocks, days)]
+
+
 def _standard_errors(pnl: list[float]) -> list[str]:
     """format_metrics' two standard errors of a PnL series' last value, as text ("-" if too short)."""
     changes = [b - a for a, b in zip([0.0, *pnl], pnl)]
