@@ -90,6 +90,7 @@ def test_mm_records_what_our_engine_records_in_every_configuration(bench, tmp_pa
     assert fills["two bots, resting"][1] > 0 and fills["two bots, resting"][2] > 0  # crosses and races happen
     assert fills["limit penalty, a bot quoting past its limit"][3] > 0  # ticks over the limit, charged
     assert fills["limit penalty, two bots, resting, mark touch"][2] == 0  # nothing rejected, so no races
+    assert fills["delay 1"][2] > 0  # alone, but its fills since it decided make orders race
 
 
 @needs_cargo
@@ -350,6 +351,27 @@ def test_the_marks_and_the_limit_penalty_print_the_same_on_either_engine(tmp_pat
     ours = _printed(capsys, grid.main, argv)
     assert _printed(capsys, grid.main, [*argv, "--engine", "rust"]) == ours
     assert "portal: match all, per tick, mark last, limit penalty 1; against python/bots/mm.py@LIMIT=80" in ours
+
+
+@needs_cargo
+def test_a_delay_prints_the_same_on_either_engine(tmp_path, capsys):
+    """--delay through arena.backtest (one Rust run per day), per tick alone and resting with a rival,
+    and through arena.grid's scenarios (the batch's configs)."""
+    from arena import backtest, grid
+
+    data = _sim_data(tmp_path)
+    for k, extra in enumerate((["--delay", "1"], ["--delay", "2", "--resting", "--vs", "python/bots/rivals/trapper.py"])):
+        argv = ["python/bots/template.py", "1", "--data", data, *extra]
+        ours = _printed(capsys, backtest.main, [*argv, "--out", str(tmp_path / f"python{k}")])
+        assert _printed(capsys, backtest.main, [*argv, "--engine", "rust", "--out", str(tmp_path / f"rust{k}")]) == ours
+        for path in (tmp_path / f"python{k}").iterdir():
+            assert (tmp_path / f"rust{k}" / path.name).read_text() == path.read_text(), path.name
+    assert _printed(capsys, backtest.main, ["python/bots/template.py", "1", "--data", data]) != ours  # the delay changes the run
+    argv = ["python/bots/template.py", "1", "--data", data, "--grid", "PARAMS.KELP.make_edge=0.5,1", "--modes", "all",
+            "--scenario", "late:delay=1", "--scenario", "later:delay=2,resting,vs=python/bots/rivals/sniper.py", "--jobs", "2"]
+    ours = _printed(capsys, grid.main, argv)
+    assert _printed(capsys, grid.main, [*argv, "--engine", "rust"]) == ours
+    assert "late: match all, per tick, delay 1; no rivals" in ours
 
 
 @needs_cargo

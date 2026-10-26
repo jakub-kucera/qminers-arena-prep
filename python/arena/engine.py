@@ -42,7 +42,7 @@ Positions are valued at each tick's mark price: the data's, else the book's mid 
   - limit_penalty: no order is rejected for the limit (rule 2 is off). After each tick's fills,
     every lot of a position beyond its limit costs this much, charged to that product, and the
     tick counts as a breach.
-Latency (EngineConfig.delay, Python only): with delay n, what a bot returns at tick t reaches the
+Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
 exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there),
 and its limit check uses the position the bot saw when it decided. The bot is called before that
 tick's late orders are matched, so it never learns of a tick's trades before the next. For an

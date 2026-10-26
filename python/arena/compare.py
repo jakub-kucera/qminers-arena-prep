@@ -305,8 +305,6 @@ def main(argv: list[str] | None = None) -> int:
         candidates = labelled([base, *(parse_candidate(text) for text in args.bots)])
         if s.engine == "rust":
             rust.prepare(args.format, [*{c.path for c in candidates}, *every_rival(s.rivals, modes)], args.allow_stale)
-            for mode in modes:
-                rust.config_json(config_for(s.config, mode))  # a scenario's delay: refused on Rust
             for c in [*candidates, *(r for m in modes for r in rivals_for([], m))]:
                 rust.bot_spec(c.path, c.overrides)  # --set or @ settings on a zoo twin: refused
     except (ValueError, OSError, OverrideError, RuntimeError) as error:

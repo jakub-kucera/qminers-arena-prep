@@ -1242,8 +1242,6 @@ def main(argv: list[str] | None = None) -> int:
         if s.engine == "rust":
             rust.prepare(args.format, [args.bot, *every_rival(s.rivals, modes)], args.allow_stale)
             for mode in modes:
-                rust.config_json(config_for(s.config, mode))  # a scenario's delay: refused on Rust
-            for mode in modes:
                 for rival in rivals_for([], mode):
                     rust.bot_spec(rival.path, rival.overrides)  # settings on a twin that takes none: refused
         smoke_test(s, args.bot, axes, modes)
@@ -1323,6 +1321,7 @@ def format_scenarios(modes: list, s: Setup) -> str:
                                                             if config.resting else "per tick")
             setting += (f", fill {config.fill_ratio:g}" if config.fill_ratio != 1 else "") + (f", seed {config.seed}" if config.seed else "")
             setting += (f", mark {config.mark}" if config.mark != "mid" else "") + (f", limit penalty {config.limit_penalty:g}" if config.limit_penalty is not None else "")
+            setting += f", delay {config.delay}" if config.delay else ""
             setting += f"; against {', '.join(str(r) for r in rivals)}" if rivals else "; no rivals"
             lines.append(f"  {mode}: {setting}")
     return "scenarios:\n" + "\n".join(lines) if lines else ""

@@ -95,6 +95,15 @@ CONFIGS = [
     ("mark last, resting, holding", EngineConfig(resting=True, mark=Mark.LAST), HOLD),
     ("limit penalty, a bot quoting past its limit", EngineConfig(limit_penalty=2.5), OVER),
     ("limit penalty, two bots, resting, mark touch", EngineConfig(resting=True, limit_penalty=1.0, mark=Mark.TOUCH), OVER + TWO[1:]),
+    ("delay 1", EngineConfig(delay=1), ONE),
+    ("delay 2, worse", EngineConfig(delay=2, trade_matching=WORSE), ONE),
+    ("delay 1, limit penalty, a bot quoting past its limit", EngineConfig(delay=1, limit_penalty=2.5), OVER),
+    ("delay 1, resting, holding, back", EngineConfig(resting=True, delay=1), HOLD),
+    ("delay 2, resting, holding, prob", EngineConfig(resting=True, queue=QueueModel.PROB, delay=2), HOLD),
+    ("delay 1, two bots", EngineConfig(delay=1), TWO),
+    ("delay 2, two bots, worse", EngineConfig(delay=2, trade_matching=WORSE), TWO),
+    ("delay 1, two bots, resting, holding, prob, fill ratio 0.6", EngineConfig(resting=True, queue=QueueModel.PROB, fill_ratio=0.6, seed=3, delay=1), HOLD_TWO),
+    ("delay 2, two bots, resting", EngineConfig(resting=True, delay=2), TWO),
 ]
 
 # The template's settings, each turning on one part of STRATEGY, on a day of KELP (about 2,030)
@@ -146,6 +155,8 @@ def template_cases(variants=VARIANTS) -> list[tuple[str, EngineConfig, list]]:
         ("as committed, resting, front, worse", EngineConfig(resting=True, queue=QueueModel.FRONT, trade_matching=WORSE), bots(committed)),
         ("as committed against a copy, resting", EngineConfig(resting=True), bots(committed, [copy])),
         ("as committed against a requoted mm, resting", EngineConfig(resting=True), bots(committed, [("mm", BOT, mm({"KELP": (0, 1, False)}), True)])),
+        ("as committed, delay 1", EngineConfig(delay=1), bots(committed)),
+        ("as committed against a copy, resting, delay 2", EngineConfig(resting=True, delay=2), bots(committed, [copy])),
     ]
     return cases
 

@@ -54,6 +54,7 @@ impl Args {
             seed: self.get("--seed").unwrap_or("0").parse().unwrap_or_else(|_| fail("--seed needs an integer")),
             mark: mark(self.get("--mark").unwrap_or("mid")),
             limit_penalty: self.get("--limit-penalty").map(number),
+            delay: self.get("--delay").unwrap_or("0").parse().unwrap_or_else(|_| fail("--delay needs a whole number of ticks, 0 or more")),
         }
     }
 }
@@ -359,6 +360,10 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
             None => None,
             Some(v) if v.is_null() => None,
             Some(v) => Some(v.as_f64().ok_or("config limit_penalty must be a number or null")?),
+        },
+        delay: match value.get("delay").map_or(Some(0), Value::as_i64) {
+            Some(d) if d >= 0 => d as usize,
+            _ => return Err("config delay must be a whole number of ticks, 0 or more".to_string()),
         },
     })
 }

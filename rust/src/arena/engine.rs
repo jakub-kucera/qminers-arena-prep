@@ -2,13 +2,15 @@
 //! each piece can be read next to its original). The rules are in that module's docstring: the
 //! default mode (orders live one tick), resting mode with the back / prob / front queue models,
 //! the fill ratio's seeded liquidity draws, several bots in one market with their arrival
-//! shuffle, races and limit breaches, and the marks and the limit penalty of another exchange's
-//! scoring. Everything a DayResult records per tick is recorded here too.
+//! shuffle, races and limit breaches, the marks and the limit penalty of another exchange's
+//! scoring, and the delay between a bot's decision and its orders reaching the exchange.
+//! Everything a DayResult records per tick is recorded here too.
 //!
 //! Not ported: order tags (a format's own ids), the bot's exceptions, prints and step timings
 //! (a Rust bot can't raise or print into the result), and `begin_day`'s per-product info.
 
 use std::borrow::Cow;
+use std::collections::VecDeque;
 
 use crate::arena::model::{Action, Book, Day, Fill, MarketTrade, Name, OpenOrder, Order, Price, Source, Tick};
 use crate::support::pyrandom::PyRandom;
@@ -45,6 +47,7 @@ pub struct EngineConfig {
     pub seed: i64,
     pub mark: Mark,
     pub limit_penalty: Option<f64>, // None: rule 2's rejection; a rate: charged for each lot beyond a limit, each tick
+    pub delay: usize,               // ticks between a bot's decision and its orders reaching the exchange
 }
 
 impl Default for EngineConfig {
@@ -58,6 +61,7 @@ impl Default for EngineConfig {
             seed: 0,
             mark: Mark::Mid,
             limit_penalty: None,
+            delay: 0,
         }
     }
 }
@@ -143,7 +147,12 @@ struct Participant {
     actions: Vec<Action>,
     decided_position: Vec<i64>,
     decided_open: Vec<OpenOrder>,
+    // With a delay: the decisions on their way to the exchange, oldest first.
+    late: VecDeque<Decision>,
 }
+
+/// One tick's decision: the actions, and the position and open orders the bot saw.
+type Decision = (Vec<Action>, Vec<i64>, Vec<OpenOrder>);
 
 /// One product's book as _liquidity makes it: [price, volume left] levels, reused tick to tick.
 #[derive(Default)]
@@ -219,6 +228,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             actions: Vec::new(),
             decided_position: vec![0; n],
             decided_open: Vec::new(),
+            late: (0..config.delay).map(|_| (Vec::new(), vec![0; n], Vec::new())).collect(),
         })
         .collect();
     for (_, bot) in bots.iter_mut() {
@@ -262,6 +272,16 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             }
             player.decided_position.copy_from_slice(&player.position);
             player.unseen_fills.clear();
+        }
+        if config.delay > 0 {
+            // What was decided config.delay ticks ago arrives now; this tick's decision joins the queue.
+            for player in players.iter_mut() {
+                let mut arrived = player.late.pop_front().expect("one decision per tick of delay");
+                std::mem::swap(&mut arrived.0, &mut player.actions);
+                std::mem::swap(&mut arrived.1, &mut player.decided_position);
+                std::mem::swap(&mut arrived.2, &mut player.decided_open);
+                player.late.push_back(arrived);
+            }
         }
 
         // every order on the book this tick, oldest first

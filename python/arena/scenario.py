@@ -4,8 +4,8 @@ arena.compare score every cell or bot under.
     --scenario NAME:match=worse,resting,queue=front,power=2,fill=0.7,seed=1,mark=touch,penalty=5,delay=1,vs=FILE@PATH=VALUE
 
 Each item changes one engine setting from the run's own (`--match-trades`, `--resting`, `--queue`,
-`--queue-power`, `--fill-ratio`, `--seed`, `--mark`, `--limit-penalty`, `--delay`: Python engine
-only); `resting=no` turns resting off. `vs=` (repeatable) gives
+`--queue-power`, `--fill-ratio`, `--seed`, `--mark`, `--limit-penalty`, `--delay`); `resting=no`
+turns resting off. `vs=` (repeatable) gives
 the scenario its own rivals in place of `--vs`, each a file or a variant FILE@PATH=VALUE@... as
 arena.compare takes them; `vs=none` runs it with none. A value can't hold a comma. Without NAME the
 scenario is named by its items. `--modes all,worse` are the plain scenarios, named by their mode,
@@ -54,7 +54,7 @@ class Scenario:
     rivals: tuple[Rival, ...] | None = None  # None: the run's --vs
     mark: Mark | None = None
     limit_penalty: float | None = None
-    delay: int | None = None  # ticks between decision and exchange (Python engine only)
+    delay: int | None = None  # ticks between decision and exchange
 
     def __str__(self) -> str:
         return self.name
@@ -146,7 +146,7 @@ def parse_scenario(text: str) -> Scenario:
 def add_scenario_argument(parser) -> None:
     parser.add_argument("--scenario", dest="scenarios", action="append", default=[], metavar="NAME:ITEM,...",
                         help="score every run under this fill model too, after the --modes: match=all|worse|none, resting[=no], "
-                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS (Python engine only), vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
+                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS, vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
                         "Repeatable; with one, the summary adds the worst case over all of them (python/arena/scenario.py)")
 
 

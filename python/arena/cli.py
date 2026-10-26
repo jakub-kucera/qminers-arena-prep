@@ -91,7 +91,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         default=0,
         metavar="TICKS",
         help="orders reach the exchange this many ticks after the bot decides, meeting that tick's book and trades, as on an "
-        "exchange that applies them a step late (Python engine only; default: 0, Prosperity's)",
+        "exchange that applies them a step late (default: 0, Prosperity's)",
     )
     parser.add_argument(
         "--set",
@@ -148,8 +148,6 @@ def setup(args: argparse.Namespace) -> Setup:
     )
     if config.delay < 0:
         raise ValueError("--delay needs 0 or more ticks")
-    if config.delay and getattr(args, "engine", "python") == "rust":
-        raise ValueError("--delay runs on the Python engine only: drop --engine rust")
     overrides = dict(parse_override(text) for text in args.overrides)
     return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False), getattr(args, "engine", "python"))
 

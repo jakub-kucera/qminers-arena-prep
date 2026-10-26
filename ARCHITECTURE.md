@@ -58,7 +58,7 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 
 `--mark` (`EngineConfig.mark`) and `--limit-penalty` (`EngineConfig.limit_penalty`) score like an exchange other than Prosperity: positions valued at the touch (`touch`: a long at the best bid, a short at the best ask) or at the last market trade (`last`) instead of the mid, and a charge for each lot beyond a limit, each tick, in place of rejecting the orders (rule 2 is then off, so nothing is a race). Both are in the Rust twin, and `--scenario` takes them as `mark=` and `penalty=` (`python/arena/scenario.py`). `arena.sim`'s market keeps Prosperity's rules.
 
-**Latency** (`--delay TICKS`, `EngineConfig.delay`, Python only): what a bot returns at tick t meets tick t+n's book and trades (a `deque` of decisions in `run_market`), its limit check on the position it saw; the bot is called before that tick's late orders are matched. Rust refuses a config with a delay (`rust._no_delay`); a scenario can carry one (`delay=1`).
+**Latency** (`--delay TICKS`, `EngineConfig.delay`): what a bot returns at tick t meets tick t+n's book and trades (a `deque` of decisions in `run_market`), its limit check on the position it saw; the bot is called before that tick's late orders are matched. The Rust twin queues the decisions the same way (each participant's `late`), so `--engine rust` runs it too, and a scenario can carry one (`delay=1`). `arena.sim`'s market has no delay.
 
 **Shared market** (`run_market(day, [(name, bot), ...], config)`, CLI `--vs BOT`):
 - **One engine:** `run_day` is `run_market` with one participant. Every helper works on `_Live` orders carrying an `owner`, and fills are routed to their owner by `order_id`.

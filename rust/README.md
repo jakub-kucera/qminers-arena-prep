@@ -32,7 +32,7 @@ time. `python/tests/test_rust.py` fails when a twin's code changes until the Rus
 
 | Python | Rust | What it is | How they're checked |
 |---|---|---|---|
-| `python/arena/engine.py` | `src/arena/engine.rs` | `run_market` / `run_day` function for function (`_take` is `take`, ...): both modes, the three queue models, the fill ratio, several bots in one market, every per-tick record of a `DayResult` | every field a `DayResult` records, under every engine configuration, by all the bots below |
+| `python/arena/engine.py` | `src/arena/engine.rs` | `run_market` / `run_day` function for function (`_take` is `take`, ...): both modes, the three queue models, the fill ratio, several bots in one market, the marks, the limit penalty and the decision delay, every per-tick record of a `DayResult` | every field a `DayResult` records, under every engine configuration, by all the bots below |
 | `python/arena/formats/prosperity.py` (`load_day`) | `src/arena/formats/prosperity.rs` | the Prosperity CSVs read as the plug-in reads them, for a day reference (`.json`: data folder, round, day, the limits Python gives, and `only` some products), which `python/arena/rust.py` `write_day` writes instead of exporting a day the plug-in loaded (`prosperity.reference`); the bot adapter in that file is twinned by the template's ADAPTER | every Prosperity day (P2, P3, P4: 71) and two restricted ones, books, trades, marks and limits; arena.sim days in the Prosperity layout (`limits.json` included); and every real-day parity case reads its day this way |
 | `python/arena/sim.py` | `src/arena/sim.rs` | the market: the book, the fundamental (reversion, jumps and their bursts, regimes), the five agent kinds drawing from their own seeded `random.Random`s, bots trading inside it in both modes. The specs, presets, `--spec` and regimes stay in Python, which passes the spec as JSON; the Prosperity CSVs of `generate` are written by both | the recording (books, trades and their order, marks, ints kept apart from floats), the fundamental, and every bot's DayResult in the market and in its replays: every preset, both modes, two regimes, agents shown by name, the maker among the takers with skew, the rivals, and all 32 zoo bots racing (13 cases); `arena.sim run` and `generate` print and write the same, byte for byte |
 | `python/arena/stress.py` | `src/arena/stress.rs` | the perturbations (`perturb`: vol2, trends, shifts, spikes, no_wall, on each product's tick grid) and `permute` (the grid's permutation test), as a task's or a run's `transform` ("trend_up:2.5", "permuted:SEED:BLOCK"), so Rust makes each copy itself; the command line and the running stay in Python | every perturbation at size 1, three at other sizes, and `permute` at four seeds and block lengths, on a simulated day, a drill day (a tick of 5 cents), and P3 r1d0 and P4 r3d0 whole (60 cases); `arena.stress` and `arena.grid --permute` print the same on either engine |
@@ -87,9 +87,8 @@ no Python file of its own is in `support/` and `commands/`.
 
 ## What is and isn't ported
 
-- **The engine.** Ported: every rule in `python/arena/engine.py`'s docstring, in the same order of operations. Not ported:
+- **The engine.** Ported: every rule in `python/arena/engine.py`'s docstring, in the same order of operations, the decision delay (`EngineConfig.delay`, `--delay`) included. Not ported:
   - order tags (a format's own ids);
-  - the decision delay (`EngineConfig.delay`, `--delay`): Rust refuses a config with one (`python/arena/rust.py`, `_no_delay`), so a delayed run stays in Python;
   - a bot's exceptions, prints and step timings;
   - fractional prices (the day file holds whole prices, as Prosperity's are; a format with decimal prices loads them as whole units, as the drill's does);
   - CPython's own `lgamma`: `binomialvariate` calls the C library's. They differ by a few ulps, which could flip a fill-ratio draw only when its test lands that close to the bound.
