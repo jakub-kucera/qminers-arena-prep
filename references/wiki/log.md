@@ -410,3 +410,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-26] lint | the day's shape in arena.diagnose
 - `concepts/reading-the-data-on-day-one` gets a row for the new open/close note (`arena.diagnose --profile`: spread, wall-mid volatility and trades by tenth of the day; a note at 1.5x the middle on every day). Every P2–P4 round is flat by tenths, so it has no Prosperity example. The thresholds citation moved (`python/arena/diagnose.py:58-88` → `64-96`).
+
+## [2026-10-26] lint | learning make_edge online, tested
+- `python/experiments/online_edge.py` and the learner in `python/bots/research/online_edge.py`: `concepts/optimal-quoting-models` gets the result (`dropped here`: it finds Kelp's best edge under each fill model, but its worst case over the models stays below the best fixed edge's), and `sources/online-learning-market-making`'s notation table says where the update lives. No line citations into our code were added or moved.

@@ -3,7 +3,7 @@ title: Fernandez-Tapia, "High-frequency trading meets online learning" (2016)
 type: source
 repo: literature_md/online-learning-market-making
 status: partly-read
-updated: 2026-10-13
+updated: 2026-10-26
 ---
 
 # Fernandez-Tapia, "High-frequency trading meets online learning" (Market Microstructure and Liquidity 2(1), 2016)
@@ -29,7 +29,7 @@ A market maker that **learns its half-spread and its off-centring while trading*
 | `ψ` | `make_edge` (`python/bots/template.py:45`) |
 | `θ` | the template's quote shift (`skew × q / limit`); here it follows the price, not inventory |
 | `ΔT` | how long a quote lives: one tick in the default engine mode |
-| the update | would live in STRATEGY, with its state in `traderData` |
+| the update | `learn_edge` in `python/bots/research/online_edge.py` (a copy of the template): a finite-difference sign step on passive fills' markouts in place of his gradient, so it needs no `k`; state in `traderData` (`IDEAS.md`, "Learning `make_edge` online") |
 
 ## Traps
 - **Typo in the paper itself:** the numerical example reports `ψ* = 2.52` for `T = 30, σ = 1.2, A = 0.9, k = 0.3` (`online-learning-market-making.md:324-330` (p. 17)), below `1/k = 3.33`. Theorem 1, and `ψ* = 1/k + b/a` with `b ≥ 0`, rule that out for any `σ` and `ΔT` *(checked by simulation above)*. Use the theorem, not the example.

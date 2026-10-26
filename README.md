@@ -11,6 +11,7 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 | `python/bots/template.py` | Single-file market maker to copy for each round |
 | `python/bots/probe.py` | The first-hour probe bot: runs the probes in `ON_THE_DAY.md` and prints what it finds |
 | `python/bots/drill/template.py` | The template with its ADAPTER rewritten for the drill format, the worked example of the format swap |
+| `python/bots/research/` | Copies of the template that test an idea before it is ported (no Rust twin, no drill copy): `online_edge.py` learns `make_edge` from its own fills |
 | `python/notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, PnL split, market-trade impact, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |

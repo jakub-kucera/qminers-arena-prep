@@ -1,7 +1,7 @@
 ---
 title: Optimal quoting models (Avellaneda–Stoikov, GLFT, Guéant)
 type: concept
-updated: 2026-10-13
+updated: 2026-10-26
 ---
 
 # Optimal quoting models (Avellaneda–Stoikov, GLFT, Guéant)
@@ -65,7 +65,7 @@ The standard theory of where to quote is "fair ± half-spread − skew × invent
 - **Several products:** a cross-product term `Σ_j Γ^{ij} q^j` in the skew for correlated products. That is the cross-product hook asked for in `TODO_DONE.md`, "Add multi-product strategies"; see [many products](many-products-architecture.md).
 - **Flatten before the close** (`flatten_from`, built 2026-10-17): A–S and GLFT let the skew *fade* near `T` because inventory is marked at the mid for free. Grow it near the close only if the Arena liquidates at a bad price; Prosperity zeroed positions at fair value (IMC's webinar answers as reported in `references/README.md`, Ctrl-Alt-DefeatTheMarket).
 - **The discrete policy is mostly what the template already does** *(inferred)*: `make` quotes one tick inside the best when `make_edge` allows (`make_inside` ticks, 1 by default), a one-tick `skew` turns that into G&P's asymmetric zone (bid back to the best, ask one more tick in), and `clear`/`take` are the market-order zone. What it adds is the estimator: fill rates per (quote position, spread) as fills over time spent in the state, from `_orders.csv` and `_fills.csv` (`literature_md/limit-and-market-orders/limit-and-market-orders.md:226-248` (p. 7–8, checked)).
-- **Online tuning of `make_edge`** is a candidate for a round whose data says little in advance; its state would go in `traderData` (`IDEAS.md`).
+- **Online tuning of `make_edge`** (tested 2026-10-26, `dropped here`: `IDEAS.md`, "Learning `make_edge` online"). A sign-step learner on passive fills' 5-tick markouts (`python/bots/research/online_edge.py`, `learn_edge`) finds Kelp's best edge under each fill model within a quarter of a day, but its worst case over the models stays below the best fixed edge's: probing costs, and against a copy of the template markouts favour a wider quote than PnL does. Worth re-testing only for a product with no usable history, or as a playground probe of the fill model.
 
 ## How to test it here
 1. **Measure `A` and `k` per product.**

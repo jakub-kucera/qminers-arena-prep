@@ -147,6 +147,8 @@ between calls.
 
 `python/bots/rivals/` holds adversarial `--vs` rivals for `--resting`: a quote-matching trapper, a spoofer (`OFFSET` ticks behind the best) and a sniper of stale quotes, plus a taker at the touch (momentum and noise, its draws a hash of `SEED`, the timestamp and the product, so it needs no random state and its Rust twin draws the same). `python/experiments/rival_field.py` puts candidate settings against fields of them.
 
+`python/bots/research/` holds copies of the template that add one idea, off by default, so the copy otherwise trades as the template (`python/tests/test_online_edge.py` checks `online_edge.py`, the `make_edge` learner, fill for fill). They have no Rust twin and no drill copy: an idea that wins is ported into the template, with its twin and the drill sync.
+
 `python/bots/zoo/` holds bots written blind by language models from `python/bots/zoo/SPEC.md` and `PROMPTS.md`: the agent baseline and `--vs` rivals. Never edit a zoo bot or a prompt once used; its README has the protocol for adding other providers' bots. Each zoo bot has a Rust twin (`rust/src/bots/zoo/`), and `python/tests/test_rust.py` fails until a new one has its own.
 
 New strategy logic goes in STRATEGY, order-management changes go in EXECUTION, and format changes go in ADAPTER. `python/bots/datamodel.py` only
