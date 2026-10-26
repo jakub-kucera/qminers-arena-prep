@@ -137,3 +137,21 @@ def test_kelp_drift_mirrors_a_day_and_the_template_mirrors_its_position():
     b = run_day(flipped, kelp_drift.FMT.load_bot(kelp_drift.TEMPLATE, {}, strict=True))
     assert a.fills and b.positions["KELP"] == [-x for x in a.positions["KELP"]]  # the template quotes symmetrically
     assert b.pnl["KELP"] == pytest.approx(a.pnl["KELP"])
+
+
+def test_order_flow_splits_the_best_levels_changes_into_adds_and_removals():
+    from arena.model import Book, Day, MarketTrade, Tick
+    from experiments import imbalance
+
+    books = [
+        Book(((99, 5),), ((101, 5),)),
+        Book(((99, 8),), ((101, 5),)),  # 3 added at the bid
+        Book(((100, 2),), ((101, 1),)),  # a new, higher bid of 2; 4 removed at the ask
+        Book(((99, 6),), ((102, 3),)),  # the bid of 2 gone; the ask of 1 gone
+    ]
+    trades = {3: [MarketTrade("X", 102, 2), MarketTrade("X", 99, 1), MarketTrade("X", 100, 7)]}  # a buy, a sell, one inside
+    day = Day("d", ["X"], {"X": 10}, [Tick(t * 100, {"X": b}, {"X": trades[t]} if t in trades else {}, {}) for t, b in enumerate(books)])
+    rows = imbalance.flows(day, "X")
+    assert rows[0] is None
+    assert [(r["adds"], r["removals"], r["ofi"]) for r in rows[1:]] == [(3, 0, 3), (2, 4, 6), (0, 1 - 2, -1)]
+    assert rows[3]["trades"] == 2 - 1 and rows[3]["rho3"] == (6 - 3) / 9
