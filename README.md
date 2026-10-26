@@ -264,7 +264,7 @@ Two options change the pick:
   That halves the false positives (4.7–12.3%), and adds a last section to the summary.
 - `--gate first` makes the pick beat the bot as is under the first mode only, the other modes
   shown as columns to read: for once the playground has shown which mode the Arena's fills
-  follow (`TODO.md`, the decision on it). The `worse` gate removes few noise cells, since a cell's
+  follow (`ON_THE_DAY.md`, "Which modes gate the grid's pick?"). The `worse` gate removes few noise cells, since a cell's
   noise under `all` and `worse` is nearly the same, and it blocks every real edge change that
   only pays under `all`.
 
