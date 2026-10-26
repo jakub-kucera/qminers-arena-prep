@@ -2,6 +2,10 @@
 
     uv run python -m arena.validate python/bots/template.py 1
     uv run python -m arena.validate python/bots/template.py 1 --allow numpy --time-limit-ms 900
+    uv run python -m arena.validate python/bots/template.py 1 --max-size 100KB   # the dashboard's "up to 100 kB"
+
+File checks, as the portal's upload form makes them: a .py name, not empty, and with --max-size
+no bigger than the cap (over it, arena.compact writes a copy without comments or docstrings).
 
 Static checks: the file parses and defines the competition's entry point, imports only the
 standard library (plus --allow and the modules the competition provides), and doesn't use
@@ -41,12 +45,49 @@ PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
 
 RISKY_MODULES = {"subprocess", "socket", "urllib", "http", "requests"}
 HASH_SEEDS = ("1", "2")  # PYTHONHASHSEED of the two other processes the first day is replayed in
+UNITS = {"": 1, "b": 1, "k": 1024, "kb": 1024, "kib": 1024, "m": 1024**2, "mb": 1024**2, "mib": 1024**2}  # the portal's are binary
 
 
 @dataclass(frozen=True)
 class Check:
     status: str
     message: str
+
+
+def max_size(text: str) -> int:
+    """--max-size as bytes: a number of bytes, or the dashboard's figure with its unit ("100 kB", "1.5MB").
+    The dashboard shows the cap in binary units to one decimal, so a figure with a unit is taken as the
+    least it could be rounded from: 100 kB is 100 × 1,024 bytes less 0.05 kB."""
+    number = text.strip().rstrip("bBiI").rstrip()
+    unit = text.strip()[len(number):].strip().lower()
+    number, letter = (number[:-1], number[-1].lower()) if number[-1:].isalpha() else (number, "")
+    key = letter + unit
+    if key not in UNITS:
+        raise argparse.ArgumentTypeError(f"not a size: {text!r} (e.g. 102400, 100KB or 1.5MB)")
+    try:
+        value = float(number)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not a size: {text!r} (e.g. 102400, 100KB or 1.5MB)") from None
+    if value <= 0:
+        raise argparse.ArgumentTypeError(f"--max-size must be positive, not {text!r}")
+    return int(value) if UNITS[key] == 1 else int((value - 0.05) * UNITS[key])
+
+
+def file_checks(path: Path, size: int, limit: int | None) -> list[Check]:
+    """What the portal's upload form checks before sending the file: its name, that it isn't empty, its size."""
+    checks = []
+    if not path.name.lower().endswith(".py"):
+        checks.append(Check(FAIL, f"{path.name}: the portal takes only a .py file"))
+    if size == 0:
+        checks.append(Check(FAIL, "the file is empty"))
+    if limit is None:
+        checks.append(Check(INFO, f"file size {size:,} bytes; pass the dashboard's cap as --max-size to check it"))
+    elif size > limit:
+        checks.append(Check(FAIL, f"file size {size:,} bytes, over the cap of {limit:,}: upload a compact copy "
+                                  f"(uv run python -m arena.compact {path} <copy>.py) and validate that"))
+    else:
+        checks.append(Check(PASS, f"file size {size:,} bytes, within the cap of {limit:,}"))
+    return checks
 
 
 def static_checks(source: str, fmt, allow: set[str]) -> tuple[list[Check], bool]:
@@ -239,6 +280,7 @@ def main(argv: list[str] | None = None) -> int:
     add_common_arguments(parser)
     parser.add_argument("--allow", default="", help="comma-separated non-standard-library modules the competition allows")
     parser.add_argument("--time-limit-ms", type=float, default=900, help="slowest allowed tick (default: 900, Prosperity's limit)")
+    parser.add_argument("--max-size", type=max_size, help="the dashboard's file-size cap: bytes, or as shown (100KB, 1.5MB)")
     parser.add_argument("--fills-digest", action="store_true", help=argparse.SUPPRESS)  # hash_seed_check's other processes
     argv = sys.argv[1:] if argv is None else list(argv)
     args = parser.parse_args(argv)
@@ -250,12 +292,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         s = setup(args)
         source = args.bot.read_text(encoding="utf-8")
+        size = args.bot.stat().st_size
     except (ValueError, OSError) as error:
         parser.error(str(error))
 
     allow = {module.strip() for module in args.allow.split(",") if module.strip()}
     print(f"Validating {args.bot} on {', '.join(day.name for day in s.days)} ({args.format} format)")
-    checks, replayable = static_checks(source, s.format, allow)
+    checks = file_checks(args.bot, size, args.max_size)
+    found, replayable = static_checks(source, s.format, allow)
+    checks += found
     if replayable:
         try:
             checks += replay_checks(args.bot, s, args.time_limit_ms, argv)

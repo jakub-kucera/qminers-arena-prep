@@ -31,6 +31,8 @@ uv run python -m arena.backtest python/bots/template.py 1 --engine rust   # the 
 uv run python -m arena.backtest python/bots/template.py 1 --mark touch --limit-penalty 5   # positions valued at the touch; a breach charged per lot a tick, not rejected
 uv run python -m arena.backtest python/bots/template.py 1 --metrics      # also the figures the Arena's portal shows on a submission, to compare with it
 uv run python -m arena.validate python/bots/template.py 1                # pre-submission checks, exit 1 on FAIL
+uv run python -m arena.validate python/bots/template.py 1 --max-size 100KB   # ...and the dashboard's file-size cap
+uv run python -m arena.compact python/bots/template.py submit/template.py   # over the cap: the same code without comments or docstrings (~26 KB)
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --grid PARAMS.KELP.take_edge=0..7 --modes all,worse --screen 0.25   # big grids: screen on the first day, the best quarter on all
 uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --grid PARAMS.KELP.skew=0..9 --sample 1000 --halving 0.5 --modes all,worse --engine rust   # huge grids: a random 1,000 cells, halved day by day

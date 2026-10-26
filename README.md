@@ -7,7 +7,7 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 
 | Path | What it is |
 |---|---|
-| `python/arena/` | Backtesting engine; the `diagnose`, `backtest`, `grid`, `analysis` and `validate` commands; format plug-ins under `python/arena/formats/` |
+| `python/arena/` | Backtesting engine; the `diagnose`, `backtest`, `grid`, `analysis`, `validate` and `compact` commands; format plug-ins under `python/arena/formats/` |
 | `python/bots/template.py` | Single-file market maker to copy for each round |
 | `python/bots/probe.py` | The first-hour probe bot: runs the probes in `ON_THE_DAY.md` and prints what it finds |
 | `python/bots/drill/template.py` | The template with its ADAPTER rewritten for the drill format, the worked example of the format swap |
@@ -352,14 +352,19 @@ The notebook does the same steps interactively, through the same functions in `p
 ```sh
 uv run python -m arena.validate python/bots/template.py 1
 uv run python -m arena.validate python/bots/my_bot.py 1 --allow numpy --time-limit-ms 900
+uv run python -m arena.validate python/bots/template.py 1 --max-size 100KB     # the cap as the dashboard shows it
+uv run python -m arena.compact python/bots/template.py submit/template.py      # over the cap: the same code, no comments or docstrings
 ```
 
 It fails (exit code 1) on:
+- what the portal's upload form refuses: a name not ending in `.py`, an empty file, or one bigger than `--max-size` (bytes, or the dashboard's figure: `100KB`, `1.5MB`; the dashboard rounds to a tenth of a binary unit, so `100KB` is checked as 99.95 × 1,024 bytes). Without `--max-size` it prints the size.
 - a syntax error, or a missing entry point (`class Trader` with `run`)
 - imports from outside the standard library that aren't listed in `--allow`
 - any exception, or malformed orders (e.g. float prices)
 - orders the engine cancels for possibly breaching a position limit
 - a tick slower than `--time-limit-ms`
+
+Over the cap, `arena.compact` writes a copy without comments or docstrings (the template's 49 KB become about 26 KB) and checks that it parses back to the same code; it trades exactly as the original (`python/tests/test_compact.py`). Validate and upload the copy, and keep editing the original. Delete the probe bot's RISKY PROBES block before compacting it, since its markers are comments.
 
 It warns about:
 - use of environment variables, files, subprocesses or the network
@@ -595,7 +600,7 @@ Start from [`RUNBOOK.md`](RUNBOOK.md), one page of the day's commands; the steps
 1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground. `python/bots/probe.py` runs most of the probes in one run: rewrite its ADAPTER like the template's, and read its `PROBE` lines (`uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict` shows what our engine answers).
 2. **Write `python/arena/formats/qminers.py`**, using `drill.py` as the model, and register it in `python/arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
 3. **Update the bot:** rewrite its imports, PARAMS and ADAPTER section, and leave DEFAULTS, STRATEGY and EXECUTION alone. `python/bots/drill/template.py` is the worked example: it is the template with only those parts rewritten for the drill API, and on the same simulated days it makes the same PnL as the template, to the cent (`python/tests/test_drill.py`).
-4. **Validate** with `--format qminers`, their time limit, and `--allow` for their libraries.
+4. **Validate** with `--format qminers`, their time limit, `--allow` for their libraries, and `--max-size` from the dashboard.
 
 Practise it: `uv run python -m experiments.format_drill <folder>` makes drill data from simulated days, then any tool runs with `--format drill --data <folder>/drill`.
 

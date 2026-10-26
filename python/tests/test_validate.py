@@ -1,3 +1,4 @@
+import argparse
 import textwrap
 from pathlib import Path
 
@@ -170,3 +171,33 @@ def test_settings_that_cant_matter_warn(check, tmp_path):
     code, out = check(source)
     assert code == 0
     assert "WARN  settings that can't matter: KELP: level sets the target, so jump_min is ignored" in out
+
+
+@pytest.mark.parametrize("text, size", [("102400", 102400), ("100KB", 102348), ("100 kB", 102348), ("100KiB", 102348),
+                                        ("100k", 102348), ("1.5MB", 1520435), ("1 MB", 996147)])
+def test_max_size_reads_the_dashboards_figure_at_the_least_it_could_be(text, size):
+    assert validate.max_size(text) == size  # 100 kB on the dashboard is anything from 99.95 kB: 102,348.8 bytes
+
+
+@pytest.mark.parametrize("text", ["abc", "KB", "-5", "0", "10 GB"])
+def test_max_size_rejects_what_isnt_a_size(text):
+    with pytest.raises(argparse.ArgumentTypeError):
+        validate.max_size(text)
+
+
+def test_the_file_checks_are_the_upload_forms(tmp_path):
+    def statuses(path, size, limit):
+        return [(c.status, c.message.split(",")[0]) for c in validate.file_checks(path, size, limit)]
+
+    assert statuses(Path("bot.py"), 10, None) == [("INFO", "file size 10 bytes; pass the dashboard's cap as --max-size to check it")]
+    assert statuses(Path("bot.PY"), 10, 10) == [("PASS", "file size 10 bytes")]
+    assert statuses(Path("bot.txt"), 0, 10) == [("FAIL", "bot.txt: the portal takes only a .py file"), ("FAIL", "the file is empty"),
+                                                 ("PASS", "file size 0 bytes")]
+    assert statuses(Path("bot.py"), 11, 10)[0][0] == "FAIL"
+
+
+def test_a_file_over_max_size_fails_and_names_the_compact_command(check):
+    code, out = check(None, "--max-size", "10KB")
+    assert code == 1 and "over the cap of 10,188: upload a compact copy (uv run python -m arena.compact" in out
+    code, out = check(None, "--max-size", "1MB")
+    assert code == 0 and "PASS  file size" in out

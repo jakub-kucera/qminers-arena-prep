@@ -26,7 +26,8 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
   step"]; then run `uv run python -m arena.diagnose DAYS --format qminers --data D` ["What kind of market is
   each product?"].
 - **Bot (A):** in a copy of `python/bots/template.py`, rewrite only the imports, PARAMS and ADAPTER. Then
-  `uv run python -m arena.validate BOT DAYS --format qminers --data D --time-limit-ms <theirs> [--allow numpy]`.
+  `uv run python -m arena.validate BOT DAYS --format qminers --data D --time-limit-ms <theirs> --max-size <the dashboard's> [--allow numpy]`.
+  Over the cap: `uv run python -m arena.compact BOT <copy>.py`, then validate and upload the copy ["How do submissions work?"].
 
 ## Lunch (12:00–13:00)
 - Backtest in each fill mode (`--match-trades all|worse|none`, then `--resting`; `--mark` and `--limit-penalty` to match the

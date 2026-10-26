@@ -50,8 +50,6 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
   - Done when: `arena.diagnose` notes a product whose moves of several spreads reverse well above half the time (a threshold calibrated on P4 round 5, as a module constant), the note points to the jump mode in `references/wiki/concepts/reading-the-data-on-day-one.md`, and a test covers it.
 - [ ] **Make `check_arena_site.py` keep short UI strings.** It drops strings under 6 characters, so it missed the submissions table's "PnL" column (and "Tie", "Final", "Team"), and it can't tell which strings a page uses: the 10/20/30/40% weights sit in a translation namespace no component reads (`ON_THE_DAY.md`, "Known so far", 2026-10-25).
   - Done when: strings at a value position of the translation objects (`key:"…"`) are kept whatever their length, the checker lists the namespaces no code references, the snapshot is re-saved, and the wiki's citations into it are re-mapped.
-- [ ] **Check the file-size cap before an upload.** The dashboard shows a size limit per round ("A single Python file, up to N KB/MB", from `maxStrategyFileSizeBytes`), and the upload form refuses a bigger file (`ON_THE_DAY.md`, "Known so far", 2026-10-25). `python/bots/template.py` is 49 KB, 26 KB without its comments and docstrings, and `arena.validate` doesn't look at size, so a cap under 50 KB would be found only at the first upload.
-  - Done when: `arena.validate` prints the file's size and FAILs above `--max-size BYTES`; one command writes a compact copy (no comments or docstrings) that a test shows trades exactly as the original; the RUNBOOK's upload line says to set `--max-size` from the dashboard.
 
 ## Strategy
 
