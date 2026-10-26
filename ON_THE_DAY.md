@@ -33,7 +33,7 @@ The official times are from the organisers' e-mail of 7 Oct (`references/algo_tr
 - T+0:00: download the data and the round's rules; write what changed into "Rule changes" and "Products".
 - T+0:15: `arena.diagnose`; backtest the last round's bot on the new days in every fill mode.
 - T+2:00: a validated bot that is at least as good, and an upload by the submission rule ("Spend the round's submissions by a rule written before the first score").
-- T+4:30: stop changing the strategy; validate the final candidate and upload it.
+- 30 minutes before the submission deadline (T+4:30 if the deadline is the round's end; the dashboard shows it, and it can be earlier), or twice the first evaluation's time if that is longer: stop changing the strategy; validate the final candidate and upload it.
 - T−0:10: check which submission is marked final.
 - After the deadline, once the private run has finished (it runs after the deadline, so maybe only in the break): open our PRIVATE entry, the final submission's private run ("Evaluated submission" links the two), and download its results; compare its PnL and metrics with the public run of the same file. The gap is what the private data, or the other teams, did to the bot: the evidence for the next round. Then save the leaderboard's data ("Is the market shared with the other teams?" says how) and run `uv run python -m experiments.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <our name>`. Both go into the handover note.
 

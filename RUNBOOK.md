@@ -44,7 +44,7 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 | T+1:00 | `uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>.make_edge=0.5,1,1.5,2 --modes <closest>,worse [--screen 0.25]`. Change a setting only to the summary's `pick` ["Evaluation data"]. Fill model unsure: add a `--scenario` for each one left possible ["Which backtest settings match the playground?"]. |
 | T+1:30 | `uv run python -m arena.stress BOT DAYS --format qminers --data D`; set each `stop_loss` to about 3× its plain drawdown ["Stress the bot"]. If the market is shared: `--vs` copies, the round's zoo through `arena.compare`, and the rivals ["Is the market shared"]. |
 | T+2:00 | A validated bot at least as good as the last one, uploaded; its portal score against our backtest is the engine's error `T`. |
-| T+4:30 | Stop changing the strategy. Validate the final candidate and upload it. |
+| deadline − 0:30 | (T+4:30 if the deadline is the round's end; earlier if twice the first evaluation's time is longer.) Stop changing the strategy. Validate the final candidate and upload it. |
 | T−0:10 | Check which submission is marked final. Write the handover note. |
 | After | Once the private run is done: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
 

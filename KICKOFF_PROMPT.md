@@ -1,33 +1,36 @@
 # Kickoff prompts
 
-Paste one of these into a fresh agent session, started in the repository's root, at the start of a round. Fill in the `<angle brackets>` and delete any line that doesn't apply. Unzip the round's download into `data/arena/round<N>/` first (`data/` is gitignored), and save the Technical Rules or assignment text there as well, as `rules.md` or the PDF as given.
+Paste one of these into a fresh agent session, started in the repository's root, at the start of a round. Fill in the `<angle brackets>` and delete any line that doesn't apply. Unzip the round's download into `data/arena/round<N>/` first (`data/` is gitignored), and save the Technical Rules or assignment text there as well, as `rules.md` or the PDF as given. Download the data as soon as the round opens: the link is only on the current round's card. Fill the deadline and the limits in from the dashboard ("Submissions used x / y", the file-size cap), not from the schedule: the submission deadline can come before the round's end.
 
 The agent reads `CLAUDE.md` by itself, so the prompt only says what `CLAUDE.md` can't: which round this is, what the agent has, when it must be done, and what it must not do alone. Each person on the team pastes it with their own track.
 
 ## Round 1
 
 ```text
-This is the Qminers Algo Trade Arena, round 1 of 4, for real. The round ends at <HH:MM>; run `date` now and keep track of the time yourself.
+This is the Qminers Algo Trade Arena, round 1 of 4, for real. Submissions close at <HH:MM> (the dashboard's deadline; the round itself ends at <HH:MM>). Run `date` now and keep track of the time yourself.
 
 What you have:
 - The round's public data: data/arena/round1/
 - The organisers' assignment / Technical Rules: data/arena/round1/<rules file>  (or pasted below)
 - Anything else they gave (example bot, API docs): <paths, or "nothing">
+- The dashboard's limits: <y> public submissions this round, files up to <size>.
 
 Your track: <all of it | Checklist | Probes | Data>, as in ON_THE_DAY.md, "Splitting the first hour". Teammates have the others: <who has what>.
 
 Read first, in this order: the rules file in full, then ON_THE_DAY.md, then references/wiki/concepts/reading-the-data-on-day-one.md. Everything in this repo was built on IMC Prosperity as a stand-in. Treat every Prosperity result (IDEAS.md, the template's PARAMS) as a prior to re-test on this data, never as a fact about this market.
 
 Work in this order, and tell me when each step is done:
-1. Rules and API. Answer every item of ON_THE_DAY.md's "First hour" that the rules settle, under the item and with its source. List what they leave open, and anything in them that contradicts how the repo assumes the market works (matching, limits, scoring, the bot's interface, the runtime limits, what is allowed). Stop and show me this list before writing code.
+1. Rules and API. Answer every item of ON_THE_DAY.md's "First hour" that the rules settle, under the item and with its source. List what they leave open, and anything in them that contradicts how the repo assumes the market works (matching, limits, scoring, the bot's interface, the runtime limits, what is allowed). If the round has a single product, say so: then its whole score rides on that market, and it gets every probe and the whole of diagnose's reading. Stop and show me this list before writing code.
 2. The format plug-in: python/arena/formats/qminers.py, following ON_THE_DAY.md's "The format swap, step by step", then arena.diagnose on the data.
 3. Our bot: a copy of python/bots/template.py with only its imports, PARAMS and ADAPTER rewritten, as python/bots/drill/template.py was. Every product in the data gets a PARAMS entry from what diagnose says.
-4. arena.validate on it, under both fill modes the rules make plausible. By <T+2h, HH:MM> I want a validated bot I can upload. That comes before any tuning.
+4. arena.validate on it, under both fill modes the rules make plausible, with --time-limit-ms at their limit and --max-size at the dashboard's cap (over the cap: arena.compact, then validate the copy). By <T+2h, HH:MM> I want a validated bot I can upload. That comes before any tuning.
+   Once its evaluation completes: backtest the same file on the same data with --metrics under --mark mid, touch and last (and --limit-penalty if a breach is charged rather than rejected), and keep the setting whose figures match the submission's metrics (ON_THE_DAY.md, "How is PnL scored?"). Use it in every backtest and grid after that. Also note how long the evaluation took: call it E.
 5. Then improve it: the grid's pick under --modes all,worse (or the mode the playground matched), arena.stress, the stop losses, and the IDEAS.md rows that fit these products. Each change must beat the bot before it on held-out days, not only in-sample.
-6. At <T+4h30, HH:MM>: stop changing strategy. Run validate on the final candidate and give me the file to upload.
+6. At <30 min before the deadline, HH:MM>, or earlier if 2E is longer than 30 minutes: stop changing strategy. Run validate on the final candidate and give me the file to upload.
 
 Rules for you:
-- I upload. Never upload, and never spend a submission. Before each upload, tell me what the bot is, its local result, and what it should score, so that the portal score can be checked against it (ON_THE_DAY.md, "Spend the round's submissions by a rule written before the first score").
+- I upload. Never upload, and never spend a submission. Before each upload, tell me what the bot is, its local result, and the PnL and metrics it should show, so that the portal's figures can be checked against it (ON_THE_DAY.md, "Spend the round's submissions by a rule written before the first score").
+- How uploads work, from the site's code (ON_THE_DAY.md, "Known so far"): one evaluation at a time, so each upload blocks the next until it has run; a new upload becomes final only once it completes (the round's first one at once); a failed one leaves the final as it was and shows a note, probably the error, which you read before we spend another; an exploratory upload that completes replaces the final, so afterwards I mark the chosen one final again. Plan the last upload to start at least 2E before the deadline.
 - The bot must be one self-contained .py file: standard library only (unless the rules allow more), deterministic, with its state kept the way the rules say the engine keeps it.
 - Ask me before doing anything the rules may forbid, any web search beyond the organisers' own pages, ON_THE_DAY.md's "Is the data a real series in disguise?" search (it needs my approval and a budget), or a run expected to take over 10 minutes.
 - --engine rust only works for bots with a Rust twin. The Arena's template gets one by config, with no Rust code, if its ADAPTER follows the drill's conventions: a row in rust/twins.json and `experiments.rust_bench --twin` (ON_THE_DAY.md, "Which backtest settings match the playground?"). Do it once grids are what is slowing us down; if the check shows differences, grid in Python and tell me.
@@ -38,11 +41,12 @@ Rules for you:
 ## Rounds 2 to 4
 
 ```text
-This is the Qminers Algo Trade Arena, round <N> of 4 (weight <20|30|40>%). The round ends at <HH:MM>; run `date` now and keep track of the time yourself.
+This is the Qminers Algo Trade Arena, round <N> of 4 (weight <20|30|40>%, if the rules confirm the weights). Submissions close at <HH:MM> (the dashboard's deadline; the round itself ends at <HH:MM>). Run `date` now and keep track of the time yourself.
 
 What you have:
 - This round's public data: data/arena/round<N>/; earlier rounds' data: data/arena/round<1..N-1>/
 - This round's rules or announcement: <path, or pasted below>
+- The dashboard's limits: <y> public submissions this round, files up to <size>. Last round's evaluation took <E> minutes.
 - Our final bot from round <N-1>: python/bots/<file>.py. Its portal score: <score>, our local prediction was <number>. Leaderboard: <our place, the top scores, anything visible about other teams>. Its private run: <PnL> against its public run's <PnL>; the leaderboard curves' verdict (experiments.leaderboard_curves --read): <verdict>. The handover note: data/arena/round<N-1>/HANDOVER.md.
 - What we learned last round: ON_THE_DAY.md (the answers written in), IDEAS.md's Arena rows, and git log since the round started.
 
@@ -50,12 +54,12 @@ Your track: <...>. Teammates have <...>.
 
 Work in this order:
 1. What changed. Compare this round's rules, products, limits and data with round <N-1>'s: new products, removed ones, changed limits, fees, matching, scoring, news or other new inputs. Go through references/wiki/concepts/harder-rounds.md and say which mechanisms this round shows. Stop and show me this list before changing code.
-2. Does last round's bot still run? Run validate on the new data, and backtest it on the new days. That is the baseline, and an upload candidate as soon as it passes.
+2. Does last round's bot still run? Run validate on the new data (with --max-size at this round's cap), and backtest it on the new days with last round's --mark and --limit-penalty. Fit those two again from this round's first upload's metrics: scoring can change between rounds. That is the baseline, and an upload candidate as soon as it passes.
 3. Changes, in this order: the format plug-in and ADAPTER for anything new in the API; then PARAMS for the new products; then the old products' settings, gridded again on this round's data rather than kept from last round (diagnose both). The rounds get harder by design, so last round's choices (strategy, modes, settings, fill model) are a baseline to beat, not a default: by <T+1h, HH:MM>, put at least one alternative against last round's approach, the one this round's diagnose notes point to, and say which of last round's choices you kept without testing. Check that a day isn't repeated from an earlier round before treating it as held out (the grid's repeated-day check).
 4. By <T+2h, HH:MM>: a validated bot at least as good as the baseline on this round's data.
-5. At <T+4h30, HH:MM>: stop changing strategy, run validate, and give me the file.
+5. At <30 min before the deadline, or 2E if longer, HH:MM>: stop changing strategy, run validate, and give me the file.
 
-The rules from round 1 still hold: I upload; one self-contained, deterministic file; ask before anything the rules may forbid, any outside data search, or a long run; write what you learn into the repo and commit each step; a five-line status every hour. This round is worth <weight>%, so <"protect what we have: prefer the grid's worst day over its best PnL" | "we need to catch up: say what it would take">.
+The rules from round 1 still hold: I upload; one self-contained, deterministic file under the size cap; one evaluation at a time, so the last upload starts at least 2E before the deadline; ask before anything the rules may forbid, any outside data search, or a long run; write what you learn into the repo and commit each step; a five-line status every hour. This round is worth <weight>%, so <"protect what we have: prefer the grid's worst day over its best PnL" | "we need to catch up: say what it would take">.
 ```
 
 ## Without the repository
@@ -67,27 +71,28 @@ For a second, independent attempt: an agent that sees only what the organisers h
 - **The "Priors" block is optional.** It is what our Prosperity prep found, in a few lines and with no code. Keep it for a stronger attempt; delete it for a fully clean-room one.
 
 ```text
-You are helping our team in a 24-hour algorithmic trading hackathon (the Qminers Algo Trade Arena). It has four rounds of 5 hours; at the end of each, a team uploads one Python bot file, which the organisers run on a simulated limit-order-book exchange. This is round <N> of 4, worth <10|20|30|40>% of the total. It ends at <HH:MM>; run `date` now and keep track of the time yourself.
+You are helping our team in a 24-hour algorithmic trading hackathon (the Qminers Algo Trade Arena). It has four rounds of 5 hours; at the end of each, a team uploads one Python bot file, which the organisers run on a simulated limit-order-book exchange. This is round <N> of 4, worth <10|20|30|40>% of the total if the rules confirm the weights. Submissions close at <HH:MM>; run `date` now and keep track of the time yourself.
 
 Everything you have is in this folder:
 - the organisers' assignment and Technical Rules: <file, or pasted below>
 - the round's public data: <folder>
 - <an example bot / API docs / nothing else>
+- the portal's limits: <y> uploads this round, files up to <size>
 Use nothing else: no web search, no other folders, unless I say so.
 
 The deliverable is one self-contained .py file that follows the rules' bot interface exactly: standard library only unless the rules allow more, deterministic (seed any randomness, never read the clock), keeping state between calls only in the way the rules say the exchange keeps it, and inside every runtime limit.
 
 Work in this order, and tell me when each step is done:
-1. Read the rules in full. Write rules_summary.md: the bot's interface (what it is called with, what it returns, how often), order types and how they match and expire, position limits and what happens on a breach, fees, scoring (what open positions are marked to, whether they are liquidated at the end), runtime and memory limits, allowed libraries, and the submission rules. List what the rules leave open or ambiguous. Stop and show me this before writing code.
+1. Read the rules in full. Write rules_summary.md: the bot's interface (what it is called with, what it returns, how often), order types and how they match and expire, position limits and what happens on a breach, fees, scoring (what open positions are marked to, whether they are liquidated at the end), runtime and memory limits, allowed libraries, and the submission rules. List what the rules leave open or ambiguous. If there is only one product, say so: the whole score rides on it. Stop and show me this before writing code.
 2. Look at the data. Per product: price units and tick size, the spread and the book's depth, how the mid behaves (does it return to a level, trend, or jump, and do jumps reverse), how often market trades print and at which prices, whether products are related (baskets, options, a common factor), and whether trades name counterparties. Check whether any day repeats another. Write it into data_notes.md with the numbers.
-3. A local backtester (backtest.py) that replays the data through the bot's exact interface, enforcing the limits and the breach rule as the rules state them. Make the passive-fill rule a switch: optimistic (a trade at our price fills us) and conservative (only a trade through our price, or a book that crosses us, fills us). Report PnL per product and day, positions, fills, errors and the slowest call. Test it on a few hand-made ticks before trusting it.
+3. A local backtester (backtest.py) that replays the data through the bot's exact interface, enforcing the limits and the breach rule as the rules state them. Make the passive-fill rule a switch: optimistic (a trade at our price fills us) and conservative (only a trade through our price, or a book that crosses us, fills us). Report PnL per product and day, positions, fills, errors and the slowest call, and the figures the portal shows on each submission: filled orders, traded volume, end position, cash, the price the end position is valued at, any position-limit penalty. Make that valuation price a switch too (the mid, the touch: best bid for a long position and best ask for a short, or the last trade) until the first upload's figures show which one the portal uses. Test it on a few hand-made ticks before trusting it.
 4. A simple, robust first bot: per product, a fair value that ignores small orders near the touch (e.g. the mid of the largest levels), take anything mispriced against it, quote passively around it, and push inventory back toward zero near the limit. Never send orders that could breach a limit. Catch exceptions per product so one product's error can't stop the others.
-5. Validate it: every day runs with no errors, no breaches, deterministic across two runs, within the time limit, in both fill modes. By <T+2h, HH:MM> give me a file I can upload. That comes before any tuning.
+5. Validate it: every day runs with no errors, no breaches, deterministic across two runs, within the time limit, in both fill modes, and the file is under the size cap. By <T+2h, HH:MM> give me a file I can upload. That comes before any tuning.
 6. Then improve, one change at a time. Tune on some days and check on days the tuning didn't see; prefer a setting whose neighbours also do well over the single best; distrust a gain that disappears under the conservative fill rule. Keep a log (changes.md): each change, its PnL per day in both modes, kept or dropped.
-7. At <T+4h30, HH:MM>: stop changing strategy, re-run the validation, and give me the final file.
+7. At <30 min before the deadline, HH:MM>: stop changing strategy, re-run the validation, and give me the final file. Uploads are evaluated one at a time, each blocking the next, so I will tell you how long the first one took; leave at least twice that before the deadline.
 
 Rules for you:
-- I upload. Never upload or spend a submission. Before each upload, tell me what the bot is and what score you expect from the backtester, so that the portal's score checks the backtester.
+- I upload. Never upload or spend a submission. Before each upload, tell me what the bot is and the PnL and figures you expect from the backtester, so that the portal's figures check the backtester. When an upload fails, I will paste you its error note.
 - Ask before anything the rules may forbid, and before any run expected to take over 10 minutes.
 - Every hour, or when you are blocked: five lines: done, in progress, the bot's current local PnL (both fill modes), what you need from me, the next step.
 
