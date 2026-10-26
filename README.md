@@ -156,8 +156,8 @@ unseen-days section leaves out every day a step ranked on, so it appears only wh
 cells drawn at random from the grid (`--sample-seed`, default 0) instead of all of them, so a
 product of millions is never listed; `--permute`'s copies run the same sample.
 
-`--engine rust` runs the backtests and the statistics that grow with the cells (CSCV, the DSR's
-correlation, SPA and StepM) on the Rust port (`rust/`, needs `cargo`), on `--jobs` threads, and
+`--engine rust` runs the backtests, and the statistics that grow with the cells (CSCV, the DSR's
+correlation, SPA and StepM, which go to Rust even without it when it builds), on the Rust port (`rust/`, needs `cargo`), on `--jobs` threads, and
 prints and writes the same results to the last digit. The axes, the screen and the permuted copies
 stay in Python, and so do the scenarios, whose settings and rivals each task carries. It takes a
 bot and rivals with a Rust twin for the run's format (`rust/twins.json`: the template in the
@@ -255,13 +255,17 @@ Then two bootstrap tests, on each cell's gain over the bot as is per block of 10
   much lost in 10 to 22. From the template's defaults it found most of the gain the best cell on
   those days had. From the committed settings, though, it moved in none of the eight studies.
 
-On null grids (no cell with an edge) SPA and StepM name a cell in about 10% of grids, not the
-nominal 5%, and in 22% when the gains are strongly autocorrelated (`python/experiments/snooping_null_rates.py`).
-Two options change the pick:
+Both studentize each bootstrap resample by its own standard error, as Romano and Wolf do. On null
+grids (no cell with an edge) they then name a cell in 6–8% of grids at a nominal 5%; with the
+data's standard error in every resample, as before 2026-10-26, it was about 10%, and 20% when the
+gains are strongly autocorrelated (`python/experiments/snooping_null_rates.py`). That costs Python
+about 0.8 s a cell at 300 blocks, so a grid takes its statistics from Rust whenever the binary
+builds and `stats.py`'s twin is current, even with the backtests in Python (`rust.stats_engine`;
+the same numbers to the bit; 4,096 cells in about 10 s). Two options change the pick:
 
 - `--holdout last|DAY|SHARE%` chooses the pick without that data (a day, or the last share of the
   data for a download of one long day), then keeps it only if it also beats the bot as is there.
-  That halves the false positives (4.7–12.3%), and adds a last section to the summary.
+  That brings the false positives to 3–5%, and adds a last section to the summary.
 - `--gate first` makes the pick beat the bot as is under the first mode only, the other modes
   shown as columns to read: for once the playground has shown which mode the Arena's fills
   follow (`ON_THE_DAY.md`, "Which modes gate the grid's pick?"). The `worse` gate removes few noise cells, since a cell's

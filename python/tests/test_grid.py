@@ -1,4 +1,5 @@
 import csv
+import math
 import random
 import statistics
 import textwrap
@@ -6,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from arena import grid
+from arena import grid, stats
 from arena.engine import TradeMatching
 
 # Buys `size` KELP at the 2032 ask on the first tick of each day; KELP is marked at 2030,
@@ -255,13 +256,24 @@ def _gains(seed, cells, n, edge=0.0, planted=3):
 
 
 def test_spa_and_stepm_find_no_edge_in_noise_and_find_a_planted_one():
-    nulls = [grid.spa(_gains(seed, 15, 200), 0.1, 300, seed) for seed in range(10)]
-    assert 0.2 < statistics.fmean(p["c"] for p in nulls) < 0.8
-    assert all(p["l"] <= p["c"] <= p["u"] for p in nulls)
-    assert sum(len(grid.stepm(_gains(seed, 15, 200), 0.1, 300)) for seed in range(10)) <= 1
-    planted = _gains(0, 15, 200, edge=0.4)
-    assert grid.spa(planted, 0.1, 300)["c"] < 0.01
-    assert grid.stepm(planted, 0.1, 300) == [3]
+    nulls = [grid.snooping(_gains(seed, 15, 120), 0.1, 200, seed=seed) for seed in range(10)]
+    assert 0.2 < statistics.fmean(p["c"] for p, _ in nulls) < 0.8
+    assert all(p["l"] <= p["c"] <= p["u"] for p, _ in nulls)
+    assert sum(len(winners) for _, winners in nulls) <= 1  # with the original's omega in every resample: 4
+    for studentize in stats.STUDENTIZE:
+        p, winners = grid.snooping(_gains(0, 15, 120, edge=0.5), 0.1, 200, studentize=studentize)
+        assert p["c"] < 0.01
+        assert winners == [3]
+
+
+def test_each_resample_is_studentized_by_its_own_omega():
+    d = _gains(4, 4, 40)
+    means, scales = stats.bootstrap(d, 0.1, 20, 7)
+    assert means == stats.bootstrap_means(d, 0.1, 20, 7)
+    for idx, row in zip(stats.resamples(40, 0.1, 20, 7), scales):
+        assert row == [math.sqrt(stats.omega2([column[i] for i in idx], 0.1)) for column in d]
+    with pytest.raises(ValueError, match="studentize"):
+        stats.stepm(d, 0.1, 20, studentize="mixed")
 
 
 def test_spa_is_not_hidden_by_poor_cells():

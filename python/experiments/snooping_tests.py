@@ -17,8 +17,8 @@ of TICKS_PER_BLOCK ticks (days concatenated), goes through:
             l (liberal), c (consistent, the one to use) and u (every cell as good as the bot: the
             studentized Reality Check). The stationary bootstrap, mean block of 1/q blocks
   StepM     Romano and Wolf's step-down test at 5%: how many cells beat the bot as is, each with
-            the familywise error controlled (studentized with Hansen's fixed omega, not a
-            bootstrap-studentized one: our simplification)
+            the familywise error controlled (each resample studentized by its own omega, as SPA's
+            too: arena.stats' default since 2026-10-26; before, by the original's in every one)
 The tests are arena.grid's (spa, stepm), which every grid summary now prints at one block length.
 
   PBO       arena.grid's CSCV over its 16 blocks. On the null grids it should average about 50%;

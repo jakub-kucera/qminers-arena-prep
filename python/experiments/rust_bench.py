@@ -502,7 +502,7 @@ def stats_cases() -> list[tuple[str, str, dict]]:
     """python/arena/stats.py's heavy statistics on inputs that exercise them: (label, function, arguments).
     CSCV with every halving and with sampled ones, ties in the ranks, a constant cell, one cell;
     the correlation of standardized cells; SPA and StepM with no gain, with planted gains, and with
-    many cells."""
+    many cells, each resample studentized by its own omega (the default) and by the original's."""
     import random
 
     from arena import stats
@@ -529,6 +529,12 @@ def stats_cases() -> list[tuple[str, str, dict]]:
         ("StepM alone, seed 1 (its default)", "stepm", {"d": planted, "q": 0.1, "boot": 500}),
         ("StepM alone, seed 5, alpha 0.2", "stepm", {"d": noise(60, 80, 0.05), "q": 0.1, "boot": 300, "alpha": 0.2, "seed": 5}),
         ("Hansen's scales", "scales", {"d": noise(50, 200), "q": 0.1}),
+        ("SPA and StepM, no gain, the original's omega", "snooping", {"d": noise(30, 120), "q": 0.1, "boot": 500, "studentize": "fixed"}),
+        ("SPA and StepM, five planted gains, the original's omega", "snooping", {"d": planted, "q": 0.1, "boot": 1000, "studentize": "fixed"}),
+        ("SPA alone, the original's omega", "spa", {"d": noise(30, 120), "q": 0.2, "boot": 300, "seed": 3, "studentize": "fixed"}),
+        ("StepM alone, the original's omega", "stepm", {"d": planted, "q": 0.1, "boot": 500, "studentize": "fixed"}),
+        ("SPA and StepM, q 0.5: the kernel skips the middle lags", "snooping", {"d": noise(10, 200, 0.1), "q": 0.5, "boot": 200}),
+        ("SPA and StepM, 23 blocks: lags left over from Rust's chunks of 4", "snooping", {"d": noise(15, 23, 0.2), "q": 0.1, "boot": 400, "seed": 2}),
     ]
 
 

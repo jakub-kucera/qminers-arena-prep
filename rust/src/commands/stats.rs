@@ -33,6 +33,10 @@ pub fn stats_command(args: &Args) {
     let input = json::parse(&text).unwrap_or_else(|e| fail(&format!("{path}: {e}")));
     let int = |v: &Value, key: &str| v.get(key).and_then(Value::as_i64).unwrap_or_else(|| fail(&format!("stats: {key} must be an integer")));
     let float = |v: &Value, key: &str| v.get(key).and_then(Value::as_f64).unwrap_or_else(|| fail(&format!("stats: {key} must be a number")));
+    let studentize = |v: &Value| {
+        let name = v.get("studentize").and_then(Value::as_str).unwrap_or_else(|| fail("stats: studentize must be resample or fixed"));
+        stats::Studentize::parse(name).unwrap_or_else(|| fail(&format!("stats: studentize must be resample or fixed, not {name}")))
+    };
     let mut out = String::new();
     if let Some(v) = input.get("cscv") {
         let columns = matrix(v.get("columns"), "columns");
@@ -51,7 +55,7 @@ pub fn stats_command(args: &Args) {
         }
     } else if let Some(v) = input.get("snooping") {
         let d = matrix(v.get("d"), "d");
-        let (p, winners) = stats::snooping(&d, float(v, "q"), int(v, "boot") as usize, float(v, "alpha"), int(v, "seed"));
+        let (p, winners) = stats::snooping(&d, float(v, "q"), int(v, "boot") as usize, float(v, "alpha"), int(v, "seed"), studentize(v));
         out.push_str("{\"spa\": {");
         for (k, name) in ["l", "c", "u"].iter().enumerate() {
             if k > 0 {
@@ -62,10 +66,10 @@ pub fn stats_command(args: &Args) {
         }
         let _ = write!(out, "}}, \"stepm\": [{}]}}", winners.iter().map(|k| k.to_string()).collect::<Vec<_>>().join(", "));
     } else if let Some(v) = input.get("spa") {
-        // spa(d, q, boot, seed): its own studentization and resamples
+        // spa(d, q, boot, seed, studentize): its own studentization and resamples
         let d = matrix(v.get("d"), "d");
-        let q = float(v, "q");
-        let p = stats::spa(&d, &stats::scales(&d, q), &stats::bootstrap_means(&d, q, int(v, "boot") as usize, int(v, "seed")));
+        let (omegas, means, own) = stats::draws(&d, float(v, "q"), int(v, "boot") as usize, int(v, "seed"), studentize(v));
+        let p = stats::spa(&d, &omegas, &means, own.as_deref());
         out.push('{');
         for (k, name) in ["l", "c", "u"].iter().enumerate() {
             if k > 0 {
@@ -76,10 +80,10 @@ pub fn stats_command(args: &Args) {
         }
         out.push('}');
     } else if let Some(v) = input.get("stepm") {
-        // stepm(d, q, boot, alpha, seed): its own studentization and resamples
+        // stepm(d, q, boot, alpha, seed, studentize): its own studentization and resamples
         let d = matrix(v.get("d"), "d");
-        let q = float(v, "q");
-        let winners = stats::stepm(&d, &stats::scales(&d, q), &stats::bootstrap_means(&d, q, int(v, "boot") as usize, int(v, "seed")), float(v, "alpha"));
+        let (omegas, means, own) = stats::draws(&d, float(v, "q"), int(v, "boot") as usize, int(v, "seed"), studentize(v));
+        let winners = stats::stepm(&d, &omegas, &means, own.as_deref(), float(v, "alpha"));
         let _ = write!(out, "[{}]", winners.iter().map(|k| k.to_string()).collect::<Vec<_>>().join(", "));
     } else if let Some(v) = input.get("scales") {
         let scales = stats::scales(&matrix(v.get("d"), "d"), float(v, "q"));

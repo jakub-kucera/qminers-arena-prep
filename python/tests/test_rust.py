@@ -527,3 +527,16 @@ def test_a_template_twin_by_config_trades_as_its_python_file(bench, tmp_path, mo
             cached.cache_clear()
     differing = [label for label, _, found in results if found]
     assert (differing == []) is same, differing
+
+
+def test_a_python_run_takes_its_statistics_from_rust_when_it_builds(monkeypatch):
+    """The studentized bootstrap is slow in Python and the same to the bit in Rust (stats_parity),
+    so a Python-engine grid uses the Rust statistics whenever the binary builds and stats.py's twin
+    is current."""
+    assert rust.stats_engine("rust") == "rust"
+    if shutil.which("cargo"):
+        assert rust.stats_engine("python") == "rust"
+    monkeypatch.setattr(rust, "stale_twins", lambda: ["python/arena/stats.py"])
+    assert rust.stats_engine("python") == "python"
+    monkeypatch.setattr(rust.shutil, "which", lambda name: None)
+    assert rust.stats_engine("python") == "python"

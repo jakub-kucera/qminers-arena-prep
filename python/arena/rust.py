@@ -288,6 +288,21 @@ def prepare(format_name: str, bots: list[Path], allow_stale: bool = False) -> No
     build()
 
 
+def stats_engine(engine: str) -> str:
+    """Where a run's statistics go: Rust for --engine rust, and also for a Python run when cargo
+    builds the binary and stats.py's twin is current, since they give the same numbers to the bit
+    and the studentized bootstrap takes about 0.8 s a distinct cell in Python. Else Python."""
+    if engine == "rust":
+        return "rust"
+    if shutil.which("cargo") is None or "python/arena/stats.py" in stale_twins():
+        return "python"
+    try:
+        build()
+    except (OSError, RuntimeError, subprocess.CalledProcessError):
+        return "python"
+    return "rust"
+
+
 def require(allow_stale: bool = False) -> None:
     """An experiment's --engine rust: every twin checked since its Python code changed (an
     experiment may run any of them), else a ValueError, and a built binary."""
@@ -737,24 +752,26 @@ def mean_correlation(scaled: list[list[float]]) -> float | None:
     return _stats({"correlation": {"scaled": scaled, "matrices": ["scaled"]}})
 
 
-def snooping(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 0) -> tuple[dict[str, float], list[int]]:
+def snooping(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 0, studentize: str = "resample") -> tuple[dict[str, float], list[int]]:
     """arena.stats.snooping in rust/src/arena/stats.rs."""
     from arena import stats
 
-    found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "matrices": ["d"]}})
+    found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "studentize": studentize,
+                                 "matrices": ["d"]}})
     return found["spa"], found["stepm"]
 
 
-def spa(d: list[list[float]], q: float, boot: int, seed: int = 0) -> dict[str, float]:
+def spa(d: list[list[float]], q: float, boot: int, seed: int = 0, studentize: str = "resample") -> dict[str, float]:
     """arena.stats.spa (its own studentization and resamples) in rust/src/arena/stats.rs."""
-    return _stats({"spa": {"d": d, "q": q, "boot": boot, "seed": seed, "matrices": ["d"]}})
+    return _stats({"spa": {"d": d, "q": q, "boot": boot, "seed": seed, "studentize": studentize, "matrices": ["d"]}})
 
 
-def stepm(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 1) -> list[int]:
+def stepm(d: list[list[float]], q: float, boot: int, alpha: float | None = None, seed: int = 1, studentize: str = "resample") -> list[int]:
     """arena.stats.stepm (its own studentization and resamples) in rust/src/arena/stats.rs."""
     from arena import stats
 
-    return _stats({"stepm": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "matrices": ["d"]}})
+    return _stats({"stepm": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "studentize": studentize,
+                             "matrices": ["d"]}})
 
 
 def scales(d: list[list[float]], q: float) -> list[float]:

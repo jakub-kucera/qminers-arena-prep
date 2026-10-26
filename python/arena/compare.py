@@ -340,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:
     held_out = grid.format_held_out(axes, modes, {(k,): o for k, o in outcomes.items()}, grid.repeated_days(s.days))
     if held_out:
         print("\n" + held_out)
-    print("\n" + grid.format_overfitting(outcomes[0], keyed, modes, len(s.days), axes, s.engine))
+    print("\n" + grid.format_overfitting(outcomes[0], keyed, modes, len(s.days), axes, rust.stats_engine(s.engine)))
     if args.out:
         write_csv(args.out, candidates, modes, outcomes)
         print(f"\nall bots written to {args.out}")

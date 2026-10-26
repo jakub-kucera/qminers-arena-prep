@@ -10,6 +10,7 @@ there. Standard library only.
 
 from __future__ import annotations
 
+import functools
 import itertools
 import math
 import random
@@ -20,6 +21,7 @@ from operator import itemgetter, mul
 MAX_SPLITS = 4000  # halvings of the blocks to score; sampled (seeded) when there are more
 EULER_GAMMA = 0.5772156649015329
 ALPHA = 0.05  # StepM's familywise error
+STUDENTIZE = ("resample", "fixed")  # how SPA and StepM studentize each resample: by its own omega (default), or the original's
 
 
 @dataclass(frozen=True)
@@ -125,39 +127,94 @@ def omega2(d: list[float], q: float) -> float:
     n, mean = len(d), statistics.fmean(d)
     c = [x - mean for x in d]
     total = sum(map(mul, c, c)) / n
-    for i in range(1, n):
-        kappa = (n - i) / n * (1 - q) ** i + i / n * (1 - q) ** (n - i)
-        if kappa < 1e-12:
-            continue
-        total += 2 * kappa * sum(map(mul, c, itertools.islice(c, i, None))) / n
+    for i, twice in _kernel(n, q):
+        total += twice * sum(map(mul, c, c[i:])) / n
     return total
 
 
-def bootstrap_means(d: list[list[float]], q: float, boot: int, seed: int) -> list[list[float]]:
-    """Each resample's mean of every column, by Politis and Romano's stationary bootstrap (Hansen,
-    p. 7): with probability q the next index is drawn afresh, else it follows the last, wrapping."""
-    n, rng, out = len(d[0]), random.Random(seed), []
+@functools.lru_cache(maxsize=64)
+def _kernel(n: int, q: float) -> tuple[tuple[int, float], ...]:
+    """omega2's lags and their weights 2 kappa(n, i), those with kappa under 1e-12 left out."""
+    out = []
+    for i in range(1, n):
+        kappa = (n - i) / n * (1 - q) ** i + i / n * (1 - q) ** (n - i)
+        if kappa >= 1e-12:
+            out.append((i, 2 * kappa))
+    return tuple(out)
+
+
+def resamples(n: int, q: float, boot: int, seed: int) -> list[list[int]]:
+    """Each resample's indices, by Politis and Romano's stationary bootstrap (Hansen, p. 7): with
+    probability q the next index is drawn afresh, else it follows the last, wrapping."""
+    rng, out = random.Random(seed), []
     for _ in range(boot):
         idx, t = [], rng.randrange(n)
         for _ in range(n):
             idx.append(t)
             t = rng.randrange(n) if rng.random() < q else (t + 1) % n
-        pick = itemgetter(*idx)
-        out.append([sum(pick(column)) / n for column in d])
+        out.append(idx)
     return out
+
+
+def bootstrap_means(d: list[list[float]], q: float, boot: int, seed: int) -> list[list[float]]:
+    """Each resample's mean of every column (resamples)."""
+    n = len(d[0])
+    return [[sum(pick(column)) / n for column in d] for pick in (itemgetter(*idx) for idx in resamples(n, q, boot, seed))]
+
+
+def bootstrap(d: list[list[float]], q: float, boot: int, seed: int) -> tuple[list[list[float]], list[list[float]]]:
+    """Each resample's mean of every column, and its scale: sqrt(omega2) of that column's resample.
+
+    Romano and Wolf studentize each resample by "the corresponding estimated standard deviations"
+    computed "from each bootstrap data matrix" (Algorithm 4.2 step 3, p. 15), for time series by
+    "applying the same algorithm to the bootstrap data matrix" (p. 15; both checked against the
+    PDF). So the scale is _scales' estimator, omega2, run on the resample as on any series. They
+    also mention Gotze and Kunsch's "natural" estimator, the blocks' centred sums squared, for
+    bootstraps of fixed-length blocks. Ours draws blocks of geometric length, whose sums squared
+    vary far more than omega2 does (relative variance about 5 / blocks drawn), so the resamples'
+    statistics would have heavier tails than the data's: too conservative on short-memory gains,
+    and no closer to the data's omega2 on long-memory ones (a quick prototype on
+    experiments/snooping_null_rates.py's null grids agreed; it was not kept). The cost is every
+    lag of every column of every resample, O(cells x resamples x blocks^2): about 0.8 s a cell
+    at 1,000 resamples of 300 blocks in Python, so a grid of more than a few dozen cells wants
+    --engine rust (rust/src/arena/stats.rs, on every core: 4,096 cells in about 10 s)."""
+    n, means, scales = len(d[0]), [], []
+    for idx in resamples(n, q, boot, seed):
+        pick = itemgetter(*idx)
+        picked = [pick(column) for column in d]
+        means.append([sum(x) / n for x in picked])
+        scales.append([math.sqrt(max(omega2(x, q), 1e-12)) for x in picked])
+    return means, scales
 
 
 def _scales(d: list[list[float]], q: float) -> list[float]:
     return [math.sqrt(max(omega2(c, q), 1e-12)) for c in d]
 
 
-def spa(d: list[list[float]], q: float, boot: int, seed: int = 0, *, omegas=None, draws=None) -> dict[str, float]:
+def _draws(d, q, boot, seed, studentize, omegas, draws, scales):
+    """The original's scales, each resample's means, and the scales each resample is studentized by
+    (each its own with "resample", the original's with "fixed")."""
+    if studentize not in STUDENTIZE:
+        raise ValueError(f"studentize is one of {', '.join(STUDENTIZE)}, not {studentize!r}")
+    omegas = omegas or _scales(d, q)
+    if studentize == "fixed":
+        return omegas, draws or bootstrap_means(d, q, boot, seed), None
+    if draws is None or scales is None:
+        draws, scales = bootstrap(d, q, boot, seed)
+    return omegas, draws, scales
+
+
+def spa(d: list[list[float]], q: float, boot: int, seed: int = 0, *, studentize: str = "resample", omegas=None, draws=None,
+        scales=None) -> dict[str, float]:
     """Hansen's SPA p-values for H0: no column of gains has a positive mean (p. 4 and 7-8). The
     bootstrap is recentred at mu_l = min(mean, 0), at mu_c (only means clearly below 0 kept, the
-    consistent one) and at mu_u = 0 (the studentized Reality Check)."""
+    consistent one) and at mu_u = 0 (the studentized Reality Check). With studentize "fixed" every
+    resample is studentized by the original's omega, as Hansen does (p. 8); with "resample"
+    (default; ours, after Romano and Wolf's StepM) each by its own (bootstrap). The test statistic
+    and mu_c's threshold use the original's either way."""
     n = len(d[0])
     means = [statistics.fmean(c) for c in d]
-    omegas = omegas or _scales(d, q)
+    omegas, draws, scales = _draws(d, q, boot, seed, studentize, omegas, draws, scales)
     t = max(0.0, max(math.sqrt(n) * m / w for m, w in zip(means, omegas)))
     loglog = math.sqrt(2 * math.log(math.log(n)))
     shifts = {
@@ -165,24 +222,28 @@ def spa(d: list[list[float]], q: float, boot: int, seed: int = 0, *, omegas=None
         "c": [m if m >= -w / math.sqrt(n) * loglog else 0.0 for m, w in zip(means, omegas)],
         "u": means,
     }
-    draws = draws or bootstrap_means(d, q, boot, seed)
     out = {}
     for name, shift in shifts.items():
-        above = sum(max(0.0, max(math.sqrt(n) * (x - s) / w for x, s, w in zip(draw, shift, omegas))) > t for draw in draws)
+        above = sum(max(0.0, max(math.sqrt(n) * (x - s) / w for x, s, w in zip(draw, shift, ws))) > t
+                    for draw, ws in zip(draws, scales or itertools.repeat(omegas)))
         out[name] = above / len(draws)
     return out
 
 
-def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 1, *, omegas=None, draws=None) -> list[int]:
+def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 1, *, studentize: str = "resample", omegas=None,
+          draws=None, scales=None) -> list[int]:
     """Romano and Wolf's studentized step-down (Algorithms 4.1-4.2, p. 14-15): the columns whose
-    mean gain is significantly positive, the familywise error held at alpha. Studentized by
-    Hansen's omega, fixed across resamples (ours; the paper recomputes it in each)."""
+    mean gain is significantly positive, the familywise error held at alpha. z_k = sqrt(n) mean_k /
+    omega_k; each resample's sqrt(n) (mean*_k - mean_k) / omega*_k, omega*_k its own (studentize
+    "resample", the paper's, default) or the original's in every resample ("fixed", what this
+    module did before 2026-10-26). On experiments/snooping_null_rates.py's null grids, at 5%, the
+    original's named a noise cell in 9-22% of them, each its own in 6-8% (IDEAS.md, "Bootstrap
+    tests of the best cell")."""
     n = len(d[0])
     means = [statistics.fmean(c) for c in d]
-    omegas = omegas or _scales(d, q)
+    omegas, draws, scales = _draws(d, q, boot, seed, studentize, omegas, draws, scales)
     z = [math.sqrt(n) * m / w for m, w in zip(means, omegas)]
-    draws = draws or bootstrap_means(d, q, boot, seed)
-    centred = [[math.sqrt(n) * (x - m) / w for x, m, w in zip(draw, means, omegas)] for draw in draws]
+    centred = [[math.sqrt(n) * (x - m) / w for x, m, w in zip(draw, means, ws)] for draw, ws in zip(draws, scales or itertools.repeat(omegas))]
     active, rejected = set(range(len(d))), []
     while active:
         maxima = sorted(max(draw[k] for k in active) for draw in centred)
@@ -195,9 +256,9 @@ def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed:
     return sorted(rejected)
 
 
-def snooping(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 0) -> tuple[dict[str, float], list[int]]:
+def snooping(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 0, studentize: str = "resample") -> tuple[dict[str, float], list[int]]:
     """SPA's p-values and StepM's columns on the same studentization and resamples, as arena.grid
     reports them."""
-    omegas = _scales(d, q)
-    draws = bootstrap_means(d, q, boot, seed)
-    return spa(d, q, boot, omegas=omegas, draws=draws), stepm(d, q, boot, alpha, omegas=omegas, draws=draws)
+    omegas, draws, scales = _draws(d, q, boot, seed, studentize, None, None, None)
+    common = {"studentize": studentize, "omegas": omegas, "draws": draws, "scales": scales}
+    return spa(d, q, boot, **common), stepm(d, q, boot, alpha, **common)

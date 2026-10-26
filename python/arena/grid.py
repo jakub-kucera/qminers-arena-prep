@@ -45,7 +45,9 @@ once:
             the DSR it discounts cells that are clearly worse, so a wide grid's poor corners don't
             hide a real gain.
   StepM     Romano and Wolf's step-down test on the same resamples: every cell that beats the bot as
-            is, with the chance of naming even one false cell held at ALPHA.
+            is, with the chance of naming even one false cell held at ALPHA. Both studentize each
+            resample by its own omega (arena.stats.bootstrap), as Romano and Wolf do; with the
+            original's in every resample they named a noise cell in 8-22% of null grids.
   pick      StepM's best cell that also beats the bot as is under every other --modes entry, else
             the bot as is. Of ten ways of choosing, scored on unseen Prosperity days and on fresh
             simulated ones, it lost least often among those that gained (python/experiments/
@@ -96,7 +98,7 @@ from pathlib import Path
 from arena import report, rust, stress
 from arena.stats import (  # the statistics live in python/arena/stats.py (twinned in rust/src/arena/stats.rs); these names stay importable from here
     ALPHA, EULER_GAMMA, MAX_SPLITS, Cscv, _scales, bootstrap_means, cscv, deflated_sharpe, expected_max_sharpe, independent_trials,
-    mean_correlation, omega2, snooping, spa, standardized, stepm,
+    STUDENTIZE, bootstrap, mean_correlation, omega2, resamples, snooping, spa, standardized, stepm,
 )
 from arena.botfile import OverrideError, parse_value
 from arena.cli import Setup, add_common_arguments, add_engine_argument, add_rival_argument, participant_names, run_with_rivals, setup
@@ -1291,11 +1293,12 @@ def main(argv: list[str] | None = None) -> int:
         print("\n" + format_screen(axes, run.screen, outcomes))
     if run.rungs:
         print("\n" + format_halving(axes, run.rungs, run.tried, args.halving, outcomes))
-    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes, s.engine, args.gate))
+    stats = rust.stats_engine(s.engine)  # the statistics in Rust whenever it builds: the same numbers, far faster
+    print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes, stats, args.gate))
     if (run.screen or run.rungs) and len(s.days) >= 2:
-        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days, run.seen, s.engine, "halving" if run.rungs else "screen", args.gate))
+        print("\n" + format_unseen(axes, baseline, outcomes, modes, s.days, run.seen, stats, "halving" if run.rungs else "screen", args.gate))
     if holdout:
-        print("\n" + format_holdout(axes, baseline, outcomes, modes, s.days, holdout, s.engine, args.gate))
+        print("\n" + format_holdout(axes, baseline, outcomes, modes, s.days, holdout, stats, args.gate))
     if args.permute > 0:
         start = time.perf_counter()
         copies = run_permutations(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.permute, args.permute_block,

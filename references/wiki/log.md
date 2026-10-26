@@ -401,3 +401,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-26] lint | a market maker that doesn't know the price
 - `concepts/reading-the-data-on-day-one`'s "both noisy" row gets `arena.sim`'s `KELP_NOISY` result (the second audit's A7): there, smoothing the wall mid pays and the plain wall mid is the worst fair; with an exact maker smoothing costs.
+
+## [2026-10-26] lint | SPA and StepM studentize each resample by its own omega (the second audit's A4)
+- `python/arena/stats.py`'s `bootstrap` reruns Hansen's kernel on every resample's column, Romano and Wolf's Algorithm 4.2 step 3 (checked against the PDF's text, p. 14–15); SPA uses it too, which Hansen doesn't. `sources/stepwise-multiple-testing` replaces "our simplification" with it and the null rates (8.7–22.3% with the fixed scale, 6.0–8.0% with each resample's own), `sources/superior-predictive-ability` says where ours differs from Hansen, `concepts/validation-and-overfitting` gets the null-grid result. The citations of `omega2`, `spa` and `stepm` moved (`python/arena/stats.py:122-133` → `124-143`, `154-173` → `207-230`, `176-195` → `233-256`), and those of `python/arena/grid.py` (`110` → `112` for `FINE_TICKS`, `963` → `1025` for `format_snooping`).

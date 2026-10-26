@@ -93,9 +93,14 @@ def scenarios(product: str) -> list[Scenario]:
             Scenario("rest front", resting=True, queue=QueueModel.FRONT), Scenario("fill 0.7", fill_ratio=0.7), Scenario("fill 0.4", fill_ratio=0.4),
             Scenario("copy", rivals=(copy,)), Scenario("undercut", rivals=(undercut,))]
 _DAYS: dict = {}
-ENGINE = ["python"]  # set in each worker by _init (--engine)
+ENGINE = ["python"]  # set in each worker by _init (--engine), and in main
 _KEPT: dict = {}  # --engine rust: per study, the names of the training and test days days_for keeps
 FORMAT = "prosperity"  # --data sets it, with STUDIES, TEMPLATE and DEFAULTS
+
+
+def _stat():
+    """SPA and StepM in rust/src/arena/stats.rs with --engine rust (the same to the bit), else arena.stats."""
+    return rust if ENGINE[0] == "rust" else grid
 
 
 def _init(engine: str, kept: dict | None = None, settings: dict | None = None) -> None:
@@ -222,8 +227,8 @@ def pick_scenarios(base: dict, results: list[dict], names: list[str]) -> dict[st
             columns.append(g)
             owners.append(k)
     winners = []
-    if columns and grid.spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] < grid.ALPHA:
-        winners = [owners[j] for j in grid.stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
+    if columns and _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] < grid.ALPHA:
+        winners = [owners[j] for j in _stat().stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
     holding = [k for k in winners if all(g > 0 for g in gain[k].values())]
     out["pick"] = max(holding, key=lambda k: pnl[k][first]) if holding else None
     return out
@@ -290,9 +295,9 @@ def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
             owners.append(k)
     winners = []
     if columns:
-        p = grid.spa(columns, grid.SPA_Q, grid.BOOTSTRAP)
+        p = _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)
         if p["c"] < grid.ALPHA:
-            winners = [owners[j] for j in grid.stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
+            winners = [owners[j] for j in _stat().stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
     out["SPA gate"] = max(winners, key=pnl[all_].__getitem__) if winners else None
     holding = [k for k in winners if gain[worse][k] > 0]
     out["SPA+worse"] = max(holding, key=pnl[all_].__getitem__) if holding else None
@@ -312,9 +317,9 @@ def holdout_pick(base: dict, results: list[dict]) -> int | None:
         if any(g):
             columns.append(g)
             owners.append(k)
-    if not columns or grid.spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] >= grid.ALPHA:
+    if not columns or _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] >= grid.ALPHA:
         return None
-    winners = [owners[j] for j in grid.stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
+    winners = [owners[j] for j in _stat().stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
     if not winners:
         return None
     best = max(winners, key=lambda k: sum(results[k]["fine"][:cut]))
@@ -346,6 +351,7 @@ def main() -> None:
         parser.error("--format, --bot, --products, --train, --test and --grid choose the day's data: give --data too")
     if args.engine == "rust":
         rust.require(args.allow_stale)
+    ENGINE[0] = args.engine
     days = {}
     if args.engine == "rust" and FORMAT == "prosperity":  # each study's days loaded once, here, to find the repeats; the workers load nothing
         with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(args.engine, None, settings)) as pool:

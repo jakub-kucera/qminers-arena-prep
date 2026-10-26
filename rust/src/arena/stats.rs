@@ -214,19 +214,69 @@ fn parallel<T: Send>(n: usize, f: impl Fn(std::ops::Range<usize>) -> Vec<T> + Sy
 
 /// `omega2`: Hansen's variance of sqrt(n) times the mean under the stationary bootstrap.
 pub fn omega2(d: &[f64], q: f64) -> f64 {
-    let n = d.len();
+    omega2_with(d, &kernel(d.len(), q))
+}
+
+/// `_kernel`: omega2's lags and their weights 2 kappa(n, i), those with kappa under 1e-12 left out.
+pub fn kernel(n: usize, q: f64) -> Vec<(usize, f64)> {
+    let nf = n as f64;
+    (1..n)
+        .filter_map(|i| {
+            let kappa = (n - i) as f64 / nf * py::powf(1.0 - q, i as f64) + i as f64 / nf * py::powf(1.0 - q, (n - i) as f64);
+            (kappa >= 1e-12).then_some((i, 2.0 * kappa))
+        })
+        .collect()
+}
+
+/// omega2 with its kernel already computed (the same for every column of one length).
+fn omega2_with(d: &[f64], kernel: &[(usize, f64)]) -> f64 {
+    let nf = d.len() as f64;
     let mean = fmean(d);
     let c: Vec<f64> = d.iter().map(|x| x - mean).collect();
-    let nf = n as f64;
     let mut total = py::sum(c.iter().map(|x| x * x)) / nf;
-    for i in 1..n {
-        let kappa = (n - i) as f64 / nf * py::powf(1.0 - q, i as f64) + i as f64 / nf * py::powf(1.0 - q, (n - i) as f64);
-        if kappa < 1e-12 {
-            continue;
+    // LAGS lags' sums at once, each CPython's compensated sum (py::sum) in its own order, so each is
+    // the same to the bit, for the processor to overlap; the totals added in the lags' order
+    let mut chunks = kernel.chunks_exact(LAGS);
+    for lags in &mut chunks {
+        for (sum, &(_, twice)) in lagged_sums(&c, lags).iter().zip(lags) {
+            total += twice * sum / nf;
         }
-        total += 2.0 * kappa * py::sum(c.iter().zip(&c[i..]).map(|(x, y)| x * y)) / nf;
+    }
+    for &(i, twice) in chunks.remainder() {
+        total += twice * py::sum(c.iter().zip(&c[i..]).map(|(x, y)| x * y)) / nf;
     }
     total
+}
+
+const LAGS: usize = 4;
+
+/// py::sum(c[t] * c[t + i] for t) for LAGS lags i, interleaved: Neumaier's sum from the first product
+/// (CPython's start, int 0, plus the first item is the item), its compensation added at the end if
+/// finite and not zero; the larger magnitude chosen by a select rather than a branch.
+#[inline(always)]
+fn lagged_sums(c: &[f64], lags: &[(usize, f64)]) -> [f64; LAGS] {
+    let n = c.len();
+    let lag: [usize; LAGS] = std::array::from_fn(|k| lags[k].0);
+    let mut f: [f64; LAGS] = std::array::from_fn(|k| 0.0 + c[0] * c[lag[k]]);
+    let mut comp = [0.0f64; LAGS];
+    let step = |f: &mut f64, comp: &mut f64, x: f64| {
+        let t = *f + x;
+        let (big, small) = if f.abs() >= x.abs() { (*f, x) } else { (x, *f) };
+        *comp += (big - t) + small;
+        *f = t;
+    };
+    let shortest = n - lag.iter().copied().max().unwrap();
+    for t in 1..shortest {
+        for k in 0..LAGS {
+            step(&mut f[k], &mut comp[k], c[t] * c[t + lag[k]]);
+        }
+    }
+    for k in 0..LAGS {
+        for t in shortest.max(1)..n - lag[k] {
+            step(&mut f[k], &mut comp[k], c[t] * c[t + lag[k]]);
+        }
+    }
+    std::array::from_fn(|k| if comp[k] != 0.0 && comp[k].is_finite() { f[k] + comp[k] } else { f[k] })
 }
 
 /// `_scales`: each column's sqrt(omega2), floored at 1e-6.
@@ -234,12 +284,10 @@ pub fn scales(d: &[Vec<f64>], q: f64) -> Vec<f64> {
     parallel(d.len(), |range| d[range].iter().map(|c| py::max(omega2(c, q), 1e-12).sqrt()).collect())
 }
 
-/// `bootstrap_means`: each resample's mean of every column (Politis and Romano's stationary bootstrap).
-pub fn bootstrap_means(d: &[Vec<f64>], q: f64, boot: usize, seed: i64) -> Vec<Vec<f64>> {
-    let n = d[0].len();
+/// `resamples`: each resample's indices (Politis and Romano's stationary bootstrap), in Python's order of draws.
+pub fn resamples(n: usize, q: f64, boot: usize, seed: i64) -> Vec<Vec<usize>> {
     let mut rng = PyRandom::from_int(seed);
-    // every resample's indices first, in Python's order of draws; then the means, in parallel
-    let indices: Vec<Vec<usize>> = (0..boot)
+    (0..boot)
         .map(|_| {
             let mut idx = vec![0usize; n];
             let mut t = rng.randbelow(n as u64) as usize;
@@ -249,8 +297,41 @@ pub fn bootstrap_means(d: &[Vec<f64>], q: f64, boot: usize, seed: i64) -> Vec<Ve
             }
             idx
         })
-        .collect();
+        .collect()
+}
+
+/// `bootstrap_means`: each resample's mean of every column, the resamples in parallel.
+pub fn bootstrap_means(d: &[Vec<f64>], q: f64, boot: usize, seed: i64) -> Vec<Vec<f64>> {
+    let n = d[0].len();
+    let indices = resamples(n, q, boot, seed);
     parallel(boot, |range| indices[range].iter().map(|idx| d.iter().map(|column| py::sum(idx.iter().map(|&i| column[i])) / n as f64).collect()).collect())
+}
+
+/// `bootstrap`: each resample's mean of every column, and its scale, sqrt(omega2) of that column's
+/// resample; the resamples in parallel (the cost is every lag of every column of every resample).
+pub fn bootstrap(d: &[Vec<f64>], q: f64, boot: usize, seed: i64) -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
+    let n = d[0].len();
+    let indices = resamples(n, q, boot, seed);
+    let weights = kernel(n, q);
+    let both: Vec<(Vec<f64>, Vec<f64>)> = parallel(boot, |range| {
+        let mut picked = vec![0.0; n];
+        indices[range]
+            .iter()
+            .map(|idx| {
+                let mut means = Vec::with_capacity(d.len());
+                let mut scales = Vec::with_capacity(d.len());
+                for column in d {
+                    for (slot, &i) in picked.iter_mut().zip(idx) {
+                        *slot = column[i];
+                    }
+                    means.push(py::sum(picked.iter().copied()) / n as f64);
+                    scales.push(py::max(omega2_with(&picked, &weights), 1e-12).sqrt());
+                }
+                (means, scales)
+            })
+            .collect()
+    });
+    both.into_iter().unzip()
 }
 
 /// Python's `max` over a non-empty sequence of floats: the first of the largest.
@@ -265,8 +346,14 @@ fn first_max(xs: impl Iterator<Item = f64>) -> f64 {
     best
 }
 
-/// `spa`: Hansen's p-values (l, c, u) that no column of gains has a positive mean.
-pub fn spa(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>]) -> [f64; 3] {
+/// The scales resample j is studentized by: its own (`scales`, studentize "resample") or the original's.
+fn scale_of<'a>(scales: Option<&'a [Vec<f64>]>, omegas: &'a [f64], j: usize) -> &'a [f64] {
+    scales.map_or(omegas, |s| &s[j])
+}
+
+/// `spa`: Hansen's p-values (l, c, u) that no column of gains has a positive mean; each resample
+/// studentized by `scales` (its own) when given, else by the original's `omegas`.
+pub fn spa(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>], scales: Option<&[Vec<f64>]>) -> [f64; 3] {
     let n = d[0].len() as f64;
     let root = n.sqrt();
     let means: Vec<f64> = d.iter().map(|c| fmean(c)).collect();
@@ -281,15 +368,17 @@ pub fn spa(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>]) -> [f64; 3] {
     for (k, shift) in shifts.iter().enumerate() {
         let above = draws
             .iter()
-            .filter(|draw| py::max(0.0, first_max(draw.iter().zip(shift).zip(omegas).map(|((x, s), w)| root * (x - s) / w))) > t)
+            .enumerate()
+            .filter(|(j, draw)| py::max(0.0, first_max(draw.iter().zip(shift).zip(scale_of(scales, omegas, *j)).map(|((x, s), w)| root * (x - s) / w))) > t)
             .count();
         out[k] = above as f64 / draws.len() as f64;
     }
     out
 }
 
-/// `stepm`: the columns whose mean gain is significantly positive, the familywise error at alpha.
-pub fn stepm(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>], alpha: f64) -> Vec<usize> {
+/// `stepm`: the columns whose mean gain is significantly positive, the familywise error at alpha;
+/// each resample studentized by `scales` (its own) when given, else by the original's `omegas`.
+pub fn stepm(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>], scales: Option<&[Vec<f64>]>, alpha: f64) -> Vec<usize> {
     let n = d[0].len() as f64;
     let root = n.sqrt();
     let means: Vec<f64> = d.iter().map(|c| fmean(c)).collect();
@@ -299,7 +388,12 @@ pub fn stepm(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>], alpha: f64) -> 
     while !active.is_empty() {
         // each draw's centred, studentized values, computed as they are needed rather than kept
         let mut maxima: Vec<f64> = parallel(draws.len(), |range| {
-            draws[range].iter().map(|draw| first_max(active.iter().map(|&k| root * (draw[k] - means[k]) / omegas[k]))).collect()
+            range
+                .map(|j| {
+                    let ws = scale_of(scales, omegas, j);
+                    first_max(active.iter().map(|&k| root * (draws[j][k] - means[k]) / ws[k]))
+                })
+                .collect()
         });
         maxima.sort_by(|a, b| a.partial_cmp(b).expect("no NaN"));
         let len = maxima.len();
@@ -315,11 +409,41 @@ pub fn stepm(d: &[Vec<f64>], omegas: &[f64], draws: &[Vec<f64>], alpha: f64) -> 
     rejected
 }
 
-/// `snooping`: SPA's p-values and StepM's columns on one studentization and one set of resamples.
-pub fn snooping(d: &[Vec<f64>], q: f64, boot: usize, alpha: f64, seed: i64) -> ([f64; 3], Vec<usize>) {
+/// How each resample is studentized (python/arena/stats.py `STUDENTIZE`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Studentize {
+    /// by its own omega* (Romano and Wolf's Algorithm 4.2 step 3; the default)
+    Resample,
+    /// by the original's omega in every resample (Hansen's SPA; StepM before 2026-10-26)
+    Fixed,
+}
+
+impl Studentize {
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "resample" => Some(Self::Resample),
+            "fixed" => Some(Self::Fixed),
+            _ => None,
+        }
+    }
+}
+
+/// `_draws`: the original's scales, each resample's means, and its own scales with `Studentize::Resample`.
+pub fn draws(d: &[Vec<f64>], q: f64, boot: usize, seed: i64, studentize: Studentize) -> (Vec<f64>, Vec<Vec<f64>>, Option<Vec<Vec<f64>>>) {
     let omegas = scales(d, q);
-    let draws = bootstrap_means(d, q, boot, seed);
-    (spa(d, &omegas, &draws), stepm(d, &omegas, &draws, alpha))
+    match studentize {
+        Studentize::Fixed => (omegas, bootstrap_means(d, q, boot, seed), None),
+        Studentize::Resample => {
+            let (means, own) = bootstrap(d, q, boot, seed);
+            (omegas, means, Some(own))
+        }
+    }
+}
+
+/// `snooping`: SPA's p-values and StepM's columns on one studentization and one set of resamples.
+pub fn snooping(d: &[Vec<f64>], q: f64, boot: usize, alpha: f64, seed: i64, studentize: Studentize) -> ([f64; 3], Vec<usize>) {
+    let (omegas, means, own) = draws(d, q, boot, seed, studentize);
+    (spa(d, &omegas, &means, own.as_deref()), stepm(d, &omegas, &means, own.as_deref(), alpha))
 }
 
 #[cfg(test)]

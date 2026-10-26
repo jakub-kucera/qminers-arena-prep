@@ -3,7 +3,7 @@ title: Hansen, "A test for superior predictive ability" (2005)
 type: source
 repo: literature_md/superior-predictive-ability
 status: read
-updated: 2026-10-19
+updated: 2026-10-26
 ---
 
 # Hansen, "A Test for Superior Predictive Ability" (Journal of Business & Economic Statistics, 2005)
@@ -22,7 +22,8 @@ A 16-page paper that improves on White's (2000) Reality Check (RC), the bootstra
   - **Variance:** `ω̂²_k = γ̂_{0,k} + 2 Σ_{i=1}^{n−1} κ(n, i) γ̂_{i,k}` with `κ(n, i) = (n−i)/n·(1−q)^i + i/n·(1−q)^{n−i}`, the bootstrap's own population variance, rather than an estimate from the resamples (`superior-predictive-ability.md:241-249` (p. 8, checked)).
   - **Recentring:** `Z*_{k,b,t} = d*_{k,b,t} − g_i(d̄_k)` with `g_l(x) = max(0, x)`, `g_c(x) = x·1{x ≥ −√((ω̂²_k/n)·2 log log n)}` and `g_u(x) = x` (`superior-predictive-ability.md:257` (p. 8, checked)).
   - **p-value:** the share of resamples with `T*_b = max(0, max_k √n·Z̄*_{k,b}/ω̂_k)` above `T^SPA` (`superior-predictive-ability.md:271` (p. 8, checked)).
-  - It stays valid even if `ω̂_k` is wrong; `ω̂_k = 1` gives back the RC (`superior-predictive-ability.md:275` (p. 8)).
+  - It stays valid even if `ω̂_k` is wrong; `ω̂_k = 1` gives back the RC (`superior-predictive-ability.md:275` (p. 8)). Hansen uses "the same estimate of ω²_k" for `T^SPA` and every `T*_b` (same line).
+  - **Ours differs there** (since 2026-10-26, `studentize="resample"`, the default): each resample's `T*_b` divides by its own `ω̂*_k`, Hansen's kernel rerun on that resample, as Romano and Wolf's StepM does ([StepM](stepwise-multiple-testing.md)); `T^SPA` and `µ̂^c`'s threshold keep the original's `ω̂_k`. Hansen's validity is asymptotic: on the null grids of `python/experiments/snooping_null_rates.py` (24 cells, 300 blocks, nominal 5%) his fixed `ω̂` rejected in 8.7–22.0% of grids, ours in 5.3–7.7% (5.6–8.4% over 1,000 grids a row) *(checked; `IDEAS.md`, "Bootstrap tests of the best cell")*. `studentize="fixed"` is Hansen's.
 - **Simulations** (Section 4, p. 9–11): SPA^c holds its size and has more power than the RC, most when poor alternatives are present.
 - **The empirical case** (`superior-predictive-ability.md:550` (p. 14)): the same inflation forecasts give SPA^c a p-value of 10% and the RC about 96%, "opposite conclusions", because of the poor alternatives.
 
@@ -37,9 +38,9 @@ A 16-page paper that improves on White's (2000) Reality Check (RC), the bootstra
 |---|---|
 | benchmark `δ_0` | the bot as is (`--set` only), `python/arena/grid.py` `run_grid`'s baseline |
 | alternative k, m | a distinct grid cell, the number of distinct cells |
-| `d_{k,t}` | the cell's PnL minus the bot's in block t (`python/arena/grid.py:110`, `FINE_TICKS`; filled in `_run_piece`) |
+| `d_{k,t}` | the cell's PnL minus the bot's in block t (`python/arena/grid.py:112`, `FINE_TICKS`; filled in `_run_piece`) |
 | `q` | 1 / mean bootstrap block length, in blocks (`SPA_Q` in `python/arena/grid.py`, 0.1) |
-| `T^SPA`, `p̂_SPA` | `spa()` in `python/arena/stats.py:154-173` |
+| `T^SPA`, `p̂_SPA` | `spa()` in `python/arena/stats.py:207-230` |
 
 ## Traps
 - **Typo in the paper itself:** the stationary bootstrap's recursion prints `⌈n·u_{b,1}⌉` for a fresh draw at t ≥ 2 (p. 7, the page image has it too); the text says the t-th element is then "chosen uniformly on {1, …, n}", which needs `u_{b,t}`. Our code follows the text.
