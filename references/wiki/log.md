@@ -389,3 +389,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-26] lint | the portal metrics in arena.backtest
 - `python/arena/report.py` gained `format_metrics` above `write_csvs`, so `sources/probability-of-backtest-overfitting`'s citation of it moved (144 → 213). 0 errors.
+
+## [2026-10-26] lint | jumps that snap back in arena.diagnose
+- `concepts/reading-the-data-on-day-one` gains the note's row (calibrated on every P2–P4 round), and its citation of the thresholds moved (`python/arena/diagnose.py:52-73` → `55-83`). `concepts/jumps-and-snap-back` says the note comes first on the day. 0 errors.

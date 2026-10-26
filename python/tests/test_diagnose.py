@@ -75,6 +75,39 @@ def test_a_wall_mid_that_jumps_past_half_the_spread_is_flagged():
     assert "jumps" not in calm["notes"]
 
 
+def _jumping(steps, reverse_share, seed=0):
+    """Wall mids that step by 100 (50 spreads of 2) every fifth tick, each step reversing the one before with this probability."""
+    rng, walls, wall, step = random.Random(seed), [], 10_000, 100
+    for i in range(steps * 5):
+        if i % 5 == 0 and i:
+            step = -step if rng.random() < reverse_share else step
+            wall += step
+        walls.append(wall + rng.choice((-1, 0, 1)))
+    return walls
+
+
+@pytest.mark.parametrize("share, snaps", [(0.95, True), (0.5, False)])
+def test_jumps_that_snap_back_are_flagged(share, snaps):
+    row = diagnose.diagnose([make_day(_jumping(200, share), name="r5d4")])["X"]
+    assert row["snap_jumps"] == 199
+    assert row["snap_back"] == pytest.approx(share, abs=0.06)
+    assert ("jumps of 6+ spreads snap back (r5d4" in row["notes"]) is snaps
+    assert ("the template's jump mode" in row["notes"]) is snaps
+
+
+def test_too_few_jumps_get_no_snap_back_note():
+    row = diagnose.diagnose([make_day(_jumping(diagnose.MIN_JUMPS - 1, 1.0))])["X"]
+    assert row["snap_back"] is None and "snap back" not in row["notes"]
+    assert diagnose._snap_backs([0, 12, 0, 12, 13], 2) == (3, 2, 2)  # moves of 12 or more: +12, -12, +12
+
+
+def test_the_simulators_jumping_preset_snaps_back_and_kelp_doesnt():
+    from arena import sim
+
+    rows = diagnose.diagnose([sim.run(sim.preset_market(["ROBOT_DISHES", "KELP"], ticks=3000), 0).day])
+    assert "snap back" in rows["ROBOT_DISHES"]["notes"] and "snap back" not in rows["KELP"]["notes"]
+
+
 def test_a_bouncing_mid_mean_reverts_and_the_wall_mid_filters_it():
     # The touch flips between just above and just below a wall mid that walks slowly.
     walls = [100 + (i // 25) for i in range(400)]

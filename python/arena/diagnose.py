@@ -11,6 +11,9 @@ first data download as soon as its format module exists. For each product, poole
   book is empty, and how often the wall mid jumps: moves by more than half the spread (and at
   least a tick) from one tick to the next. Where orders rest, quotes near the touch of a product
   that jumps get filled at their stale price.
+- **Jumps that snap back:** the wall mid's moves of at least `SNAP_SPREADS` times the day's median
+  spread, and the share that went the opposite way to the one before. Where that share is high,
+  fading each jump pays (the template's `jump` mode); elsewhere it is a coin flip.
 - **Noise:** the lag-1 autocorrelation of one-tick changes of the mid, and the signature ratio of
   the mid and of the wall mid (the midpoint of the largest level on each side): the variance per
   tick of one-tick changes over that of `LAG`-tick changes. Near 1 is a random walk; well above 1
@@ -57,6 +60,13 @@ EMPTY_SIDE_SHARE = 0.02  # share of ticks with one side empty from which it gets
 # Share of ticks on which the wall mid jumps from which resting quotes get picked off: under --resting, the
 # template's market making lost 140k-1.5M on P2/P3 products at 10-63% and still made 18k on Kelp at 0-0.1%.
 JUMPY = 0.05
+# Jumps that snap back: a wall mid move of at least SNAP_SPREADS × the day's median spread is a jump; a day with
+# MIN_JUMPS of them, SNAP_BACK of which went the opposite way to the one before, gets a note. On P2-P4 (637
+# product-days), the four product-days the template's jump mode made money on, all in P4 round 5, reverse 86-98%
+# (ROBOT_DISHES day 4: 743 jumps, 87%); every other day with 20 such jumps reverses at most 67%.
+SNAP_SPREADS = 6
+MIN_JUMPS = 20
+SNAP_BACK = 0.75
 MEAN_REVERTING = -0.2  # lag-1 autocorrelation of the mid's changes at or below which the mid is mostly noise
 NOISY_SIGNATURE = 1.5  # signature ratio from which a price is noisy
 # Wall mid variance per tick at LAG over LONG_LAG from which it reverts to a level. Three days of 10,000 ticks hold
@@ -98,6 +108,7 @@ class _Acc:
     edges: dict[str, list[float]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
     moves: dict[tuple[str, int], list[float]] = field(default_factory=dict)  # (reference, horizon)
     slow_gains: dict[str, list[float]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
+    snaps: list[tuple[str, int, int, int]] = field(default_factory=list)  # (day, jumps, pairs, pairs reversed) per day
 
 
 def diagnose(days: list[Day]) -> dict[str, dict[str, float | str | None]]:
@@ -130,6 +141,9 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         series["wall"].append(book.wall_mid)
     acc.mids += [m for m in series["mid"] if m is not None]
     acc.walls += [w for w in series["wall"] if w is not None]
+    day_spreads = acc.spreads[len(acc.spreads) - sum(w is not None for w in series["mid"]):]
+    if day_spreads:
+        acc.snaps.append((day.name, *_snap_backs([w for w in series["wall"] if w is not None], statistics.median(day_spreads))))
     ordered = sorted(prices)
     gaps = [b - a for a, b in zip(ordered, ordered[1:])]
     if gaps:
@@ -196,6 +210,8 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "spread_ticks_mean": _mean(spread_ticks),
         "at_one_tick": _share(sum(1 for s in spread_ticks if s <= 1 + 1e-9), len(spread_ticks)),
         "jump_share": _share(sum(1 for move, half in acc.wall_moves if move > max(half, tick) + 1e-9), len(acc.wall_moves)),
+        "snap_jumps": sum(n for _, n, _, _ in acc.snaps),
+        "snap_back": _share(sum(r for *_, r in acc.snaps), sum(p for _, _, p, _ in acc.snaps)) if sum(n for _, n, _, _ in acc.snaps) >= MIN_JUMPS else None,
         "mid_lag1_autocorr": _weighted(acc.autocorr),
         "mid_signature": _weighted(acc.signature["mid"]),
         "wall_signature": _weighted(acc.signature["wall"]),
@@ -234,6 +250,10 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
         notes.append(f"a side empty {row['one_side_empty']:.0%} of ticks")
     if (row["jump_share"] or 0) >= JUMPY:
         notes.append(f"wall mid jumps past half the spread on {row['jump_share']:.0%} of ticks: if orders rest, take only")
+    snapping = [(day, n, r / p) for day, n, p, r in acc.snaps if n >= MIN_JUMPS and p and r / p >= SNAP_BACK]
+    if snapping:
+        days = ", ".join(f"{day} {share:.0%} of {n}" for day, n, share in snapping)
+        notes.append(f"jumps of {SNAP_SPREADS}+ spreads snap back ({days} reversed the one before): fade them, the template's jump mode")
     fixed = row["wall_sd"] is not None and row["wall_sd"] <= FIXED_SD_TICKS * (row["tick"] or 1.0)
     if fixed:
         notes.append(f"wall mid nearly fixed at {row['wall_median']:g} (sd {row['wall_sd']:.2f})")
@@ -279,6 +299,13 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
         else:
             notes.append(f"market making pays ({share:.2f} of the spread a unit)")
     return notes
+
+
+def _snap_backs(walls: list[float], spread: float) -> tuple[int, int, int]:
+    """One day's wall mids: (jumps of at least SNAP_SPREADS × spread, consecutive pairs of them, pairs in opposite directions)."""
+    jumps = [b - a for a, b in zip(walls, walls[1:]) if spread and abs(b - a) >= SNAP_SPREADS * spread]
+    pairs = list(zip(jumps, jumps[1:]))
+    return len(jumps), len(pairs), sum(1 for a, b in pairs if a * b < 0)
 
 
 def _lag1_autocorrelation(x: list[float]) -> float:
@@ -341,6 +368,7 @@ COLUMNS = (  # (key, header, format)
     ("at_one_tick", "1 tick", "{:.0%}"),
     ("one_side_empty", "empty", "{:.0%}"),
     ("jump_share", "jumps", "{:.0%}"),
+    ("snap_back", "snap", "{:.0%}"),
     ("mid_lag1_autocorr", "mid AC1", "{:+.2f}"),
     ("mid_signature", "mid sig", "{:.1f}"),
     ("wall_signature", "wall sig", "{:.1f}"),
@@ -359,6 +387,8 @@ COLUMNS = (  # (key, header, format)
 LEGEND = (
     "spread: median, in ticks. 1 tick: share of two-sided ticks at a one-tick spread. empty: share of ticks with one side empty.\n"
     "jumps: share of ticks on which the wall mid moves more than half the spread (and at least a tick).\n"
+    f"snap: share of the wall mid's jumps of {SNAP_SPREADS}+ median spreads that went the opposite way to the one before "
+    f"(with {MIN_JUMPS} or more; a day at {SNAP_BACK:.0%} gets a note).\n"
     f"mid AC1: lag-1 autocorrelation of the mid's changes. sig: variance per tick at lag 1 over lag {LAG} (1 = random walk).\n"
     f"slow rev: the wall mid's variance per tick at lag {LAG} over lag {LONG_LAG:,} (above 1: it returns to a level).\n"
     "drift/day: the wall mid's change per day. buys: share of market trades at or above the ask. C(1): sign correlation of consecutive trades.\n"
