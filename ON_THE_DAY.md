@@ -45,6 +45,12 @@ The official times are from the organisers' e-mail of 7 Oct (`references/algo_tr
 
 **Handover note** at the end of each round, in `data/arena/round<N>/HANDOVER.md` (kept with the round's data, not committed): what was uploaded and why, its portal score against the local backtest, its private run against its public one, the leaderboard's verdict and our standing, the questions still open, which of last round's choices this round tested again and which it kept untested ("Choose the approach again each round"), and the next round's first three actions. The private run's results and `leaderboard.json` are kept in the same folder.
 
+**Claude's usage limits** (planned 2026-10-26; check the assumptions first, `TODO.md`, "Check how Claude's usage windows behave"). We assume each account's 5-hour window starts with its first message and resets 5 hours later, and the next one starts with the first message after that; work goes on all day, so each new window starts at the reset. So the first prompt sets every reset of the day:
+- **The user's account: first prompt at 10:00** (a one-line prompt from any device, before the playground). Resets at 15:00, 20:00, 01:00, 06:00, 11:00: round 1 resets at T+2:00, just as the first validated upload is due; round 3 is one whole window; round 4's last hour is fresh. Nothing goes to this account before 10:00, so the rules are read at 09:00 on the other account or by hand.
+- **The teammate's account, if they use Claude: first prompt at 07:30.** Resets at 12:30, 17:30, 22:30, 03:30, 08:30: 2.5 hours off the user's, so every round has a reset from one account or the other within about 2.5 hours, and this account covers the rules at 09:00.
+- **Keep the chain:** if nobody is using an account when it resets (a meal, a nap), send it a one-line prompt then, or every later reset slides.
+- **Spend the windows by the round's needs:** a round's heavy agent work is its first two hours (the loader, the ADAPTER, the first validated bot) and its grids; at a reset, start the long runs; when a window runs low, switch the work to the other account or to what needs no agent (reading the notes, the portal, the handover note).
+
 ## Splitting the first hour
 
 Each agent session starts from [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md): one prompt for round 1 and one for rounds 2–4, with the data, the rules, the deadline and the session's track filled in.
