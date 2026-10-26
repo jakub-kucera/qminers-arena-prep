@@ -46,6 +46,7 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | Experiment | What it answers | `IDEAS.md` row | Why not on the day's data |
 |---|---|---|---|
 | `cross_product_timing` | Do a basket's legs lead it, and do one product's trades lead another | "Legs leading the basket" | Data only, Prosperity's baskets hard-coded; read it if the Arena has baskets |
+| `lead_lag` | For any products: the same-tick correlation of their price changes, and for each ordered pair how far B moves 1/5/20 ticks after A moves (beyond B's drift and its own bounce), against B's half-spread; pairs steady on every day with \|t\| ≥ 3 and a quarter of the half-spread are listed | "A lead–lag table for any products" | `--data D --days ... [--products A,B,...]`; the defaults are controls (P3's baskets and the rock's vouchers, P4 round 1) |
 | `format_drill` | Makes drill-format data (and `--sync` copies the template into the drill bot) | — | A tool, not a study |
 | `kelp_drift` | Why the template holds Kelp long: each day mirrored (the takers' flow or a bias), Harris's test, and `skew` 0–3 | "`skew` against Kelp's long position" | P3 round 1 hard-coded; on the day, `arena.diagnose`'s buy share and Harris's test on a `--out` timeline answer the same for any product |
 | `p4_levels` | How much of the teams' P4 PnL survives without their hard-coded levels | "Trading toward a known level", "What the P4 vouchers are" | Runs other teams' Prosperity bots |

@@ -57,6 +57,35 @@ def test_imbalance_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     assert "| drill all | ALPHA |" in out
 
 
+def test_lead_lag_runs_on_the_days_data(capsys, monkeypatch, drill_data):
+    out = run(capsys, monkeypatch, "lead_lag", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "## drill all" in out and "| ALPHA |  |" in out
+
+
+def test_lead_lag_finds_a_planted_lead_one_way_and_nothing_between_unrelated_walks():
+    import random
+
+    from arena.model import Book, Day, Tick
+    from experiments import lead_lag
+
+    def day(seed, name):
+        rng, a, c, ticks = random.Random(seed), [100], [500], []
+        for _ in range(3000):
+            a.append(a[-1] + rng.choice((-1, 0, 0, 1)))
+            c.append(c[-1] + rng.choice((-1, 0, 0, 1)))
+        b = [p + 200 for p in [a[0]] * 3 + a[:-3]]  # B is A three ticks late
+        for t in range(len(a)):
+            ticks.append(Tick(t * 100, {k: Book(((v - 2, 20),), ((v + 2, 20),)) for k, v in (("A", a[t]), ("B", b[t]), ("C", c[t]))}, {}, {}))
+        return Day(name, ["A", "B", "C"], {"A": 10, "B": 10, "C": 10}, ticks)
+
+    products = ["A", "B", "C"]
+    result = lead_lag.study([day(1, "d1"), day(2, "d2")], products)
+    assert lead_lag.leads(result, products) == [("A", "B")]
+    assert result["pairs"][("A", "B", 5)]["follow"] == pytest.approx(1.0, abs=0.1)  # B repeats A's whole move
+    assert abs(result["pairs"][("B", "A", 5)]["follow"]) < 0.1
+    assert result["same"][("A", "C")] == pytest.approx(0, abs=0.05)
+
+
 def test_jumps_and_selection_rules_run_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "p4_jumps", "--data", drill_data, "--days", "all", "--format", "drill", "--jump-min", "50", "--trade",
               "--jobs", "2")
