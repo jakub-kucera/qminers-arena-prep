@@ -46,6 +46,8 @@ Which Mark, if any, is worth acting on: see [contradictions](../contradictions.m
 ## How to test it here
 Without names: per product, the correlation between our position and the next 10–100 ticks of `mark` change in `_timeline.csv`. A clearly negative value means someone is picking us off (Harris's test). Then split our fill markouts by the trade's size and by time of day to find who.
 
+*(checked: `python/experiments/kelp_drift.py`, 2026-10-26)* Both tests on the template's long Kelp position (P3 round 1): Harris's correlation is −0.10 to +0.18 at 10–1,000 ticks, so the flow isn't informed. Cartea et al.'s one-sided flow is the whole cause: 34–36% of Kelp's trades at the touch are buys, and on each day mirrored (prices reflected, buyers for sellers) the position is exactly the negative, at the same PnL. `skew` shrinks the position and loses PnL at every step (`IDEAS.md`, "`skew` against Kelp's long position").
+
 If the Arena names counterparties: `uv run python -m experiments.counterparties` gives the forward-move table per name, product and side at 10–1,000 ticks, and scores two selection rules by leaving one day out. Do not ship a name-based signal that fails a held-out day (rule from [validation-and-overfitting](validation-and-overfitting.md)).
 
 ## Sources

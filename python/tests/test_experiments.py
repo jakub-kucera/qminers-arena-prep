@@ -95,3 +95,16 @@ def test_the_days_data_options_need_data(capsys, monkeypatch):
     with pytest.raises(SystemExit):
         run(capsys, monkeypatch, "undercut", "--data", "p3")
     assert "--data needs --days" in capsys.readouterr().err
+
+
+def test_kelp_drift_mirrors_a_day_and_the_template_mirrors_its_position():
+    from arena.engine import run_day
+    from experiments import kelp_drift
+
+    day = sim.run(sim.preset_market(["KELP"], ticks=800), 3).day
+    flipped = kelp_drift.mirrored(day)
+    assert kelp_drift.flow(flipped, "KELP")[0] == pytest.approx(1 - kelp_drift.flow(day, "KELP")[0])
+    a = run_day(day, kelp_drift.FMT.load_bot(kelp_drift.TEMPLATE, {}, strict=True))
+    b = run_day(flipped, kelp_drift.FMT.load_bot(kelp_drift.TEMPLATE, {}, strict=True))
+    assert a.fills and b.positions["KELP"] == [-x for x in a.positions["KELP"]]  # the template quotes symmetrically
+    assert b.pnl["KELP"] == pytest.approx(a.pnl["KELP"])

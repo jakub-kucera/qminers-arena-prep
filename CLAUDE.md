@@ -59,6 +59,7 @@ uv run python -m experiments.rival_field --engine rust            # candidate se
 uv run python -m experiments.leaderboard_curves --engine rust     # can the leaderboard's PnL curves tell a shared market? On the day: --read FILE --team NAME
 uv run python -m experiments.quote_inside --engine rust           # make_inside (quotes nearer fair than one tick inside the book) against rivals nearer fair, and alone
 uv run python -m experiments.undercut                             # the template against a copy of itself at make_edge 0 (Wang et al.), per tick and --resting
+uv run python -m experiments.kelp_drift                            # why the template holds Kelp long: each day mirrored, Harris's test, skew 0-3
 uv run python -m experiments.quote_size                           # make_size caps against rivals: a copy, the trapper, spoofer and sniper
 uv run python -m experiments.p3_smile                             # P3's volcanic vouchers: the smile by held-out days, its residual, and the template's smile fair traded on it (~3 min)
 uv run python -m experiments.imbalance                            # does the best-level imbalance predict the mid / the wall mid, per product and day
