@@ -647,6 +647,7 @@ STOP_SPREADS = 2  # ...and at least the limit times this many median spreads (th
 LEVEL_SPREADS = 2  # a level is faded only where the wall mid's sd is at least this many median spreads, so the swings pay for crossing
 LEVEL_AGREE = 0.5  # the days' mean wall mids agree when their sd is at most this share of the wall mid's sd: a fixed level
 MIN_SMOOTHING = 0.1  # a Kalman smoothing below this is left out
+MAX_SMOOTHING = 0.95  # ...and one above is capped: at 1.0 (q 0, noise around a fixed value) the template's fair never moves
 SIZE_TO_DEPTH = 5  # a limit this many times the largest level's median gets make_size at that level
 PRICES = ("fixed_fair", "fixed_guard", "make_edge", "jump_min", "jump_edge", "level", "level_band", "clear_edge", "skew", "stop_loss")
 
@@ -673,7 +674,7 @@ def suggest(row: dict) -> tuple[dict, list[str]]:
     else:
         out["fair"] = "wall_mid"
         if "both noisy" in notes and (row["smoothing_wall"] or 0) >= MIN_SMOOTHING:
-            out["smoothing"] = round(row["smoothing_wall"], 2)
+            out["smoothing"] = round(min(row["smoothing_wall"], MAX_SMOOTHING), 2)
             why.append("noisy wall mid: Kalman smoothing")
     if "market making pays" in notes:
         out["make_edge"] = tick

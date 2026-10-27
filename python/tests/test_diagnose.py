@@ -334,6 +334,9 @@ def test_suggest_reads_the_notes_into_params():
         walls.append(level + rng.gauss(0, 2))
     noisy = diagnose.diagnose([make_day(walls)])["X"]
     assert diagnose.suggest(noisy)[0]["smoothing"] == round(noisy["smoothing_wall"], 2)
+    # Noise around a fixed value that isn't "nearly fixed" (q 0): the Kalman smoothing is 1.0, which would freeze the fair.
+    frozen = {**noisy, "smoothing_wall": 1.0}
+    assert diagnose.suggest(frozen)[0]["smoothing"] == diagnose.MAX_SMOOTHING
 
 
 def test_suggest_gives_prices_in_the_bots_ticks_where_the_format_has_them():

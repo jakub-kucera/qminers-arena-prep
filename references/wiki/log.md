@@ -450,3 +450,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-27] lint | grid citations re-mapped
 - `arena.grid --search` added lines to `python/arena/grid.py`; the two citations into it (`concepts/validation-and-overfitting`, `sources/superior-predictive-ability`) re-mapped to the same definitions.
+
+## [2026-10-28] lint | --suggest caps the Kalman smoothing
+- `concepts/reading-the-data-on-day-one`: `--suggest` caps `smoothing` at 0.95 (`MAX_SMOOTHING`; at 1.0 the template's fair never moves, the fourth audit's R4). One line added to `python/arena/diagnose.py`; the citation to `suggest` re-mapped (654 → 655).

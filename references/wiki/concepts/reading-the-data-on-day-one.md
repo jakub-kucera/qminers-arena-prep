@@ -74,13 +74,13 @@ The Arena's first data download should decide the strategy for each product befo
 - **`python/arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `python/arena/diagnose.py:98-134`, so if the Arena's data needs other cut-offs, change them there and in this table together.
 - **The table maps to the template's parameters:**
   - `fair` (fixed / `mid` / `wall_mid`, `python/bots/template.py:35`);
-  - `smoothing`, from the `smooth` column;
+  - `smoothing`, from the `smooth` column (`--suggest` leaves out a value below 0.1 and caps one above 0.95: at 1.0, noise around a fixed value, the template's fair never moves; 2026-10-28, the fourth audit's R4);
   - `target` and `skew` for a drift;
   - `make_edge` for a thin margin.
 
   Two rows have no template support yet: a quote far from fair on an empty side, and one-sided quoting. Both are untested in `IDEAS.md`.
   Fading a level is the template's `level` mode: a level from history (`level: <price>`) or the day's own running mean (`level: "day"`, for a level that drifts across days).
-- **`--suggest`** reads this table into a PARAMS entry per product (`python/arena/diagnose.py:654`), a starting point for the first backtest and grid. On P2–P4's held-out days it matched the hand-tuned market makers (250.9k against 249.9k) and got 58% of the level products (97.4k against 168.1k: the band, the exit and a slow-reversion note that missed on two days), and on ABIDES beat the template as is (`IDEAS.md`, "`arena.diagnose --suggest`").
+- **`--suggest`** reads this table into a PARAMS entry per product (`python/arena/diagnose.py:655`), a starting point for the first backtest and grid. On P2–P4's held-out days it matched the hand-tuned market makers (250.9k against 249.9k) and got 58% of the level products (97.4k against 168.1k: the band, the exit and a slow-reversion note that missed on two days), and on ABIDES beat the template as is (`IDEAS.md`, "`arena.diagnose --suggest`").
 - **On the day,** run it on each new download before the first backtest (`ON_THE_DAY.md`, "First hour"). Run it again on the first days of a shared market, because a margin that shrinks toward zero is the sign of competing teams (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6358` (p. 332)) *(inferred)*.
 
 ## How to test it here
