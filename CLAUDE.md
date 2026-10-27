@@ -71,6 +71,7 @@ uv run python -m experiments.lead_lag                             # which produc
 uv run python -m experiments.fill_curve                           # what a quote at each distance from fair could fill, from the data; --results ZIP: our fills' queue share
 uv run python -m experiments.shortfall                            # implementation shortfall per order vs the PnL --delay costs (P3 r1); --results ZIP for one run
 uv run python -m experiments.informed                             # a nameless informed-trade detector (size class at a new daily extreme), scored against Olivia's name on P3 r5
+uv run python -m experiments.predict                              # a feed beside the book as a fair term (P3 r4), then a held-out ridge forecast against the half-spread
 uv run python -m experiments.family_fills --engine rust           # do fills arrive in several members of a family at once (P4 r5), and do family inventories net
 uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
 uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls

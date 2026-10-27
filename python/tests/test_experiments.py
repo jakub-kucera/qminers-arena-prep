@@ -432,6 +432,28 @@ def test_informed_flags_a_buy_at_the_days_low_and_relabels_it(capsys, monkeypatc
     assert "2. Leave one day out" in out
 
 
+def test_predict_ridge_recovers_a_planted_linear_rule_and_reads_feed_files(capsys, monkeypatch, tmp_path, drill_data):
+    import random
+
+    from experiments import predict
+
+    rng = random.Random(1)
+    days = []
+    for _ in range(2):
+        xs = [[rng.gauss(0, 1), rng.gauss(0, 3)] for _ in range(2000)]
+        days.append(predict.sufficient(xs, [2 * a - b + rng.gauss(0, 0.1) for a, b in xs]))
+    monkeypatch.setattr(predict, "RIDGE", 1e-6)
+    beta, mu, sd, _ = predict.ridge(days)
+    assert [b / s for b, s in zip(beta, sd)] == pytest.approx([2, -1], abs=0.02)
+
+    for k in range(2):
+        sim.write_day(sim.run(sim.preset_market(["KELP"], ticks=600), 30 + k), tmp_path / "data", 1, k)
+    out = run(capsys, monkeypatch, "predict", "--data", str(tmp_path / "data"), "--days", "1")
+    assert "| fundamental.value |" in out and "R² pooled" in out
+    out = run(capsys, monkeypatch, "predict", "--data", drill_data, "--days", "all", "--format", "drill", "--part", "2")
+    assert "### drill all ALPHA" in out
+
+
 def test_fill_curve_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "fill_curve", "--data", drill_data, "--days", "all", "--format", "drill", "--products", "ALPHA")
     assert "### drill all ALPHA" in out and "The fill-size curve" in out
