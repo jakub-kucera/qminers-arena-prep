@@ -453,3 +453,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-28] lint | --suggest caps the Kalman smoothing
 - `concepts/reading-the-data-on-day-one`: `--suggest` caps `smoothing` at 0.95 (`MAX_SMOOTHING`; at 1.0 the template's fair never moves, the fourth audit's R4). One line added to `python/arena/diagnose.py`; the citation to `suggest` re-mapped (654 → 655).
+
+## [2026-10-28] lint | --suggest's held-out figures re-run
+- `concepts/reading-the-data-on-day-one`: the level products' share is 56% (97.4k against 173.9k, the hand-tuned Hydrogel having `cross_excess` 25 since `fd9fc50`), and on ABIDES's regenerated days (the fourth audit's R13) `--suggest` comes out about level with the template as is, not above it.

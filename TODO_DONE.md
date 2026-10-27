@@ -7,18 +7,13 @@ not here.
 
 ## Decisions
 
+Choices only the user can make, each with the options, the evidence and a recommendation.
+
 - [x] **Hydrogel's `cross_excess`: keep None, or 25?** Raised 2026-10-27 by the passive-first grid.
   - Options: (a) set `cross_excess` 25 on `HYDROGEL_PACK` (and leave Velvetfruit as is); (b) keep None.
   - Evidence: on P4 rounds 3–4 (`uv run python -m arena.grid python/bots/template.py 3 4 --data p4 --grid 'PARAMS.HYDROGEL_PACK.cross_excess=None,25,50,100' --modes all,worse --scenario rest:resting,queue=prob --holdout last --engine rust`) 25 is the summary's pick, +29,941 under `all`, `worse` and resting, and it beats the bot as is on the held-out day (+4,321); 50 is flat and 100 loses 78k. In `arena.sim`'s reacting market 50 makes 9% more than None, 100 2% less (`IDEAS.md`, "Passive-first execution toward a target"). Velvetfruit gains only 5k at 25 and loses at 50.
   - Recommendation: (a). It is the grid's pick by the rule the day uses, held out, and the reacting market agrees in direction; the risk is small since 25 of 200 is close to crossing everything.
-
-## Harder-round prep
-
-Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals"), in this order.
   - **Decided 2026-10-27 by the user: (a).** `HYDROGEL_PACK` has `cross_excess` 25; P4 rounds 3–4 make 1,757,750 (1,727,809 before). Earlier P4 round 3–4 totals in `IDEAS.md` predate it.
-
-
-Choices only the user can make, each with the options, the evidence and a recommendation.
 
 - [x] **Which harder-round preps to build before the event?** Decided 2026-10-14: (c), then (a), then (b), each its own entry under "Harder-round prep" below. (d)–(g) are not chosen yet. `references/wiki/concepts/harder-rounds.md` lists 25 ways the organisers could make rounds harder than Prosperity, and ranks the prep for them.
   - Evidence:
@@ -442,6 +437,8 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 - [x] **Flag jumps that snap back in `arena.diagnose`.** On the day, `arena.diagnose` is the first look at the data, but it only says that a product jumps, not that its jumps reverse: that is in `python/experiments/p4_jumps.py`'s part 1, which loads days through the Prosperity format only and needs a `--jump-min`. On P4 round 5, the products worth fading had jumps of 50 or more (several spreads) reversed 86–100% of the time; every other product of P2–P4 reversed about half.
   - Done when: `arena.diagnose` notes a product whose moves of several spreads reverse well above half the time (a threshold calibrated on P4 round 5, as a module constant), the note points to the jump mode in `references/wiki/concepts/reading-the-data-on-day-one.md`, and a test covers it.
   - **Done 2026-10-26:** a jump is a wall-mid move of at least `SNAP_SPREADS` (6) × the day's median spread, and a day with `MIN_JUMPS` (20) of them, `SNAP_BACK` (75%) reversing the one before, gets the note `jumps of 6+ spreads snap back (...): fade them, the template's jump mode`, with a `snap` column. On all 637 P2–P4 product-days it flags exactly the four the jump mode made money on (86–98%); the next highest day reverses 67% (`IDEAS.md`, "Fading jumps that snap back"). The wiki's day-one table has its row; tests in `python/tests/test_diagnose.py`, including the simulator's `ROBOT_DISHES` preset.
+- [x] **`arena.diagnose`: the size of a product's jumps.** It notes jumps that snap back but not their size or the grid they sit on (the mock round's CALDERA moved only in steps of exactly 6.00, found with a script; `experiments.p4_jumps` part 1 measures it). Done when: the snap-back note gives the jumps' usual size, as the template's `jump_min` wants it, with a test.
+  - **Done 2026-10-27** (`00bed6a`; moved here 2026-10-28, the fourth audit's R5): the snap-back note gives the jumps' size and the grid they sit on, `test_the_snap_back_note_gives_the_jumps_size_and_grid`.
 
 ## Strategy
 
