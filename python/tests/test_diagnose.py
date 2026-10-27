@@ -268,3 +268,19 @@ def test_the_ema_error_is_least_at_the_kalman_smoothing_and_a_drift_lowers_it():
     drifting = diagnose._kalman(variogram, 0.1 ** 2)[2]
     assert drifting == pytest.approx(min(grid, key=lambda s: diagnose._ema_error(s, q, r, 0.01)), abs=0.002)
     assert drifting < kalman - 0.03
+
+
+def test_gao_and_wangs_rates_at_a_one_tick_spread():
+    # A one-tick spread around 100.5: buys at the ask on every other tick, the mid steps a tick every fifth tick.
+    walls = [100.5 + (i // 5) for i in range(1000)]
+    trades = {i: [walls[i] + 0.5] for i in range(0, 1000, 2) if i % 5 != 4}
+    row = diagnose.diagnose([make_day(walls, half_spread=0.5, trades=trades)])["X"]
+    assert row["one_tick_ticks"] == 999
+    assert row["lambda"] == pytest.approx(199 / 999)  # the mid moves after every fifth tick
+    assert row["lambda_buy"] == pytest.approx(400 / 999) and row["lambda_sell"] == 0  # hits after which it didn't
+    assert "making at a one-tick spread pays on the ask only (Gao & Wang: uninformed hits λ+ 0.400, λ- 0.000 a tick against λ/2 0.100)" in row["notes"]
+    # A mid that moves every tick: no side pays.
+    flicker = diagnose.diagnose([make_day([100.5 + i % 2 for i in range(1000)], half_spread=0.5, trades=trades)])["X"]
+    assert flicker["lambda"] == 1 and "pays on neither side" in flicker["notes"]
+    # A small-tick product gets no such note, though the rates are in the CSV.
+    assert "one-tick spread pays" not in diagnose.diagnose([make_day(walls, half_spread=2, trades=trades)])["X"]["notes"]

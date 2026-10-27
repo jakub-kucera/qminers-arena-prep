@@ -41,10 +41,10 @@ uv run python -m arena.diagnose 1 --profile            # ...and each product's s
 ```
 
 ```
-product           spread  1 tick  empty  wall   15+  jumps  snap  mid AC1  mid sig  wall sig  slow rev  smooth  drift/day  trades  buys   C(1)   edge   R(1)  R(50)   slow   fast
-KELP                  3t     13%     0%    26  100%     0%     -    -0.48     17.9       2.8       1.4    0.43        +11   8,634   35%  +0.13  -0.93  +0.00  -0.01  +0.94  +0.81
-RAINFOREST_RESIN      8t      0%     0%    25   99%     3%     -    -0.50     50.0      49.6      20.1    0.97         +0   7,121   49%  +0.09  -1.49  +0.09  +0.07  +1.41  +1.27
-SQUID_INK             3t     14%     0%    26  100%    16%     -    -0.17      1.5       1.3       1.7    0.03        -53   8,651   35%  +0.12  -0.93  +0.02  -0.02  +0.95  +0.80
+product           spread  1 tick  empty  wall   15+  jumps      λ     λ+     λ-  snap  mid AC1  mid sig  wall sig  slow rev  smooth  drift/day  trades  buys   C(1)   edge   R(1)  R(50)   slow   fast
+KELP                  3t     13%     0%    26  100%     0%  0.911  0.016  0.028     -    -0.48     17.9       2.8       1.4    0.43        +11   8,634   35%  +0.13  -0.93  +0.00  -0.01  +0.94  +0.81
+RAINFOREST_RESIN      8t      0%     0%    25   99%     3%      -      -      -     -    -0.50     50.0      49.6      20.1    0.97         +0   7,121   49%  +0.09  -1.49  +0.09  +0.07  +1.41  +1.27
+SQUID_INK             3t     14%     0%    26  100%    16%  0.850  0.030  0.051     -    -0.17      1.5       1.3       1.7    0.03        -53   8,651   35%  +0.12  -0.93  +0.02  -0.02  +0.95  +0.80
 
 KELP: small-tick (median spread 3 ticks); mid mean-reverts at one tick; wall mid filters the mid's noise (Kalman smoothing: wall mid 0.43, mid 0.76); market making pays (0.41 of the spread a unit)
 ...
@@ -52,6 +52,7 @@ KELP: small-tick (median spread 3 ticks); mid mean-reverts at one tick; wall mid
 
 The first thing to run on a new data download: it needs no bot. Per product it measures:
 - **The book:** the spread in ticks, how often a side is empty, and how often the wall mid jumps by more than half the spread in one tick. If orders rest, quotes on a product that jumps get picked off.
+- **Large-tick market making** (Gao & Wang): at a one-tick spread, the share of ticks after which the mid moves (`λ`) against the share with a market buy at the ask (`λ+`) or a sell at the bid (`λ-`) after which it doesn't. A quote at the best pays on a side only where `λ±` > `λ/2`; a large-tick product gets a note saying on which sides.
 - **Jumps that snap back:** the share of the wall mid's moves of 6 or more median spreads that reverse the one before (`snap`). A day where 75% do gets a note: fade them with the template's `jump` mode, at the `jump_min` the note gives (half the jumps' usual size; it names the grid the wall mid sits on, if any). On P2–P4 only the four P4 round 5 product-days the jump mode made money on pass (86–98%); every other day with 20 such jumps reverses at most 67%.
 - **The noise:** how much the mid and the wall mid revert from one tick to the next, and whether the wall mid returns to a level over about 1,000 ticks. `smooth` is the template's `smoothing` a Kalman filter would use on the wall mid: a random walk in noise, fitted to its squared changes at lags 1–50, gives the filter's gain `K` and `smoothing` = 1 − K (0 for a random walk). The PnL optimum sat near it, mostly a little smoother (`IDEAS.md`, "The Kalman-implied smoothing").
 - **The drift:** how far the wall mid moves over a day.

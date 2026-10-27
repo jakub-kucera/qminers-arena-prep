@@ -21,6 +21,12 @@ first data download as soon as its format module exists. For each product, poole
   the jumps' usual size (their median), the share that is exactly that size, and the grid the wall
   mid sits on: the share of ticks at its most common value modulo that size (P4 round 5's
   ROBOT_DISHES: steps of 100 between multiples of 100). The template's `jump_min` is about half the size.
+- **Large-tick market making** (Gao & Wang 2018, Theorem 4.1(c)): on the ticks at a one-tick
+  spread, `λ` is the share after which the mid moves, and `λ+` (`λ-`) the share with a market buy
+  at the ask (sell at the bid) after which it does not: the uninformed hits. In their model a quote
+  at the best has a positive value on a side iff `λ±` > `λ/2`, since a fill there gains half a tick
+  at rate `λ±` and loses half a tick when the mid jumps through it, at rate `λ/2`. A large-tick
+  product gets a note saying on which sides that holds.
 - **Noise:** the lag-1 autocorrelation of one-tick changes of the mid, and the signature ratio of
   the mid and of the wall mid (the midpoint of the largest level on each side): the variance per
   tick of one-tick changes over that of `LAG`-tick changes. Near 1 is a random walk; well above 1
@@ -94,6 +100,7 @@ SNAP_SPREADS = 6
 MIN_JUMPS = 20
 SNAP_BACK = 0.75
 GRID_SHARE = 0.5  # share of a jumping day's ticks at one value modulo the jump size from which the note names that grid
+MIN_ONE_TICK = 100  # ticks at a one-tick spread (with the next tick's mid) below which λ and λ± are left out
 MEAN_REVERTING = -0.2  # lag-1 autocorrelation of the mid's changes at or below which the mid is mostly noise
 NOISY_SIGNATURE = 1.5  # signature ratio from which a price is noisy
 # Wall mid variance per tick at LAG over LONG_LAG from which it reverts to a level. Three days of 10,000 ticks hold
@@ -152,6 +159,7 @@ class _Acc:
     edges: dict[str, list[float]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
     moves: dict[tuple[str, int], list[float]] = field(default_factory=dict)  # (reference, horizon)
     slow_gains: dict[str, list[float]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
+    one_tick: list[int] = field(default_factory=lambda: [0, 0, 0, 0])  # ticks at a one-tick spread: all, mid moved, buy hits, sell hits
     snaps: list[tuple[str, int, int, int]] = field(default_factory=list)  # (day, jumps, pairs, pairs reversed) per day
     jump_sizes: list[float] = field(default_factory=list)  # |wall mid move| of every jump that snaps back or not
     jump_days: dict[str, tuple[list[float], list[float]]] = field(default_factory=dict)  # day with MIN_JUMPS: (|jumps|, wall mids)
@@ -247,6 +255,19 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         acc.drift_rates.append((known[-1] - known[0]) / len(known))
         acc.drift_ratios.append((known[-1] - known[0]) / noise if noise else 0.0)
 
+    unit, mids = acc.tick_size or 1.0, series["mid"]
+    for i, tick in enumerate(day.ticks[:-1]):  # Gao & Wang's rates, at a one-tick spread
+        book = tick.books.get(product)
+        if mids[i] is None or mids[i + 1] is None or book.asks[0][0] - book.bids[0][0] > unit + 1e-9:
+            continue
+        acc.one_tick[0] += 1
+        if mids[i + 1] != mids[i]:
+            acc.one_tick[1] += 1
+            continue
+        prints = tick.trades.get(product, [])
+        acc.one_tick[2] += any(t.price >= book.asks[0][0] for t in prints)
+        acc.one_tick[3] += any(t.price <= book.bids[0][0] for t in prints)
+
     last_sign = None
     for i, tick in enumerate(day.ticks):
         book = tick.books.get(product)
@@ -294,6 +315,8 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "snap_jumps": sum(n for _, n, _, _ in acc.snaps),
         "snap_back": _share(sum(r for *_, r in acc.snaps), sum(p for _, _, p, _ in acc.snaps)) if sum(n for _, n, _, _ in acc.snaps) >= MIN_JUMPS else None,
         "jump_size": statistics.median(acc.jump_sizes) if acc.jump_sizes else None,
+        "one_tick_ticks": acc.one_tick[0],
+        **dict(zip(("lambda", "lambda_buy", "lambda_sell"), (n / acc.one_tick[0] if acc.one_tick[0] >= MIN_ONE_TICK else None for n in acc.one_tick[1:]))),
         "mid_lag1_autocorr": _weighted(acc.autocorr),
         "mid_signature": _weighted(acc.signature["mid"]),
         "wall_signature": _weighted(acc.signature["wall"]),
@@ -360,6 +383,11 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
     if row["at_one_tick"] is not None:
         if row["at_one_tick"] >= LARGE_TICK_SHARE:
             notes.append(f"large-tick (one-tick spread {row['at_one_tick']:.0%} of the time)")
+            if row["lambda"] is not None:
+                sides = [side for side, key in (("ask", "lambda_buy"), ("bid", "lambda_sell")) if row[key] > row["lambda"] / 2]
+                where = "both sides" if len(sides) == 2 else f"the {sides[0]} only" if sides else "neither side: take only or stand aside"
+                notes.append(f"making at a one-tick spread pays on {where} (Gao & Wang: uninformed hits λ+ {row['lambda_buy']:.3f}, "
+                             f"λ- {row['lambda_sell']:.3f} a tick against λ/2 {row['lambda'] / 2:.3f})")
         else:
             notes.append(f"small-tick (median spread {row['spread_ticks_median']:g} ticks)")
     if row["wall_seen"] is not None and row["wall_seen"] < WALL_SEEN:
@@ -546,6 +574,9 @@ COLUMNS = (  # (key, header, format)
     ("wall_size", "wall", "{:g}"),
     ("wall_seen", f"{WALL_SIZE}+", "{:.0%}"),
     ("jump_share", "jumps", "{:.0%}"),
+    ("lambda", "λ", "{:.3f}"),
+    ("lambda_buy", "λ+", "{:.3f}"),
+    ("lambda_sell", "λ-", "{:.3f}"),
     ("snap_back", "snap", "{:.0%}"),
     ("mid_lag1_autocorr", "mid AC1", "{:+.2f}"),
     ("mid_signature", "mid sig", "{:.1f}"),
@@ -567,6 +598,8 @@ LEGEND = (
     "spread: median, in ticks. 1 tick: share of two-sided ticks at a one-tick spread. empty: share of ticks with one side empty.\n"
     f"wall: median size of each side's largest level. {WALL_SIZE}+: share of sides with a level of {WALL_SIZE} or more (the template's wall_size).\n"
     "jumps: share of ticks on which the wall mid moves more than half the spread (and at least a tick).\n"
+    "λ: at a one-tick spread, the share of ticks after which the mid moves; λ+ (λ-): with a buy at the ask (sell at the bid) after which it doesn't.\n"
+    "  Gao & Wang: a quote at the best pays on a side iff its λ± > λ/2.\n"
     f"snap: share of the wall mid's jumps of {SNAP_SPREADS}+ median spreads that went the opposite way to the one before "
     f"(with {MIN_JUMPS} or more; a day at {SNAP_BACK:.0%} gets a note).\n"
     f"mid AC1: lag-1 autocorrelation of the mid's changes. sig: variance per tick at lag 1 over lag {LAG} (1 = random walk).\n"
