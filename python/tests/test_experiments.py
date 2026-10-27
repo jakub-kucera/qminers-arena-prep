@@ -533,6 +533,21 @@ def test_fill_curve_reads_a_results_zip_and_a_per_tick_all_run_takes_every_print
     assert sum(c["ours"] for c in mapped.values()) / sum(c["market"] for c in mapped.values()) == 1.0
 
 
+def test_fill_curve_counts_a_resting_quote_the_next_snapshot_crossed(tmp_path):
+    from arena.engine import EngineConfig, QueueModel, run_day
+    from arena.report import write_csvs
+    from experiments import fill_curve, kelp_drift
+
+    day = sim.run(sim.preset_market(["KELP"], ticks=1500), 5).day
+    write_csvs(run_day(day, kelp_drift.FMT.load_bot(kelp_drift.TEMPLATE, {}, strict=True), EngineConfig(resting=True, queue=QueueModel.PROB)), tmp_path)
+    results = fill_curve.read_results(tmp_path)[day.name]
+    crosses = sum(abs(f["quantity"]) for f in results["fills"] if f["product"] == "KELP" and f.get("source") == "cross")
+    assert crosses > 0
+    lots = lambda r: sum(c["our_lots"] for c in fill_curve.queue_share(day, "KELP", r).values())
+    without = {**results, "fills": [f for f in results["fills"] if f.get("source") != "cross"]}
+    assert lots(results) - lots(without) > 0.5 * crosses  # the crossed fills match the quotes they came from
+
+
 def test_shortfall_reads_a_runs_csvs_and_values_fills_at_the_decision(tmp_path, capsys, monkeypatch):
     from arena.engine import EngineConfig, run_day
     from arena.formats import prosperity

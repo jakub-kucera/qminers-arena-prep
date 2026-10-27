@@ -30,7 +30,9 @@ would only restate the engine's fill rule, so it comes in two halves.
    CSVs (a folder or a ZIP of it). For each tick our orders rested passively at distance d (from the
    orders file; an order that crossed the book is a take and left out), the share of those ticks with
    one of our fills, against the share where the market printed at or beyond d (half 1, on the same
-   ticks): their ratio is the **queue share**, the fill model measured. In lots: our filled lots against
+   ticks): their ratio is the **queue share**, the fill model measured. A resting quote the next
+   snapshot crossed (source "cross") counts at the tick it was quoted, as a fill and as the market
+   reaching it (before 2026-10-28 no such fill matched a quote: the fourth audit's R9). In lots: our filled lots against
    min(our size, the lots printed at or beyond d). A per-tick backtest under `--match-trades all`
    gives 1 by construction (every print at or beyond the quote fills it), `worse` less, and the
    portal's ratio is what to set the backtest's `--fill-ratio`, `--match-trades` and queue to.
@@ -249,7 +251,9 @@ def read_results(source: Path) -> dict[str, dict[str, list[dict]]]:
 def queue_share(day, product: str, results: dict[str, list[dict]], how: str = "wall_mid") -> dict:
     """Half 2 for one product and day: per half-tick distance, the ticks our passive quotes rested there, the
     share with one of our fills, the market's share with a print at or beyond it, and the same in lots."""
-    rows = {r["timestamp"]: r for r in ticks_of(day, product, how)}
+    ordered = ticks_of(day, product, how)
+    rows = {r["timestamp"]: r for r in ordered}
+    before = {b["timestamp"]: a["timestamp"] for a, b in zip(ordered, ordered[1:])}
     quoted: dict[tuple[int, int], list[tuple[float, float]]] = defaultdict(list)  # (timestamp, side) -> [(distance, lots)]
     for order in results["orders"]:
         r = rows.get(order["timestamp"])
@@ -260,18 +264,25 @@ def queue_share(day, product: str, results: dict[str, list[dict]], how: str = "w
             continue  # a take
         quoted[(order["timestamp"], s)].append((round(2 * s * (r["fair"] - order["price"]) / r["unit"]) / 2, abs(order["quantity"])))
     filled: dict[tuple[int, int, float], float] = defaultdict(float)  # (timestamp, side, distance) -> our lots
+    crossed: dict[tuple[int, int, float], float] = defaultdict(float)  # ...of those, filled by the next snapshot crossing the quote
     for fill in results["fills"]:
-        r = rows.get(fill["timestamp"])
+        timestamp = fill["timestamp"]
+        source = fill.get("source")
+        if source == "cross":  # the quote rested from the tick before, when it was recorded (as quote_markouts keys it)
+            timestamp = before.get(timestamp)
+        r = rows.get(timestamp)
         if fill["product"] != product or r is None or not fill["quantity"]:
             continue
         s = 1 if fill["quantity"] > 0 else -1
-        source = fill.get("source")
         if source:
             if source not in PASSIVE_SOURCES:
                 continue
         elif (s > 0 and fill["price"] >= r["best_ask"]) or (s < 0 and fill["price"] <= r["best_bid"]):
             continue
-        filled[(fill["timestamp"], s, round(2 * s * (r["fair"] - fill["price"]) / r["unit"]) / 2)] += abs(fill["quantity"])
+        key = (timestamp, s, round(2 * s * (r["fair"] - fill["price"]) / r["unit"]) / 2)
+        filled[key] += abs(fill["quantity"])
+        if source == "cross":
+            crossed[key] += abs(fill["quantity"])
     out = defaultdict(lambda: {"ticks": 0, "ours": 0, "market": 0, "our_lots": 0.0, "market_lots": 0.0})
     for (timestamp, s), quotes in quoted.items():
         r = rows[timestamp]
@@ -280,7 +291,7 @@ def queue_share(day, product: str, results: dict[str, list[dict]], how: str = "w
             cell = out[d]
             cell["ticks"] += 1
             ours = filled.get((timestamp, s, d), 0.0)
-            market = sum(q for dist, q in prints if dist >= d)
+            market = sum(q for dist, q in prints if dist >= d) + crossed.get((timestamp, s, d), 0.0)  # a crossing book reached the quote too
             cell["ours"] += ours > 0
             cell["market"] += market > 0
             cell["our_lots"] += min(ours, lots)
