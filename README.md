@@ -392,6 +392,7 @@ Over the cap, `arena.compact` writes a copy without comments or docstrings (the 
 
 It warns about:
 - use of environment variables, files, subprocesses or the network
+- with `--max-state CHARS`, a `traderData` longer than the exchange keeps (Prosperity cut it at 50,000 characters, and the bot read back a broken string); without it the largest state is printed
 - results that change on a repeat run, or when the first day is replayed in two other Python processes with other hash seeds (`PYTHONHASHSEED`), which catches a bot that iterates a set of strings: the organisers rerun the top bots, and such a bot wouldn't reproduce
 - results that change when the bot is reloaded every tick, which means it keeps state outside `traderData` that the real engine may not preserve
 - settings that can't matter, if the bot lists them (the template's `param_conflicts`): two target modes on one product (the first in `trade_product`'s order wins), a static `target` that a mode replaces, or a mode's own setting while the mode is off

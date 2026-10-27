@@ -60,4 +60,5 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 - Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00; while A sleeps, B uploads
   only from the written list ["The day: timeline and roles"].
 - Before round 4: decide in writing how much risk to keep, from the lead (in weighted points if the rounds are
-  weighted; the 10/20/30/40% are unconfirmed) ["How is PnL scored?"].
+  weighted; the 10/20/30/40% are unconfirmed); if rounds 2–3's private runs strayed from our backtests, a bot that
+  sends nothing is on the list ["How is PnL scored?"].

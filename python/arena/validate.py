@@ -13,7 +13,8 @@ environment variables, files, processes or the network, which the submission env
 probably won't have.
 
 Replay checks on the given days: no exceptions, well-formed orders, no orders cancelled for
-breaching a position limit, and no tick slower than --time-limit-ms. The first day is then
+breaching a position limit, no tick slower than --time-limit-ms, and with --max-state a WARN if the
+largest traderData is longer than the exchange keeps. The first day is then
 replayed again: once to check the results repeat exactly, twice in other Python processes with
 other hash seeds (PYTHONHASHSEED), which catches a bot that iterates a set of strings, so that the
 organisers' rerun wouldn't reproduce it, once reloading the bot every tick, which shows whether it
@@ -130,7 +131,8 @@ def static_checks(source: str, fmt, allow: set[str]) -> tuple[list[Check], bool]
     return checks, not problems
 
 
-def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None) -> list[Check]:
+def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None,
+                  max_state: int | None = None) -> list[Check]:
     """argv, this run's arguments, lets the first day be replayed in other processes (hash_seed_check)."""
     results, bots = [], []
     # The loaded days are long-lived: freeze them out of the collector, or its pauses land inside
@@ -217,6 +219,8 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     output = max(r.max_output_chars for r in results)
     checks.append(Check(INFO, f"pnl: {pnl}"))
     checks.append(Check(INFO, f"largest state {state:,} chars, largest print per tick {output:,} chars"))
+    if max_state is not None and state > max_state:  # Prosperity cut traderData at 50,000 and the bot read it back broken
+        checks.append(Check(WARN, f"largest state {state:,} chars is over --max-state {max_state:,}: the exchange may cut it"))
     return checks
 
 
@@ -343,6 +347,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow", default="", help="comma-separated non-standard-library modules the competition allows")
     parser.add_argument("--time-limit-ms", type=float, default=900, help="slowest allowed tick (default: 900, Prosperity's limit)")
     parser.add_argument("--max-size", type=max_size, help="the dashboard's file-size cap: bytes, or as shown (100KB, 1.5MB)")
+    parser.add_argument("--max-state", type=int, metavar="CHARS", help="the largest traderData the exchange keeps (Prosperity: 50000): WARN above it")
     parser.add_argument("--fills-digest", action="store_true", help=argparse.SUPPRESS)  # hash_seed_check's other processes
     argv = sys.argv[1:] if argv is None else list(argv)
     args = parser.parse_args(argv)
@@ -365,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
     checks += found
     if replayable:
         try:
-            checks += replay_checks(args.bot, s, args.time_limit_ms, argv)
+            checks += replay_checks(args.bot, s, args.time_limit_ms, argv, args.max_state)
             checks += conflict_checks(args.bot, s)
         except OverrideError as error:
             parser.error(str(error))

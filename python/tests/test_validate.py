@@ -218,3 +218,10 @@ def test_a_file_over_max_size_fails_and_names_the_compact_command(check):
     assert code == 1 and "over the cap of 9,950: upload a compact copy (uv run python -m arena.compact" in out
     code, out = check(None, "--max-size", "1MB")
     assert code == 0 and "PASS  file size" in out
+
+
+def test_a_state_over_max_state_warns(check):
+    code, out = check(None, "--max-state", "10")
+    assert code == 0 and "is over --max-state 10: the exchange may cut it" in out
+    code, out = check(None, "--max-state", "50000")
+    assert "WARN" not in out
