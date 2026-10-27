@@ -55,6 +55,7 @@ enum Fair {
     OuterMid,
     SizedMid,
     WeightedMid,
+    HysteresisMid,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -96,6 +97,10 @@ struct P {
     make_levels: i64,
     make_step: i64,
     take_reserve: i64,
+    join_min: Option<f64>,
+    join_ratio: f64,
+    cross_max: Option<i64>,
+    cross_excess: Option<i64>,
     level: Level,
     level_weight: Option<f64>,
     level_band: f64,
@@ -215,6 +220,7 @@ impl P {
             Some("outer_mid") => Fair::OuterMid,
             Some("sized_mid") => Fair::SizedMid,
             Some("weighted_mid") => Fair::WeightedMid,
+            Some("hysteresis_mid") => Fair::HysteresisMid,
             _ => return r.fail("fair", "a known fair value method"),
         };
         let level = match r.value("level")? {
@@ -258,6 +264,10 @@ impl P {
             make_levels: r.int("make_levels")?,
             make_step: r.int("make_step")?,
             take_reserve: r.int("take_reserve")?,
+            join_min: r.opt_num("join_min")?,
+            join_ratio: r.num("join_ratio")?,
+            cross_max: r.opt_int("cross_max")?,
+            cross_excess: r.opt_int("cross_excess")?,
             level,
             level_weight: r.opt_num("level_weight")?,
             level_band: r.num("level_band")?,
@@ -320,6 +330,7 @@ struct Eff {
 #[derive(Clone, Default)]
 struct Memory {
     fair: Option<f64>,
+    hysteresis: Option<f64>,
     held: i64,
     broken: bool,
     level_sum: f64,
@@ -482,8 +493,8 @@ fn trade_product(product: usize, book: &Book, position: i64, p: &P, memory: &mut
         fair += p.imbalance * imbalance(book);
     }
     let mut levels = Levels::read(book); // take and clear use up its levels
-    take(&mut levels, fair, &e, &mut plan);
-    clear(&mut levels, fair, &e, &mut plan);
+    take(&mut levels, fair, p, &e, &mut plan);
+    clear(&mut levels, fair, p, &e, &mut plan);
     make(&levels, fair, p, &e, &mut plan);
     plan
 }
@@ -502,6 +513,13 @@ fn fair_value(book: &Book, p: &P, memory: &mut Memory) -> Option<f64> {
     }
     let previous = memory.fair;
     let Some(mut fair) = price(book, p) else { return previous };
+    if p.fair == Fair::HysteresisMid {
+        if fair == fair.floor() {
+            // an even spread puts the mid on a tick: the half tick on the side of the last value
+            fair += if memory.hysteresis.is_some_and(|last| last > fair) { 0.5 } else { -0.5 };
+        }
+        memory.hysteresis = Some(fair);
+    }
     if let Some(previous) = previous {
         if p.smoothing != 0.0 {
             fair = p.smoothing * previous + (1.0 - p.smoothing) * fair;
@@ -514,7 +532,7 @@ fn fair_value(book: &Book, p: &P, memory: &mut Memory) -> Option<f64> {
 fn price(book: &Book, p: &P) -> Option<f64> {
     match p.fair {
         Fair::Fixed => p.fixed_fair,
-        Fair::Mid => mid(book.bids.first(), book.asks.first()),
+        Fair::Mid | Fair::HysteresisMid => mid(book.bids.first(), book.asks.first()),
         Fair::WallMid => mid(wall(&book.bids), wall(&book.asks)),
         Fair::OuterMid => mid(book.bids.last(), book.asks.last()),
         Fair::SizedMid => mid(sized(&book.bids, p.wall_size), sized(&book.asks, p.wall_size)),
@@ -810,37 +828,47 @@ fn hedge_target(product: usize, p: &P, market: &Market) -> i64 {
     round(wanted).clamp(-p.limit, p.limit)
 }
 
-fn take(book: &mut Levels, fair: f64, e: &Eff, plan: &mut Plan) {
+fn take(book: &mut Levels, fair: f64, p: &P, e: &Eff, plan: &mut Plan) {
     for level in book.asks.iter_mut() {
         if level[0] as f64 > fair - e.take_buy {
             break;
         }
-        level[1] -= plan.buy(level[0], level[1], false);
+        let quantity = crossable(level[1], p, plan);
+        level[1] -= plan.buy(level[0], quantity, false);
     }
     for level in book.bids.iter_mut() {
         if (level[0] as f64) < fair + e.take_sell {
             break;
         }
-        level[1] -= plan.sell(level[0], level[1], false);
+        let quantity = crossable(level[1], p, plan);
+        level[1] -= plan.sell(level[0], quantity, false);
     }
 }
 
-fn clear(book: &mut Levels, fair: f64, e: &Eff, plan: &mut Plan) {
-    let target = e.target;
-    if plan.net() > target {
+/// What cross_max leaves of a level's volume to cross this tick.
+fn crossable(volume: i64, p: &P, plan: &Plan) -> i64 {
+    match p.cross_max {
+        None => volume,
+        Some(cap) => volume.min((cap - plan.takes.iter().map(|t| t.1.abs()).sum::<i64>()).max(0)),
+    }
+}
+
+fn clear(book: &mut Levels, fair: f64, p: &P, e: &Eff, plan: &mut Plan) {
+    let (target, excess) = (e.target, p.cross_excess.unwrap_or(0));
+    if plan.net() > target + excess {
         for level in book.bids.iter_mut() {
-            if (level[0] as f64) < fair - e.clear_edge || plan.net() <= target {
+            if (level[0] as f64) < fair - e.clear_edge || plan.net() <= target + excess {
                 break;
             }
-            let quantity = level[1].min(plan.net() - target);
+            let quantity = crossable(level[1].min(plan.net() - target - excess), p, plan);
             level[1] -= plan.sell(level[0], quantity, false);
         }
-    } else if plan.net() < target {
+    } else if plan.net() < target - excess {
         for level in book.asks.iter_mut() {
-            if level[0] as f64 > fair + e.clear_edge || plan.net() >= target {
+            if level[0] as f64 > fair + e.clear_edge || plan.net() >= target - excess {
                 break;
             }
-            let quantity = level[1].min(target - plan.net());
+            let quantity = crossable(level[1].min(target - excess - plan.net()), p, plan);
             level[1] -= plan.buy(level[0], quantity, false);
         }
     }
@@ -873,6 +901,16 @@ fn make(book: &Levels, fair: f64, p: &P, e: &Eff, plan: &mut Plan) {
             bid = ask - 1;
         } else {
             ask = bid + 1;
+        }
+    }
+    if let (Some(join), Some(best_b), Some(best_a)) = (p.join_min, best_bid, best_ask) {
+        let volume = |levels: &[[i64; 2]], price: i64| levels.iter().find(|l| l[0] == price).map_or(0, |l| l[1]) as f64;
+        let (bids, asks) = (volume(&book.bids, best_b), volume(&book.asks, best_a));
+        if bid == best_b && (bids < join || asks > p.join_ratio * bids) {
+            bid -= 1;
+        }
+        if ask == best_a && (asks < join || bids > p.join_ratio * asks) {
+            ask += 1;
         }
     }
 

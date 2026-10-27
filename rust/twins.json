@@ -9,7 +9,7 @@
   },
   "python/arena/sim.py": {
     "rust": "rust/src/arena/sim.rs",
-    "sha256": "9321f7dcf4efc450aa8a53965ab88187dee98494144c16bcb085a35386be3c79"
+    "sha256": "d3620612f15b7763dc111c33fb7f2d05d467be4156dd0f194773ee05a00ad81d"
   },
   "python/arena/stats.py": {
     "rust": "rust/src/arena/stats.rs",
@@ -79,7 +79,7 @@
   "python/bots/template.py": {
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
-    "sha256": "837e8f4c25e16e28a46855a38b502fcf646da6da8dd0a116a33546ac865a3351",
+    "sha256": "bd038d0c07821bf6b9e0ceb49bad1b40ef5202393fa1138cdb160f799cf0eaa0",
     "reads": [
       "DEFAULTS",
       "PARAMS"
@@ -89,7 +89,7 @@
     "kind": "drill_template",
     "format": "drill",
     "rust": "rust/src/bots/drill/template.rs",
-    "sha256": "85f42efbfd5cc1b7443a76ea8ea1122c91f1e492e1e3e3347bc66566b7a6b580",
+    "sha256": "6f041b6c5c4463ab9192b08c12e54336f52d53e2dc0d64930e474cedde082061",
     "reads": [
       "DEFAULTS",
       "PARAMS"

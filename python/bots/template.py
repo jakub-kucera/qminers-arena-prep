@@ -32,7 +32,7 @@ STRICT = False
 
 DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
-    "fair": "sized_mid",  # "fixed", "mid", "wall_mid", "outer_mid", "sized_mid" or "weighted_mid" (see fair_value)
+    "fair": "sized_mid",  # "fixed", "mid", "wall_mid", "outer_mid", "sized_mid", "weighted_mid" or "hysteresis_mid" (see fair_value)
     "fixed_fair": None,  # used when fair is "fixed"
     "fixed_guard": None,  # fair "fixed": use the sized mid instead while it is further than this from fixed_fair
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
@@ -57,6 +57,16 @@ DEFAULTS = {
     "make_levels": 1,  # split each side's quote over this many prices, make_step apart, outward from the best one
     "make_step": 1,
     "take_reserve": 0,  # quotes keep this much of the limit free for takes: they fill the position up to limit - take_reserve
+    # A large-tick book (a one-tick spread most of the time; Albers, Gao & Wang): a quote that would
+    # join the best stands a tick back unless at least join_min lots queue there and the other side's
+    # best holds no more than join_ratio times that (a small opposite queue is about to empty). None: off.
+    "join_min": None,
+    "join_ratio": 2.0,
+    # Passive-first execution toward a target (harder-rounds A2): take and clear cross at most
+    # cross_max lots a tick, and clear only the part of the gap to target beyond cross_excess; the
+    # quotes work the rest. None: off.
+    "cross_max": None,
+    "cross_excess": None,
     # A price the product returns to (see level_target): a number from earlier days, or "day" for
     # the mean of the day so far. None turns it off. While on, it sets target instead.
     "level": None,
@@ -169,6 +179,7 @@ PARAMS = {
     # ABIDES RMSC04's one stock (experiments.abides_days, a market we didn't write): its limit, and DEFAULTS
     # for the rest as for a product first seen on the day, so every tool runs on --data data/abides.
     "ABM": {"limit": 100},
+    "LARGE_TICK": {"limit": 100},  # arena.sim's large-tick preset, as ABM
 }
 for _strike in (9500, 9750, 10000, 10250, 10500):
     PARAMS[f"VOLCANIC_ROCK_VOUCHER_{_strike}"] = {"limit": 200, "fair": "wall_mid", "follow": "VOLCANIC_ROCK", "strike": _strike,
@@ -331,6 +342,13 @@ def fair_value(book: Book, p: dict, memory: dict) -> float | None:
     previous = memory.get("fair")
     if fair is None:  # one side of the book is empty: keep the last value
         return previous
+    if p["fair"] == "hysteresis_mid":
+        if fair == math.floor(fair):
+            # A spread of an even number of ticks puts the mid on a tick: take the half tick on the side
+            # of the last value instead, so a one-tick book's mid doesn't flicker between x and x.5.
+            last = memory.get("hysteresis")
+            fair += 0.5 if last is not None and last > fair else -0.5
+        memory["hysteresis"] = fair
     if previous is not None and p["smoothing"]:
         fair = p["smoothing"] * previous + (1 - p["smoothing"]) * fair
     memory["fair"] = fair
@@ -342,7 +360,7 @@ def price(book: Book, p: dict) -> float | None:
     method = p["fair"]
     if method == "fixed":
         return p["fixed_fair"]
-    if method == "mid":
+    if method in ("mid", "hysteresis_mid"):
         fair = mid(book.bids, book.asks)
     elif method == "wall_mid":
         # Market-making bots quote the largest size at stable prices. The midpoint of those
@@ -685,26 +703,33 @@ def take(book: Book, fair: float, p: dict, plan: Plan) -> None:
     for level in book.asks:
         if level[0] > fair - buy_edge:
             break
-        level[1] -= plan.buy(level[0], level[1])
+        level[1] -= plan.buy(level[0], _crossable(level[1], p, plan))
     for level in book.bids:
         if level[0] < fair + sell_edge:
             break
-        level[1] -= plan.sell(level[0], level[1])
+        level[1] -= plan.sell(level[0], _crossable(level[1], p, plan))
+
+
+def _crossable(volume: int, p: dict, plan: Plan) -> int:
+    """What cross_max leaves of a level's volume to cross this tick."""
+    if p["cross_max"] is None:
+        return volume
+    return min(volume, max(p["cross_max"] - sum(abs(q) for _, q in plan.takes), 0))
 
 
 def clear(book: Book, fair: float, p: dict, plan: Plan) -> None:
     """Trade inventory back to target at (or close to) fair, freeing room for better trades later."""
-    target = p["target"]
-    if plan.net > target:
+    target, excess = p["target"], p["cross_excess"] or 0
+    if plan.net > target + excess:
         for level in book.bids:
-            if level[0] < fair - p["clear_edge"] or plan.net <= target:
+            if level[0] < fair - p["clear_edge"] or plan.net <= target + excess:
                 break
-            level[1] -= plan.sell(level[0], min(level[1], plan.net - target))
-    elif plan.net < target:
+            level[1] -= plan.sell(level[0], _crossable(min(level[1], plan.net - target - excess), p, plan))
+    elif plan.net < target - excess:
         for level in book.asks:
-            if level[0] > fair + p["clear_edge"] or plan.net >= target:
+            if level[0] > fair + p["clear_edge"] or plan.net >= target - excess:
                 break
-            level[1] -= plan.buy(level[0], min(level[1], target - plan.net))
+            level[1] -= plan.buy(level[0], _crossable(min(level[1], target - excess - plan.net), p, plan))
 
 
 def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
@@ -744,6 +769,12 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
             bid = ask - 1
         else:
             ask = bid + 1
+    if p["join_min"] is not None and best_bid is not None and best_ask is not None:
+        bids, asks = _volume(book.bids, best_bid), _volume(book.asks, best_ask)
+        if bid == best_bid and (bids < p["join_min"] or asks > p["join_ratio"] * bids):
+            bid -= 1
+        if ask == best_ask and (asks < p["join_min"] or bids > p["join_ratio"] * asks):
+            ask += 1
 
     size = p["make_size"]
     gap = p["size_skew"] * (plan.net - p["target"]) / plan.limit
@@ -757,6 +788,10 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
     for k in range(levels):  # the first price gets the remainder of an uneven split
         plan.buy(bid - k * step, buy // levels + (buy % levels if k == 0 else 0), quote=True)
         plan.sell(ask + k * step, sell // levels + (sell % levels if k == 0 else 0), quote=True)
+
+
+def _volume(levels: list[list[int]], price: int) -> int:
+    return next((volume for level_price, volume in levels if level_price == price), 0)
 
 
 def _scaled(size: int, factor: float) -> int:

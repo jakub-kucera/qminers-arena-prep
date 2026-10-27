@@ -276,6 +276,12 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 ## The edge plan (2026-10-27)
 
+- [x] **Template and sim: the large-tick regime (R9).** At a one-tick spread the template joins the back of the best (`make_edge` ≤ 0.5) or sits a tick behind it, where it never fills (`python/bots/template.py:754-766`), and no `arena.sim` preset is large-tick. Done when: `diagnose` has the jump rate λ and the uninformed-hit rate λ± per side (making pays where λ± > λ/2, Gao & Wang); the template has a hysteretic mid and a join/stand-aside gate per side (Albers); `arena.sim` (and `sim.rs`) has a large-tick preset; each graded on it under `--queue back|prob|front`, in `IDEAS.md`.
+  - **Done 2026-10-27:** `diagnose`'s λ and λ± (the diagnose worker), `hysteresis_mid`, `join_min`/`join_ratio` in the template, the twin and the drill template, and `arena.sim`'s `LARGE_TICK` preset; both settings `dropped here`, and the finding that only `make_edge` ≤ 0.5 quotes at all at a one-tick spread (`IDEAS.md`, "A large-tick book").
+
+- [x] **Template: passive-first execution toward a target (R11; harder-rounds A2).** The target modes (`level`, `jump`, `copy`, `follow`, `basket`) cross the whole gap in one tick. Cross only the part above a threshold, quote the rest one tick inside, and cap takes at a share of the recent trade rate. Done when: it is in STRATEGY, the Rust twin and the drill template, graded in `arena.sim` (impact exists) against the full cross by PnL, ticks to target and lots crossed, in `IDEAS.md`.
+  - **Done 2026-10-27:** `cross_max`, `cross_excess` in the template, the twin and the drill template; `cross_excess` is `open` (+9% in the reacting market, the pick on P4 Hydrogel) with a Decision on Hydrogel's PARAMS; the rate-based cap was left out, as a fixed cap cost a little everywhere (`IDEAS.md`, "Passive-first execution toward a target").
+
 - [x] **Template: the close (R13) and a soft limit (R14).** A `flatten_keep` threshold (keep a small end position by widening, work a large one down; Capponi et al.), and a cap on the passive position that keeps room for takes. Done when: both are in the template, twin and drill template, gridded under `--mark touch` (the close) and `all`/`worse`/`--resting`/`--vs` (the limit), in `IDEAS.md`.
   - **Done 2026-10-27:** `flatten_keep`, `flatten_widen`, `take_reserve`, both `dropped here` (`IDEAS.md`, "Keeping a small position at the close", "A take reserve").
 
@@ -506,7 +512,7 @@ A read-through of `python/arena/`, `python/bots/template.py`, the tests and the 
   - `analysis.trade_impact` counts trades on a tick with an empty side as `inside`, while `arena.diagnose` skips them.
   - Done when: each one is fixed or marked as intended in its docstring.
 - [x] **Fix the docs that have drifted from the code:** Done 2026-10-13. The contradictions rows were fixed with the template re-mapping (`9f13090`). The lint now warns when a cited range into `python/bots/`, `python/arena/` or `python/experiments/` doesn't start a definition (`def`, `class`, a decorator, an assignment, a field or a dict entry). Its first run caught three more stale ranges, now fixed: `python/arena/analysis.py` (markouts), `python/arena/model.py` (`MarketTrade`) and `python/arena/diagnose.py` (the thresholds).
-  - `references/wiki/contradictions.md` rows 12 and 16 cite `python/bots/template.py:482-514` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
+  - `references/wiki/contradictions.md` rows 12 and 16 cite `python/bots/template.py:500-532` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
   - `references/wiki/concepts/book-imbalance-and-micro-price.md` lists three `fair` methods; there are five.
   - The README's `--out` row names three CSVs; there are four (`_trades.csv`).
   - The README says `python/tests/test_parity.py` pins 15 comparisons; it pins 6 (2 days × 3 modes).

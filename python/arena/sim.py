@@ -258,6 +258,20 @@ PRESETS: dict[str, ProductSpec] = {
         LimitTraders(rate=0.3, offset=(4.5, 5.5), size=(4, 10), life=1),
         NoiseTakers(rate=0.025, size=(1, 4)),
     ),
+    # A large-tick book, the regime Prosperity hardly has (research_new_ideas.md R9): a maker half a
+    # tick from a fundamental that barely moves (sd 0.05 a tick), so the spread is one tick; deep
+    # queues of limit traders join the best and stay; takers of 5-15 lots, a few percent of the
+    # queue a trade, some of them informed. Not calibrated to a product; for the join gate and the
+    # hysteresis mid (IDEAS.md, "A large-tick book").
+    "LARGE_TICK": ProductSpec(
+        "LARGE_TICK",
+        100,
+        Fundamental(1000, sd=0.05),
+        Maker(half_spread=0.5, size=(100, 200), refresh=0.5),
+        LimitTraders(rate=2.0, offset=(0.0, 0.6), size=(5, 20), life=20),
+        NoiseTakers(rate=0.4, size=(5, 15)),
+        ValueTakers(rate=0.05, size=(5, 15), noise=0.2, threshold=0.4),
+    ),
 }
 DEFAULT_PRESETS = ["KELP", "RAINFOREST_RESIN", "SQUID_INK"]  # P3 round 1's, the default market
 
