@@ -9,6 +9,15 @@ entry, `python3 references/wiki/lint.py`), writes what it found, and ticks the i
 **Never save one-time login links, passwords or other people's personal data.** Strip them first.
 Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the rest is best done before about 1 Nov.
 
+## Now: rotate the neuralwatt API key
+
+- [ ] **Rotate the neuralwatt key.** `ce2aa7b` committed `.env` with `NEURALWATT_API_KEY` in it; the file is untracked and
+  in `.gitignore` since 2026-10-28 (the fourth audit's R1), but the old key stays in the history of every clone.
+  - How: make a new key in the neuralwatt dashboard, revoke the old one, put the new one in `.env` (never committed) or
+    the shell's environment. Rewriting the history (`git filter-repo`, every clone re-cloned) is not needed once the
+    old key is revoked.
+  - Done when: the key in the history no longer works.
+
 ## A. Arena-specific material (highest value)
 
 - [ ] **Every organiser e-mail, document or link the team has received**: registration confirmation, schedule,
