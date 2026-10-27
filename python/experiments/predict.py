@@ -48,7 +48,17 @@ from pathlib import Path
 
 from arena.cli import add_dataset_arguments, dataset_from
 from arena.formats import FORMATS, prosperity
-from experiments.imbalance import flows
+from experiments.imbalance import flows as _flows
+
+_FLOWS: dict[tuple[int, str], tuple] = {}  # (id(day), product) -> (day, its flows): forecast_study per product reads every product's
+
+
+def flows(day, product) -> list[dict | None]:
+    """imbalance.flows, once per day and product (the day kept with it, so its id isn't reused)."""
+    found = _FLOWS.get((id(day), product))
+    if found is None or found[0] is not day:
+        found = _FLOWS[(id(day), product)] = (day, _flows(day, product))
+    return found[1]
 
 FEED_DATASETS = [("p3", "4", ["MAGNIFICENT_MACARONS"])]
 FORECAST_DATASETS = [
