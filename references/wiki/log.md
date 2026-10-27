@@ -444,3 +444,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-27] lint | template and sim citations re-mapped
 - After the template's new settings (per-side edges, the ladder, the reserve, the close, the large-tick and passive-first settings) and `arena.sim`'s `LARGE_TICK` preset, every citation into the two files re-mapped by the diff.
+
+## [2026-10-27] query | a large-tick book: quote at the best
+- `concepts/reading-the-data-on-day-one` gets the large-tick result (`arena.sim`'s `LARGE_TICK` preset): only `make_edge` half a tick fills at a one-tick spread, and `arena.diagnose --suggest` now sets it where the margin pays.

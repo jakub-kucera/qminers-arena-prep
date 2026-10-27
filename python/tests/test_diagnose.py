@@ -319,7 +319,8 @@ def test_suggest_reads_the_notes_into_params():
     trades = {i: [101 if i % 4 == 0 else 99] for i in range(0, 300, 2)}
     pegged, why = diagnose.suggest(diagnose.diagnose([make_day([100] * 300, trades=trades)])["X"])
     assert pegged["fair"] == "fixed" and pegged["fixed_fair"] == 100 and pegged["limit"] == 10
-    assert pegged["make_edge"] == 2 and "pegged" in why  # a tick: the book's prices, 99 and 101, are 2 apart
+    # The book's prices, 99 and 101, are a tick (2) apart: a one-tick book, where half a tick joins the best
+    assert pegged["make_edge"] == 1 and "pegged" in why and "large-tick: join the best" in why
     # A steady rise every day: hold the limit.
     rising = diagnose.diagnose([make_day([100 + i * 0.1 for i in range(1000)], name=f"d{n}") for n in range(2)])["X"]
     assert diagnose.suggest(rising)[0]["target"] == 10
@@ -340,7 +341,7 @@ def test_suggest_gives_prices_in_the_bots_ticks_where_the_format_has_them():
     day = make_day([100] * 300, trades=trades)
     row = diagnose.diagnose([Day(day.name, day.products, day.limits, day.ticks, {"X": {"tick": 0.05, "unit": 0.01}})])["X"]
     params = diagnose.suggest(row)[0]
-    assert params["fixed_fair"] == 20 and params["make_edge"] == 0.4  # 100 and 2 (the data's tick here) in its unit, the bot's tick being 5
+    assert params["fixed_fair"] == 20 and params["make_edge"] == 0.2  # 100 and half the data's tick of 2 in its unit, the bot's tick being 5
 
 
 def test_cli_suggest_prints_a_params_block(data_dir, capsys):
@@ -351,3 +352,12 @@ def test_cli_suggest_prints_a_params_block(data_dir, capsys):
     block = out[out.index("PARAMS = {"):]
     params = ast.literal_eval(block.split("=", 1)[1].strip())
     assert set(params) == {"KELP", "RAINFOREST_RESIN"} and all(p["fair"] in ("wall_mid", "fixed") for p in params.values())
+
+
+def test_suggest_joins_the_best_on_a_large_tick_book():
+    from arena import sim
+
+    day = sim.run(sim.preset_market(["LARGE_TICK"], ticks=2000), 5).day
+    row = diagnose.diagnose([day])["LARGE_TICK"]
+    params, why = diagnose.suggest(row)
+    assert "large-tick" in row["notes"] and params["make_edge"] == 0.5 and "large-tick: join the best" in why

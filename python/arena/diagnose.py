@@ -659,7 +659,7 @@ def suggest(row: dict) -> tuple[dict, list[str]]:
     where mid and wall mid are both noisy; a level the wall mid reverts to is `level` (the days' mean
     when they agree, else "day"); a drift every day is a `target` at the limit; jumps that snap back
     are the jump mode at half their size; make_edge a tick where market making pays, at the touch
-    where it is thin or the position only grows; no quotes where Gao & Wang's condition fails on
+    where it is thin or the position only grows, half a tick (joining the best) on a large-tick book where it pays; no quotes where Gao & Wang's condition fails on
     both sides; make_size where the limit dwarfs the depth; stop_loss from the wall mid's moves.
     Prices are in the data's unit, or in the bot's ticks where the format gives one (the drill's).
     """
@@ -681,6 +681,9 @@ def suggest(row: dict) -> tuple[dict, list[str]]:
     elif "thin or negative" in notes or "only grows" in notes:
         out["make_edge"] = max(2 * tick, spread / 2)
         why.append("thin margin: quote at the touch")
+    if "large-tick" in notes and "market making pays" in notes:  # not where the margin is thin: standing back is the point there
+        out["make_edge"] = tick / 2  # a tick away sits behind a one-tick book and never fills (IDEAS.md, "A large-tick book")
+        why.append("large-tick: join the best")
     if "pays on neither side" in notes:
         out["make_size"] = 0
         why.append("Gao & Wang: no side pays")
