@@ -419,3 +419,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-27] query | a standings calculator for the last round
 - `concepts/risk-and-protecting-a-lead` gets `python/experiments/standings.py` (the Qminers 2024 method from the leaderboards: risk multipliers and a relative hedge sized for rank) and its synthetic-field result. Frankfurt Hedgehogs' relative hedge checked at `prosperity3-frankfurt-hedgehogs/README.md:616` and `:759`: at 616 "several top teams" traded only mean reversion (not the whole field), and at 759 they were about 190k ahead of second, not keeping second as an audit note had it. No line citations into our code were added or moved.
+
+## [2026-10-27] query | co-evolution over the rival field's payoff matrix
+- `concepts/shared-market-and-adversaries` gets `python/experiments/rival_field.py --game`'s result (a copy choosing from the same settings; best replies and fictitious play settle on Resin 1 whenever a field of archetypes is present). No line citations into our code were added or moved.

@@ -518,7 +518,11 @@ ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `s
 these archetypes, `mm.py` at three edges and a copy, per tick and resting, and prints the payoff
 matrix, the best reply to each field, and the max-min and mean choices. On P3 round 1 the best
 reply changed with the field, and the reply to one copy was neither of the two robust choices
-(`IDEAS.md`, "Our settings against a field of rival archetypes").
+(`IDEAS.md`, "Our settings against a field of rival archetypes"). With `--game` the rival adapts
+too: a copy of the template choosing from the same candidates (`--background` adds a field's
+archetypes to every game), and the summary gives the pure equilibria, where best replies in turn
+settle from every start, and fictitious play from the committed settings. On P3 round 1 play
+always settled, on Resin's edge 1 whenever a field was present.
 
 `uv run python -m experiments.leaderboard_curves --engine rust` asks whether the leaderboard's PnL curves, which
 the portal shows for every team after each deadline, tell how the private run was played: each team on data

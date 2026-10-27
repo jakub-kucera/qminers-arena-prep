@@ -117,6 +117,38 @@ def test_the_rival_field_runs_on_prosperity_format_days(capsys, monkeypatch, dri
     assert "Prosperity-format bots" in capsys.readouterr().err
 
 
+def test_the_rival_field_game_runs_on_prosperity_format_days(capsys, monkeypatch, drill_data):
+    data = str(Path(drill_data).parent / "prosperity")
+    out = run(capsys, monkeypatch, "rival_field", "--game", "--background", "taker", "--data", data, "--days", "1",
+              "--products", "KELP,RAINFOREST_RESIN", "--candidate", "PARAMS.KELP.make_edge=1,2", "--jobs", "2")
+    assert "with taker in every game" in out and out.count("pure equilibria") == 4 and out.count("fictitious play") == 4
+    assert "the seat (the engine's arrival order" in out
+
+
+def test_the_games_equilibria_best_replies_and_fictitious_play():
+    from experiments import rival_field as rf
+
+    # matching pennies: no pure equilibrium, best replies cycle, fictitious play settles near half and half
+    U = [[1.0, -1.0], [-1.0, 1.0]]
+    V = [[-u for u in row] for row in U]
+    assert rf.pure_equilibria(U, V) == []
+    path, fixed = rf.best_reply_path(U, V, (0, 0))
+    assert not fixed and path[-1] == (0, 1) and set(path[1:]) == {(0, 1), (1, 0)}  # a cycle between the two
+    play = rf.fictitious_play(U, V, (0, 0), steps=4000)
+    assert all(abs(f - 0.5) < 0.05 for f in play.p + play.q) and play.gain_row < 0.1 and play.gain_column < 0.1
+    # a prisoner's dilemma: one equilibrium, reached from every start
+    U = [[3.0, 0.0], [5.0, 1.0]]
+    V = [list(col) for col in zip(*U)]
+    assert rf.pure_equilibria(U, V) == [(1, 1)]
+    assert all(rf.best_reply_path(U, V, (i, j)) == ([(i, j)] if (i, j) == (1, 1) else [(i, j), (1, 1)], True)
+               for i in range(2) for j in range(2))
+    play = rf.fictitious_play(U, V, (0, 0), steps=200)
+    assert play.settled and play.p[1] > 0.99 and play.gain_row < 0.01 and play.gain_column < 0.01  # the start's one round of (0, 0) remains
+    # both seats averaged: S[i][j] is setting i's PnL against j, whichever seat it had
+    S, seat = rf.symmetrised([[1.0, 2.0], [3.0, 4.0]], [[1.0, 5.0], [2.0, 4.0]])
+    assert S == [[1.0, 2.0], [4.0, 4.0]] and seat == 2.0
+
+
 def test_the_days_data_options_need_data(capsys, monkeypatch):
     with pytest.raises(SystemExit):
         run(capsys, monkeypatch, "undercut", "--format", "drill")

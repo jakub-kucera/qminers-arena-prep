@@ -1,7 +1,7 @@
 ---
 title: Shared markets and adversaries
 type: concept
-updated: 2026-10-15
+updated: 2026-10-27
 ---
 
 # Shared markets and adversaries
@@ -30,6 +30,7 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 - **Measured: our settings against fields of rivals** (2026-10-23, `python/experiments/rival_field.py`, P3 round 1, `all`; repo `IDEAS.md`, "Our settings against a field of rival archetypes"). Six candidates (Kelp `make_edge` 0.5 / 1 / 1.5 × Resin 1 / 2) in 13 fields of `mm.py` at three edges, a taker at the touch (`python/bots/rivals/taker.py`), the sniper, spoofer, trapper and a copy, alone and in mixes of 3–6:
   - **The best reply depends on the field:** 6 different ones over 13 fields per tick, 4 with `--resting`. The reply to one copy (the two-bot case, `experiments.undercut`'s) was neither the max-min nor the mean choice in either mode.
   - **With resting orders Resin's edge 2 collapses** where makers quote nearer fair: 0.9–18.8k against 24.3–40.4k at edge 1 in the six fields with a maker at 0.5 or 1. Resin at 1 was both the max-min and the mean choice in both modes.
+  - **When the rival adapts too** (2026-10-27, `rival_field --game`): a copy choosing from the same six settings, the payoffs averaged over both seats. Best replies in turn and fictitious play always settled, never cycled. With any fixed field of archetypes behind the two, on one pair: both at Kelp 0.5 / Resin 1 per tick, both at Kelp 1 / Resin 1 resting (the adversaries' field: Kelp 0.5 / Resin 1). Only the two copies alone keep Resin 2 stable, beside Resin 1 and with Kelp 0.5 or 1 (a coordination game). The committed Resin 2 is stable only there.
 - **Measured: telling a shared market from the leaderboard's curves** (2026-10-25, repo `python/experiments/leaderboard_curves.py`; repo `IDEAS.md`, "Reading the leaderboard's curves"). Teams alone on the same data move together (mean pair correlation of their PnL changes +0.05 to +0.43); in one market a fill one team gets is a fill another misses, so pairs move against each other as often as with (−0.05 to +0.09); teams on data of their own don't move together at all. On simulated fields of 17 and 37 bots the rule named 88 of 90 cases right. The Arena's leaderboard shows every team's private-run curve after each deadline, so this can answer the question after round 1.
 - **Measured: quoting nearer fair against rivals that do** (2026-10-25, repo `python/experiments/quote_inside.py`; repo `IDEAS.md`, "Quoting nearer fair than one tick inside the book"). Per tick nobody's orders rest, so the template can't see a rival's quote, and with price priority the one nearer fair takes the trade. The template's `make_inside` (ticks inside the best book quote, or `None` for `make_edge` whatever the book) at 3 took Resin from 5.7k to 24.8k in a field of 12 zoo bots, at a cost of 4–10k alone. With resting orders it barely matters: `make` already steps in front of the quotes it sees, and Resin's `make_edge` 1 is what pays.
 
