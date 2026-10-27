@@ -284,3 +284,31 @@ def test_gao_and_wangs_rates_at_a_one_tick_spread():
     assert flicker["lambda"] == 1 and "pays on neither side" in flicker["notes"]
     # A small-tick product gets no such note, though the rates are in the CSV.
     assert "one-tick spread pays" not in diagnose.diagnose([make_day(walls, half_spread=2, trades=trades)])["X"]["notes"]
+
+
+def _book_led_day(lead: bool, order: int, seed=0) -> Day:
+    """Three levels a side, a tick apart, 10 lots each on one side and 30 on the other. With `lead`, the mid then
+    moves a tick toward the heavier side; without, at random. A market buy of `order` lots every third tick."""
+    rng, mid, ticks = random.Random(seed), 100.5, []
+    for i in range(3000):
+        heavy_bid = rng.random() < 0.5
+        b, a = (30, 10) if heavy_bid else (10, 30)
+        book = Book(tuple((mid - 0.5 - k, b) for k in range(3)), tuple((mid + 0.5 + k, a) for k in range(3)))
+        prints = [MarketTrade("X", mid + 0.5, order)] if i % 3 == 0 else []
+        ticks.append(Tick(i * 100, {"X": book}, {"X": prints} if prints else {}, {}))
+        toward = 1 if heavy_bid else -1
+        mid += toward if lead or rng.random() < 0.5 else -toward
+    return Day("d", ["X"], {"X": 10}, ticks)
+
+
+def test_tao_et_als_spoofability():
+    # The next move follows the imbalance (µ+ 2 ticks a unit of 2ı - 1 = ±0.5) and buys of 2 lots never empty a level.
+    row = diagnose.diagnose([_book_led_day(True, 2)])["X"]
+    assert row["spoof_mu"] == pytest.approx(2, abs=0.01)
+    assert row["spoof_q0"] == 0 and row["spoof_nu0"] == 0
+    assert row["spoof_size"] == pytest.approx(2 / 60, abs=0.005)  # the ask holds 30 or 90 over its 3 levels
+    assert row["spoof_score"] > 0 and "spoofable (Tao et al.'s score" in row["notes"]
+    # A move the imbalance doesn't call, and buys of 35 that empty the best level whatever it holds.
+    calm = diagnose.diagnose([_book_led_day(False, 35)])["X"]
+    assert abs(calm["spoof_mu"]) < 0.1 and calm["spoof_q0"] == 1 and calm["spoof_score"] < 0
+    assert "spoofable" not in calm["notes"]

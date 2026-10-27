@@ -27,6 +27,16 @@ first data download as soon as its format module exists. For each product, poole
   at the best has a positive value on a side iff `λ±` > `λ/2`, since a fill there gains half a tick
   at rate `λ±` and loses half a tick when the mid jumps through it, at rate `λ/2`. A large-tick
   product gets a note saying on which sides that holds.
+- **Spoofability** (Tao et al. 2022, Proposition 3.3 and eq. 5.1): a spoof pays only if the next
+  move follows the book's imbalance, the real order is large next to the depth, and a level k deep
+  is rarely reached by market orders. With `ı = B/(B + A)`, the bid's share of the volume on the
+  best `SPOOF_LEVELS` levels (equal weights `w_k`): `µ+` is the slope of the mid's next move, in
+  ticks, on `2ı - 1` over ticks without market trades (their `µ(ı) = µ+(2ı - 1)`); each tick's
+  market buys (sells) are one order of size `H`, `y` the levels it empties (their `F(H)`), and
+  `Q_k` and `ν_k` the share of orders with `y > k` and the mean of `(y - k)+`; `ρ` is the orders'
+  mean size over the mean depth on the side they hit, and `ı̄` the mean imbalance after them (the
+  sells' mirrored). The score is `max_k 2ρµ+(1 - ı̄)ı̄w_k - Q_kρ - ν_k`: above 0, a spoof at some
+  depth k pays in their model; at or below 0, nowhere.
 - **Noise:** the lag-1 autocorrelation of one-tick changes of the mid, and the signature ratio of
   the mid and of the wall mid (the midpoint of the largest level on each side): the variance per
   tick of one-tick changes over that of `LAG`-tick changes. Near 1 is a random walk; well above 1
@@ -101,6 +111,7 @@ MIN_JUMPS = 20
 SNAP_BACK = 0.75
 GRID_SHARE = 0.5  # share of a jumping day's ticks at one value modulo the jump size from which the note names that grid
 MIN_ONE_TICK = 100  # ticks at a one-tick spread (with the next tick's mid) below which λ and λ± are left out
+SPOOF_LEVELS = 3  # book levels the spoofability's imbalance and depth count, equally weighted
 MEAN_REVERTING = -0.2  # lag-1 autocorrelation of the mid's changes at or below which the mid is mostly noise
 NOISY_SIGNATURE = 1.5  # signature ratio from which a price is noisy
 # Wall mid variance per tick at LAG over LONG_LAG from which it reverts to a level. Three days of 10,000 ticks hold
@@ -160,6 +171,8 @@ class _Acc:
     moves: dict[tuple[str, int], list[float]] = field(default_factory=dict)  # (reference, horizon)
     slow_gains: dict[str, list[float]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
     one_tick: list[int] = field(default_factory=lambda: [0, 0, 0, 0])  # ticks at a one-tick spread: all, mid moved, buy hits, sell hits
+    spoof_moves: list[tuple[float, float]] = field(default_factory=list)  # (2ı - 1, next mid move in ticks), ticks without trades
+    spoof_orders: list[tuple[float, float, int, float]] = field(default_factory=list)  # (H, depth hit, levels emptied, ı after), per order
     snaps: list[tuple[str, int, int, int]] = field(default_factory=list)  # (day, jumps, pairs, pairs reversed) per day
     jump_sizes: list[float] = field(default_factory=list)  # |wall mid move| of every jump that snaps back or not
     jump_days: dict[str, tuple[list[float], list[float]]] = field(default_factory=dict)  # day with MIN_JUMPS: (|jumps|, wall mids)
@@ -268,6 +281,22 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         acc.one_tick[2] += any(t.price >= book.asks[0][0] for t in prints)
         acc.one_tick[3] += any(t.price <= book.bids[0][0] for t in prints)
 
+    for i, tick in enumerate(day.ticks[:-1]):  # Tao et al.'s spoofability inputs
+        book, after = tick.books.get(product), day.ticks[i + 1].books.get(product)
+        if mids[i] is None or mids[i + 1] is None:
+            continue
+        prints = tick.trades.get(product, [])
+        if not prints:
+            acc.spoof_moves.append((2 * _depth_share(book) - 1, (mids[i + 1] - mids[i]) / unit))
+            continue
+        for side, levels, hits in ((1, book.asks, [t.quantity for t in prints if t.price >= book.asks[0][0]]),
+                                   (-1, book.bids, [t.quantity for t in prints if t.price <= book.bids[0][0]])):
+            if hits:
+                size, depth = sum(hits), [v for _, v in levels[:SPOOF_LEVELS]]
+                emptied = sum(1 for k in range(len(depth)) if sum(depth[:k + 1]) < size)
+                share = _depth_share(after)
+                acc.spoof_orders.append((size, sum(depth), emptied, share if side > 0 else 1 - share))
+
     last_sign = None
     for i, tick in enumerate(day.ticks):
         book = tick.books.get(product)
@@ -317,6 +346,7 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "jump_size": statistics.median(acc.jump_sizes) if acc.jump_sizes else None,
         "one_tick_ticks": acc.one_tick[0],
         **dict(zip(("lambda", "lambda_buy", "lambda_sell"), (n / acc.one_tick[0] if acc.one_tick[0] >= MIN_ONE_TICK else None for n in acc.one_tick[1:]))),
+        **_spoofability(acc),
         "mid_lag1_autocorr": _weighted(acc.autocorr),
         "mid_signature": _weighted(acc.signature["mid"]),
         "wall_signature": _weighted(acc.signature["wall"]),
@@ -434,6 +464,10 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
         if unusual:
             notes.append(f"{label}: {', '.join(unusual)} the day's middle (--profile)")
 
+    if row["spoof_score"] is not None and row["spoof_score"] > 0:
+        notes.append(f"spoofable (Tao et al.'s score {row['spoof_score']:+.2f}: the move follows the imbalance, µ+ {row['spoof_mu']:.2f}, "
+                     f"orders are {row['spoof_size']:.0%} of the depth and reach level {SPOOF_LEVELS - 1} on {row[f'spoof_q{SPOOF_LEVELS - 1}']:.0%}): "
+                     "expect spoofers if the market is shared")
     if acc.trades < MIN_TRADES:
         notes.append(f"{acc.trades} market trades: too few for trade statistics")
         return notes
@@ -459,6 +493,29 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
         else:
             notes.append(f"market making pays ({share:.2f} of the spread a unit)")
     return notes
+
+
+def _depth_share(book) -> float:
+    """ı: the bid's share of the volume on the best SPOOF_LEVELS levels of each side (0.5 for an empty book)."""
+    bids, asks = sum(v for _, v in book.bids[:SPOOF_LEVELS]), sum(v for _, v in book.asks[:SPOOF_LEVELS])
+    return bids / (bids + asks) if bids + asks else 0.5
+
+
+def _spoofability(acc: _Acc) -> dict[str, float | None]:
+    """Tao et al.'s inputs and score (module docstring); None where there are too few orders or quiet ticks."""
+    keys = ["spoof_mu", "spoof_size", "spoof_imbalance"] + [f"spoof_q{k}" for k in range(SPOOF_LEVELS)] + [f"spoof_nu{k}" for k in range(SPOOF_LEVELS)] + ["spoof_score"]
+    out: dict[str, float | None] = dict.fromkeys(keys)
+    xs = [x for x, _ in acc.spoof_moves]
+    if len(acc.spoof_orders) < MIN_TRADES or len(xs) < MIN_TRADES or len(set(xs)) < 2:
+        return out
+    mean_x, mean_y = statistics.fmean(xs), statistics.fmean(y for _, y in acc.spoof_moves)
+    mu = sum((x - mean_x) * (y - mean_y) for x, y in acc.spoof_moves) / sum((x - mean_x) ** 2 for x in xs)
+    size = statistics.fmean(o[0] for o in acc.spoof_orders) / statistics.fmean(o[1] for o in acc.spoof_orders)
+    imbalance = statistics.fmean(o[3] for o in acc.spoof_orders)
+    q = [_share(sum(1 for o in acc.spoof_orders if o[2] > k), len(acc.spoof_orders)) for k in range(SPOOF_LEVELS)]
+    nu = [statistics.fmean(max(o[2] - k, 0) for o in acc.spoof_orders) for k in range(SPOOF_LEVELS)]
+    score = max(2 * size * mu * (1 - imbalance) * imbalance / SPOOF_LEVELS - q[k] * size - nu[k] for k in range(SPOOF_LEVELS))
+    return dict(zip(keys, [mu, size, imbalance, *q, *nu, score]))
 
 
 def _jump_moves(walls: list[float], spread: float) -> list[float]:
@@ -577,6 +634,7 @@ COLUMNS = (  # (key, header, format)
     ("lambda", "λ", "{:.3f}"),
     ("lambda_buy", "λ+", "{:.3f}"),
     ("lambda_sell", "λ-", "{:.3f}"),
+    ("spoof_score", "spoof", "{:+.2f}"),
     ("snap_back", "snap", "{:.0%}"),
     ("mid_lag1_autocorr", "mid AC1", "{:+.2f}"),
     ("mid_signature", "mid sig", "{:.1f}"),
@@ -600,6 +658,7 @@ LEGEND = (
     "jumps: share of ticks on which the wall mid moves more than half the spread (and at least a tick).\n"
     "λ: at a one-tick spread, the share of ticks after which the mid moves; λ+ (λ-): with a buy at the ask (sell at the bid) after which it doesn't.\n"
     "  Gao & Wang: a quote at the best pays on a side iff its λ± > λ/2.\n"
+    f"spoof: Tao et al.'s spoofability, max over the best {SPOOF_LEVELS} levels k of 2 ρ µ+ (1 - ı) ı w_k - Q_k ρ - ν_k (above 0: a spoof could pay).\n"
     f"snap: share of the wall mid's jumps of {SNAP_SPREADS}+ median spreads that went the opposite way to the one before "
     f"(with {MIN_JUMPS} or more; a day at {SNAP_BACK:.0%} gets a note).\n"
     f"mid AC1: lag-1 autocorrelation of the mid's changes. sig: variance per tick at lag 1 over lag {LAG} (1 = random walk).\n"
