@@ -22,6 +22,16 @@ first data download as soon as its format module exists. For each product, poole
   the mid and of the wall mid (the midpoint of the largest level on each side): the variance per
   tick of one-tick changes over that of `LAG`-tick changes. Near 1 is a random walk; well above 1
   is noise that reverts, which a fair value should filter out.
+- **Kalman-implied smoothing:** a local-level model, the price a random walk of step variance `q`
+  seen through noise of variance `r`, has `E[(p[t+h] - p[t])^2] = h q + 2 r`. A least-squares line
+  through the mean squared change at each of `KALMAN_LAGS` gives `q` (its slope) and `r` (half its
+  intercept), per reference. The steady-state Kalman filter for that model is an EMA with gain
+  `K = P / (P + r)`, `P = (q + sqrt(q^2 + 4 q r)) / 2` (the predicted variance), so the template's
+  `smoothing` (`fair = s * previous + (1 - s) * price`) that matches it is `1 - K`. Noise that
+  reverts at one tick (a bouncing mid) gives a high `r`; a random walk gives `r` near 0 and 0.
+  The fit takes each day's mean change out. An EMA lags a drift `mu` a tick by `mu s / (1 - s)`, so
+  where the days drift the column is the `s` that minimises the EMA's steady-state squared error,
+  `(mu s / (1 - s))^2 + (s^2 q + (1 - s)^2 r) / (1 - s^2)`, which is `1 - K` when `mu` is 0.
 - **Slow reversion:** the wall mid's variance per tick at `LAG` ticks over that at `LONG_LAG`
   ticks. Well above 1: the price returns to a level over hundreds of ticks, which the lag-1
   numbers can't see.
@@ -64,6 +74,7 @@ from arena.model import Day
 LAG = 50  # ticks: the "long run" for impact, noise and the slow margin
 LONG_LAG = 1000  # ticks: the horizon for slow reversion to a level
 REFERENCES = ("mid", "wall")
+KALMAN_LAGS = (1, 2, 5, 10, 20, LAG)  # ticks: the lags the local-level model's h q + 2 r is fitted over
 LARGE_TICK_SHARE = 0.5  # share of two-sided ticks at a one-tick spread from which a product is large-tick
 EMPTY_SIDE_SHARE = 0.02  # share of ticks with one side empty from which it gets a note
 WALL_SIZE = 15  # the template's DEFAULTS wall_size: the smallest level sized_mid counts as the market maker's
@@ -123,8 +134,11 @@ class _Acc:
     autocorr: list[tuple[float, int]] = field(default_factory=list)  # mid, (value, weight) per day
     signature: dict[str, list[tuple[float, int]]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
     reversion: list[tuple[float, int]] = field(default_factory=list)  # wall mid, LAG over LONG_LAG, per day
+    # Per reference, per KALMAN_LAGS lag: [sum of squared changes over that lag less each day's mean, their count].
+    variogram: dict[str, list[list[float]]] = field(default_factory=lambda: {r: [[0.0, 0] for _ in KALMAN_LAGS] for r in REFERENCES})
     drifts: list[float] = field(default_factory=list)  # wall mid change per day
     drift_ratios: list[float] = field(default_factory=list)  # that change over the day's noise
+    drift_rates: list[float] = field(default_factory=list)  # that change over the day's ticks
     trades: int = 0
     buys: int = 0
     inside: int = 0
@@ -202,6 +216,12 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         ratio = _signature_ratio(series[name])
         if ratio is not None:
             acc.signature[name].append((ratio, len(series[name])))
+        values = series[name]
+        for k, lag in enumerate(KALMAN_LAGS):  # the day's mean change taken out, so a steady drift isn't read as a random walk
+            changes = [b - a for a, b in zip(values, values[lag:]) if a is not None and b is not None]
+            if changes:
+                acc.variogram[name][k][0] += sum(c * c for c in changes) - sum(changes) ** 2 / len(changes)
+                acc.variogram[name][k][1] += len(changes)
 
     refs = {name: _forward_fill(values) for name, values in series.items()}
     known = [w for w in refs["wall"] if w is not None]
@@ -212,6 +232,7 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
     if len(known) > LAG and per_tick is not None:
         noise = (per_tick * len(known)) ** 0.5
         acc.drifts.append(known[-1] - known[0])
+        acc.drift_rates.append((known[-1] - known[0]) / len(known))
         acc.drift_ratios.append((known[-1] - known[0]) / noise if noise else 0.0)
 
     last_sign = None
@@ -273,6 +294,8 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "c1": c1,
         "spread_at_trades": _mean(acc.trade_spreads),
     }
+    for name in REFERENCES:
+        row[f"q_{name}"], row[f"r_{name}"], row[f"smoothing_{name}"] = _kalman(acc.variogram[name], _mean([d * d for d in acc.drift_rates]) or 0.0)
     for name in REFERENCES:
         edge = _mean(acc.edges[name])
         r1, rl = _mean(acc.moves.get((name, 1))), _mean(acc.moves.get((name, LAG)))
@@ -346,10 +369,11 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
         notes.append("mid mean-reverts at one tick")
     mid_sig, wall_sig = row["mid_signature"], row["wall_signature"]
     if mid_sig is not None and wall_sig is not None and mid_sig >= NOISY_SIGNATURE:
+        smoothing = f" (Kalman smoothing: wall mid {_cell(row['smoothing_wall'], '{:.2f}')}, mid {_cell(row['smoothing_mid'], '{:.2f}')})"
         if wall_sig < mid_sig / 2:
-            notes.append("wall mid filters the mid's noise")
+            notes.append("wall mid filters the mid's noise" + smoothing)
         else:
-            notes.append("mid and wall mid both noisy")
+            notes.append("mid and wall mid both noisy" + smoothing)
     if not fixed and row["wall_reversion"] is not None and row["wall_reversion"] >= SLOW_REVERSION:
         notes.append(f"wall mid reverts to a level over ~{LONG_LAG:,} ticks")
     ratios = acc.drift_ratios
@@ -398,6 +422,34 @@ def _snap_backs(walls: list[float], spread: float) -> tuple[int, int, int]:
     jumps = [b - a for a, b in zip(walls, walls[1:]) if spread and abs(b - a) >= SNAP_SPREADS * spread]
     pairs = list(zip(jumps, jumps[1:]))
     return len(jumps), len(pairs), sum(1 for a, b in pairs if a * b < 0)
+
+
+def _kalman(variogram: list[list[float]], drift2: float = 0.0) -> tuple[float | None, float | None, float | None]:
+    """(q, r, smoothing) of the local-level model fitted to [sum, count] of squared changes at each of KALMAN_LAGS.
+
+    `drift2` is the squared drift a tick: with it, the smoothing that minimises the EMA's error (_ema_error)."""
+    points = [(lag, total / n) for lag, (total, n) in zip(KALMAN_LAGS, variogram) if n]
+    if len(points) < 2:
+        return None, None, None
+    mean_h, mean_m = statistics.fmean(h for h, _ in points), statistics.fmean(m for _, m in points)
+    slope = sum((h - mean_h) * (m - mean_m) for h, m in points) / sum((h - mean_h) ** 2 for h, _ in points)
+    q, r = max(slope, 0.0), max((mean_m - slope * mean_h) / 2, 0.0)
+    if drift2 and (q or r):  # golden-section search: the error is unimodal in s
+        lo, hi = 0.0, 0.9999
+        for _ in range(60):
+            a, b = hi - 0.618 * (hi - lo), lo + 0.618 * (hi - lo)
+            lo, hi = (lo, b) if _ema_error(a, q, r, drift2) <= _ema_error(b, q, r, drift2) else (a, hi)
+        return q, r, round((lo + hi) / 2, 4)
+    if not q:
+        return q, r, 1.0 if r else None  # no random walk: noise around a fixed value (or no moves at all)
+    predicted = (q + math.sqrt(q * q + 4 * q * r)) / 2
+    return q, r, r / (predicted + r)  # 1 - K, K = P / (P + r)
+
+
+def _ema_error(s: float, q: float, r: float, drift2: float) -> float:
+    """Steady-state mean squared error of fair = s * fair + (1 - s) * price against the local level, which
+    steps by a drift (squared: drift2) plus noise of variance q, seen through noise of variance r."""
+    return drift2 * (s / (1 - s)) ** 2 + (s * s * q + (1 - s) ** 2 * r) / (1 - s * s)
 
 
 def _lag1_autocorrelation(x: list[float]) -> float:
@@ -467,6 +519,7 @@ COLUMNS = (  # (key, header, format)
     ("mid_signature", "mid sig", "{:.1f}"),
     ("wall_signature", "wall sig", "{:.1f}"),
     ("wall_reversion", "slow rev", "{:.1f}"),
+    ("smoothing_wall", "smooth", "{:.2f}"),
     ("drift_per_day", "drift/day", "{:+,.0f}"),
     ("trades", "trades", "{:,}"),
     ("buy_share", "buys", "{:.0%}"),
@@ -486,6 +539,8 @@ LEGEND = (
     f"(with {MIN_JUMPS} or more; a day at {SNAP_BACK:.0%} gets a note).\n"
     f"mid AC1: lag-1 autocorrelation of the mid's changes. sig: variance per tick at lag 1 over lag {LAG} (1 = random walk).\n"
     f"slow rev: the wall mid's variance per tick at lag {LAG} over lag {LONG_LAG:,} (above 1: it returns to a level).\n"
+    f"smooth: the template's smoothing of the wall mid that a Kalman filter would use: a random walk (step variance q) in noise (r),\n"
+    f"fitted as h q + 2 r to its squared changes at lags {', '.join(map(str, KALMAN_LAGS))}; 0 = a random walk, near 1 = mostly noise.\n"
     "drift/day: the wall mid's change per day. buys: share of market trades at or above the ask. C(1): sign correlation of consecutive trades.\n"
     f"Against the wall mid: edge = the taker's mean edge (negative = paid), R(h) = the signed move h ticks after a trade,\n"
     f"and a market maker's margin a unit, slow = -edge - R({LAG}), fast = -edge (1 - C(1)) - R(1) (Bouchaud et al. eqs. 17.13-17.14).\n"

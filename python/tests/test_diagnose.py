@@ -217,3 +217,40 @@ def test_an_open_that_is_wider_and_faster_every_day_gets_a_note_and_a_profile():
     # One ordinary day among them: the days disagree, so no note, though the pooled ratio is still past the threshold.
     mixed = diagnose.diagnose([*days, _day_with_an_open(False, "d2")])["X"]
     assert mixed["open_spread"] > diagnose.PROFILE_RATIO and "the open" not in mixed["notes"]
+
+
+def test_the_kalman_smoothing_of_a_random_walk_in_noise():
+    # A local level stepping with variance q = 0.25, seen through noise of variance r = 4: the steady-state
+    # Kalman gain is K = P / (P + r), P = (q + sqrt(q^2 + 4 q r)) / 2, and the template's smoothing 1 - K.
+    rng, days = random.Random(3), []
+    for n in range(3):
+        level, walls = 1000.0, []
+        for _ in range(5000):
+            level += rng.gauss(0, 0.5)
+            walls.append(level + rng.gauss(0, 2))
+        days.append(make_day(walls, name=f"d{n}"))
+    row = diagnose.diagnose(days)["X"]
+    predicted = (0.25 + (0.25 ** 2 + 4 * 0.25 * 4) ** 0.5) / 2
+    assert row["q_wall"] == pytest.approx(0.25, rel=0.15) and row["r_wall"] == pytest.approx(4, rel=0.1)
+    assert row["smoothing_wall"] == pytest.approx(1 - predicted / (predicted + 4), abs=0.03)  # 0.78
+    assert f"mid and wall mid both noisy (Kalman smoothing: wall mid {row['smoothing_wall']:.2f}" in row["notes"]
+    # A random walk alone needs none; noise around a fixed value, all of it.
+    walk = [1000.0]
+    for _ in range(4999):
+        walk.append(walk[-1] + rng.choice((-1, 1)))
+    assert diagnose.diagnose([make_day(walk)])["X"]["smoothing_wall"] == pytest.approx(0, abs=0.05)
+    assert diagnose.diagnose([make_day([1000 + rng.choice((-1, 1)) for _ in range(5000)])])["X"]["smoothing_wall"] > 0.95
+
+
+def test_the_ema_error_is_least_at_the_kalman_smoothing_and_a_drift_lowers_it():
+    q, r = 0.25, 4.0
+    predicted = (q + (q * q + 4 * q * r) ** 0.5) / 2
+    kalman = r / (predicted + r)
+    grid = [k / 1000 for k in range(999)]
+    assert min(grid, key=lambda s: diagnose._ema_error(s, q, r, 0.0)) == pytest.approx(kalman, abs=0.002)
+    # With a drift the EMA lags it by drift * s / (1 - s), so the best s is lower.
+    variogram = [[(lag * q + 2 * r) * 100, 100] for lag in diagnose.KALMAN_LAGS]
+    assert diagnose._kalman(variogram)[2] == pytest.approx(kalman)
+    drifting = diagnose._kalman(variogram, 0.1 ** 2)[2]
+    assert drifting == pytest.approx(min(grid, key=lambda s: diagnose._ema_error(s, q, r, 0.01)), abs=0.002)
+    assert drifting < kalman - 0.03

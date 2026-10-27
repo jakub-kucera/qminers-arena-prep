@@ -425,3 +425,5 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-27] lint | template citations re-mapped
 - `python/bots/template.py` gained three lines in PARAMS (ABIDES's `ABM`, after line 158), so every citation of a line after it moved down by 3, across 28 pages.
+## [2026-10-27] lint | the Kalman-implied smoothing in arena.diagnose
+- `concepts/reading-the-data-on-day-one` gets the `smooth` column's derivation (a local-level model fitted as `h·q + 2r` over lags 1–50; `smoothing` = 1 − K, or the EMA-error minimum where the days drift) and its result in the noise rows: the PnL optimum sat near it on every Prosperity product, about four times slower on `KELP_NOISY` (0.885 against 0.97), and 0.1–0.2 against 0 on the ABIDES days (`IDEAS.md`, "The Kalman-implied smoothing"). Citations moved: the thresholds (`python/arena/diagnose.py:64-96` → `74-107`), and the template's after the `ABM` entry added three lines (`295` → `298`, `684` → `687`, `364-366` → `367-369`, `261` → `264`).
