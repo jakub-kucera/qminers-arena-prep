@@ -265,3 +265,58 @@ def test_a_lobster_day_converts_to_the_prosperity_layout(tmp_path):
         (((58_519, 50),), ((58_521, 90),)), (((58_519, 30),), ((58_521, 90),)), (((58_520, 40),), ((58_521, 90),))]
     # the execution in second 34202 (after tick 0's snapshot at the end of 34201) is tick 0's; 34201's is before any tick
     assert {t.timestamp: [(x.price, x.quantity) for x in t.trades.get("AAPL", [])] for t in day.ticks} == {0: [(58_519, 20)], 100: [], 200: []}
+
+def test_structure_runs_on_the_days_data(capsys, monkeypatch, drill_data):
+    out = run(capsys, monkeypatch, "structure", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "## drill all" in out and "### Fixed sums: searched on" in out and "| ALPHA |" in out
+
+
+def test_structure_finds_a_planted_sum_repeat_stream_grid_and_cycle():
+    import math
+    import random
+
+    from arena.model import Book, Day, Tick
+    from experiments import structure
+
+    def walk(rng, start, n, steps=(-1, 0, 0, 1)):
+        out = [start]
+        for _ in range(n - 1):
+            out.append(out[-1] + rng.choice(steps))
+        return out
+
+    n, days, replayed = 600, [], None
+    for k in range(3):
+        rng = random.Random(10 + k)
+        a, b = walk(rng, 10_000, n), walk(rng, 9_000, n)
+        c = [30_000 - x - y for x, y in zip(a, b)]  # X_A + X_B + X_C = 30,000
+        if k < 2:  # D's moves on day 2 replay day 1's, from another level
+            replayed = replayed or [rng.choice((-1, 0, 1)) for _ in range(n - 1)]
+            d = [500 + 100 * k]
+            for m in replayed:
+                d.append(d[-1] + m)
+        else:
+            d = walk(rng, 700, n)
+        g = walk(rng, 5_000, n, steps=(-5, 0, 0, 5))  # on a grid of 5
+        s = [2_000 + round(8 * math.sin(2 * math.pi * t / 20)) + x for t, x in enumerate(walk(rng, 0, n, (-1, 0, 1)))]  # a 20-tick cycle
+        ticks = []
+        for t in range(n):
+            shared, own, other = rng.randint(1, 9), rng.randint(1, 9), rng.randint(1, 9)  # X_A and X_B draw their inner order from one stream
+            books = {}
+            for name, price, inner in (("X_A", a[t], shared), ("X_B", b[t], shared), ("X_C", c[t], own), ("D", d[t], other), ("G", g[t], 3), ("S", s[t], 4)):
+                books[name] = Book(((price - 1, inner), (price - 2, 20)), ((price + 2, 20),))
+            ticks.append(Tick(t * 100, books, {}, {}))
+        days.append(Day(f"d{k + 1}", list(books), {p: 10 for p in books}, ticks))
+    products = ["X_A", "X_B", "X_C", "D", "G", "S"]
+
+    found = structure.sums(days, products, structure.groups_of(products, []), [{"X_A": 1, "X_B": 1}])
+    group = found["groups"][0]
+    assert group["members"] == ["X_A", "X_B", "X_C"]
+    assert group["best"][0]["weights"] == (1, 1, 1) and group["best"][0]["verdict"] == "identity"
+    assert group["best"][0]["means"] == [30_000, 30_000, 30_000]
+    assert found["checks"][0][1]["verdict"] == "none"  # two of the three legs are no identity
+    pairs = structure.repeats(days, products)["pairs"]
+    assert [(a, b, off) for a, b, count, total, off in pairs if count == total] == [(("D", "d1"), ("D", "d2"), 0), (("D", "d2"), ("D", "d1"), 0)]
+    assert [(a, b) for a, b, *_ in structure.streams(days, products)] == [("X_A", "X_B")]
+    assert structure.increments(days, "G")["grid"][0] == 5 and structure.increments(days, "X_A")["grid"] is None
+    assert abs(structure.moves(days, "S")["peaks"][0][0] - 20) < 0.5
+    assert structure.starts(days, "X_A")["reading"] != "each day continues the last"  # each day starts at 10,000 again
