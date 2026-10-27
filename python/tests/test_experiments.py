@@ -432,3 +432,27 @@ def test_fill_curve_reads_a_results_zip_and_a_per_tick_all_run_takes_every_print
     })
     mapped = fill_curve.queue_share(day, "KELP", fill_curve.read_results(folder)[day.name])
     assert sum(c["ours"] for c in mapped.values()) / sum(c["market"] for c in mapped.values()) == 1.0
+
+
+def test_shortfall_reads_a_runs_csvs_and_values_fills_at_the_decision(tmp_path, capsys, monkeypatch):
+    from arena.engine import EngineConfig, run_day
+    from arena.formats import prosperity
+    from arena.report import write_csvs
+    from experiments import kelp_drift, shortfall
+
+    sim.write_day(sim.run(sim.preset_market(["KELP"], ticks=1200), 9), tmp_path / "data", 1, 0)
+    (day,) = prosperity.load_days(tmp_path / "data", ["1"])
+    wall = shortfall.fairs(day, "KELP")
+    index = {tick.timestamp: i for i, tick in enumerate(day.ticks)}
+    for delay in (0, 2):
+        result = run_day(day, kelp_drift.FMT.load_bot(kelp_drift.TEMPLATE, {}, strict=True), EngineConfig(delay=delay))
+        parts = shortfall.shortfall(day, "KELP", shortfall.rows_of(result), delay)
+        # Against the fair where the fills happened (orders here live one tick, so that is their arrival), the edge is the fills' capture.
+        capture = sum(f.quantity * (wall[index[f.timestamp]] - f.price) for f in result.fills)
+        assert sum(c["edge_arrival"] for c in parts.values()) == pytest.approx(capture)
+        assert sum(c["filled"] for c in parts.values()) == sum(abs(f.quantity) for f in result.fills) > 0
+        if delay == 0:
+            assert all(c["edge_decision"] == c["edge_arrival"] for c in parts.values())
+    write_csvs(result, tmp_path / "out")
+    out = run(capsys, monkeypatch, "shortfall", "--data", str(tmp_path / "data"), "--days", "1", "--results", str(tmp_path / "out"), "--delay", "2")
+    assert "| KELP | quote |" in out

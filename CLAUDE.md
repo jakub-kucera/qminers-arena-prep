@@ -69,6 +69,7 @@ uv run python -m experiments.p3_smile                             # P3's volcani
 uv run python -m experiments.imbalance                            # does the best-level imbalance predict the mid / the wall mid, per product and day
 uv run python -m experiments.lead_lag                             # which products move together, and does one lead another (--data for the day's download)
 uv run python -m experiments.fill_curve                           # what a quote at each distance from fair could fill, from the data; --results ZIP: our fills' queue share
+uv run python -m experiments.shortfall                            # implementation shortfall per order vs the PnL --delay costs (P3 r1); --results ZIP for one run
 uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
 uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls
 uv run python -m experiments.snooping_null_rates --engine rust    # how often SPA, StepM and the pick name a cell on null grids, with the worse and holdout gates
