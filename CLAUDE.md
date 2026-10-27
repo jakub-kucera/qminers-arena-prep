@@ -72,6 +72,7 @@ uv run python -m experiments.snooping_tests                       # Hansen's SPA
 uv run python -m experiments.snooping_null_rates --engine rust    # how often SPA, StepM and the pick name a cell on null grids, with the worse and holdout gates
 uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw; part 2 across ten fill-model scenarios
 uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
+uv run python -m experiments.abides_days setup && uv run python -m experiments.abides_days generate --days 10   # ABIDES RMSC04 days in data/abides (--data data/abides), a generator we didn't write
 uv run python -m experiments.rust_bench                           # the Rust port (rust/, needs cargo) against ours: every twin's parity, then speed
 uv run python -m experiments.rust_bench --parity-only --record    # after changing a twin (rust/twins.json): check it, then record its hash
 ```

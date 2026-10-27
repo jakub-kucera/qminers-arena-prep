@@ -34,6 +34,7 @@ REPOS=(
   "qminers-hackathon-2025           vitktor/Qminers-Hackathon-2025                   8a42f1ed0a9f9b14a5113f79c6277f3390891415"
   "qminers-hackathon-2024           AdamBobocky/qminers-24                           3c1147bd8a7e5ca313f5c478be81c26cf34c9657"
   "hftbacktest                      nkaz001/hftbacktest                              5f3ec40b2afb764e0fea112f941ed85523ef4e88"
+  "abides-jpmc                     jpmorganchase/abides-jpmc-public                 f9cbe51342b7dedd9587e4e069040d68a5c6477f"
 )
 
 case "${1:-}" in

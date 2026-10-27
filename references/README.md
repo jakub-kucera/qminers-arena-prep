@@ -12,7 +12,7 @@ sizing), see the papers converted to markdown in [../literature_md/](../literatu
 
 This is third-party code, so read it before installing or running anything.
 jmerle's backtesters and visualizer, the Prosperity 4 backtester, `hftbacktest`, DTU Quant Lab and the Qminers 2025 solution are MIT
-(checked against their `LICENSE` files). The other team repos have no licence file, so use them
+(checked against their `LICENSE` files), and ABIDES is BSD 3-clause. The other team repos have no licence file, so use them
 as reading material and write your own versions instead of pasting their code into a submission.
 Every rank below is the team's own claim from its README. None is checked against the leaderboard.
 
@@ -39,6 +39,7 @@ Every rank below is the team's own claim from its README. None is checked agains
 | `qminers-hackathon-2025/` | [vitktor/Qminers-Hackathon-2025](https://github.com/vitktor/Qminers-Hackathon-2025) | One team's solution to Qminers' own Quant Hackathon 2025 (sports betting), with the **organisers' files**: `src/environment.py` (their evaluation loop) and `problem_info_en.md`. A weak prior on how Qminers builds a competition. | 2 MB | 2026-10-08 |
 | `qminers-hackathon-2024/` | [AdamBobocky/qminers-24](https://github.com/AdamBobocky/qminers-24) | The **1st-place team's post-mortem** of Qminers' Quant Hackathon 2024 (NBA betting), with the organisers' files: `COMPETITION_README.md`, `problem_info.md`, `src/submit_model/environment.py`. Shows the format (online qualification, then a reset 3-round final) and how the winner chose risk for the final. Weak prior on the task. | 90 MB | 2026-10-13 |
 | `hftbacktest/` | [nkaz001/hftbacktest](https://github.com/nkaz001/hftbacktest) | The reference open-source backtester for market making with queue position and latency models. We read it for its queue models and its tutorial notebooks (GLFT, order-book-imbalance alpha, queue-based quoting). | 131 MB | 2025-12-23 |
+| `abides-jpmc/` | [jpmorganchase/abides-jpmc-public](https://github.com/jpmorganchase/abides-jpmc-public) | JP Morgan's public ABIDES: an agent-based market simulator. Its RMSC04 config (noise, value, momentum agents and two adaptive makers around a hidden mean-reverting fundamental) is our independent generator: run, never imported, by `experiments.abides_days` (below). | 5 MB | 2023-12-13 |
 
 ## How these relate to the Arena
 
@@ -188,6 +189,11 @@ Read `README.md` (the post-mortem, 10 minutes) and `COMPETITION_README.md` (the 
 - Their less conservative `ProbQueueModel` is the principled middle between our rule and the "front of the queue" option (`TODO_DONE.md`, "Add an optimistic queue option to `--resting`"). When the level shrinks (after trades are subtracted), a share `prob` of the decrease is taken to be *behind* you and the rest ahead. `queue.rs` offers several `prob` functions: `f(back) / (f(back) + f(front))` with `f(x) = x**n` or `log(1 + x)`, `f(back) / f(back + front)`, and `1 - (front / (front + back))**n` (`PowerProbQueueFunc3`). The last is the family that fits Databento's order-by-order evidence; `log(1 + x)` blames the back more than uniform only while you are nearer the back, so it is not the realistic middle it was taken for (`wiki/sources/rigtorp-queue-position.md`, `wiki/sources/databento-queue-position.md`). `examples/Probability Queue Models.ipynb` compares them.
 - `examples/` has tutorial notebooks worth skimming for ideas: GLFT market making (the paper is in `literature_md/`), order-book-imbalance as an alpha, queue-based quoting for large ticks, and the effect of order latency.
 - We don't use it as a backtester. It replays event streams (depth changes and trades), while our data is one snapshot per tick, so we only borrow its ideas.
+
+### `abides-jpmc/`
+- **Run, never imported.** `uv run python -m experiments.abides_days setup` makes its own environment (`data/abides/env`, Python 3.10, numpy, pandas, scipy), and `generate --days N` runs `python/experiments/abides_export/export.py` under it for seeds 1..N, then converts each day to the Prosperity layout in `data/abides/` (gitignored; the seeds make them again). The repo's code and tests never import it.
+- **Its own pins don't install on Apple silicon** (pomegranate 0.14, pandas 1.2, gym, ray): the environment takes current wheels instead, and `abides_export/pomegranate.py` stands in for the one class RMSC04 uses, its order-size mixture (same weights and components, different draws).
+- **What a converted day is:** a recording, one tick a second (23,400 a day), the book's top three levels in cents and the trades of the next second. It tests the book's shape and the agents' information, not a market that reacts to our orders.
 
 ### Read online, not cloned
 

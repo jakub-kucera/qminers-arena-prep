@@ -155,3 +155,41 @@ def test_order_flow_splits_the_best_levels_changes_into_adds_and_removals():
     assert rows[0] is None
     assert [(r["adds"], r["removals"], r["ofi"]) for r in rows[1:]] == [(3, 0, 3), (2, 4, 6), (0, 1 - 2, -1)]
     assert rows[3]["trades"] == 2 - 1 and rows[3]["rho3"] == (6 - 3) / 9
+
+
+def test_an_abides_export_converts_to_the_prosperity_layout(tmp_path):
+    import json
+
+    from arena.formats import prosperity
+    from experiments import abides_days
+
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    open_ns = 1_000 * 1_000_000_000
+    levels = lambda *pairs: [x for pair in pairs for x in pair] + [""] * (10 - 2 * len(pairs))
+    header = ["second"] + [f"{s}_{k}_{i}" for s in ("bid", "ask") for i in range(1, 6) for k in ("price", "volume")]
+    book = [header, [0] + levels() + levels(),  # no makers yet: dropped
+            [1] + levels((99_998, 100), (99_997, 50)) + levels((100_000, 80)),
+            [2] + levels((99_999, 10)) + levels((100_000, 80), (100_001, 5))]
+    (raw / "book.csv").write_text("\n".join(",".join(map(str, r)) for r in book) + "\n")
+    s = 1_000_000_000
+    (raw / "trades.csv").write_text(
+        "time_ns,price,quantity,aggressor,passive_agent_type,aggressor_agent_type\n"
+        f"{open_ns + 2 * s},99990,1,SELL,ValueAgent,ValueAgent\n"  # by tick 0's snapshot (the end of second 1): dropped
+        f"{open_ns + 2 * s + 1},99998,7,SELL,AdaptiveMarketMakerAgent,ValueAgent\n"  # just after it: tick 0's
+        f"{open_ns + 3 * s + 1},100000,3,BUY,ValueAgent,NoiseAgent\n")  # after tick 1's: tick 1's
+    (raw / "fundamental.csv").write_text(f"time_ns,value\n{open_ns},100000.0\n{open_ns + 3 * s},100002.5\n")
+    (raw / "meta.json").write_text(json.dumps({"open_ns": open_ns}))
+
+    assert abides_days.convert(raw, tmp_path / "data", 1, names=True) == 2
+    (day,) = prosperity.load_days(tmp_path / "data", ["1-1"])
+    assert day.limits == {"ABM": abides_days.LIMIT} and [t.timestamp for t in day.ticks] == [0, 100]
+    first, second = (t.books["ABM"] for t in day.ticks)
+    assert first.bids == ((99_998, 100), (99_997, 50)) and first.asks == ((100_000, 80),)
+    assert second.bids == ((99_999, 10),) and second.asks == ((100_000, 80), (100_001, 5))
+    (sold,) = day.ticks[0].trades["ABM"]
+    (bought,) = day.ticks[1].trades["ABM"]
+    assert (sold.price, sold.quantity, sold.buyer, sold.seller) == (99_998, 7, "AdaptiveMarketMakerAgent", "ValueAgent")
+    assert (bought.price, bought.buyer, bought.seller) == (100_000, "NoiseAgent", "ValueAgent")
+    fundamental = (tmp_path / "data" / "round1" / "fundamental_round_1_day_1.csv").read_text().splitlines()
+    assert fundamental[1:] == ["0;ABM;100000.000", "100;ABM;100002.500"]
