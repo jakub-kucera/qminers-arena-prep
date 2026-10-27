@@ -269,6 +269,26 @@ def test_an_abides_export_converts_to_the_prosperity_layout(tmp_path):
     assert fundamental[1:] == ["0;ABM;100000.000", "100;ABM;100002.500"]
 
 
+def test_abides_market_keeps_each_setups_runs_apart_and_flags_a_runaway_day(tmp_path, monkeypatch):
+    from experiments import abides_market
+
+    monkeypatch.setattr(abides_market, "MARKET", tmp_path)
+    monkeypatch.setitem(abides_market.SETUP, "options", {})
+    assert abides_market._folder(1) == tmp_path / "seed1"
+    monkeypatch.setitem(abides_market.SETUP, "options", {"num_momentum_agents": 50})
+    folder = abides_market._folder(1)
+    assert folder.parent.name.startswith("options-") and folder.name == "seed1"
+    data = folder / "data" / "round1"
+    data.mkdir(parents=True)
+    header = "day;timestamp;product;bid_price_1;bid_volume_1;ask_price_1;ask_volume_1;mid_price;profit_and_loss"
+    ticks = ["1;0;ABM;99;1;101;1;100.0;0", "1;100;ABM;;;301;1;301.0;0", "1;200;ABM;199;1;201;1;200.0;0", "1;300;ABM;99;1;101;1;100.0;0"]
+    (data / "prices_round_1_day_1.csv").write_text("\n".join([header, *ticks]) + "\n")
+    (data / "fundamental_round_1_day_1.csv").write_text("timestamp;product;value\n" + "".join(f"{k * 100};ABM;100.0\n" for k in range(4)))
+    one_sided, off = abides_market.sanity(1)
+    assert one_sided == 0.25 and off == 1.0  # a side empty a quarter of the time, the mid at twice the fundamental
+    assert one_sided > abides_market.BROKEN[0] and off > abides_market.BROKEN[1]
+
+
 def test_the_abides_study_reads_the_fundamental_where_the_data_has_one(capsys, monkeypatch, tmp_path):
     spec = sim.preset_market(ticks=400)
     for k in range(2):

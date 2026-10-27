@@ -49,6 +49,7 @@ def main():
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--end", default="16:00:00", help="the market's close (RMSC04's default is 10:00:00)")
+    parser.add_argument("--options", default="{}", help="its build_config arguments, a JSON object (e.g. {\"num_momentum_agents\": 0})")
     parser.add_argument("--bot", help="a template file to trade in the market (template_agent.py)")
     parser.add_argument("--set", default="{}", help="its overrides, a JSON object of dotted paths")
     parser.add_argument("--resting", action="store_true", help="keep the quotes that haven't moved, as where orders rest")
@@ -56,7 +57,7 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
 
     started = time.time()
-    config = rmsc04.build_config(seed=args.seed, end_time=args.end, stdout_log_level="WARNING", log_orders=False)
+    config = rmsc04.build_config(seed=args.seed, end_time=args.end, stdout_log_level="WARNING", log_orders=False, **json.loads(args.options))
     template = load_template(args.bot, json.loads(args.set)) if args.bot else None
     agent = TemplateAgent(len(config["agents"]), "ABM", template, resting=args.resting,
                           random_state=np.random.RandomState(seed=args.seed + 10_000))
@@ -115,7 +116,7 @@ def main():
         for entry in oracle.f_log.get("ABM", []):
             writer.writerow([entry["FundamentalTime"], entry["FundamentalValue"]])
 
-    meta = {"seed": args.seed, "end": args.end, "open_ns": int(open_ns), "book_events": len(times), "trades": trades,
+    meta = {"seed": args.seed, "end": args.end, "options": json.loads(args.options), "open_ns": int(open_ns), "book_events": len(times), "trades": trades,
             "trades_without_price": missing, "seconds": int((close_ns - open_ns) // 1_000_000_000),
             "runtime_s": round(time.time() - started, 1)}
     (args.out / "meta.json").write_text(json.dumps(meta, indent=1))

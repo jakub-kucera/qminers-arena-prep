@@ -64,14 +64,16 @@ def setup() -> None:
     subprocess.run(["uv", "pip", "install", "--python", str(ENV / "bin" / "python"), *REQUIREMENTS], check=True)
 
 
-def export(seed: int, out: Path, end: str = "16:00:00", extra: list[str] | None = None) -> dict:
-    """Runs one RMSC04 day under ABIDES's Python (extra: export.py's --bot, --set, --resting); returns its meta.json."""
+def export(seed: int, out: Path, end: str = "16:00:00", extra: list[str] | None = None, options: dict | None = None) -> dict:
+    """Runs one RMSC04 day (with `options` for its build_config, e.g. fewer momentum agents) under ABIDES's Python
+    (extra: export.py's --bot, --set, --resting); returns its meta.json."""
     python = ENV / "bin" / "python"
     if not python.exists():
         sys.exit("needs ABIDES's environment: uv run python -m experiments.abides_days setup")
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(
         [str(ABIDES / "abides-core"), str(ABIDES / "abides-markets"), str(EXPORT)])}
-    subprocess.run([str(python), str(EXPORT / "export.py"), "--seed", str(seed), "--out", str(out), "--end", end, *(extra or [])],
+    subprocess.run([str(python), str(EXPORT / "export.py"), "--seed", str(seed), "--out", str(out), "--end", end,
+                    "--options", json.dumps(options or {}), *(extra or [])],
                    check=True, env=env, cwd=out.parent, stdout=subprocess.DEVNULL)
     return json.loads((out / "meta.json").read_text())
 
@@ -145,6 +147,7 @@ def main(argv: list[str] | None = None) -> None:
     gen.add_argument("--out", type=Path, default=DATA, help="the data folder (default data/abides)")
     gen.add_argument("--end", default="16:00:00", help="the close (09:30 open; RMSC04's own default is 10:00:00)")
     gen.add_argument("--names", action="store_true", help="buyer and seller as the agents' types, not blank")
+    gen.add_argument("--options", default="{}", help="its build_config arguments, a JSON object, e.g. '{\"num_momentum_agents\": 0}'")
     args = parser.parse_args(argv)
     if args.command == "setup":
         setup()
@@ -152,7 +155,7 @@ def main(argv: list[str] | None = None) -> None:
     for d in range(1, args.days + 1):
         raw = args.out / "raw" / f"seed{args.seed + d - 1}"
         raw.mkdir(parents=True, exist_ok=True)
-        meta = export(args.seed + d - 1, raw, args.end)
+        meta = export(args.seed + d - 1, raw, args.end, options=json.loads(args.options))
         ticks = convert(raw, args.out, d, names=args.names)
         print(f"day {d}: seed {meta['seed']}, {ticks:,} ticks, {meta['trades']:,} trades, {meta['runtime_s']} s")
 
