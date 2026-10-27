@@ -16,9 +16,13 @@ RMSC04" and the rows after it). Per product, on the given days:
   - **book** (arena.diagnose): a large-tick book, and on which side quoting at the best pays.
   - **forecast** (experiments.predict part 2): whether a held-out linear forecast of the wall mid
     beats the half-spread with R² above 0 on every held-out day (the linear fair's trigger).
-  - **verdict**, and what to do: "Prosperity-like" (the priors stand), "agent-like" (benchmark against
-    doing nothing; grid the linear fair and the move gate if the forecast fires), plus the large-tick
-    rule (make_edge half a tick where the margin pays, no quotes where no side does).
+  - **verdict**, and what to do, by how many of the three signs show (the order costs the bot, trades
+    move the wall mid, the forecast fires): none, "Prosperity-like" (the priors stand); one, "mixed"
+    (the priors stand, but each pick is checked against a bot that sends nothing, and the move gate
+    gridded); two or three, "agent-like" (benchmark against doing nothing; grid the linear fair if
+    the forecast fires, and the move gate). Plus the large-tick rule (make_edge half a tick where the
+    margin pays, no quotes where no side does). One sign alone was "agent-like" before 2026-10-28,
+    which called P3's Squid Ink so on its shuffle test alone (the fourth audit's R11).
 
 The bot runs with its own PARAMS, and a product it doesn't list with DEFAULTS and the data's limit.
 With one day only the forecast needs two, so it is skipped.
@@ -38,7 +42,8 @@ from arena.formats import FORMATS
 from experiments import predict
 
 COPIES = 5
-SHUFFLE_GAIN = 0.2  # a shuffled PnL above the real one by this share of the larger: the order of events matters
+SHUFFLE_GAIN = 0.2  # a shuffled PnL above the real one by this share of the larger: the order of events matters (on 33 of
+# Prosperity's 126 traded product-rounds, mostly small PnLs; on ABIDES 70 times over: IDEAS.md, "The premise check's verdict")
 LINEAR_GRID = "--grid PARAMS.{p}.lin_rho3=0,1,3 --grid PARAMS.{p}.lin_momentum=0,0.5 --set PARAMS.{p}.lin_window=100"
 GATE_GRID = "--grid 'PARAMS.{p}.gate_move=None,2,5' --grid PARAMS.{p}.gate_window=20,50"
 
@@ -81,15 +86,20 @@ def forecast_fires(days, products: list[str], product: str) -> tuple[bool, str]:
 def verdict(product: str, order: tuple[float, float], row: dict, fires: bool, grid: str = "uv run python -m arena.grid BOT DAYS") -> tuple[str, list[str]]:
     real, shuffled = order
     notes = row["notes"]
-    order_matters = shuffled - real > SHUFFLE_GAIN * max(abs(real), abs(shuffled), 1.0)
-    informed = "trades move the wall mid" in notes
-    kind = "agent-like" if order_matters or informed else "Prosperity-like"
+    signs = [name for name, shown in (("the order costs the bot", shuffled - real > SHUFFLE_GAIN * max(abs(real), abs(shuffled), 1.0)),
+                                      ("trades move the wall mid", "trades move the wall mid" in notes),
+                                      ("the forecast fires", fires)) if shown]
+    kind = "agent-like" if len(signs) >= 2 else "mixed" if signs else "Prosperity-like"
     todo = []
+    gate = f"grid the move gate: {grid} {GATE_GRID.format(p=product)} --modes all,worse --scenario rest:resting --holdout last"
     if kind == "agent-like":
-        todo.append("benchmark: a bot that sends nothing; the playbook's quotes may lose (ON_THE_DAY.md, \"Is it Prosperity's kind of market at all?\")")
+        todo.append(f"benchmark: a bot that sends nothing; the playbook's quotes may lose ({', '.join(signs)}; ON_THE_DAY.md, \"Is it Prosperity's kind of market at all?\")")
         if fires:
             todo.append(f"grid the linear fair: {grid} {LINEAR_GRID.format(p=product)} --modes all,worse --scenario rest:resting --holdout last")
-        todo.append(f"grid the move gate: {grid} {GATE_GRID.format(p=product)} --modes all,worse --scenario rest:resting --holdout last")
+        todo.append(gate)
+    elif kind == "mixed":
+        todo.append(f"the IDEAS.md priors stand, but one sign doesn't ({signs[0]}): grid from diagnose --suggest's entry and check the pick against a bot that sends nothing")
+        todo.append(gate)
     else:
         todo.append("the IDEAS.md priors stand: grid from diagnose --suggest's entry")
     if "large-tick" in notes:

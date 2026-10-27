@@ -581,6 +581,8 @@ def test_the_premise_check_reads_a_market_whose_order_matters():
     informed = {"notes": "trades move the wall mid; thin or negative market-making margin; large-tick (one-tick spread 70%)"}
     kind, todo = premise.verdict("X", (28_000.0, 1_500_000.0), informed, fires=True)
     assert kind == "agent-like" and any("lin_rho3" in line for line in todo) and any("gate_move" in line for line in todo)
+    kind, todo = premise.verdict("X", (6_987.0, 10_742.0), pays, fires=False)  # P3's Squid Ink: the shuffle test alone
+    assert kind == "mixed" and "the order costs the bot" in todo[0] and "priors stand" in todo[0] and any("gate_move" in line for line in todo)
     large = {"notes": "large-tick (one-tick spread 100%); market making pays (0.5 of the spread a unit)"}
     assert any("make_edge 0.5" in line for line in premise.verdict("X", (5_000.0, 5_000.0), large, fires=False)[1])
 
