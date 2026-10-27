@@ -388,3 +388,47 @@ def test_repeats_finds_a_taker_that_comes_back_the_next_day():
     assert rows[1]["all"][1] == 0 and rows[0]["two"] == (0.0, None)
     assert repeats.flagged(rows[:1]) == ["all", "small", "big"] and repeats.flagged(repeats.study(days[:2], "B")) == []
     assert repeats.predicted(days[:2], "R") == [(i * 100, 1 if q > 0 else -1, abs(q), 1) for i, q in sorted(taker.items())]
+
+def test_fill_curve_runs_on_the_days_data(capsys, monkeypatch, drill_data):
+    out = run(capsys, monkeypatch, "fill_curve", "--data", drill_data, "--days", "all", "--format", "drill", "--products", "ALPHA")
+    assert "### drill all ALPHA" in out and "The fill-size curve" in out
+
+
+def test_fill_curve_reads_a_results_zip_and_a_per_tick_all_run_takes_every_print(tmp_path, monkeypatch):
+    import csv
+    import zipfile
+
+    from arena.engine import EngineConfig, TradeMatching, run_day
+    from arena.report import write_csvs
+    from experiments import fill_curve, kelp_drift
+
+    day = sim.run(sim.preset_market(["KELP"], ticks=1500), 5).day
+    shares = {}
+    for name, config in (("all", EngineConfig()), ("worse", EngineConfig(trade_matching=TradeMatching.WORSE))):
+        write_csvs(run_day(day, kelp_drift.FMT.load_bot(kelp_drift.TEMPLATE, {}, strict=True), config), tmp_path / name)
+        archive = tmp_path / f"{name}.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            for path in (tmp_path / name).iterdir():
+                z.write(path, f"results/{path.name}")
+        cells = fill_curve.queue_share(day, "KELP", fill_curve.read_results(archive)[day.name])
+        assert sum(c["ours"] for c in cells.values()) > 20
+        shares[name] = sum(c["ours"] for c in cells.values()) / sum(c["market"] for c in cells.values())
+    assert shares["all"] == 1.0 and shares["worse"] < 1.0  # every print at or beyond the quote fills it, only under `all`
+
+    # A ZIP with other names: an unsigned quantity and a side column, mapped through RESULT_COLUMNS.
+    folder = tmp_path / "theirs"
+    folder.mkdir()
+    for kind in ("fills", "orders"):
+        with (tmp_path / "all" / f"{day.name}_{kind}.csv").open() as src, (folder / f"{kind}-{day.name}.csv").open("w", newline="") as dst:
+            out = csv.writer(dst)
+            out.writerow(["time", "symbol", "px", "qty", "side", "oid"])
+            for row in csv.DictReader(src):
+                q = int(row["quantity"])
+                out.writerow([row["timestamp"], row["product"], row["price"], abs(q), "BUY" if q > 0 else "SELL", row.get("order_id") or row["id"]])
+    monkeypatch.setattr(fill_curve, "RESULT_FILES", {"fills": "fills-{day}.csv", "orders": "orders-{day}.csv"})
+    monkeypatch.setattr(fill_curve, "RESULT_COLUMNS", {
+        "fills": {"timestamp": "time", "product": "symbol", "price": "px", "quantity": "qty", "side": "side", "order_id": "oid", "source": None},
+        "orders": {"timestamp": "time", "id": "oid", "product": "symbol", "price": "px", "quantity": "qty", "side": "side"},
+    })
+    mapped = fill_curve.queue_share(day, "KELP", fill_curve.read_results(folder)[day.name])
+    assert sum(c["ours"] for c in mapped.values()) / sum(c["market"] for c in mapped.values()) == 1.0
