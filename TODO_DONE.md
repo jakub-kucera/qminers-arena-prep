@@ -276,6 +276,9 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 ## The edge plan (2026-10-27)
 
+- [x] **The summary.** Done when: which Prosperity conclusions held on the ABIDES and LOBSTER days and which didn't is in `IDEAS.md`'s header, any default worth changing is under "Decisions", and the day's advice is in `ON_THE_DAY.md` and `RUNBOOK.md`.
+  - **Done 2026-10-27** for ABIDES: `IDEAS.md`'s header (what held and what didn't), the Decision on Hydrogel's `cross_excess`, the day's check in `ON_THE_DAY.md` ("Is it Prosperity's kind of market at all?") and `RUNBOOK.md`'s T+0:15. LOBSTER's part waits for its sample (`MANUAL_TODO.md`).
+
 - [x] **Template: gate a side on the expected adverse move** (R12 and R16, brought back 2026-10-27: ABIDES's passive fills against the last move lose on every day, and its moves continue). Done when: a per-side gate (quote a side only where `make_edge` beats the adverse move expected in the current state: the last move's sign and size, the imbalance) runs in STRATEGY, the twin and the drill template, learned online from the bot's own markouts or set from PARAMS, graded on ABIDES and P3/P4 (where it should change nothing), in `IDEAS.md`.
   - **Done 2026-10-27:** `gate_move`, `gate_window` (set from PARAMS; the online-learned version stays deferred, as the parametric gate already pays where the trigger fired and an online one lost on Prosperity); on ABIDES alone +0.7M under every mode, nothing on top of the linear fair (same `IDEAS.md` row).
 

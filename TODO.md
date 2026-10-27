@@ -51,7 +51,6 @@ then an independent generator (ABIDES) and its first results, the engine and tem
 day tools in parallel, and a summary last. Each new feature carries its result on the ABIDES days in its own commit.
 
 - [ ] **LOBSTER's sample, one stock at level 5.** Real adverse selection: what `diagnose`'s "trades move the wall mid" note and negative markouts look like on a real book. Its samples are no longer a public download, so a person requests one (`MANUAL_TODO.md`, "LOBSTER's sample files"); the converter is ready (`experiments.lobster_days`, 2026-10-27). Done when: that item is done.
-- [ ] **The summary.** Done when: which Prosperity conclusions held on the ABIDES and LOBSTER days and which didn't is in `IDEAS.md`'s header, any default worth changing is under "Decisions", and the day's advice is in `ON_THE_DAY.md` and `RUNBOOK.md`.
 
 ### Deferred, and what would bring each back
 
