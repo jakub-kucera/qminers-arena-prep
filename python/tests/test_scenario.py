@@ -23,6 +23,7 @@ def test_a_scenario_changes_only_the_settings_it_names():
     assert config_for(EngineConfig(seed=4), scored) == EngineConfig(seed=4, mark=Mark.TOUCH, limit_penalty=2.5)
     assert config_for(EngineConfig(mark=Mark.LAST, limit_penalty=1.0), parse_scenario("x:fill=0.5")) == EngineConfig(fill_ratio=0.5, mark=Mark.LAST, limit_penalty=1.0)
     assert config_for(EngineConfig(), parse_scenario("fees:fee=0.5,bps=2")) == EngineConfig(fee=0.5, fee_bps=2.0)
+    assert config_for(EngineConfig(), parse_scenario("rtg:bps=2,mbps=-1")) == EngineConfig(fee_bps=2.0, maker_fee_bps=-1.0)  # a maker's rebate
 
 
 def test_modes_are_plain_scenarios_and_names_are_unique():

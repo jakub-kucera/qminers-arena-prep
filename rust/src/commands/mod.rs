@@ -57,6 +57,8 @@ impl Args {
             delay: self.get("--delay").unwrap_or("0").parse().unwrap_or_else(|_| fail("--delay needs a whole number of ticks, 0 or more")),
             fee: number(self.get("--fee").unwrap_or("0")),
             fee_bps: number(self.get("--fee-bps").unwrap_or("0")),
+            maker_fee: self.get("--maker-fee").map(number),
+            maker_fee_bps: self.get("--maker-fee-bps").map(number),
         }
     }
 }
@@ -350,6 +352,11 @@ pub fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names
 pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
     let text = |key: &str, default: &'static str| value.get(key).map_or(Some(default), Value::as_str).ok_or(format!("config {key} must be a string"));
     let number = |key: &str, default: f64| value.get(key).map_or(Some(default), Value::as_f64).ok_or(format!("config {key} must be a number"));
+    let optional = |key: &str| match value.get(key) {
+        None => Ok(None),
+        Some(v) if v.is_null() => Ok(None),
+        Some(v) => v.as_f64().map(Some).ok_or(format!("config {key} must be a number or null")),
+    };
     Ok(EngineConfig {
         trade_matching: matching(text("trade_matching", "all")?),
         resting: value.get("resting").is_some_and(Value::truthy),
@@ -369,6 +376,8 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
         },
         fee: number("fee", 0.0)?,
         fee_bps: number("fee_bps", 0.0)?,
+        maker_fee: optional("maker_fee")?,
+        maker_fee_bps: optional("maker_fee_bps")?,
     })
 }
 

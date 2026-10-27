@@ -422,6 +422,8 @@ def _engine_args(config: EngineConfig) -> list[str]:
     args += ["--delay", str(config.delay)] if config.delay else []
     args += ["--fee", repr(float(config.fee))] if config.fee else []
     args += ["--fee-bps", repr(float(config.fee_bps))] if config.fee_bps else []
+    args += [] if config.maker_fee is None else ["--maker-fee", repr(float(config.maker_fee))]
+    args += [] if config.maker_fee_bps is None else ["--maker-fee-bps", repr(float(config.maker_fee_bps))]
     return args + (["--resting"] if config.resting else [])
 
 

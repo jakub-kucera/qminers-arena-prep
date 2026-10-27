@@ -153,6 +153,16 @@ def test_a_lot_fee_is_in_the_datas_price_units():
     assert run_day(d, ScriptedBot(script), EngineConfig(fee=0.03)).pnl["X"] == pytest.approx([-6, -12])
 
 
+def test_a_makers_fee_replaces_the_fee_on_passive_fills_and_can_be_a_rebate():
+    d = day(tick(0, asks=[(100, 5)], trades=[MarketTrade("X", 99, 2, "", "", 0)], mark=100), tick(1, mark=100))
+    script = {0: [Order("X", 100, 1), Order("X", 99, 2)]}  # takes the ask (a taker), and a bid a trade at 99 meets (a maker)
+    result = run_day(d, ScriptedBot(script), EngineConfig(fee=0.5, maker_fee=-0.25))
+    assert sorted(fills(result)) == [(99, 2, "trade"), (100, 1, "book")]
+    assert result.pnl["X"][0] == pytest.approx((100 - 100) + 2 * (100 - 99) - 0.5 + 2 * 0.25)
+    bps = run_day(d, ScriptedBot(script), EngineConfig(fee_bps=20, maker_fee_bps=-10))
+    assert bps.pnl["X"][0] == pytest.approx(2 - 20 * 100 / 10_000 + 10 * 198 / 10_000)
+
+
 def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_limit_each_tick():
     d = day(tick(0, asks=[(101, 20)], mark=100), tick(1, mark=100), tick(2, bids=[(99, 20)], mark=100), limits={"X": 10})
     script = {0: [Order("X", 101, 6), Order("X", 101, 6)], 2: [Order("X", 99, -12)]}

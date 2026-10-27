@@ -107,6 +107,8 @@ CONFIGS = [
     ("fee 0.5 a lot", EngineConfig(fee=0.5), ONE),
     ("fee 3 bps, worse", EngineConfig(fee_bps=3.0, trade_matching=WORSE), ONE),
     ("fee 0.25 a lot and 1 bp, two bots, resting", EngineConfig(resting=True, fee=0.25, fee_bps=1.0), TWO),
+    ("takers 2 bps, makers a 1 bp rebate, two bots, resting", EngineConfig(resting=True, fee_bps=2.0, maker_fee_bps=-1.0), TWO),
+    ("takers 0.5 a lot, makers 0.1, worse", EngineConfig(fee=0.5, maker_fee=0.1, trade_matching=WORSE), ONE),
     ("fee 2 bps, delay 1, limit penalty, a bot quoting past its limit", EngineConfig(delay=1, fee_bps=2.0, limit_penalty=2.5), OVER),
 ]
 

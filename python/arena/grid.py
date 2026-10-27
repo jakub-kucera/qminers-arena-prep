@@ -1326,6 +1326,8 @@ def format_scenarios(modes: list, s: Setup) -> str:
             setting += (f", mark {config.mark}" if config.mark != "mid" else "") + (f", limit penalty {config.limit_penalty:g}" if config.limit_penalty is not None else "")
             setting += f", delay {config.delay}" if config.delay else ""
             setting += (f", fee {config.fee:g} a lot" if config.fee else "") + (f", fee {config.fee_bps:g} bps" if config.fee_bps else "")
+            setting += (f", maker {config.maker_fee:g} a lot" if config.maker_fee is not None else "") + (
+                f", maker {config.maker_fee_bps:g} bps" if config.maker_fee_bps is not None else "")
             setting += f"; against {', '.join(str(r) for r in rivals)}" if rivals else "; no rivals"
             lines.append(f"  {mode}: {setting}")
     return "scenarios:\n" + "\n".join(lines) if lines else ""

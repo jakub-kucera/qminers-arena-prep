@@ -46,7 +46,9 @@ Fees (EngineConfig.fee, fee_bps): each fill costs `fee` a lot and `fee_bps` basi
 value, charged to the product's cash as it settles, the same for every participant and for passive
 and aggressive fills alike. `fee` is in the data's price units, as a person reads the rules: with a
 format's decimal prices (Day.info's `unit`, e.g. 0.01) a fee of 0.01 is one engine unit a lot.
-0 is Prosperity's rule.
+0 is Prosperity's rule. `maker_fee` and `maker_fee_bps`, when set, replace them for passive fills
+(a fill's source "trade" or "cross": the resting side; "book" took a level, the aggressor), and may
+be negative, a rebate: Ready Trader Go charged takers 2 bps and paid makers 1.
 Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
 exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there).
 Its limits are checked twice, as without a delay: against the position the bot saw when it decided
@@ -115,6 +117,8 @@ class EngineConfig:
     delay: int = 0  # ticks between a bot's decision and its orders reaching the exchange (see the module docstring)
     fee: float = 0.0  # charged per lot filled (see the module docstring)
     fee_bps: float = 0.0  # charged per fill, in basis points of its value
+    maker_fee: float | None = None  # a passive fill's fee a lot instead of fee (negative: a rebate)
+    maker_fee_bps: float | None = None  # a passive fill's basis points instead of fee_bps (negative: a rebate)
 
 
 class Bot(Protocol):
@@ -239,16 +243,23 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
 
     # The fee a lot in engine units: Day.info's unit for decimal prices (0.01 if a tick is given without one, as
     # python/arena/rust.py exports it), else the data's own integer prices.
-    lot_fee = {p: config.fee / (day.info[p].get("unit", 0.01) if "tick" in day.info.get(p, {}) else 1) for p in day.products}
+    unit = {p: day.info[p].get("unit", 0.01) if "tick" in day.info.get(p, {}) else 1 for p in day.products}
+    lot_fee = {p: config.fee / unit[p] for p in day.products}
+    maker_lot_fee = {p: config.maker_fee / unit[p] for p in day.products} if config.maker_fee is not None else None
 
     def settle(fills: list[Fill]) -> None:
         for fill in fills:
             player = players[owner[fill.order_id]]
             player.position[fill.product] += fill.quantity
             player.cash[fill.product] -= fill.price * fill.quantity
-            if config.fee:
+            passive = fill.source != "book"
+            if passive and maker_lot_fee is not None:
+                player.cash[fill.product] -= maker_lot_fee[fill.product] * abs(fill.quantity)
+            elif config.fee:
                 player.cash[fill.product] -= lot_fee[fill.product] * abs(fill.quantity)
-            if config.fee_bps:
+            if passive and config.maker_fee_bps is not None:
+                player.cash[fill.product] -= config.maker_fee_bps * abs(fill.price * fill.quantity) / 10_000
+            elif config.fee_bps:
                 player.cash[fill.product] -= config.fee_bps * abs(fill.price * fill.quantity) / 10_000
             player.result.fills.append(fill)
             player.unseen_fills.append(fill)
