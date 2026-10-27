@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import ast
+import re
 import gc
 import hashlib
 import inspect
@@ -132,6 +133,19 @@ def static_checks(source: str, fmt, allow: set[str]) -> tuple[list[Check], bool]
     return checks, not problems
 
 
+CAPPED = re.compile(r"order cap: \d+ of (\d+) new orders")
+
+
+def sent(result) -> Counter:
+    """New orders the bot sent per tick: those the engine kept, or, where --max-orders dropped some, all it sent."""
+    count = Counter(ts for ts, _ in result.orders)
+    for ts, error in result.errors:
+        match = CAPPED.match(error)
+        if match:
+            count[ts] = int(match.group(1))
+    return count
+
+
 def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None,
                   max_state: int | None = None) -> list[Check]:
     """argv, this run's arguments, lets the first day be replayed in other processes (hash_seed_check)."""
@@ -203,12 +217,13 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
 
     # The replays above set STRICT, so a bot's own error handling never ran. Run it as submitted.
     lenient = run_day(first, s.format.load_bot(path, s.overrides, strict=False), s.config)
-    if lenient.errors:
-        timestamp, error = lenient.errors[0]
+    escaped = [(t, e) for t, e in lenient.errors if e.startswith("Traceback")]  # not the engine's own (order cap, cancels), the first check's
+    if escaped:
+        timestamp, error = escaped[0]
         checks.append(
             Check(
                 FAIL,
-                f"{len(lenient.errors)} exceptions escaped the bot with STRICT off (as submitted); first at {timestamp}:\n"
+                f"{len(escaped)} exceptions escaped the bot with STRICT off (as submitted); first at {timestamp}:\n"
                 f"{_indent(error)}",
             )
         )
@@ -219,7 +234,7 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     state = max((getattr(bot, "max_state_chars", 0) for bot in bots), default=0)
     output = max(r.max_output_chars for r in results)
     checks.append(Check(INFO, f"pnl: {pnl}"))
-    busiest = max((max(Counter(ts for ts, _ in r.orders).values(), default=0) for r in results), default=0)
+    busiest = max((max(sent(r).values(), default=0) for r in results), default=0)
     checks.append(Check(INFO, f"largest state {state:,} chars, largest print per tick {output:,} chars, most orders in a tick {busiest:,} (--max-orders N drops those past a cap)"))
     if max_state is not None and state > max_state:  # Prosperity cut traderData at 50,000 and the bot read it back broken
         checks.append(Check(WARN, f"largest state {state:,} chars is over --max-state {max_state:,}: the exchange may cut it"))

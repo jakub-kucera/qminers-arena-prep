@@ -225,3 +225,13 @@ def test_a_state_over_max_state_warns(check):
     assert code == 0 and "is over --max-state 10: the exchange may cut it" in out
     code, out = check(None, "--max-state", "50000")
     assert "WARN" not in out
+
+
+def test_an_order_cap_fails_once_and_the_busiest_tick_counts_what_the_bot_sent(check):
+    code, out = check(None)
+    busiest = int(out.split("most orders in a tick ")[1].split(" ")[0])
+    assert busiest >= 2
+    code, out = check(None, "--max-orders", "1")
+    assert code == 1 and "order cap:" in out
+    assert "exceptions escaped" not in out  # dropped orders are the engine's, not the bot's
+    assert f"most orders in a tick {busiest} " in out  # what the bot sent, not the cap
