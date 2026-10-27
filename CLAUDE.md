@@ -60,6 +60,7 @@ uv run python -m experiments.zoo_h2h                              # the template
 uv run python -m experiments.adversaries                          # the template against a trapper, spoofers and a sniper (python/bots/rivals/), --resting
 uv run python -m experiments.rival_field --engine rust            # candidate settings against fields of rival archetypes (mm at three edges, taker, sniper, spoofer, trapper, a copy)
 uv run python -m experiments.leaderboard_curves --engine rust     # can the leaderboard's PnL curves tell a shared market? On the day: --read FILE --team NAME
+uv run python -m experiments.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team NAME --ours GRID.csv   # before round 4: our rank under each way the rounds combine, per risk multiplier and relative hedge
 uv run python -m experiments.quote_inside --engine rust           # make_inside (quotes nearer fair than one tick inside the book) against rivals nearer fair, and alone
 uv run python -m experiments.undercut                             # the template against a copy of itself at make_edge 0 (Wang et al.), per tick and --resting
 uv run python -m experiments.kelp_drift                            # why the template holds Kelp long: each day mirrored, Harris's test, skew 0-3

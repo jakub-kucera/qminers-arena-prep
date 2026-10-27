@@ -127,7 +127,7 @@ Ran the template in one market with DU's `round2.py`, Baguette Fromage's `Phase1
 ## [2026-10-13] query | size skew (Bouchaud et al. eq. 17.4) tested
 The template gains `size_skew`: inventory control through quote size, as in eq. 17.4.
 - **Result:** gridded against `skew` on P3 round 1 (Kelp, Resin, also under `--resting`) and P4 rounds 1–2 (Osmium, Pepper Root), it never beat 0. Price `skew` cost more. Both fit the diagnosis that Prosperity's flow is uninformed. Recorded in `IDEAS.md` and `market-making-and-inventory-skew`.
-- **Citations moved:** the new `DEFAULTS` line and `make` docstring shifted `python/bots/template.py`. Its citations in 19 wiki pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:217-249`).
+- **Citations moved:** the new `DEFAULTS` line and `make` docstring shifted `python/bots/template.py`. Its citations in 19 wiki pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:220-252`).
 
 ## [2026-10-13] query | the wall-mid definitions compared
 Settled contradictions row 2 for Prosperity data and closed the `TODO.md` item.
@@ -138,7 +138,7 @@ Settled contradictions row 2 for Prosperity data and closed the `TODO.md` item.
 - **Filed into:**
   - the wiki: `fair-value-and-wall-mid` (a per-day table), `shared-market-and-adversaries`, `reading-the-data-on-day-one`, contradictions row 2;
   - the repo: `IDEAS.md`, `ON_THE_DAY.md`, `README.md`, `CLAUDE.md`.
-- **Citations moved:** template line citations re-mapped again (`make` is now `python/bots/template.py:217-249`).
+- **Citations moved:** template line citations re-mapped again (`make` is now `python/bots/template.py:220-252`).
 
 ## [2026-10-13] query | P4 levels and vouchers measured
 Measured what the teams' P4 round 3–4 money is made of, with two committed scripts (`python/experiments/p4_levels.py`, `python/experiments/p4_vouchers.py`) on the four distinct days.
@@ -181,7 +181,7 @@ P3 round 3 treated as a first download, following `ON_THE_DAY.md`: diagnose, the
 ## [2026-10-13] lint | fixes from the code review
 Five fixes from the code review (`TODO_DONE.md`, "From the code review"): the template's error handler, `level_exit` past the level, baskets pricing legs from untouched books, `make` keeping the bid below the ask, and `--resting` no longer filling from the same orders twice.
 - **Numbers moved:** `baskets-and-fixed-sums` (held out 71k / 294k, was 83k / 281k) and `drift-and-regime-change` (210k held out, 152k with the day's mean, was 215k / 147k), both from re-running the experiments after the `level_exit` fix.
-- **Citations moved:** the template's line citations in 20 pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:421-459`). Contradictions rows 12 and 16 cited `python/bots/template.py:476-508` (`execute` and the ADAPTER) for the quoting rule; they now cite `make`.
+- **Citations moved:** the template's line citations in 20 pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:424-462`). Contradictions rows 12 and 16 cited `python/bots/template.py:479-511` (`execute` and the ADAPTER) for the quoting rule; they now cite `make`.
 
 ## [2026-10-13] lint | citation ranges into our own code
 `lint.py` now warns when a cited range into `python/bots/`, `python/arena/` or `python/experiments/` doesn't start a definition (a `def`, `class`, decorator, assignment, annotated field or dict entry): such a range has usually been left behind by an edit, and the old check only asked whether the line exists.
@@ -260,11 +260,11 @@ Downloaded by the agent from arXiv (found by the comment-field query in `referen
 
 ## [2026-10-15] restructure | the stress harness and the template's protection
 `python/arena/stress.py` implements B1's harness in [harder-rounds](concepts/harder-rounds.md); the template gains a loss stop and guards. The volatility guard is a stand-in for [online-changepoint-detection](sources/online-changepoint-detection.md)'s detector, not that algorithm.
-- **Citations moved:** the template's line citations in 32 pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:566-604`).
+- **Citations moved:** the template's line citations in 32 pages were re-mapped with a diff of the old and new file (`make` is now `python/bots/template.py:569-607`).
 
 ## [2026-10-15] restructure | Kelp's make_edge 0.5 in the template
 The template's Kelp moves to `make_edge` 0.5 (tuned on Prosperity 3 data for `worse` fills, not on the Arena; `IDEAS.md`, "Why the zoo beat the template head to head"). Five comment lines went in above it.
-- **Citations moved:** 40 of the template's line citations re-mapped with a diff of the old and new file, range ends included (`make` is now `python/bots/template.py:571-635`).
+- **Citations moved:** 40 of the template's line citations re-mapped with a diff of the old and new file, range ends included (`make` is now `python/bots/template.py:574-638`).
 
 ## [2026-10-15] restructure | queue models in the engine
 [queue-position-and-fills](concepts/queue-position-and-fills.md): `--queue back|prob|front` now exists; "What it means for our code" records the `arena.sim` check (`front` within 5% for a quote that joins the walls, `prob` blind to re-posting at the same size).
@@ -422,3 +422,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-27] query | co-evolution over the rival field's payoff matrix
 - `concepts/shared-market-and-adversaries` gets `python/experiments/rival_field.py --game`'s result (a copy choosing from the same settings; best replies and fictitious play settle on Resin 1 whenever a field of archetypes is present). No line citations into our code were added or moved.
+
+## [2026-10-27] lint | template citations re-mapped
+- `python/bots/template.py` gained three lines in PARAMS (ABIDES's `ABM`, after line 158), so every citation of a line after it moved down by 3, across 28 pages.
