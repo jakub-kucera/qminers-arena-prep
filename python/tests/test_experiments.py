@@ -522,3 +522,21 @@ def test_shortfall_reads_a_runs_csvs_and_values_fills_at_the_decision(tmp_path, 
     write_csvs(result, tmp_path / "out")
     out = run(capsys, monkeypatch, "shortfall", "--data", str(tmp_path / "data"), "--days", "1", "--results", str(tmp_path / "out"), "--delay", "2")
     assert "| KELP | quote |" in out
+
+
+def test_the_premise_check_reads_a_market_whose_order_matters():
+    from experiments import premise
+
+    pays = {"notes": "market making pays (0.4 of the spread a unit)"}
+    kind, todo = premise.verdict("X", (10_000.0, 10_200.0), pays, fires=False)
+    assert kind == "Prosperity-like" and "priors stand" in todo[0]
+    informed = {"notes": "trades move the wall mid; thin or negative market-making margin; large-tick (one-tick spread 70%)"}
+    kind, todo = premise.verdict("X", (28_000.0, 1_500_000.0), informed, fires=True)
+    assert kind == "agent-like" and any("lin_rho3" in line for line in todo) and any("gate_move" in line for line in todo)
+    large = {"notes": "large-tick (one-tick spread 100%); market making pays (0.5 of the spread a unit)"}
+    assert any("make_edge 0.5" in line for line in premise.verdict("X", (5_000.0, 5_000.0), large, fires=False)[1])
+
+
+def test_the_premise_check_runs_on_the_days_data(capsys, monkeypatch, drill_data):
+    out = run(capsys, monkeypatch, "premise", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "| ALPHA |" in out and "verdict" in out

@@ -24,6 +24,7 @@ uv run pytest python/tests/test_engine.py::test_trade_matching_at_the_same_price
 
 uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
 uv run python -m arena.diagnose 1 --data p4 --profile             # ...and each product by tenth of the day: the open's and close's spread, volatility, trades
+uv run python -m experiments.premise --data data/abides --days 1 --engine rust   # round 1's first check: is each product Prosperity-like or agent-like, and what to grid
 uv run python -m arena.backtest python/bots/template.py 1                # Prosperity 3 round 1, every day
 uv run python -m arena.backtest python/bots/template.py 1-0 --data p2    # Prosperity 2, round 1 day 0
 uv run python -m arena.backtest python/bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
