@@ -1,7 +1,7 @@
 """When is a quote worth posting? The template's passive fills, valued against the wall mid by state.
 
 usage (from the repo root): uv run python -m experiments.quote_markouts [--jobs N] [--horizon H] [--engine rust]
-       uv run python -m experiments.quote_markouts --data DIR --days 1 2 [--format F --bot FILE]
+       uv run python -m experiments.quote_markouts --data DIR --days 1 2 [--format F --bot FILE] [--set PARAMS.P="{...}"]
 
 For every passive fill of the template as committed (a market trade at our price, or a resting
 order crossed by the next snapshot), its value per unit at horizon h, against the wall mid:
@@ -22,7 +22,11 @@ States, each signed so that positive favours the fill:
   - place: the quote inside the best (alone, pennying) or at it (joining a level);
   - imbalance: sign x (Vb - Va) / (Vb + Va) at the best level (Cartea et al.'s rho);
   - momentum: sign x the wall mid's change over the last MOMENTUM ticks;
-  - inventory: whether the fill adds to the position or reduces it.
+  - inventory: whether the fill adds to the position or reduces it;
+  - autocov: the sign of the lag-1 autocovariance of the wall mid's one-tick changes over the last
+    AUTOCOV ticks (added 2026-10-27; Albers et al. §7, references/wiki/sources/market-makers-dilemma.md):
+    negative while the price oscillates, where posting against the imbalance paid there, positive
+    while it trends; zero when the wall mid didn't move (unsigned: it is a state of the market).
 
 Datasets: P2 round 1, P3 round 1, P4 rounds 1-2 (the template's tuned products), each in three
 engine modes: per tick under --match-trades all and worse, and --resting. A bin counts as a
@@ -42,6 +46,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from arena import rust
+from arena.botfile import parse_override
 from arena.cli import add_dataset_arguments, add_engine_argument, backtest, dataset_from
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
@@ -56,11 +61,21 @@ MODES = {
 }
 HORIZONS = (1, 5, 20, 100)
 MOMENTUM = 20
+AUTOCOV = 15  # ticks in the autocovariance window
 MIN_FILLS = 200  # a bin with fewer fills in a dataset and mode isn't shown
 
 
-def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bool) -> dict[str, str]:
+def autocov(wall: list[float], i: int, n: int = None) -> float:
+    """The lag-1 autocovariance of the one-tick changes of wall[i - n .. i] (n = AUTOCOV)."""
+    n = n or AUTOCOV
+    changes = [wall[k] - wall[k - 1] for k in range(i - n + 1, i + 1)]
+    mean = sum(changes) / len(changes)
+    return sum((a - mean) * (b - mean) for a, b in zip(changes, changes[1:])) / (len(changes) - 1)
+
+
+def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bool, cov: float) -> dict[str, str]:
     return {
+        "autocov": "negative" if cov < -1e-12 else "positive" if cov > 1e-12 else "zero",
         "spread": f"{spread:g}" if spread <= 8 else ">8",
         "place": place,
         "imbalance": "favours" if imbalance > 0.2 else "against" if imbalance < -0.2 else "even",
@@ -71,6 +86,7 @@ def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bo
 
 ENGINE = ["python"]  # set in each worker by _init (--engine)
 FORMAT = "prosperity"  # --data sets it, with FMT, TEMPLATE and DATASETS
+OVERRIDES: dict = {}  # --set, for the bot in every run
 
 
 def _init(engine: str, settings: dict | None = None) -> None:
@@ -91,7 +107,7 @@ def run(job: tuple[str, str, str]) -> list[dict]:
     dataset, mode, day_name = job
     data, days = DATASETS[dataset]
     (day,) = [d for d in FMT.load_days(FMT.resolve_data_dir(data), days) if d.name == day_name]
-    (result,) = backtest(day, [("you", TEMPLATE, {}, False)], MODES[mode], ENGINE[0], fields=("fills",), format_name=FORMAT)
+    (result,) = backtest(day, [("you", TEMPLATE, OVERRIDES, False)], MODES[mode], ENGINE[0], fields=("fills",), format_name=FORMAT)
     index = {tick.timestamp: i for i, tick in enumerate(day.ticks)}
     walls = {p: [] for p in day.products}
     for tick in day.ticks:
@@ -108,7 +124,7 @@ def run(job: tuple[str, str, str]) -> list[dict]:
             continue
         i = index[fill.timestamp] - (1 if fill.source == "cross" else 0)
         book, wall = day.ticks[i].books.get(fill.product), walls[fill.product]
-        if i < MOMENTUM or book is None or not (book.bids and book.asks) or wall[i] is None:
+        if i < MOMENTUM or book is None or not (book.bids and book.asks) or wall[i - MOMENTUM] is None:
             continue
         sign = 1 if fill.quantity > 0 else -1
         bid, ask = book.bids[0], book.asks[0]
@@ -118,7 +134,7 @@ def run(job: tuple[str, str, str]) -> list[dict]:
             "dataset": dataset, "mode": mode, "day": day_name, "product": fill.product, "units": abs(fill.quantity),
             "edge": sign * (wall[i] - fill.price),
             **_bins((ask[0] - bid[0]) / _tick(day, fill.product), place, sign * (bid[1] - ask[1]) / (bid[1] + ask[1]),
-                    sign * (wall[i] - wall[i - MOMENTUM]), sign * before >= 0),
+                    sign * (wall[i] - wall[i - MOMENTUM]), sign * before >= 0, autocov(wall, i)),
         }
         for h in HORIZONS:
             j = min(i + h, len(wall) - 1)
@@ -161,6 +177,8 @@ def main() -> None:
     parser.add_argument("--horizon", type=int, default=20, choices=HORIZONS, help="the horizon of the total and of the day test (default 20)")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     add_dataset_arguments(parser, products=False)
+    parser.add_argument("--set", dest="overrides", action="append", default=[], metavar="PATH=VALUE",
+                        help="override a bot global in every run, e.g. a PARAMS entry for a product the bot doesn't list (repeatable)")
     args = parser.parse_args()
     try:
         dataset = dataset_from(args)
@@ -171,6 +189,9 @@ def main() -> None:
     settings = {}
     if dataset:
         settings = {"DATASETS": {dataset.name: (dataset.data, list(dataset.days))}, "TEMPLATE": Path(dataset.bot), "FORMAT": dataset.format}
+    if args.overrides:
+        settings["OVERRIDES"] = dict(parse_override(text) for text in args.overrides)
+    if settings:
         _init(args.engine, settings)
     jobs = []
     for dataset, (data, days) in DATASETS.items():
@@ -181,7 +202,7 @@ def main() -> None:
     header = (f"  {'data':<8} {'mode':<8} {'product':<22} {'state':<9} {'fills':>7} {'units':>8}  {'edge':>6}  "
               + "  ".join(f"{'move' + str(h):>6}" for h in HORIZONS) + f"  {'total':>6}  sign of the total per day")
     print(f"Passive fills of the template, per unit against the wall mid; total = edge + move{args.horizon}.\n")
-    for feature in ("spread", "place", "imbalance", "momentum", "inventory"):
+    for feature in ("spread", "place", "imbalance", "momentum", "inventory", "autocov"):
         print(f"by {feature}:")
         print(header)
         print("\n".join(table(rows, feature, args.horizon)))

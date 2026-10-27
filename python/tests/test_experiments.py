@@ -389,6 +389,18 @@ def test_repeats_finds_a_taker_that_comes_back_the_next_day():
     assert repeats.flagged(rows[:1]) == ["all", "small", "big"] and repeats.flagged(repeats.study(days[:2], "B")) == []
     assert repeats.predicted(days[:2], "R") == [(i * 100, 1 if q > 0 else -1, abs(q), 1) for i, q in sorted(taker.items())]
 
+
+def test_quote_markouts_autocov_is_negative_for_a_bounce_and_positive_for_runs():
+    from experiments.quote_markouts import autocov
+
+    import itertools
+
+    bounce = [100 + (k % 2) for k in range(20)]
+    runs = [100, *itertools.accumulate([0, 0, 0, 1, 1, 1] * 3, initial=100)]  # moves that come in runs of three
+    assert autocov(bounce, 19) < 0 and autocov([100 + k for k in range(20)], 19) == 0
+    assert autocov(runs, len(runs) - 1) > 0
+
+
 def test_fill_curve_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "fill_curve", "--data", drill_data, "--days", "all", "--format", "drill", "--products", "ALPHA")
     assert "### drill all ALPHA" in out and "The fill-size curve" in out
