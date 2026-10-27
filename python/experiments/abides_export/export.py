@@ -17,6 +17,11 @@ Writes to DIR:
                    the incoming order), passive_agent_type, aggressor_agent_type
   fundamental.csv  the oracle's fundamental value through the day (time_ns, value), the answer key
   meta.json        the seed, the config's settings and counts
+  agent.json       with --bot: our template's PnL in the market (cents, its position at the last mid), end
+                   position, lots filled and calls (template_agent.py)
+
+Every run adds template_agent.TemplateAgent, idle without --bot, so that a run with the bot and the
+run it is compared with share ABIDES's latency draws: the market is the same until our first order.
 """
 
 import argparse
@@ -32,6 +37,9 @@ import pandas as pd
 from abides_core import abides
 from abides_core.utils import str_to_ns
 from abides_markets.configs import rmsc04
+from abides_markets.utils import generate_latency_model
+
+from template_agent import TemplateAgent, load_template
 
 LEVELS = 5
 
@@ -41,11 +49,19 @@ def main():
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--end", default="16:00:00", help="the market's close (RMSC04's default is 10:00:00)")
+    parser.add_argument("--bot", help="a template file to trade in the market (template_agent.py)")
+    parser.add_argument("--set", default="{}", help="its overrides, a JSON object of dotted paths")
+    parser.add_argument("--resting", action="store_true", help="keep the quotes that haven't moved, as where orders rest")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
     started = time.time()
     config = rmsc04.build_config(seed=args.seed, end_time=args.end, stdout_log_level="WARNING", log_orders=False)
+    template = load_template(args.bot, json.loads(args.set)) if args.bot else None
+    agent = TemplateAgent(len(config["agents"]), "ABM", template, resting=args.resting,
+                          random_state=np.random.RandomState(seed=args.seed + 10_000))
+    config["agents"].append(agent)
+    config["agent_latency_model"] = generate_latency_model(len(config["agents"]))
     end_state = abides.run(config, kernel_random_state=np.random.RandomState(seed=args.seed))
     exchange = end_state["agents"][0]
     book = exchange.order_books["ABM"]
@@ -103,6 +119,8 @@ def main():
             "trades_without_price": missing, "seconds": int((close_ns - open_ns) // 1_000_000_000),
             "runtime_s": round(time.time() - started, 1)}
     (args.out / "meta.json").write_text(json.dumps(meta, indent=1))
+    if template is not None:
+        (args.out / "agent.json").write_text(json.dumps(end_state["agents"][-1].result(), indent=1))
     print(json.dumps(meta))
 
 

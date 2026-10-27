@@ -56,7 +56,6 @@ day tools in parallel, and a summary last. Each new feature carries its result o
 
 Each idea has an untested row in `IDEAS.md`.
 - **A Kalman fair mode** (a filter with gaps, a trend and an error bar): if the ABIDES days show the smoothed fair set by the Kalman formula falls short.
-- **Our bot as an agent inside ABIDES** (a market that reacts to us, not a recording): if the ABIDES replay and `arena.sim` disagree enough to matter.
 - **Fitting `arena.sim` to the download** (method of moments over a preset's parameters): last, if time is left; worthless if the download is unlike our presets.
 - **Tao's spoof detector made exact (R6's second half):** if probe 22 shows other teams' orders in the feed.
 - **Cross-product terms (R17a–c):** an informed signal on a leg moving the basket's level, a signal traded through the baskets' limits, two baskets' premium difference: if a round has baskets or named traders.

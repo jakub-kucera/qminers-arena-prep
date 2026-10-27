@@ -193,6 +193,7 @@ Read `README.md` (the post-mortem, 10 minutes) and `COMPETITION_README.md` (the 
 ### `abides-jpmc/`
 - **Run, never imported.** `uv run python -m experiments.abides_days setup` makes its own environment (`data/abides/env`, Python 3.10, numpy, pandas, scipy), and `generate --days N` runs `python/experiments/abides_export/export.py` under it for seeds 1..N, then converts each day to the Prosperity layout in `data/abides/` (gitignored; the seeds make them again). The repo's code and tests never import it.
 - **Its own pins don't install on Apple silicon** (pomegranate 0.14, pandas 1.2, gym, ray): the environment takes current wheels instead, and `abides_export/pomegranate.py` stands in for the one class RMSC04 uses, its order-size mixture (same weights and components, different draws).
+- **The template inside the market:** `experiments.abides_market` runs it as an ABIDES agent (`python/experiments/abides_export/template_agent.py`: the template's STRATEGY and EXECUTION once a second, with a stub `datamodel`), so the agents see its orders, and compares that with the same day replayed.
 - **What a converted day is:** a recording, one tick a second (23,400 a day), the book's top three levels in cents and the trades of the next second. It tests the book's shape and the agents' information, not a market that reacts to our orders.
 
 ### Read online, not cloned

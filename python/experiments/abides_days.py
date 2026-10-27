@@ -64,14 +64,14 @@ def setup() -> None:
     subprocess.run(["uv", "pip", "install", "--python", str(ENV / "bin" / "python"), *REQUIREMENTS], check=True)
 
 
-def export(seed: int, out: Path, end: str = "16:00:00") -> dict:
-    """Runs one RMSC04 day under ABIDES's Python; returns its meta.json."""
+def export(seed: int, out: Path, end: str = "16:00:00", extra: list[str] | None = None) -> dict:
+    """Runs one RMSC04 day under ABIDES's Python (extra: export.py's --bot, --set, --resting); returns its meta.json."""
     python = ENV / "bin" / "python"
     if not python.exists():
         sys.exit("needs ABIDES's environment: uv run python -m experiments.abides_days setup")
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(
         [str(ABIDES / "abides-core"), str(ABIDES / "abides-markets"), str(EXPORT)])}
-    subprocess.run([str(python), str(EXPORT / "export.py"), "--seed", str(seed), "--out", str(out), "--end", end],
+    subprocess.run([str(python), str(EXPORT / "export.py"), "--seed", str(seed), "--out", str(out), "--end", end, *(extra or [])],
                    check=True, env=env, cwd=out.parent, stdout=subprocess.DEVNULL)
     return json.loads((out / "meta.json").read_text())
 

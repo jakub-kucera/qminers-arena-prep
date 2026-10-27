@@ -79,6 +79,7 @@ uv run python -m experiments.snooping_null_rates --engine rust    # how often SP
 uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw; part 2 across ten fill-model scenarios
 uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
 uv run python -m experiments.abides_days setup && uv run python -m experiments.abides_days generate --days 10   # ABIDES RMSC04 days in data/abides (--data data/abides), a generator we didn't write
+uv run python -m experiments.abides_market --days 10 [--set PARAMS.ABM.lin_rho3=3 --resting]   # the template trading inside ABIDES's market, against the same day replayed
 uv run python -m experiments.rust_bench                           # the Rust port (rust/, needs cargo) against ours: every twin's parity, then speed
 uv run python -m experiments.rust_bench --parity-only --record    # after changing a twin (rust/twins.json): check it, then record its hash
 ```
