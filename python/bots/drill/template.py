@@ -37,6 +37,15 @@ DEFAULTS = {
     "size_skew": 0.0,  # scale each quote by max(1 +/- size_skew * gap / limit, 0): the side that adds to the gap shrinks
     "target": 0,  # position to hold: clear and skew work inventory toward it (e.g. long with a steady drift)
     "make_size": None,  # largest quote; None quotes all remaining room under the limit
+    # Per side, in place of take_edge and make_edge (None: the shared one): an asymmetric market,
+    # where dips snap back faster than rips or takers lean one way (IDEAS.md, "Per-side edges").
+    "take_edge_buy": None,
+    "take_edge_sell": None,
+    "make_edge_buy": None,
+    "make_edge_sell": None,
+    "make_levels": 1,  # split each side's quote over this many prices, make_step apart, outward from the best one
+    "make_step": 1,
+    "take_reserve": 0,  # quotes keep this much of the limit free for takes: they fill the position up to limit - take_reserve
     # A price the product returns to (see level_target): a number from earlier days, or "day" for
     # the mean of the day so far. None turns it off. While on, it sets target instead.
     "level": None,
@@ -93,6 +102,10 @@ DEFAULTS = {
     # that liquidates what is left at a bad price.
     "flatten_from": None,
     "flatten_edge": None,
+    # A small end position is cheaper kept than crossed (Capponi et al.): with flatten_keep, a position
+    # within it is held (no takes, quotes flatten_widen further out) and a larger one worked down to it.
+    "flatten_keep": None,
+    "flatten_widen": 0,
     "reduce_only": False,  # quote only the side that moves the position toward target (set while flattening)
     "vol_guard": None,  # fall back to plain market making while recent volatility is this many times the day's
 }
@@ -208,10 +221,18 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
     spread = book.asks[0][0] - book.bids[0][0] if book.bids and book.asks else 0
     if p["flatten_from"] is not None and market.timestamp >= p["flatten_from"]:
         edge = p["flatten_edge"] if p["flatten_edge"] is not None else spread
-        p = {**p, "target": 0, "take_edge": math.inf, "clear_edge": edge, "reduce_only": True}
+        keep = p["flatten_keep"]
+        if keep is not None and abs(position) <= keep:  # held to the close, quoted wider
+            widen = {k: p[k] + p["flatten_widen"] for k in ("make_edge", "make_edge_buy", "make_edge_sell") if p[k] is not None}
+            p = {**p, **widen, "target": position, "take_edge": math.inf, "take_edge_buy": None, "take_edge_sell": None,
+                 "clear_edge": -math.inf, "reduce_only": False}
+        else:
+            target = 0 if keep is None else int(math.copysign(keep, position))
+            p = {**p, "target": target, "take_edge": math.inf, "take_edge_buy": None, "take_edge_sell": None, "clear_edge": edge,
+                 "reduce_only": True}
     elif p["stop_loss"] is not None and loss_stop(fair, position, market.fills.get(product, []), market.timestamp, p, memory):
         edge = p["stop_edge"] if p["stop_edge"] is not None else spread
-        p = {**p, "target": 0, "take_edge": math.inf, "make_size": 0, "clear_edge": edge}
+        p = {**p, "target": 0, "take_edge": math.inf, "take_edge_buy": None, "take_edge_sell": None, "make_size": 0, "clear_edge": edge}
     elif p["vol_guard"] is not None and regime_guard(fair, p, memory):
         pass  # plain market making toward the static target
     elif p["basket"] is not None:
@@ -603,13 +624,15 @@ def hedge_target(product: str, p: dict, market: Market) -> int:
 
 
 def take(book: Book, fair: float, p: dict, plan: Plan) -> None:
-    """Trade against book orders priced at least take_edge better than fair."""
+    """Trade against book orders priced at least take_edge (each side's own, if set) better than fair."""
+    buy_edge = p["take_edge"] if p["take_edge_buy"] is None else p["take_edge_buy"]
+    sell_edge = p["take_edge"] if p["take_edge_sell"] is None else p["take_edge_sell"]
     for level in book.asks:
-        if level[0] > fair - p["take_edge"]:
+        if level[0] > fair - buy_edge:
             break
         level[1] -= plan.buy(level[0], level[1])
     for level in book.bids:
-        if level[0] < fair + p["take_edge"]:
+        if level[0] < fair + sell_edge:
             break
         level[1] -= plan.sell(level[0], level[1])
 
@@ -648,8 +671,8 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
     best_bid = next((price for price, volume in book.bids if volume > 0), None)
     best_ask = next((price for price, volume in book.asks if volume > 0), None)
 
-    bid = math.floor(fair - p["make_edge"])
-    ask = math.ceil(fair + p["make_edge"])
+    bid = math.floor(fair - (p["make_edge"] if p["make_edge_buy"] is None else p["make_edge_buy"]))
+    ask = math.ceil(fair + (p["make_edge"] if p["make_edge_sell"] is None else p["make_edge_sell"]))
     if best_bid is not None and p["make_inside"] is not None:
         bid = min(bid, best_bid + p["make_inside"])
     if best_ask is not None and p["make_inside"] is not None:
@@ -673,8 +696,12 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
     sell = _scaled(plan.sell_room if size is None else size, 1 + gap)
     if p["reduce_only"]:
         buy, sell = min(buy, max(p["target"] - plan.net, 0)), min(sell, max(plan.net - p["target"], 0))
-    plan.buy(bid, buy, quote=True)
-    plan.sell(ask, sell, quote=True)
+    if p["take_reserve"]:
+        buy, sell = min(buy, max(plan.buy_room - p["take_reserve"], 0)), min(sell, max(plan.sell_room - p["take_reserve"], 0))
+    levels, step = p["make_levels"], p["make_step"]
+    for k in range(levels):  # the first price gets the remainder of an uneven split
+        plan.buy(bid - k * step, buy // levels + (buy % levels if k == 0 else 0), quote=True)
+        plan.sell(ask + k * step, sell // levels + (sell % levels if k == 0 else 0), quote=True)
 
 
 def _scaled(size: int, factor: float) -> int:

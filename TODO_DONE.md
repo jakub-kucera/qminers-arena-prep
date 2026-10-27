@@ -276,6 +276,12 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 ## The edge plan (2026-10-27)
 
+- [x] **Template: the close (R13) and a soft limit (R14).** A `flatten_keep` threshold (keep a small end position by widening, work a large one down; Capponi et al.), and a cap on the passive position that keeps room for takes. Done when: both are in the template, twin and drill template, gridded under `--mark touch` (the close) and `all`/`worse`/`--resting`/`--vs` (the limit), in `IDEAS.md`.
+  - **Done 2026-10-27:** `flatten_keep`, `flatten_widen`, `take_reserve`, both `dropped here` (`IDEAS.md`, "Keeping a small position at the close", "A take reserve").
+
+- [x] **Template: per-side edges (R10), then laddered quotes.** `make_edge` and `take_edge` per side (or one `side_bias`), and asymmetric level bands; then a `ladder` make mode (sizes at `make_edge`, +1, +2). Per-side first: a symmetric ladder lost 21,000 on Hydrogel against asymmetric quoting (Ryan Challman's claim). Done when: each is in the template, the twin and the drill template, gridded on P3 Kelp, P4 Pepper Root, `arena.sim` and the ABIDES days, kept only if it beats the symmetric best on held-out days.
+  - **Done 2026-10-27:** `make_edge_buy`/`_sell`, `take_edge_buy`/`_sell`, `make_levels`, `make_step`, in the template, the twin and the drill template; per-side edges `dropped here`, the ladder `open` (+23% against a resting copy on Kelp; `IDEAS.md`, "Per-side edges", "Laddered quotes"). Asymmetric level bands were left out: no product's per-side edges paid.
+
 - [x] **Engine: the fee's unit, maker and taker fees, `--deplete`, order caps.** One after another, each in Python and Rust with parity recorded.
   - Done 2026-10-27 (`41dedb3`). The fee's unit (the third audit's F1): `--fee` is charged in the engine's integer units, but ON_THE_DAY says the data's price units; with decimal prices (`snapshots`, `orderlog`) a fee of 0.01 is charged 100 times too small. Divide by each product's unit.
   - Done 2026-10-27 (`--maker-fee`, `--maker-fee-bps`; a fill's `source` already names the aggressor). Maker and taker fees: rebates allowed; markouts split by take and make.

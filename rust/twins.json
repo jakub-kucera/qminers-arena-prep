@@ -79,7 +79,7 @@
   "python/bots/template.py": {
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
-    "sha256": "43922588a04494ec2b89915740617a405ddabd4af3e004f5c8d93563a1263c19",
+    "sha256": "837e8f4c25e16e28a46855a38b502fcf646da6da8dd0a116a33546ac865a3351",
     "reads": [
       "DEFAULTS",
       "PARAMS"
@@ -89,7 +89,7 @@
     "kind": "drill_template",
     "format": "drill",
     "rust": "rust/src/bots/drill/template.rs",
-    "sha256": "a2f3350215350447f5b757a7074da77cb7c47913508c0d1a0ef67d0c8f95eeea",
+    "sha256": "85f42efbfd5cc1b7443a76ea8ea1122c91f1e492e1e3e3347bc66566b7a6b580",
     "reads": [
       "DEFAULTS",
       "PARAMS"

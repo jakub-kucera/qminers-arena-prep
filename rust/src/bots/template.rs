@@ -89,6 +89,13 @@ struct P {
     size_skew: f64,
     target: i64,
     make_size: Option<i64>,
+    take_edge_buy: Option<f64>,
+    take_edge_sell: Option<f64>,
+    make_edge_buy: Option<f64>,
+    make_edge_sell: Option<f64>,
+    make_levels: i64,
+    make_step: i64,
+    take_reserve: i64,
     level: Level,
     level_weight: Option<f64>,
     level_band: f64,
@@ -123,6 +130,8 @@ struct P {
     stop_edge: Option<f64>,
     flatten_from: Option<f64>,
     flatten_edge: Option<f64>,
+    flatten_keep: Option<f64>,
+    flatten_widen: f64,
     reduce_only: bool,
     vol_guard: Option<f64>,
     // The names above as the day's product indices (None: not on the day), set by begin_day.
@@ -242,6 +251,13 @@ impl P {
             size_skew: r.num("size_skew")?,
             target: r.int("target")?,
             make_size: r.opt_int("make_size")?,
+            take_edge_buy: r.opt_num("take_edge_buy")?,
+            take_edge_sell: r.opt_num("take_edge_sell")?,
+            make_edge_buy: r.opt_num("make_edge_buy")?,
+            make_edge_sell: r.opt_num("make_edge_sell")?,
+            make_levels: r.int("make_levels")?,
+            make_step: r.int("make_step")?,
+            take_reserve: r.int("take_reserve")?,
             level,
             level_weight: r.opt_num("level_weight")?,
             level_band: r.num("level_band")?,
@@ -276,6 +292,8 @@ impl P {
             stop_edge: r.opt_num("stop_edge")?,
             flatten_from: r.opt_num("flatten_from")?,
             flatten_edge: r.opt_num("flatten_edge")?,
+            flatten_keep: r.opt_num("flatten_keep")?,
+            flatten_widen: r.num("flatten_widen")?,
             reduce_only: r.value("reduce_only")?.truthy(),
             vol_guard: r.opt_num("vol_guard")?,
             follow_id: None,
@@ -289,7 +307,10 @@ impl P {
 #[derive(Clone, Copy)]
 struct Eff {
     target: i64,
-    take_edge: f64,
+    take_buy: f64, // take_edge_buy, else take_edge
+    take_sell: f64,
+    make_buy: f64, // make_edge_buy, else make_edge
+    make_sell: f64,
     clear_edge: f64,
     make_size: Option<i64>,
     reduce_only: bool,
@@ -412,11 +433,28 @@ fn trade_product(product: usize, book: &Book, position: i64, p: &P, memory: &mut
     let fair = if p.smile.is_some() { smile_fair(book, p, memory, market) } else { fair_value(book, p, memory) };
     let Some(mut fair) = fair else { return plan };
     let spread = if !book.bids.is_empty() && !book.asks.is_empty() { book.asks[0].0 - book.bids[0].0 } else { 0 };
-    let mut e = Eff { target: p.target, take_edge: p.take_edge, clear_edge: p.clear_edge, make_size: p.make_size, reduce_only: p.reduce_only };
+    let mut e = Eff {
+        target: p.target,
+        take_buy: p.take_edge_buy.unwrap_or(p.take_edge),
+        take_sell: p.take_edge_sell.unwrap_or(p.take_edge),
+        make_buy: p.make_edge_buy.unwrap_or(p.make_edge),
+        make_sell: p.make_edge_sell.unwrap_or(p.make_edge),
+        clear_edge: p.clear_edge,
+        make_size: p.make_size,
+        reduce_only: p.reduce_only,
+    };
+    let inf = f64::INFINITY;
     if p.flatten_from.is_some_and(|from| market.timestamp as f64 >= from) {
-        e = Eff { target: 0, take_edge: f64::INFINITY, clear_edge: p.flatten_edge.unwrap_or(spread as f64), reduce_only: true, ..e };
+        let edge = p.flatten_edge.unwrap_or(spread as f64);
+        e = match p.flatten_keep {
+            Some(keep) if position.abs() as f64 <= keep => Eff {
+                target: position, take_buy: inf, take_sell: inf, make_buy: e.make_buy + p.flatten_widen, make_sell: e.make_sell + p.flatten_widen,
+                clear_edge: -inf, reduce_only: false, ..e
+            },
+            keep => Eff { target: keep.map_or(0, |k| k.copysign(position as f64) as i64), take_buy: inf, take_sell: inf, clear_edge: edge, reduce_only: true, ..e },
+        };
     } else if p.stop_loss.is_some() && loss_stop(fair, position, market.fills, market.timestamp, p, memory) {
-        e = Eff { target: 0, take_edge: f64::INFINITY, make_size: Some(0), clear_edge: p.stop_edge.unwrap_or(spread as f64), ..e };
+        e = Eff { target: 0, take_buy: inf, take_sell: inf, make_size: Some(0), clear_edge: p.stop_edge.unwrap_or(spread as f64), ..e };
     } else if p.vol_guard.is_some() && regime_guard(fair, p, memory) {
         // plain market making toward the static target
     } else if p.basket.is_some() {
@@ -774,13 +812,13 @@ fn hedge_target(product: usize, p: &P, market: &Market) -> i64 {
 
 fn take(book: &mut Levels, fair: f64, e: &Eff, plan: &mut Plan) {
     for level in book.asks.iter_mut() {
-        if level[0] as f64 > fair - e.take_edge {
+        if level[0] as f64 > fair - e.take_buy {
             break;
         }
         level[1] -= plan.buy(level[0], level[1], false);
     }
     for level in book.bids.iter_mut() {
-        if (level[0] as f64) < fair + e.take_edge {
+        if (level[0] as f64) < fair + e.take_sell {
             break;
         }
         level[1] -= plan.sell(level[0], level[1], false);
@@ -812,8 +850,8 @@ fn make(book: &Levels, fair: f64, p: &P, e: &Eff, plan: &mut Plan) {
     let best_bid = book.bids.iter().find(|l| l[1] > 0).map(|l| l[0]);
     let best_ask = book.asks.iter().find(|l| l[1] > 0).map(|l| l[0]);
 
-    let mut bid = (fair - p.make_edge).floor() as i64;
-    let mut ask = (fair + p.make_edge).ceil() as i64;
+    let mut bid = (fair - e.make_buy).floor() as i64;
+    let mut ask = (fair + e.make_sell).ceil() as i64;
     if let (Some(best), Some(inside)) = (best_bid, p.make_inside) {
         bid = bid.min(best + inside);
     }
@@ -845,8 +883,16 @@ fn make(book: &Levels, fair: f64, p: &P, e: &Eff, plan: &mut Plan) {
         buy = buy.min((e.target - plan.net()).max(0));
         sell = sell.min((plan.net() - e.target).max(0));
     }
-    plan.buy(bid, buy, true);
-    plan.sell(ask, sell, true);
+    if p.take_reserve != 0 {
+        buy = buy.min((plan.buy_room() - p.take_reserve).max(0));
+        sell = sell.min((plan.sell_room() - p.take_reserve).max(0));
+    }
+    let (levels, step) = (p.make_levels, p.make_step);
+    for k in 0..levels {
+        // the first price gets the remainder of an uneven split, as Python's // and %
+        plan.buy(bid - k * step, buy.div_euclid(levels) + if k == 0 { buy.rem_euclid(levels) } else { 0 }, true);
+        plan.sell(ask + k * step, sell.div_euclid(levels) + if k == 0 { sell.rem_euclid(levels) } else { 0 }, true);
+    }
 }
 
 fn scaled(size: i64, factor: f64) -> i64 {

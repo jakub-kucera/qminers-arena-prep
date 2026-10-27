@@ -49,7 +49,7 @@ def test_the_twin_hash_counts_code_not_comments_docstrings_or_the_settings_rust_
     ]
     assert all(changed != source for changed in same)
     assert [rust.code_hash(changed, reads) for changed in same] == [before] * len(same)
-    code = source.replace("if level[0] > fair - p[\"take_edge\"]:", "if level[0] >= fair - p[\"take_edge\"]:")
+    code = source.replace("if level[0] > fair - buy_edge:", "if level[0] >= fair - buy_edge:")
     assert code != source and rust.code_hash(code, reads) != before
     # The settings count where Rust doesn't read them from the file: a twin without `reads` (the
     # engine, the zoo) hashes its constants.
