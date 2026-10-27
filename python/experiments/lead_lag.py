@@ -1,11 +1,11 @@
 """Does one product's price lead another's? A lead-lag table for any products, from the data alone.
 
 usage (from the repo root): uv run python -m experiments.lead_lag
-       uv run python -m experiments.lead_lag --data DIR --days 1 2 [--format F --products A,B]
+       uv run python -m experiments.lead_lag --data DIR --days 1 2 [--format F --products A,B] [--horizons 20,50,100,200] [--lags 250]
 
 Each product's price is its wall mid (the mid when a side has no level), carried forward over
 ticks without a book, in the product's ticks (Day.info). For every ordered pair (A, B) and each
-horizon h in HORIZONS, at every tick where A's price moved:
+horizon h in HORIZONS (or --horizons), at every tick where A's price moved:
 
   follow    B's mean move over the next h ticks, signed by A's move (in B's ticks), less B's mean
             move over h ticks that day: what B does after A moves, beyond a drift both share. Compare it with B's half-spread: a lead worth trading moves B by more
@@ -13,6 +13,13 @@ horizon h in HORIZONS, at every tick where A's price moved:
   own       the same for B after B's own move: a market whose price bounces shows a negative
             `own` (the bid-ask bounce), and a lead must beat that baseline to add anything.
   corr      the correlation of A's one-tick change with B's next h ticks' change, over all ticks.
+
+With --lags K, a second test for a lead at one exact lag: corr(ΔA_t, ΔB_{t+k}) of the one-tick changes
+for every k from 1 to K, pooled over the days. A pair is listed when its largest |corr| reaches LAG_Z/√n
+with the same sign on every day; with it, B's ticks per A tick at that lag, and how far B's next k ticks
+are predicted from A's last k (that slope times A's k-tick sd) against B's half-spread. `follow` can't
+see such a lead at a long horizon: a small exact lag is diluted in B's whole move. The cost grows with
+pairs × K, so give --products a family.
 
 A pair is listed when its `follow` at the longest horizon has the same sign on every day, a t-statistic
 of at least T_STAT (divided by the square root of the horizon, since consecutive windows overlap) and
@@ -31,6 +38,7 @@ from __future__ import annotations
 import argparse
 import math
 import statistics
+from operator import mul
 
 from arena.cli import add_dataset_arguments, dataset_from
 from arena.formats import FORMATS
@@ -44,6 +52,7 @@ DATASETS = [  # (data alias, round, products)
 HORIZONS = (1, 5, 20)
 MIN_FOLLOW = 0.25  # a pair is listed when B follows A by at least this share of B's half-spread at the longest horizon
 T_STAT = 3.0  # ...and its follow's |mean / standard error| is at least this
+LAG_Z = 4.5  # --lags lists a pair whose largest |corr| over the lags reaches this many standard errors (1/√n)
 
 
 def prices(day: Day, product: str) -> tuple[list[float], float | None]:
@@ -95,7 +104,7 @@ def correlation(a: list[float], b: list[float], h: int) -> float | None:
         return None
 
 
-def study(days: list[Day], products: list[str]) -> dict:
+def study(days: list[Day], products: list[str], horizons: tuple[int, ...] = HORIZONS) -> dict:
     """Per day, every product's prices; then the same-tick correlations and, per ordered pair and
     horizon, the follow pooled and per day, the own baseline and the correlation."""
     series = [{p: prices(day, p) for p in products} for day in days]
@@ -108,7 +117,7 @@ def study(days: list[Day], products: list[str]) -> dict:
     pairs = {}
     for a in products:
         for b in products:
-            for h in HORIZONS:
+            for h in horizons:
                 per_day = [follow(s[a][0], s[b][0], h) for s in series]
                 total, squares, n = (sum(f[k] for f in per_day) for k in range(3))
                 own = [follow(s[b][0], s[b][0], h) for s in series]
@@ -124,13 +133,13 @@ def study(days: list[Day], products: list[str]) -> dict:
                     "own": own_total / own_n if own_n else None,
                     "corr": statistics.fmean(corrs) if corrs else None,
                 }
-    return {"half": half, "same": same, "pairs": pairs}
+    return {"half": half, "same": same, "pairs": pairs, "horizons": tuple(horizons)}
 
 
 def leads(result: dict, products: list[str]) -> list[tuple[str, str]]:
     """The ordered pairs whose follow at the longest horizon keeps its sign every day and is at least
     MIN_FOLLOW of B's half-spread, largest first."""
-    h = HORIZONS[-1]
+    h = result["horizons"][-1]
     found = []
     for a in products:
         for b in products:
@@ -147,6 +156,71 @@ def leads(result: dict, products: list[str]) -> list[tuple[str, str]]:
     return [(a, b) for _, a, b in sorted(found, reverse=True)]
 
 
+def lagged(xs: list[list[float]], ys: list[list[float]], lags) -> tuple[dict[int, float], list[dict[int, float]], int]:
+    """corr(Δx_t, Δy_{t+k}) for each k in lags: pooled over the days (each day's changes de-meaned), per
+    day, and the number of changes."""
+    num: dict[int, float] = {k: 0.0 for k in lags}
+    xx = yy = 0.0
+    n = 0
+    per_day = []
+    for x, y in zip(xs, ys):
+        dx = [b - a for a, b in zip(x, x[1:])]
+        dy = [b - a for a, b in zip(y, y[1:])]
+        if len(dx) < 2:
+            continue
+        mx, my = statistics.fmean(dx), statistics.fmean(dy)
+        dx = [v - mx for v in dx]
+        dy = [v - my for v in dy]
+        sxx, syy = sum(map(mul, dx, dx)), sum(map(mul, dy, dy))
+        xx, yy, n = xx + sxx, yy + syy, n + len(dx)
+        day = {}
+        for k in lags:
+            value = sum(map(mul, dx[:len(dx) - k], dy[k:]))
+            num[k] += value
+            day[k] = value / math.sqrt(sxx * syy) if sxx and syy else 0.0
+        per_day.append(day)
+    norm = math.sqrt(xx * yy)
+    return {k: v / norm if norm else 0.0 for k, v in num.items()}, per_day, n
+
+
+def lag_scan(days: list[Day], products: list[str], max_lag: int) -> list[dict]:
+    """The ordered pairs whose one-tick changes correlate at one exact lag (1..max_lag) beyond LAG_Z/√n,
+    with the same sign every day, largest first."""
+    loaded = {p: [prices(day, p) for day in days] for p in products}
+    series = {p: [xs for xs, _ in loaded[p]] for p in products}
+    half = {p: statistics.median([h for _, h in loaded[p] if h is not None] or [0.0]) for p in products}
+    sd = {}
+    for p in products:
+        moves = [b - a for xs in series[p] for a, b in zip(xs, xs[1:])]
+        sd[p] = statistics.pstdev(moves) if len(moves) > 1 else 0.0
+    found = []
+    for a in products:
+        for b in products:
+            if a == b or not sd[a] or not sd[b]:
+                continue
+            corr, per_day, n = lagged(series[a], series[b], range(1, max_lag + 1))
+            k = max(corr, key=lambda k: abs(corr[k]))
+            days_ = [d[k] for d in per_day]
+            if n and abs(corr[k]) >= LAG_Z / math.sqrt(n) and (all(d > 0 for d in days_) or all(d < 0 for d in days_)):
+                slope = corr[k] * sd[b] / sd[a]
+                found.append({"a": a, "b": b, "lag": k, "corr": corr[k], "days": days_, "n": n, "slope": slope,
+                              "predicted": abs(slope) * sd[a] * math.sqrt(k), "half": half[b]})
+    return sorted(found, key=lambda r: -abs(r["corr"]))
+
+
+def lag_report(found: list[dict], max_lag: int) -> str:
+    lines = ["", f"Exact lags: corr(ΔA at t, ΔB at t + k) for k = 1–{max_lag}, listed when the largest reaches {LAG_Z:g}/√n "
+             "with one sign every day; B's next k ticks predicted from A's last k (B ticks per A tick × A's k-tick sd):", ""]
+    if not found:
+        return "\n".join(lines + ["none"])
+    lines += ["| A -> B | lag | corr | per day | √n × corr | B ticks per A tick | predicted over the lag | B's half-spread |",
+              "|---|---|---|---|---|---|---|---|"]
+    for r in found:
+        lines.append(f"| {r['a']} -> {r['b']} | {r['lag']} | {r['corr']:+.4f} | {' / '.join(f'{d:+.3f}' for d in r['days'])} | "
+                     f"{r['corr'] * math.sqrt(r['n']):+.1f} | {r['slope']:+.3f} | {r['predicted']:.1f} | {r['half']:g} |")
+    return "\n".join(lines)
+
+
 def _num(value: float | None, fmt: str) -> str:
     return "-" if value is None else format(value, fmt)
 
@@ -158,8 +232,9 @@ def report(name: str, result: dict, products: list[str]) -> str:
         cells = ["" if a == b else _num(result["same"].get((a, b), result["same"].get((b, a))), "+.2f") for b in products]
         lines.append(f"| {a} | " + " | ".join(cells) + " |")
     found = leads(result, products)
-    h = HORIZONS[-1]
-    lines += ["", f"Leads: B's move after A's, signed by A's, in B's ticks, at {', '.join(map(str, HORIZONS))} ticks; "
+    horizons = result["horizons"]
+    h = horizons[-1]
+    lines += ["", f"Leads: B's move after A's, signed by A's, in B's ticks, at {', '.join(map(str, horizons))} ticks; "
               f"listed when at {h} it keeps its sign every day, |t| reaches {T_STAT:g} and its size {MIN_FOLLOW:g} of B's half-spread:", ""]
     if not found:
         lines.append("none")
@@ -167,8 +242,8 @@ def report(name: str, result: dict, products: list[str]) -> str:
     lines += ["| A -> B | A's moves | follow | B -> A | own (B) | B's half-spread | per day at " + str(h) + " | t at " + str(h) + " | corr at " + str(h) + " |",
               "|---|---|---|---|---|---|---|---|---|"]
     for a, b in found:
-        rows = [result["pairs"][(a, b, x)] for x in HORIZONS]
-        back = [result["pairs"][(b, a, x)] for x in HORIZONS]
+        rows = [result["pairs"][(a, b, x)] for x in horizons]
+        back = [result["pairs"][(b, a, x)] for x in horizons]
         follows = " / ".join(_num(r["follow"], "+.2f") for r in rows)
         reverse = " / ".join(_num(r["follow"], "+.2f") for r in back)
         own = " / ".join(_num(r["own"], "+.2f") for r in rows)
@@ -181,7 +256,17 @@ def report(name: str, result: dict, products: list[str]) -> str:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.lead_lag")
     add_dataset_arguments(parser, bot=False)
+    parser.add_argument("--lags", type=int, default=0, metavar="K",
+                        help="also test every exact lag 1..K by the one-tick changes' correlation (default: 0, off)")
+    parser.add_argument("--horizons", default=",".join(map(str, HORIZONS)),
+                        help="comma-separated horizons in ticks, the last one the listing's (default: %(default)s)")
     args = parser.parse_args(argv)
+    try:
+        horizons = tuple(sorted({int(h) for h in args.horizons.split(",") if h.strip()}))
+    except ValueError:
+        parser.error(f"--horizons wants whole numbers of ticks, got {args.horizons!r}")
+    if not horizons or horizons[0] < 1:
+        parser.error("--horizons wants positive numbers of ticks")
     try:
         dataset = dataset_from(args)
     except ValueError as error:
@@ -192,7 +277,10 @@ def main(argv: list[str] | None = None) -> None:
     for name, data, format_name, specs, products in datasets:
         fmt = FORMATS[format_name]
         days = fmt.load_days(fmt.resolve_data_dir(data), specs)
-        print(report(name, study(days, products), products) + "\n")
+        text = report(name, study(days, products, horizons), products)
+        if args.lags > 0:
+            text += "\n" + lag_report(lag_scan(days, products, args.lags), args.lags)
+        print(text + "\n")
 
 
 if __name__ == "__main__":

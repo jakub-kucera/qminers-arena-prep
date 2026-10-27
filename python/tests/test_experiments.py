@@ -92,6 +92,42 @@ def test_lead_lag_finds_a_planted_lead_one_way_and_nothing_between_unrelated_wal
     assert result["same"][("A", "C")] == pytest.approx(0, abs=0.05)
 
 
+def test_lead_lag_finds_a_small_exact_lag_and_takes_other_horizons(capsys, monkeypatch, drill_data):
+    import random
+
+    from arena.model import Book, Day, Tick
+    from experiments import lead_lag
+
+    def day(seed, name):
+        rng, a, b, c, ticks = random.Random(seed), [1000], [3000], [5000], []
+        moves = [rng.choice((-2, -1, 1, 2)) for _ in range(4000)]
+        for t, m in enumerate(moves):
+            a.append(a[-1] + m)
+            b.append(b[-1] + (moves[t - 40] if t >= 40 and rng.random() < 0.3 else 0) + rng.choice((-2, -1, 0, 1, 2)))  # B takes 30% of A's moves 40 ticks late
+            c.append(c[-1] + rng.choice((-1, 0, 1)))
+        for t in range(len(a)):
+            ticks.append(Tick(t * 100, {k: Book(((v - 2, 20),), ((v + 2, 20),)) for k, v in (("A", a[t]), ("B", b[t]), ("C", c[t]))}, {}, {}))
+        return Day(name, ["A", "B", "C"], {"A": 10, "B": 10, "C": 10}, ticks)
+
+    found = lead_lag.lag_scan([day(1, "d1"), day(2, "d2")], ["A", "B", "C"], 60)
+    assert [(r["a"], r["b"], r["lag"]) for r in found] == [("A", "B", 40)]
+    assert found[0]["slope"] == pytest.approx(0.3, abs=0.05)
+    out = run(capsys, monkeypatch, "lead_lag", "--data", drill_data, "--days", "all", "--format", "drill", "--horizons", "2,10", "--lags", "5")
+    assert "at 2, 10 ticks" in out and "Exact lags: corr(ΔA at t, ΔB at t + k) for k = 1–5" in out
+
+
+def test_the_reversion_term_of_a_flickering_price_is_minus_a_half():
+    import random
+
+    from experiments import reversion_term
+
+    rng = random.Random(4)
+    w = [100 + rng.choice((-1, 0, 1)) for _ in range(20_000)]  # a level plus independent noise: every move half reverts
+    assert reversion_term.beta(w, 1) == pytest.approx(-0.5, abs=0.02)
+    r = reversion_term.forecasts([w, w[::-1]], 1)
+    assert reversion_term.rmse(r["beta"]) < reversion_term.rmse(r["plain"])
+
+
 def test_jumps_and_selection_rules_run_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "p4_jumps", "--data", drill_data, "--days", "all", "--format", "drill", "--jump-min", "50", "--trade",
               "--jobs", "2")
