@@ -47,10 +47,10 @@ It is the paper for "one book, many products, one risk budget", the shape of Pro
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `Sⁱ` | `fair` per product (`python/bots/template.py:298`) |
+| `Sⁱ` | `fair` per product (`python/bots/template.py:319`) |
 | `Qⁱ`, `Δⁱ` | `limit` per product; `Δ` = 1 lot (or `make_size`) |
 | Model B half-spread at q = 0: `1/k + ½·√(γσ²e/(2Ak))` | `make_edge` (`python/bots/template.py:45`) |
-| skew per unit `√(γσ²e/(2Ak))` (Model B) | `skew / limit` (`python/bots/template.py:713`), *inferred* |
+| skew per unit `√(γσ²e/(2Ak))` (Model B) | `skew / limit` (`python/bots/template.py:736`), *inferred* |
 | `Σ_{j≠i} Γ^{ij} q^j` | nothing yet. `python/bots/template.py` trades products independently; the `TODO_DONE.md` item "Add multi-product strategies" asks for a cross-product hook in STRATEGY |
 | `Σ` | covariance of per-tick `fair` changes across products, estimable from the CSVs |
 

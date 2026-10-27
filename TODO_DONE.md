@@ -506,7 +506,7 @@ A read-through of `python/arena/`, `python/bots/template.py`, the tests and the 
   - `analysis.trade_impact` counts trades on a tick with an empty side as `inside`, while `arena.diagnose` skips them.
   - Done when: each one is fixed or marked as intended in its docstring.
 - [x] **Fix the docs that have drifted from the code:** Done 2026-10-13. The contradictions rows were fixed with the template re-mapping (`9f13090`). The lint now warns when a cited range into `python/bots/`, `python/arena/` or `python/experiments/` doesn't start a definition (`def`, `class`, a decorator, an assignment, a field or a dict entry). Its first run caught three more stale ranges, now fixed: `python/arena/analysis.py` (markouts), `python/arena/model.py` (`MarketTrade`) and `python/arena/diagnose.py` (the thresholds).
-  - `references/wiki/contradictions.md` rows 12 and 16 cite `python/bots/template.py:461-493` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
+  - `references/wiki/contradictions.md` rows 12 and 16 cite `python/bots/template.py:482-514` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
   - `references/wiki/concepts/book-imbalance-and-micro-price.md` lists three `fair` methods; there are five.
   - The README's `--out` row names three CSVs; there are four (`_trades.csv`).
   - The README says `python/tests/test_parity.py` pins 15 comparisons; it pins 6 (2 days × 3 modes).
