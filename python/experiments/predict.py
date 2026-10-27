@@ -23,7 +23,8 @@ usage (from the repo root): uv run python -m experiments.predict [--part 1|2]
    as a feed all the same, as an upper bound on what a feed could do.
 2. **A linear forecast** (edge_ideas item 6): leave one day out, a ridge regression of the wall
    mid's move 1, 5, 20 and 100 ticks ahead (in ticks) on ρ and ρ3 (python/experiments/imbalance.py's
-   imbalance and depth_imbalance), its flows (adds, removals, OFI, signed trades), the wall mid's
+   imbalance and depth_imbalance), its flows (adds, removals, OFI, and the signed trades of the tick
+   before: a tick's trades print after its snapshot, and a bot sees them a tick later), the wall mid's
    momentum over 1, 5, 20 and 100 ticks, the time of day, and every other product's 5-tick return.
    Features standardised on the training days, penalty RIDGE × the training rows. Per held-out day
    and pooled: the out-of-sample R², the move one sd of the forecast predicts (the slope of the move
@@ -250,10 +251,13 @@ def feature_rows(day, products: list[str], product: str) -> tuple[list[str], lis
     n = len(rows)
     out = []
     for i, r in enumerate(rows):
-        if r is None or w[i] is None or i < max(MOMENTUM) or any(w[i - k] is None for k in MOMENTUM):
+        if r is None or w[i] is None or i < max(MOMENTUM) or any(w[i - k] is None for k in MOMENTUM) or rows[i - 1] is None:
             out.append(None)
             continue
-        x = [float(r[f]) for f in FLOW_FEATURES] + [w[i] - w[i - k] for k in MOMENTUM] + [i / n]
+        # tick i's trades are those after its snapshot (the engine hands them to the bot at i + 1), so the
+        # bot at i knows i - 1's; before 2026-10-28 this took i's, a look-ahead at 1 tick (the fourth audit's R8)
+        seen = {**r, "trades": rows[i - 1]["trades"]}
+        x = [float(seen[f]) for f in FLOW_FEATURES] + [w[i] - w[i - k] for k in MOMENTUM] + [i / n]
         ok = True
         for series in others.values():
             if series[i] is None or series[i - 5] is None:

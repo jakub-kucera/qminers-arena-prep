@@ -475,6 +475,19 @@ def test_predict_ridge_recovers_a_planted_linear_rule_and_reads_feed_files(capsy
     assert "### drill all ALPHA" in out
 
 
+def test_the_forecast_sees_a_ticks_trades_a_tick_later(tmp_path):
+    from arena.formats import prosperity
+    from experiments import predict
+
+    sim.write_day(sim.run(sim.preset_market(["KELP"], ticks=400), 31), tmp_path, 1, 0)
+    (day,) = prosperity.load_days(tmp_path, ["1-0"])
+    names, xs, rows = predict.feature_rows(day, ["KELP"], "KELP")
+    k = names.index("trades")
+    checked = [(i, x) for i, x in enumerate(xs) if x is not None]
+    assert checked and all(x[k] == rows[i - 1]["trades"] for i, x in checked)  # the trades before the snapshot, not after
+    assert any(rows[i]["trades"] != rows[i - 1]["trades"] for i, _ in checked)
+
+
 def test_fill_curve_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "fill_curve", "--data", drill_data, "--days", "all", "--format", "drill", "--products", "ALPHA")
     assert "### drill all ALPHA" in out and "The fill-size curve" in out
