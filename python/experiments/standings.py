@@ -162,6 +162,37 @@ def _correlation(x: list[float], y: list[float]) -> float:
     return statistics.correlation(x, y)
 
 
+def proxy_growth(old: tuple[str, list[str]], new: tuple[str, list[str]], bots: list[Path], format_name: str = "prosperity",
+                 engine: str = "python") -> float:
+    """The next round's scale against the last's, from a proxy field: the spread (sd across the bots)
+    of each bot's PnL alone, a day, on the new round's data over that on the last round's. The
+    leaderboards can't show it, and it decides most of the next round's ranks (IDEAS.md, "A standings
+    calculator for round 4"). old and new are (data, day specs)."""
+    from arena.cli import backtest, backtest_days
+    from arena.engine import EngineConfig
+
+    def spread(data: str, specs: list[str]) -> float:
+        per_day = []
+        for day in backtest_days(data, specs, engine, format_name):
+            pnl = []
+            for path in bots:
+                (result,) = backtest(day, [("bot", path, {}, False)], EngineConfig(), engine, fields=("pnl",), format_name=format_name)
+                pnl.append(sum(series[-1] for series in result.pnl.values() if series))
+            per_day.append(statistics.pstdev(pnl))
+        return statistics.fmean(per_day)
+
+    before = spread(*old)
+    return spread(*new) / before if before > 0 else 1.0
+
+
+def growth_spread(board: Board) -> float:
+    """The sd of the log of the field's spread from one round to the next (0 with fewer than three rounds):
+    how much a round's scale has changed, for --growth-sd."""
+    sds = [statistics.pstdev(values) for values in board.pnl]
+    logs = [math.log(b / a) for a, b in zip(sds, sds[1:]) if a > 0 and b > 0]
+    return statistics.pstdev(logs) if len(logs) > 1 else 0.0
+
+
 def persistence(board: Board) -> float:
     """How well the earlier rounds' mean z-score predicts the last round's: their correlation, in [0, MAX_PERSISTENCE]."""
     if len(board.pnl) < 2:
@@ -291,9 +322,11 @@ class Result:
 
 def simulate(board: Board, us: int, ours: tuple[float, float], field: Field, weights: tuple[float, ...], multipliers=MULTIPLIERS,
              hedges=HEDGES, k: float = 1.0, hedge_edge: float = 0.0, our_loading: float = 0.0, sims: int = SIMS, seed: int = 0,
-             mean_power: float = 1.0) -> Result:
+             mean_power: float = 1.0, growth_sd: float = 0.0) -> Result:
     """Our rank now and after the next round, per scoring, for each multiplier (hedge 0) and each hedge (at
-    multiplier k). A multiplier m scales our mean by m ** mean_power and our sd by m."""
+    multiplier k). A multiplier m scales our mean by m ** mean_power and our sd by m. With growth_sd, the
+    other teams' PnL is scaled each simulation by exp(N(0, growth_sd)): a next round bigger or smaller
+    than the last, which our own distribution (backtests on the next round's data) already knows."""
     rounds = len(board.pnl)
     if len(weights) < rounds + 1:
         raise ValueError(f"{rounds} rounds so far need {rounds + 1} weights, not {len(weights)}")
@@ -319,9 +352,10 @@ def simulate(board: Board, us: int, ours: tuple[float, float], field: Field, wei
     w_next = {s.name: s.weights[rounds] for s in chosen}
     for _ in range(sims):
         bet = rng.gauss(0, 1)
-        x = [field.median + field.sd * (rho * field.skill[i] + luck * (math.sqrt(c) * field.loading[i] * bet + e * rng.gauss(0, 1)))
+        scale = math.exp(rng.gauss(0, growth_sd)) if growth_sd else 1.0
+        x = [scale * (field.median + field.sd * (rho * field.skill[i] + luck * (math.sqrt(c) * field.loading[i] * bet + e * rng.gauss(0, 1))))
              for i, e in zip(others, own)]
-        bet_pnl = field.sd * luck * math.sqrt(c) * bet  # what the field's bet makes for a team of loading 1
+        bet_pnl = scale * field.sd * luck * math.sqrt(c) * bet  # what the field's bet makes for a team of loading 1
         eta = rng.gauss(0, 1)
         top = max((abs(v) for v in x), default=0.0)
         fixed = {}
@@ -452,6 +486,14 @@ def main(argv: list[str] | None = None) -> int:
                         help="a multiplier k scales our mean by k to this power and our sd by k: 1 when they scale together (default: 1)")
     parser.add_argument("--lead", type=float, default=2.5, help="with --synthetic, our skill in sds above the field's mean (default: 2.5)")
     parser.add_argument("--growth", type=float, default=1.0, help="the next round's median and sd over the last round's (default: 1)")
+    parser.add_argument("--growth-from", nargs=2, metavar=("OLD", "NEW"),
+                        help="set --growth from a proxy field (--proxy-bots) on the last round's data and the next one's, each DATA:DAY[,DAY...]")
+    parser.add_argument("--proxy-bots", nargs="+", type=Path, help="the proxy field's bot files (default: python/bots/zoo/'s, Prosperity format)")
+    parser.add_argument("--format", default="prosperity", help="the data's format for --growth-from (default: prosperity)")
+    parser.add_argument("--engine", default="python", choices=("python", "rust"), help="the engine for --growth-from")
+    parser.add_argument("--growth-sd", type=float, default=None,
+                        help="the log-sd of the next round's scale against the last's, drawn each simulation (default: measured "
+                        "across the rounds, at least 0.5 when the next round is harder or of another kind: IDEAS.md, \"A standings calculator for round 4\")")
     parser.add_argument("--persistence", type=float, help="override the persistence measured across the rounds")
     parser.add_argument("--common", type=float, help="override the field's bet's share of a team's variance read from the curves")
     parser.add_argument("--sims", type=int, default=SIMS, help=f"simulations (default: {SIMS})")
@@ -471,10 +513,19 @@ def main(argv: list[str] | None = None) -> int:
         if team not in board.teams:
             raise ValueError(f"no team named {team!r} on the leaderboards")
         us = board.teams.index(team)
-        field = field_model(board, args.growth, args.persistence, args.common)
+        growth = args.growth
+        if args.growth_from:
+            from experiments.zoo import is_local, zoo_bots
+
+            parse = lambda text: (text.rsplit(":", 1)[0], text.rsplit(":", 1)[1].split(","))
+            bots = args.proxy_bots or [p for p in zoo_bots() if not is_local(p)]
+            growth = proxy_growth(parse(args.growth_from[0]), parse(args.growth_from[1]), bots, args.format, args.engine)
+            print(f"the next round's scale from {len(bots)} proxy bots: {growth:.2f} (--growth)")
+        field = field_model(board, growth, args.persistence, args.common)
         ours = our_round(days, args.days_per_round)
+        growth_sd = growth_spread(board) if args.growth_sd is None else args.growth_sd
         result = simulate(board, us, ours, field, args.weights, args.multipliers, args.hedges, args.k, args.hedge_edge, args.our_loading,
-                          args.sims, args.seed, args.mean_power)
+                          args.sims, args.seed, args.mean_power, growth_sd)
     except (ValueError, OSError, json.JSONDecodeError, KeyError, StopIteration) as error:
         parser.error(str(error))
     print(format_result(board, us, ours, field, result))

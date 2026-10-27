@@ -3,6 +3,8 @@ simulation's answers on fields whose answer is known, and the CLI on a synthetic
 
 import json
 
+import pytest
+
 from experiments import standings as st
 
 
@@ -85,3 +87,10 @@ def test_the_cli_runs_on_a_synthetic_field(capsys):
     text = capsys.readouterr().out
     assert "30 teams, 3 rounds so far" in text and "risk multiplier k" in text and "relative hedge h" in text
     assert "score 10/20/30/40" in text and "least chance of losing a place at k" in text
+
+
+def test_proxy_growth_is_the_ratio_of_the_proxy_fields_spreads(data_dir):
+    from pathlib import Path
+
+    bots = [Path("python/bots/template.py"), Path("python/tests/fixtures/parity_bot.py")]
+    assert st.proxy_growth((str(data_dir), ["1"]), (str(data_dir), ["1"]), bots) == pytest.approx(1.0)
