@@ -560,3 +560,15 @@ def test_the_premise_check_reads_a_market_whose_order_matters():
 def test_the_premise_check_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "premise", "--data", drill_data, "--days", "all", "--format", "drill")
     assert "| ALPHA |" in out and "verdict" in out
+
+
+def test_the_premise_check_runs_a_bot_without_a_twin_on_the_python_engine(capsys, monkeypatch, drill_data, tmp_path):
+    from arena import rust
+
+    bot = tmp_path / "days_bot.py"  # the day's bot before its twin is recorded
+    bot.write_text(Path("python/bots/drill/template.py").read_text())
+    monkeypatch.setattr(rust, "require", lambda allow_stale=False: None)
+    module = importlib.import_module("experiments.premise")
+    module.main(["--data", drill_data, "--days", "all", "--format", "drill", "--bot", str(bot), "--engine", "rust"])
+    out, err = capsys.readouterr()
+    assert "| ALPHA |" in out and "no Rust twin yet" in err and "--engine rust" not in out

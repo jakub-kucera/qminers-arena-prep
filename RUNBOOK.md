@@ -60,6 +60,6 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 - Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00; while A sleeps, B uploads
   only from the written list ["The day: timeline and roles"].
 - Before round 4: decide in writing how much risk to keep, and any relative hedge, from
-  `uv run python -m experiments.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team <ours> --ours <round 4's grid CSV> --growth-from <r3>:<days> <r4>:<days>`
+  `uv run python -m experiments.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team <ours> --ours <round 4's grid CSV> --growth-from data/arena/round3:<days> data/arena/round4:<days> --proxy-bots <the round's zoo> --format qminers`
   (our rank under each way the rounds may combine; the 10/20/30/40% are unconfirmed); if rounds 2–3's private runs
   strayed from our backtests, a bot that sends nothing is on the list ["How is PnL scored?"].

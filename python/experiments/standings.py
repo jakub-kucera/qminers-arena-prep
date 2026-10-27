@@ -517,6 +517,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.growth_from:
             from experiments.zoo import is_local, zoo_bots
 
+            if args.format != "prosperity" and not args.proxy_bots:
+                raise ValueError(f"--growth-from on the {args.format} format needs --proxy-bots: bots written for it (the zoo's are Prosperity bots)")
+
             parse = lambda text: (text.rsplit(":", 1)[0], text.rsplit(":", 1)[1].split(","))
             bots = args.proxy_bots or [p for p in zoo_bots() if not is_local(p)]
             growth = proxy_growth(parse(args.growth_from[0]), parse(args.growth_from[1]), bots, args.format, args.engine)
@@ -526,7 +529,7 @@ def main(argv: list[str] | None = None) -> int:
         growth_sd = growth_spread(board) if args.growth_sd is None else args.growth_sd
         result = simulate(board, us, ours, field, args.weights, args.multipliers, args.hedges, args.k, args.hedge_edge, args.our_loading,
                           args.sims, args.seed, args.mean_power, growth_sd)
-    except (ValueError, OSError, json.JSONDecodeError, KeyError, StopIteration) as error:
+    except (ValueError, OSError, ImportError, json.JSONDecodeError, KeyError, StopIteration) as error:
         parser.error(str(error))
     print(format_result(board, us, ours, field, result))
     return 0

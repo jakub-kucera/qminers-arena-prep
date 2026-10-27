@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import argparse
 import statistics
+import sys
+from pathlib import Path
 
 from arena import diagnose, rust, stress
 from arena.cli import add_dataset_arguments, add_engine_argument, backtest, bot_params, dataset_from
@@ -111,6 +113,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--data and --days are needed: this checks the day's download")
     if args.engine == "rust":
         rust.require(args.allow_stale)
+        try:
+            rust.kind_of(Path(dataset.bot))
+        except ValueError:  # the day's bot before its twin is recorded (KICKOFF_PROMPT.md)
+            print(f"note: {dataset.bot} has no Rust twin yet, so its backtests run on the Python engine", file=sys.stderr)
+            args.engine = "python"
     fmt = FORMATS[dataset.format]
     days = fmt.load_days(fmt.resolve_data_dir(dataset.data), list(dataset.days))
     products = args.products.split(",") if args.products else sorted({p for d in days for p in d.products})  # every product, listed or not

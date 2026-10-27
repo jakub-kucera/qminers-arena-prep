@@ -94,3 +94,9 @@ def test_proxy_growth_is_the_ratio_of_the_proxy_fields_spreads(data_dir):
 
     bots = [Path("python/bots/template.py"), Path("python/tests/fixtures/parity_bot.py")]
     assert st.proxy_growth((str(data_dir), ["1"]), (str(data_dir), ["1"]), bots) == pytest.approx(1.0)
+
+
+def test_growth_from_on_another_format_asks_for_its_proxy_bots(capsys):
+    with pytest.raises(SystemExit):
+        st.main(["--synthetic", "--growth-from", "a:1", "b:2", "--format", "drill"])
+    assert "needs --proxy-bots" in capsys.readouterr().err
