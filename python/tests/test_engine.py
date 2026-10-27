@@ -145,6 +145,14 @@ def test_fees_charge_every_fill_per_lot_and_on_its_value():
     assert charged.pnl["X"] == pytest.approx([-1.2, -2.4])
 
 
+def test_a_lot_fee_is_in_the_datas_price_units():
+    d = day(tick(0, asks=[(10_000, 5)], mark=10_000), tick(1, bids=[(10_000, 5)], mark=10_000))  # $100.00 in cents
+    d.info["X"] = {"tick": 0.01, "unit": 0.01}
+    script = {0: [Order("X", 10_000, 2)], 1: [Order("X", 10_000, -2)]}
+    # 0.03 dollars a lot is 3 cents: 6 on each fill of 2 lots
+    assert run_day(d, ScriptedBot(script), EngineConfig(fee=0.03)).pnl["X"] == pytest.approx([-6, -12])
+
+
 def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_limit_each_tick():
     d = day(tick(0, asks=[(101, 20)], mark=100), tick(1, mark=100), tick(2, bids=[(99, 20)], mark=100), limits={"X": 10})
     script = {0: [Order("X", 101, 6), Order("X", 101, 6)], 2: [Order("X", 99, -12)]}

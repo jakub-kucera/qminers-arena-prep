@@ -43,8 +43,10 @@ Positions are valued at each tick's mark price: the data's, else the book's mid 
     every lot of a position beyond its limit costs this much, charged to that product, and the
     tick counts as a breach.
 Fees (EngineConfig.fee, fee_bps): each fill costs `fee` a lot and `fee_bps` basis points of its
-value (price x lots, in the engine's price units), charged to the product's cash as it settles, the
-same for every participant and for passive and aggressive fills alike. 0 is Prosperity's rule.
+value, charged to the product's cash as it settles, the same for every participant and for passive
+and aggressive fills alike. `fee` is in the data's price units, as a person reads the rules: with a
+format's decimal prices (Day.info's `unit`, e.g. 0.01) a fee of 0.01 is one engine unit a lot.
+0 is Prosperity's rule.
 Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
 exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there).
 Its limits are checked twice, as without a delay: against the position the bot saw when it decided
@@ -235,13 +237,17 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
     # With a delay, each tick's decisions wait here until they reach the exchange.
     late = deque(([[] for _ in players], [(dict(p.position), []) for p in players]) for _ in range(config.delay)) if config.delay else None
 
+    # The fee a lot in engine units: Day.info's unit for decimal prices (0.01 if a tick is given without one, as
+    # python/arena/rust.py exports it), else the data's own integer prices.
+    lot_fee = {p: config.fee / (day.info[p].get("unit", 0.01) if "tick" in day.info.get(p, {}) else 1) for p in day.products}
+
     def settle(fills: list[Fill]) -> None:
         for fill in fills:
             player = players[owner[fill.order_id]]
             player.position[fill.product] += fill.quantity
             player.cash[fill.product] -= fill.price * fill.quantity
             if config.fee:
-                player.cash[fill.product] -= config.fee * abs(fill.quantity)
+                player.cash[fill.product] -= lot_fee[fill.product] * abs(fill.quantity)
             if config.fee_bps:
                 player.cash[fill.product] -= config.fee_bps * abs(fill.price * fill.quantity) / 10_000
             player.result.fills.append(fill)

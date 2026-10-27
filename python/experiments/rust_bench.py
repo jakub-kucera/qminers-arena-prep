@@ -228,6 +228,7 @@ def drill_cases() -> list[tuple[str, EngineConfig, list]]:
              ("as committed, resting, prob, worse", EngineConfig(resting=True, queue=QueueModel.PROB, trade_matching=WORSE), [me({})]),
              ("as committed, resting, front, fill ratio 0.7", EngineConfig(resting=True, queue=QueueModel.FRONT, fill_ratio=0.7, seed=8), [me({})]),
              ("as committed, per tick", EngineConfig(), [me({})]),
+             ("as committed, resting, fee 0.01 a lot in dollars and 1 bp", EngineConfig(resting=True, fee=0.01, fee_bps=1.0), [me({})]),
              ("against a copy at make_edge 0, resting", resting, [me({}), ("copy", DRILL, {"PARAMS.ALPHA.make_edge": 0}, False)])]
     cases += [(f"{label}, resting", resting, [me(drilled(o))]) for label, o in VARIANTS if label != "as committed"]
     return cases
