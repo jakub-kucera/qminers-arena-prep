@@ -11,9 +11,9 @@ METHODS:
   random    BUDGET cells drawn at random, the best kept (arena.grid --sample)
   halving   successive halving over the (day, mode)s as arena.grid --halving 0.5 runs it, from as
             many random cells as the budget pays for (about twice the budget's backtests per cell)
-  coord     coordinate descent from DEFAULTS: each axis in turn (seeded order), every value
+  coord     (arena.search, as arena.grid --search runs it) coordinate descent from DEFAULTS: each axis in turn (seeded order), every value
             along it, moving to the best; a sweep with no move restarts from a random cell
-  tpe       a tree-structured Parzen estimator (Bergstra et al. 2011, Optuna's default): each
+  tpe       (arena.search) a tree-structured Parzen estimator (Bergstra et al. 2011, Optuna's default): each
             axis's values weighted by the best GAMMA of the cells so far against the rest, 24
             draws a pick, BATCH picks a round
   gp        Bayesian optimisation: a Gaussian process (Matern 5/2, a length scale per axis and
@@ -49,6 +49,7 @@ from operator import mul
 from pathlib import Path
 
 from arena import grid, rust
+from arena import search as sr
 from arena.cli import Setup, add_engine_argument, bot_module
 from arena.engine import EngineConfig, TradeMatching
 from arena.formats import FORMATS
@@ -58,8 +59,7 @@ MODES = (TradeMatching.ALL, TradeMatching.WORSE)
 METHODS = ("random", "halving", "coord", "tpe", "gp")
 BUDGETS = (25, 50, 100, 200, 400)
 SEEDS = 20
-BATCH = 14  # cells a round for tpe and gp: one a core
-GAMMA = 0.1  # tpe: the share of the cells so far that count as good (Optuna: ceil(0.1 n), at most 25)
+BATCH = sr.BATCH  # cells a round for tpe and gp
 POOL = 600
 GP_POINTS = 300  # gp fits on at most this many cells: the best two thirds of them, then the latest (pure Python: O(n^3) a fit)
 STUDIES = {  # name: (data, training days, test days, product, {setting: values}); the bot as is must be a cell
@@ -82,7 +82,7 @@ BIG_SEEDS = 3
 # ---------------------------------------------------------------------------- the space
 
 
-class Space:
+class Space(sr.Space):
     """The axes of one product's settings, a cell an index tuple. `base` is the cell of the template's
     DEFAULTS, where a product first seen on the day starts (its other settings as committed);
     `committed` the bot as committed, if its settings are on the axes."""
@@ -91,12 +91,10 @@ class Space:
         module = bot_module(str(bot), "prosperity")
         current = {**module.DEFAULTS, **module.PARAMS.get(product, {})}
         self.product, self.names, self.values = product, list(axes), list(axes.values())
-        self.sizes = [len(v) for v in self.values]
-        self.total = math.prod(self.sizes)
         missing = [n for n, v in axes.items() if module.DEFAULTS[n] not in v]
         if missing:
             raise ValueError(f"{product}: DEFAULTS isn't a cell, its {', '.join(missing)} not on the axes")
-        self.base = tuple(v.index(module.DEFAULTS[n]) for n, v in axes.items())
+        super().__init__([len(v) for v in self.values], tuple(v.index(module.DEFAULTS[n]) for n, v in axes.items()))
         on = all(current.get(n) in v for n, v in axes.items())
         self.committed = tuple(v.index(current[n]) for n, v in axes.items()) if on else None
 
@@ -109,72 +107,22 @@ class Space:
     def point(self, cell: tuple) -> list[float]:
         return [j / (n - 1) if n > 1 else 0.0 for j, n in zip(cell, self.sizes)]
 
-    def draw(self, rng: random.Random, count: int) -> list[tuple]:
-        return [grid._unrank(k, self.sizes) for k in rng.sample(range(self.total), min(count, self.total))]
-
-    def neighbours(self, cell: tuple) -> list[tuple]:
-        out = []
-        for i, n in enumerate(self.sizes):
-            for j in (cell[i] - 1, cell[i] + 1):
-                if 0 <= j < n:
-                    out.append(cell[:i] + (j,) + cell[i + 1:])
-        return out
+def both_modes(days: int):
+    """The objective: a cell's smaller total over the training days under all and under worse (its pieces: the first mode's days, then the next's)."""
+    return lambda values: min(sum(values[m * days:(m + 1) * days]) for m in range(len(MODES)))
 
 
-class Spent(Exception):
-    """The budget ran out."""
+def Search(space: Space, pieces, count: int, days: int, budget: float) -> sr.Search:
+    return sr.Search(space, pieces, count, budget, both_modes(days))
 
 
-class Search:
-    """What a method sees: a cell's PnL on the training pieces (each (day, mode)), each piece charged
-    once, and the objective of a cell once all its pieces are in. `pieces(cells, ks)` returns
-    {(cell, k): PnL}; `budget` is in cells (each the cost of every piece)."""
-
-    def __init__(self, space: Space, pieces, count: int, days: int, budget: float):
-        self.space, self._pieces, self.count, self.days = space, pieces, count, days
-        self.limit, self.spent = budget * count, 0
-        self.known: dict[tuple, float] = {}
-        self.seen: dict[tuple, float] = {}  # cell -> objective, in the order they were completed
-
-    def objective(self, cell: tuple) -> float:
-        totals = [sum(self.known[(cell, m * self.days + d)] for d in range(self.days)) for m in range(len(MODES))]
-        return min(totals)
-
-    def piece(self, cells: list[tuple], k: int) -> list[float]:
-        return self._ask([(c, k) for c in cells])
-
-    def whole(self, cells: list[tuple]) -> list[float]:
-        self._ask([(c, k) for c in cells for k in range(self.count)])
-        return [self.seen[c] for c in cells]
-
-    def _ask(self, wanted: list[tuple]) -> list[float]:
-        new = [w for w in dict.fromkeys(wanted) if w not in self.known]
-        room = self.limit - self.spent
-        if len(new) > room:  # whole cells first, in order, as far as the budget goes
-            new = new[: max(0, int(room))]
-            short = True
-        else:
-            short = False
-        if new:
-            self.known.update(self._pieces(new))
-            self.spent += len(new)
-            for cell in dict.fromkeys(c for c, _ in new):
-                if cell not in self.seen and all((cell, k) in self.known for k in range(self.count)):
-                    self.seen[cell] = self.objective(cell)
-        if short:
-            raise Spent
-        return [self.known[w] for w in wanted]
-
-    def best(self, first: int | None = None) -> tuple | None:
-        """The best cell seen (among the first `first` completed); ties to the earlier."""
-        items = list(self.seen.items())[:first]
-        return max(items, key=lambda item: item[1])[0] if items else None
+Spent = sr.Spent
 
 
 # ---------------------------------------------------------------------------- the methods
 
 
-def search_random(s: Search, rng: random.Random) -> None:
+def search_random(s: sr.Search, rng: random.Random) -> None:
     s.whole(s.space.draw(rng, int(s.limit // s.count)))
 
 
@@ -194,7 +142,7 @@ def halving_start(total: int, count: int, budget: float, share: float = 0.5) -> 
     return lo
 
 
-def search_halving(s: Search, rng: random.Random, share: float = 0.5, cells: list[tuple] | None = None) -> None:
+def search_halving(s: sr.Search, rng: random.Random, share: float = 0.5, cells: list[tuple] | None = None) -> None:
     """arena.grid's --halving: the first mode's days, then the next's, keeping `share` by PnL so far."""
     if cells is None:
         cells = s.space.draw(rng, halving_start(s.space.total, s.count, s.limit / s.count, share))
@@ -204,53 +152,6 @@ def search_halving(s: Search, rng: random.Random, share: float = 0.5, cells: lis
             so_far[c] += v
         if k < s.count - 1 and len(cells) > 1:
             cells = sorted(cells, key=lambda c: -so_far[c])[: max(1, math.ceil(share * len(cells)))]
-
-
-def search_coord(s: Search, rng: random.Random) -> None:
-    current = s.space.base
-    (value,) = s.whole([current])
-    while True:
-        moved = False
-        for i in rng.sample(range(len(s.space.sizes)), len(s.space.sizes)):
-            line = [current[:i] + (j,) + current[i + 1:] for j in range(s.space.sizes[i])]
-            values = s.whole(line)
-            best = max(range(len(line)), key=lambda j: values[j])
-            if values[best] > value:
-                current, value, moved = line[best], values[best], True
-        if not moved:
-            fresh = [c for c in s.space.draw(rng, 50) if c not in s.seen]
-            if not fresh:
-                return
-            current = fresh[0]
-            (value,) = s.whole([current])
-
-
-def search_tpe(s: Search, rng: random.Random) -> None:
-    sizes = s.space.sizes
-    s.whole(s.space.draw(rng, BATCH))
-    while True:
-        ranked = sorted(s.seen, key=lambda c: -s.seen[c])
-        good, bad = ranked[: min(max(1, math.ceil(GAMMA * len(ranked))), 25)], ranked[min(max(1, math.ceil(GAMMA * len(ranked))), 25):] or ranked
-        weights = []
-        for i, n in enumerate(sizes):
-            def density(cells, i=i, n=n):
-                w = [1.0 / n] * n  # the prior, one cell's weight
-                for c in cells:
-                    for j in range(n):
-                        w[j] += math.exp(-0.5 * (j - c[i]) ** 2)
-                total = sum(w)
-                return [x / total for x in w]
-            weights.append((density(good), density(bad)))
-        picks: list[tuple] = []
-        for _ in range(BATCH):
-            draws = [tuple(rng.choices(range(n), weights[i][0])[0] for i, n in enumerate(sizes)) for _ in range(24)]
-            draws = [d for d in draws if d not in s.seen and d not in picks] or [c for c in s.space.draw(rng, 50) if c not in s.seen and c not in picks]
-            if not draws:
-                break
-            picks.append(max(draws, key=lambda d: sum(math.log(weights[i][0][j] / weights[i][1][j]) for i, j in enumerate(d))))
-        if not picks:
-            return
-        s.whole(picks)
 
 
 def _matern(r: float) -> float:
@@ -339,7 +240,7 @@ def expected_improvement(mean: float, sd: float, best: float) -> float:
     return (mean - best) * 0.5 * (1 + math.erf(z / math.sqrt(2))) + sd * math.exp(-0.5 * z * z) / math.sqrt(2 * math.pi)
 
 
-def search_gp(s: Search, rng: random.Random) -> None:
+def search_gp(s: sr.Search, rng: random.Random) -> None:
     space = s.space
     s.whole(space.draw(rng, BATCH))
     scales = [0.4] * len(space.sizes)
@@ -372,7 +273,7 @@ def search_gp(s: Search, rng: random.Random) -> None:
         s.whole(picks)
 
 
-SEARCHES = {"random": search_random, "halving": search_halving, "coord": search_coord, "tpe": search_tpe, "gp": search_gp}
+SEARCHES = {"random": search_random, "halving": search_halving, "coord": sr.coord, "tpe": sr.tpe, "gp": search_gp}
 
 
 def run_method(method: str, space: Space, pieces, count: int, days: int, budgets: tuple, seed: int) -> dict[float, tuple | None]:

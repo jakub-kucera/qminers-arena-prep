@@ -38,7 +38,7 @@ A 16-page paper that improves on White's (2000) Reality Check (RC), the bootstra
 |---|---|
 | benchmark `δ_0` | the bot as is (`--set` only), `python/arena/grid.py` `run_grid`'s baseline |
 | alternative k, m | a distinct grid cell, the number of distinct cells |
-| `d_{k,t}` | the cell's PnL minus the bot's in block t (`python/arena/grid.py:120`, `FINE_TICKS`; filled in `_run_piece`) |
+| `d_{k,t}` | the cell's PnL minus the bot's in block t (`python/arena/grid.py:127`, `FINE_TICKS`; filled in `_run_piece`) |
 | `q` | 1 / mean bootstrap block length, in blocks (`SPA_Q` in `python/arena/grid.py`, 0.1) |
 | `T^SPA`, `p̂_SPA` | `spa()` in `python/arena/stats.py:207-230` |
 

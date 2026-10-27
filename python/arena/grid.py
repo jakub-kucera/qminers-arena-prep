@@ -79,6 +79,13 @@ screens each copy the same way. --halving SHARE does it in steps: the cells run 
 mode at a time, the first mode's days first, and after each step but the last that share of the
 cells still alive, by their PnL so far, goes on; the unseen-days section then leaves out every day a
 step ranked on. --sample N runs N cells drawn at random from the whole grid, never listing it.
+--search coord|tpe --budget N runs at most N cells (each on every day and mode), chosen as it goes
+(arena.search): coordinate descent from the bot as is, or a tree-structured Parzen estimator. It
+maximises a cell's smaller gain over the bot as is under the gate's modes (every --modes entry, or
+the first with --gate first), on the data --holdout keeps, so the held-out check stays free of
+its choice. Past about 100,000 cells either found the whole grid's best training cell in 0.1-5% of
+its backtests, where random cells didn't (IDEAS.md, "Searching a big grid without running all of
+it"). As with the screen, the tests see only the cells it ran.
 Halvings and bootstrap blocks mix blocks of the same days, so a day-level change is invisible to
 all of them: the held-out days are the check for that, and a cell they accept still has to hold
 under the other --modes (references/wiki/concepts/validation-and-overfitting.md).
@@ -103,13 +110,13 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from arena import report, rust, stress
+from arena import report, rust, search, stress
 from arena.stats import (  # the statistics live in python/arena/stats.py (twinned in rust/src/arena/stats.rs); these names stay importable from here
     ALPHA, EULER_GAMMA, MAX_SPLITS, Cscv, _scales, bootstrap_means, cscv, deflated_sharpe, expected_max_sharpe, independent_trials,
     STUDENTIZE, bootstrap, mean_correlation, omega2, resamples, snooping, spa, standardized, stepm,
 )
 from arena.botfile import OverrideError, parse_value
-from arena.cli import Setup, add_common_arguments, add_engine_argument, add_rival_argument, participant_names, run_with_rivals, setup
+from arena.cli import Setup, add_common_arguments, add_engine_argument, add_rival_argument, bot_module, participant_names, run_with_rivals, setup
 from arena.engine import TradeMatching
 from arena.formats import FORMATS
 from arena.model import Day
@@ -498,13 +505,7 @@ def _cells(axes: list[Axis], sample: int | None = None, seed: int = 0) -> list[t
     return [(index, tuple(axes[i].values[j] for i, j in enumerate(index))) for index in combos]
 
 
-def _unrank(k: int, sizes: list[int]) -> tuple[int, ...]:
-    """The k-th combination in itertools.product's order (the last axis fastest)."""
-    index = []
-    for n in reversed(sizes):
-        k, j = divmod(k, n)
-        index.append(j)
-    return tuple(reversed(index))
+_unrank = search.unrank  # the k-th combination in itertools.product's order (the last axis fastest)
 
 
 @dataclass
@@ -530,6 +531,19 @@ class Rung:
 
 
 @dataclass
+class Searched:
+    """What --search ran: its method, budget and seed, the cell it started from (coord), and when it found its best."""
+
+    method: str
+    budget: int
+    seed: int
+    start: tuple[int, ...]
+    found_at: int  # cells completed when the best one was (1-based)
+    best: tuple[int, ...] | None
+    objective: str  # what it maximised, in words
+
+
+@dataclass
 class GridRun:
     baseline: Outcome
     outcomes: dict[tuple[int, ...], Outcome]  # with a screen or halving, only the cells it kept
@@ -539,6 +553,7 @@ class GridRun:
     rungs: list[Rung] | None = None  # --halving's steps
     tried: int = 0  # cells that ran at all (all of them, or --sample's)
     seen: set[int] = field(default_factory=set)  # the days (indices) the screen or a halving step ranked on
+    searched: Searched | None = None  # --search's run
 
 
 def screened(cells: list[tuple[tuple, tuple]], found: dict, share: float) -> tuple[list[tuple[tuple, tuple]], dict, set]:
@@ -548,9 +563,53 @@ def screened(cells: list[tuple[tuple, tuple]], found: dict, share: float) -> tup
     return ranked[:max(1, math.ceil(share * len(cells)))], {index: found[index].pnl for index, _ in cells}, failed
 
 
+def start_cell(bot: Path, format_name: str, axes: list[Axis]) -> tuple[int, ...]:
+    """Each axis at the bot's own value for it (a PARAMS entry it lacks falls back to DEFAULTS, as the
+    template reads them), or at its middle value if that isn't on the axis: where --search coord starts."""
+    module = bot_module(bot, format_name)
+    missing = object()
+    out = []
+    for axis in axes:
+        names = axis.target.split(".")
+        value = getattr(module, names[0], missing)
+        for name in names[1:]:
+            value = value.get(name, missing) if isinstance(value, dict) else missing
+        if value is missing and names[0] == "PARAMS" and len(names) == 3:
+            value = getattr(module, "DEFAULTS", {}).get(names[2], missing)
+        out.append(axis.values.index(value) if value is not missing and value in axis.values else len(axis.values) // 2)
+    return tuple(out)
+
+
+def search_objective(keys: list[tuple[int, object]], base: dict, modes: list, gate: str, holdout: tuple[str, int | float] | None):
+    """--search's objective from a cell's pieces in `keys`' order: its smaller gain over the bot as is
+    (`base`: (day, mode) -> its Piece) under the gate's modes, on the data --holdout keeps; failed
+    cells last. Returns (objective, a description of it)."""
+    gating = modes if gate == "every" else modes[:1]
+    part = holdout[1] if holdout else None
+
+    def kept(pieces: list, mode) -> float:
+        own = [(d, p) for (d, m), p in zip(keys, pieces) if m == mode]
+        if isinstance(part, float):  # a share: the last blocks of FINE_TICKS ticks, the days in order (split_holdout)
+            fine = [x for _, p in own for x in p.fine]
+            return sum(fine[: len(fine) - max(1, round(part * len(fine)))])
+        return sum(p.pnl for d, p in own if d != part)  # without the held-out day, if any
+
+    reference = [base[k] for k in keys]
+
+    def objective(pieces: list) -> float:
+        if any(p.errors or p.breaches for p in pieces):
+            return -math.inf
+        return min(kept(pieces, m) - kept(reference, m) for m in gating)
+
+    described = f"the smaller gain over the bot as is under {', '.join(str(m) for m in gating)}" if len(gating) > 1 else \
+        f"the gain over the bot as is under {gating[0]}"
+    return objective, described + (f", without {holdout[0]}" if holdout else "")
+
+
 def run_grid(
     s: Setup, bot: Path, axes: list[Axis], modes: list[TradeMatching], jobs: int, format_name: str, data_arg: str, day_specs: list[str],
     all_products: bool = False, screen: float | None = None, sample: int | None = None, sample_seed: int = 0, halving: float | None = None,
+    searching: tuple[str, int, int] | None = None, gate: str = "every", holdout: tuple[str, int | float] | None = None,
 ) -> GridRun:
     """The baseline (the bot with only --set applied) and every combination, one backtest per worker
     task. Unless `all_products`, when the axes set only some products, the combinations run on days
@@ -560,7 +619,8 @@ def run_grid(
     best there, runs on the other days and modes. With `halving`, successive halving in steps: each
     adds the next (day, mode), the first mode's days first, and keeps that share of the cells still
     alive, ranked by their PnL so far; the last ones run everywhere. `sample` runs that many cells
-    drawn at random (seeded by `sample_seed`) instead of every combination."""
+    drawn at random (seeded by `sample_seed`) instead of every combination. `searching` (method,
+    budget in cells, seed) runs arena.search's search instead, on search_objective."""
     products = sorted({p for day in s.days for p in day.products})
     traded = axis_products(axes, products)
     subset = traded if not all_products and len(traded) < len(products) else None
@@ -582,9 +642,31 @@ def run_grid(
                         "makes the same PnL there with or without the other products, so theirs is added from its run (--all-products to run them all)")
             else:
                 note = "the combinations ran on every product: the bot as is trades the axes' products differently without the others"
-        cells, first, chosen, rungs, seen = _cells(axes, sample, sample_seed), keys[0], None, None, set()
+        first, chosen, rungs, seen, searched = keys[0], None, None, set(), None
+        if searching:
+            method, budget, seed = searching
+            ref = {k: base[("part", *k)] if restricted is not None else full[k] for k in keys}
+            objective, described = search_objective(keys, ref, modes, gate, holdout)
+            values_of = lambda index: tuple(axes[i].values[j] for i, j in enumerate(index))
+            pieces = {}
+
+            def ask(wanted: list[tuple[tuple, int]]) -> dict:
+                found = runner.run([((index, *keys[k]), values_of(index), *keys[k], restricted is not None, None) for index, k in wanted])
+                pieces.update(found)
+                return {(index, k): found[(index, *keys[k])] for index, k in wanted}
+
+            start = start_cell(bot, format_name, axes)
+            space = search.Space([len(axis.values) for axis in axes], start)
+            run = search.run(method, search.Search(space, ask, len(keys), budget, objective), seed)
+            cells = [(index, values_of(index)) for index in run.seen]
+            pieces = {key: piece for key, piece in pieces.items() if key[0] in run.seen}
+            searched = Searched(method, budget, seed, start, run.found_at(), run.best(), described)
+        else:
+            cells = _cells(axes, sample, sample_seed)
         tried = len(cells)
-        if halving:
+        if searching:
+            pass  # its cells ran as it chose them
+        elif halving:
             rungs, pieces = [], {}
             for r, key in enumerate(keys):
                 pieces |= runner.run([((index, *key), values, *key, restricted is not None, None) for index, values in cells])
@@ -609,7 +691,7 @@ def run_grid(
     extra = {k: _difference(full[k], base[("part", *k)], set(restricted)) for k in keys} if restricted else None
     # each cell's pieces let go once it is assembled: with many cells they are most of the memory
     outcomes = {index: _assemble(index, values, {k: pieces.pop((index, *k)) for k in keys}, s.days, modes, extra) for index, values in cells}
-    return GridRun(_assemble((), (), full, s.days, modes), outcomes, restricted, note, chosen, rungs, tried, seen)
+    return GridRun(_assemble((), (), full, s.days, modes), outcomes, restricted, note, chosen, rungs, tried, seen, searched)
 
 
 def run_permutations(
@@ -989,6 +1071,20 @@ def format_halving(axes: list[Axis], rungs: list[Rung], tried: int, share: float
     return "\n".join(lines)
 
 
+def format_search(axes: list[Axis], searched: Searched, total: int, outcomes: dict[tuple[int, ...], Outcome]) -> str:
+    """What --search ran and found."""
+    setting = lambda index: ", ".join(f"{a.label}={a.values[i]}" for a, i in zip(axes, index))
+    how = {"coord": f"coordinate descent from {setting(searched.start)}", "tpe": "a tree-structured Parzen estimator"}[searched.method]
+    lines = [f"search: {how} (seed {searched.seed}), {len(outcomes):,} of {total:,} cells ({len(outcomes) / total:.2%}; budget {searched.budget:,}), "
+             f"maximising {searched.objective}"]
+    if searched.best is not None:
+        lines.append(f"  its best, found at cell {searched.found_at:,} of {len(outcomes):,}: {setting(searched.best)}"
+                     + ("" if searched.found_at <= len(outcomes) * 0.75 else ": late in the budget, so a larger one may find better"))
+    lines.append(f"! the tests below see the {len(outcomes):,} cells the search ran, chosen by their PnL: they understate the selection bias "
+                 f"of {total:,} cells")
+    return "\n".join(lines)
+
+
 def _spearman(x: list[float], y: list[float]) -> float:
     def ranks(v):
         order = sorted(range(len(v)), key=v.__getitem__)
@@ -1325,6 +1421,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gate", choices=("every", "first"), default="every",
                         help="the modes the pick must beat the bot as is under: every one of --modes (default), or only the first, the others "
                         "shown as columns (once the playground has shown which mode the Arena's fills follow)")
+    parser.add_argument("--search", choices=sorted(search.SEARCHES),
+                        help="run at most --budget cells, chosen as it goes: coord (coordinate descent from the bot as is) or tpe (a "
+                        "tree-structured Parzen estimator), maximising the smaller gain over the bot as is under the gate's modes, without "
+                        "the --holdout data; for grids past about 100,000 cells")
+    parser.add_argument("--budget", type=int, metavar="N", help="--search's cells, each on every day and mode (e.g. 1000)")
+    parser.add_argument("--search-seed", type=int, default=0, help="--search's seed (default: 0)")
     parser.add_argument("--screen", type=float, metavar="SHARE",
                         help="successive halving: run every combination on the first day under the first mode, then only this share "
                         "of them, the best there, on every day and mode (e.g. 0.25)")
@@ -1343,6 +1445,12 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--halving needs a share between 0 and 1, e.g. 0.5")
         if args.halving is not None and (args.screen is not None or args.permute):
             raise ValueError("--halving is a screen of its own: drop --screen, and --permute (it screens each copy with --screen only)")
+        if args.search is not None and (args.budget is None or args.budget < 1):
+            raise ValueError("--search needs --budget, a number of cells, e.g. 1000")
+        if args.budget is not None and args.search is None:
+            raise ValueError("--budget is --search's: name one (coord or tpe)")
+        if args.search is not None and (args.screen is not None or args.halving is not None or args.sample is not None or args.permute):
+            raise ValueError("--search chooses its own cells: drop --screen, --halving, --sample and --permute")
         if args.sample is not None and args.sample < 1:
             raise ValueError("--sample needs a number of cells, e.g. 10000")
         holdout = parse_holdout(args.holdout, s.days) if args.holdout else None
@@ -1360,7 +1468,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{args.sample:,} of {combos:,} combinations, drawn at random (--sample-seed {args.sample_seed})")
         combos = args.sample
     runs = (combos + 1) * len(s.days) * len(modes)
-    if args.halving:
+    if args.search:
+        budget = min(args.budget, combos)
+        print(f"{args.search} search: at most {budget:,} of {combos:,} combinations ({budget / combos:.2%}) × {len(s.days)} days × {len(modes)} modes "
+              f"({(budget + 1) * len(s.days) * len(modes):,} backtests at most) on {args.jobs} workers")
+    elif args.halving:
         alive, runs, steps = combos, len(s.days) * len(modes), len(s.days) * len(modes)
         for k in range(steps):
             runs += alive
@@ -1382,7 +1494,7 @@ def main(argv: list[str] | None = None) -> int:
         print(described)
     start = time.perf_counter()
     run = run_grid(s, args.bot, axes, modes, args.jobs, args.format, args.data, args.days, args.all_products, args.screen, args.sample, args.sample_seed,
-                   args.halving)
+                   args.halving, (args.search, args.budget, args.search_seed) if args.search else None, args.gate, holdout)
     baseline, outcomes = run.baseline, run.outcomes
     print(f"done in {time.perf_counter() - start:.1f} s" + (f"; {run.note}" if run.note else "") + "\n")
 
@@ -1398,6 +1510,8 @@ def main(argv: list[str] | None = None) -> int:
         print("\n" + format_screen(axes, run.screen, outcomes))
     if run.rungs:
         print("\n" + format_halving(axes, run.rungs, run.tried, args.halving, outcomes))
+    if run.searched:
+        print("\n" + format_search(axes, run.searched, math.prod(len(axis.values) for axis in axes), outcomes))
     stats = rust.stats_engine(s.engine)  # the statistics in Rust whenever it builds: the same numbers, far faster
     print("\n" + format_overfitting(baseline, outcomes, modes, len(s.days), axes, stats, args.gate))
     if (run.screen or run.rungs) and len(s.days) >= 2:

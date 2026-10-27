@@ -447,3 +447,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-27] query | a large-tick book: quote at the best
 - `concepts/reading-the-data-on-day-one` gets the large-tick result (`arena.sim`'s `LARGE_TICK` preset): only `make_edge` half a tick fills at a one-tick spread, and `arena.diagnose --suggest` now sets it where the margin pays.
+
+## [2026-10-27] lint | grid citations re-mapped
+- `arena.grid --search` added lines to `python/arena/grid.py`; the two citations into it (`concepts/validation-and-overfitting`, `sources/superior-predictive-ability`) re-mapped to the same definitions.

@@ -518,6 +518,50 @@ def test_halving_rejects_a_bad_share_a_screen_and_a_permutation_test(capsys, bot
             run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", *extra)
 
 
+def test_search_runs_its_budget_from_the_bot_as_is_and_reports_its_best(capsys, bot, data_dir, tmp_path):
+    # size loses 2 a unit a day; the bot's own size (1) isn't on the axis, so coord starts mid-axis (6)
+    args = ["--grid", "PARAMS.size=2..9", "--grid", "PARAMS.unused=x,y,z", "--modes", "all,worse", "--jobs", "1"]
+    code, text = run_main(capsys, bot, data_dir, *args, "--search", "coord", "--budget", "12", "--out", str(tmp_path / "coord.csv"))
+    assert code == 0 and "coord search: at most 12 of 24 combinations (50.00%) × 2 days × 2 modes (52 backtests at most)" in text
+    assert "search: coordinate descent from size=6, unused=x (seed 0), 12 of 24 cells" in text
+    assert "maximising the smaller gain over the bot as is under all, worse" in text
+    assert ": size=2, unused=" in text.split("its best, found at cell")[1].splitlines()[0]
+    assert "! the tests below see the 12 cells the search ran" in text
+    assert len(list(csv.DictReader(open(tmp_path / "coord.csv")))) == 12
+    for method in ("coord", "tpe"):  # the reported best is the best of the cells it ran, by its objective
+        _, text = run_main(capsys, bot, data_dir, *args, "--search", method, "--budget", "6", "--search-seed", "3", "--out", str(tmp_path / "s.csv"))
+        rows = list(csv.DictReader(open(tmp_path / "s.csv")))
+        best = max(rows, key=lambda r: min(float(r["pnl_all"]), float(r["pnl_worse"])))
+        assert len(rows) == 6 and f"size={best['PARAMS.size']}, unused={best['PARAMS.unused']}" in text.split("its best")[1].splitlines()[0]
+    _, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=0..3", "--jobs", "1", "--search", "coord", "--budget", "2")
+    assert "coordinate descent from size=1 (seed 0)" in text  # the bot's own value, on the axis
+
+
+def test_the_search_objective_leaves_out_the_held_out_data_and_failed_cells():
+    piece = lambda pnl, fine=(), errors=0: SimpleNamespace(pnl=pnl, fine=list(fine), errors=errors, breaches=0)
+    keys = [(0, TradeMatching.ALL), (1, TradeMatching.ALL), (0, TradeMatching.WORSE), (1, TradeMatching.WORSE)]
+    base = {k: piece(0.0, [0.0, 0.0]) for k in keys}
+    modes = [TradeMatching.ALL, TradeMatching.WORSE]
+    cell = [piece(5, [2, 3]), piece(100, [0, 100]), piece(4, [1, 3]), piece(-50, [0, -50])]
+    whole, text = grid.search_objective(keys, base, modes, "every", None)
+    assert whole(cell) == -46 and text == "the smaller gain over the bot as is under all, worse"
+    day, text = grid.search_objective(keys, base, modes, "every", ("day r1d0", 1))
+    assert day(cell) == 4 and text.endswith(", without day r1d0")
+    share, _ = grid.search_objective(keys, base, modes, "every", ("the last 25% of the data", 0.25))
+    assert share(cell) == 4  # the last of four blocks a mode held out: 2 + 3 + 0 under all, 1 + 3 + 0 under worse
+    first, text = grid.search_objective(keys, base, modes, "first", None)
+    assert first(cell) == 105 and text == "the gain over the bot as is under all"
+    assert whole([*cell[:3], piece(-50, errors=1)]) == -math.inf
+
+
+def test_search_needs_a_budget_and_no_other_screen(capsys, bot, data_dir):
+    for extra in (["--search", "coord"], ["--search", "tpe", "--budget", "0"], ["--budget", "5"], ["--search", "tpe", "--budget", "5", "--halving", "0.5"],
+                  ["--search", "tpe", "--budget", "5", "--screen", "0.5"], ["--search", "tpe", "--budget", "5", "--sample", "2"],
+                  ["--search", "tpe", "--budget", "5", "--permute", "2"], ["--search", "anneal", "--budget", "5"]):
+        with pytest.raises(SystemExit):
+            run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1,2", *extra)
+
+
 def test_without_days_drops_the_days_pnl_and_fine_blocks():
     day = lambda name, ticks: SimpleNamespace(name=name, ticks=[None] * ticks)
     days = [day("a", 200), day("b", 300), day("c", 100)]

@@ -167,6 +167,21 @@ unseen-days section leaves out every day a step ranked on, so it appears only wh
 cells drawn at random from the grid (`--sample-seed`, default 0) instead of all of them, so a
 product of millions is never listed; `--permute`'s copies run the same sample.
 
+`--search coord|tpe --budget N` runs at most N cells, each on every day and mode, chosen as it goes
+(`python/arena/search.py`): `coord` is coordinate descent from the bot as is (each axis at the bot's
+own value, or its middle one if that isn't on the axis), `tpe` a tree-structured Parzen estimator
+(Optuna's default), each seeded by `--search-seed`. Both maximise a cell's smaller gain over the bot
+as is under the gate's modes (every `--modes` entry, or the first with `--gate first`), on the data
+`--holdout` keeps, so the held-out check stays free of its choice. The summary says where the search
+started, what it maximised and at which cell it found its best; as with the screen, the tests see
+only the cells it ran. Past about 100,000 cells either reached the whole grid's best training cell
+in 0.1–5% of its backtests, where random cells and `--halving` didn't (`IDEAS.md`, "Searching a big
+grid without running all of it"): on Kelp's 933,120 cells (eleven settings, P3 round 1, `all,worse`),
+`--search tpe --budget 1000 --engine rust` took 8 s, and on Osmium's 3,600 both found the whole grid's
+best cell by the same objective (coord at its 13th cell, TPE by its 142nd). Halving ranks on the
+first mode's days first, so with `--modes all,worse` it keeps cells that do well under `all`. It
+doesn't combine with `--screen`, `--halving`, `--sample` or `--permute`.
+
 `--engine rust` runs the backtests, and the statistics that grow with the cells (CSCV, the DSR's
 correlation, SPA and StepM, which go to Rust even without it when it builds), on the Rust port (`rust/`, needs `cargo`), on `--jobs` threads, and
 prints and writes the same results to the last digit. The axes, the screen and the permuted copies
