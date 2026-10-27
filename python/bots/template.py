@@ -40,6 +40,16 @@ DEFAULTS = {
     # Take, clear and make around fair + imbalance * rho, rho = (Vb - Va)/(Vb + Va) at the best
     # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.imbalance.
     "imbalance": 0.0,
+    # A linear fair (IDEAS.md, "A `linear` fair"): add lin_rho3 x the depth imbalance over the best 3
+    # levels, and lin_momentum x the fair's move over the last lin_window ticks, in an agent market
+    # where flow and momentum carry the price (experiments.predict). 0 turns each off.
+    "lin_rho3": 0.0,
+    "lin_momentum": 0.0,
+    "lin_window": 100,
+    # Pull the side a move runs over (IDEAS.md, "Gating a side on the last move"): after the fair has
+    # risen at least gate_move over gate_window ticks, no ask; after a fall as large, no bid. None: off.
+    "gate_move": None,
+    "gate_window": 20,
     "take_edge": 1,  # take book orders priced at least this much better than fair
     "clear_edge": 0,  # cut inventory at prices up to this much worse than fair
     "make_edge": 2,  # quote at least this far from fair
@@ -318,8 +328,14 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
     if p["smile"] is not None and p["hedge_ratio"]:
         plan.legs = {p["underlying"]: -p["hedge_ratio"] * memory.get("delta", 0.0) * position}
     plan.fair, plan.target = fair, p["target"]
+    trend, recent = moves(fair, p, memory)
     if p["imbalance"] and book.bids and book.asks:
         fair += p["imbalance"] * imbalance(book)
+    if p["lin_rho3"] and book.bids and book.asks:
+        fair += p["lin_rho3"] * depth_imbalance(book, 3)
+    fair += p["lin_momentum"] * trend
+    if p["gate_move"] is not None and abs(recent) >= p["gate_move"]:
+        p = {**p, "pull": 1 if recent > 0 else -1}
     book = book.copy()  # take and clear use up its levels
     take(book, fair, p, plan)
     clear(book, fair, p, plan)
@@ -390,6 +406,24 @@ def imbalance(book: Book) -> float:
     """(Vb - Va)/(Vb + Va) at the best bid and ask, in [-1, 1]."""
     bid, ask = book.bids[0][1], book.asks[0][1]
     return (bid - ask) / (bid + ask)
+
+
+def depth_imbalance(book: Book, depth: int) -> float:
+    """(Vb - Va)/(Vb + Va) over the best `depth` levels a side."""
+    bid, ask = sum(v for _, v in book.bids[:depth]), sum(v for _, v in book.asks[:depth])
+    return (bid - ask) / (bid + ask)
+
+
+def moves(fair: float, p: dict, memory: dict) -> tuple[float, float]:
+    """The fair's move over lin_window and over gate_window ticks (0 until it has that many), for
+    the linear fair and the gate; memory keeps the last fairs, only while either is on."""
+    windows = (p["lin_window"] if p["lin_momentum"] else 0, p["gate_window"] if p["gate_move"] is not None else 0)
+    if not any(windows):
+        return 0.0, 0.0
+    trail = memory.setdefault("trail", [])
+    trail.append(fair)
+    del trail[:-max(windows) - 1]
+    return tuple(fair - trail[-k - 1] if k and len(trail) > k else 0.0 for k in windows)
 
 
 def mid(bids: list[list[int]], asks: list[list[int]]) -> float | None:
@@ -784,6 +818,10 @@ def make(book: Book, fair: float, p: dict, plan: Plan) -> None:
         buy, sell = min(buy, max(p["target"] - plan.net, 0)), min(sell, max(plan.net - p["target"], 0))
     if p["take_reserve"]:
         buy, sell = min(buy, max(plan.buy_room - p["take_reserve"], 0)), min(sell, max(plan.sell_room - p["take_reserve"], 0))
+    if p.get("pull") == 1:  # the fair just rose: don't sell into it
+        sell = 0
+    elif p.get("pull") == -1:
+        buy = 0
     levels, step = p["make_levels"], p["make_step"]
     for k in range(levels):  # the first price gets the remainder of an uneven split
         plan.buy(bid - k * step, buy // levels + (buy % levels if k == 0 else 0), quote=True)

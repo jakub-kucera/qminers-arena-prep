@@ -82,6 +82,11 @@ struct P {
     wall_size: f64,
     smoothing: f64,
     imbalance: f64,
+    lin_rho3: f64,
+    lin_momentum: f64,
+    lin_window: i64,
+    gate_move: Option<f64>,
+    gate_window: i64,
     take_edge: f64,
     clear_edge: f64,
     make_edge: f64,
@@ -249,6 +254,11 @@ impl P {
             wall_size: r.num("wall_size")?,
             smoothing: r.num("smoothing")?,
             imbalance: r.num("imbalance")?,
+            lin_rho3: r.num("lin_rho3")?,
+            lin_momentum: r.num("lin_momentum")?,
+            lin_window: r.int("lin_window")?,
+            gate_move: r.opt_num("gate_move")?,
+            gate_window: r.int("gate_window")?,
             take_edge: r.num("take_edge")?,
             clear_edge: r.num("clear_edge")?,
             make_edge: r.num("make_edge")?,
@@ -324,6 +334,7 @@ struct Eff {
     clear_edge: f64,
     make_size: Option<i64>,
     reduce_only: bool,
+    pull: i8, // 1: no ask (the fair just rose), -1: no bid
 }
 
 /// One product's memory dict, a field per key; None (or the default) where Python's key is absent.
@@ -331,6 +342,7 @@ struct Eff {
 struct Memory {
     fair: Option<f64>,
     hysteresis: Option<f64>,
+    trail: Vec<f64>,
     held: i64,
     broken: bool,
     level_sum: f64,
@@ -453,6 +465,7 @@ fn trade_product(product: usize, book: &Book, position: i64, p: &P, memory: &mut
         clear_edge: p.clear_edge,
         make_size: p.make_size,
         reduce_only: p.reduce_only,
+        pull: 0,
     };
     let inf = f64::INFINITY;
     if p.flatten_from.is_some_and(|from| market.timestamp as f64 >= from) {
@@ -489,8 +502,16 @@ fn trade_product(product: usize, book: &Book, position: i64, p: &P, memory: &mut
     }
     plan.fair = Some(fair);
     plan.target = e.target;
+    let (trend, recent) = moves(fair, p, memory);
     if p.imbalance != 0.0 && !book.bids.is_empty() && !book.asks.is_empty() {
         fair += p.imbalance * imbalance(book);
+    }
+    if p.lin_rho3 != 0.0 && !book.bids.is_empty() && !book.asks.is_empty() {
+        fair += p.lin_rho3 * depth_imbalance(book, 3);
+    }
+    fair += p.lin_momentum * trend;
+    if p.gate_move.is_some_and(|gate| recent.abs() >= gate) {
+        e.pull = if recent > 0.0 { 1 } else { -1 };
     }
     let mut levels = Levels::read(book); // take and clear use up its levels
     take(&mut levels, fair, p, &e, &mut plan);
@@ -547,6 +568,30 @@ fn price(book: &Book, p: &P) -> Option<f64> {
 fn imbalance(book: &Book) -> f64 {
     let (bid, ask) = (book.bids[0].1, book.asks[0].1);
     (bid - ask) as f64 / (bid + ask) as f64
+}
+
+fn depth_imbalance(book: &Book, depth: usize) -> f64 {
+    let bid: i64 = book.bids.iter().take(depth).map(|l| l.1).sum();
+    let ask: i64 = book.asks.iter().take(depth).map(|l| l.1).sum();
+    (bid - ask) as f64 / (bid + ask) as f64
+}
+
+/// The fair's move over lin_window and over gate_window ticks (0 until it has that many); memory keeps
+/// the last fairs, only while either is on.
+fn moves(fair: f64, p: &P, memory: &mut Memory) -> (f64, f64) {
+    let lin = if p.lin_momentum != 0.0 { p.lin_window.max(0) as usize } else { 0 };
+    let gate = if p.gate_move.is_some() { p.gate_window.max(0) as usize } else { 0 };
+    if lin == 0 && gate == 0 {
+        return (0.0, 0.0);
+    }
+    memory.trail.push(fair);
+    let keep = lin.max(gate) + 1;
+    if memory.trail.len() > keep {
+        memory.trail.drain(..memory.trail.len() - keep);
+    }
+    let n = memory.trail.len();
+    let moved = |k: usize| if k != 0 && n > k { fair - memory.trail[n - k - 1] } else { 0.0 };
+    (moved(lin), moved(gate))
 }
 
 fn mid(bid: Option<&(Price, i64)>, ask: Option<&(Price, i64)>) -> Option<f64> {
@@ -924,6 +969,11 @@ fn make(book: &Levels, fair: f64, p: &P, e: &Eff, plan: &mut Plan) {
     if p.take_reserve != 0 {
         buy = buy.min((plan.buy_room() - p.take_reserve).max(0));
         sell = sell.min((plan.sell_room() - p.take_reserve).max(0));
+    }
+    if e.pull == 1 {
+        sell = 0; // the fair just rose: don't sell into it
+    } else if e.pull == -1 {
+        buy = 0;
     }
     let (levels, step) = (p.make_levels, p.make_step);
     for k in 0..levels {

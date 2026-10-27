@@ -22,7 +22,7 @@ An 8-page simulation study: N market makers, each an independent Q-learner choos
 
 ## In our notation
 - The one-round game is what `--vs` plays: our template against copies split Osmium's spread, and undercutting by a tick takes the flow ([shared market](../concepts/shared-market-and-adversaries.md)).
-- A rival that keeps a wide spread leaves room for a one-tick-inside quote: the template's `make` already steps one tick inside the best (`python/bots/template.py:754-759`).
+- A rival that keeps a wide spread leaves room for a one-tick-inside quote: the template's `make` already steps one tick inside the best (`python/bots/template.py:788-793`).
 
 ## Traps
 - The market is "semi-realistic": no order book beyond the makers' own quote levels, and a stylised investor demand.

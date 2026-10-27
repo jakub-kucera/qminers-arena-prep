@@ -24,7 +24,7 @@ A simulation of RL market makers quoting against each other: a robust maker A (t
 
 ## In our notation
 - B2's behaviour is a rival with a smaller `make_edge` than ours, quoting inside us. `--vs` can play it: run the template against a copy with `make_edge` 0 or set to step inside, and read the split of fills and PnL (`IDEAS.md`).
-- Our defence is not to widen like A did: the template keeps stepping one tick inside the best remaining quote while `make_edge` allows (`python/bots/template.py:754-759`), and `take` lifts a rival's quote that is better than fair.
+- Our defence is not to widen like A did: the template keeps stepping one tick inside the best remaining quote while `make_edge` allows (`python/bots/template.py:788-793`), and `take` lifts a rival's quote that is better than fair.
 
 ## Traps
 - "PnL" is in the simulator's units; only the ratios mean anything.

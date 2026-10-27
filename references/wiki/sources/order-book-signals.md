@@ -51,7 +51,7 @@ It is the one paper that turns the imbalance signal into a quoting rule, and its
 | Paper | Ours |
 |---|---|
 | `V^b_t`, `V^a_t` | `book.bids[0][1]`, `book.asks[0][1]` (`python/bots/template.py`); `bid_volume_1`, `ask_volume_1` in the CSVs |
-| `Δ/2` | the half-spread earned. For our quotes it is the distance of the quote from `fair` (`make_edge`, `python/bots/template.py:45`), not half the book's spread |
+| `Δ/2` | the half-spread earned. For our quotes it is the distance of the quote from `fair` (`make_edge`, `python/bots/template.py:55`), not half the book's spread |
 | `ε±(J)` | the markout of our fills: the mid change after a fill, by side and by the state at the fill. `python/arena/analysis.py` computes fill markouts from 1 tick ("Markout horizons start at 1 tick", `ARCHITECTURE.md`) but not per imbalance state |
 | `φ` | no direct parameter; the template's linear `skew` is the closest |
 | `Q̲, Q̄` | `limit` per product in `PARAMS` |

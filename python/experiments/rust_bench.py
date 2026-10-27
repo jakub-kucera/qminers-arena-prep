@@ -140,6 +140,8 @@ VARIANTS = [
     ("hysteresis mid, a join gate", {K + "fair": "hysteresis_mid", K + "make_edge": 0.5, K + "join_min": 8, K + "join_ratio": 1.5, R + "join_min": 20}),
     ("passive-first: crossing capped, the excess quoted", {K + "level": "day", K + "level_band": 2, K + "clear_edge": 2, K + "cross_max": 6,
                                                           K + "cross_excess": 10, R + "cross_max": 3}),
+    ("a linear fair: depth imbalance and momentum", {K + "lin_rho3": 1.5, K + "lin_momentum": 0.4, K + "lin_window": 30, R + "lin_rho3": 2}),
+    ("a gate on the last move", {K + "gate_move": 1, K + "gate_window": 10, R + "gate_move": 2, R + "lin_momentum": 0.2, R + "lin_window": 50}),
     ("a ladder, a take reserve", {K + "make_levels": 3, K + "make_step": 2, K + "make_size": 10, K + "take_reserve": 15, R + "make_levels": 2,
                                   R + "take_reserve": 30}),
     ("vol guard", {K + "vol_guard": 1.3, K + "level": "day", K + "level_band": 2}),
