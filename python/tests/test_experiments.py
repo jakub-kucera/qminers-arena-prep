@@ -320,3 +320,35 @@ def test_structure_finds_a_planted_sum_repeat_stream_grid_and_cycle():
     assert structure.increments(days, "G")["grid"][0] == 5 and structure.increments(days, "X_A")["grid"] is None
     assert abs(structure.moves(days, "S")["peaks"][0][0] - 20) < 0.5
     assert structure.starts(days, "X_A")["reading"] != "each day continues the last"  # each day starts at 10,000 again
+
+
+def test_repeats_runs_on_the_days_data(capsys, monkeypatch, drill_data):
+    out = run(capsys, monkeypatch, "repeats", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "## drill all" in out and "| ALPHA |" in out
+
+
+def test_repeats_finds_a_taker_that_comes_back_the_next_day():
+    import random
+
+    from arena.model import Book, Day, MarketTrade, Tick
+    from experiments import repeats
+
+    def day(name, seed, plan):
+        rng = random.Random(seed)
+        ticks = []
+        for i in range(1000):
+            book = Book(((99, 20),), ((101, 20),))
+            trades = {"R": [MarketTrade("R", 101 if plan[i] > 0 else 99, abs(plan[i]))]} if plan.get(i) else {}
+            if rng.random() < 0.05:  # B's trades are new every day
+                trades["B"] = [MarketTrade("B", rng.choice((99, 101)), rng.randint(1, 9))]
+            ticks.append(Tick(i * 100, {"R": book, "B": book}, trades, {}))
+        return Day(name, ["R", "B"], {"R": 20, "B": 20}, ticks)
+
+    taker = {i: random.Random(i).choice((-8, 9, 2, -3)) for i in range(0, 1000, 37)}  # R's taker: the same ticks, sides and sizes
+    days = [day("d1", 1, taker), day("d2", 2, taker), day("d3", 3, {})]
+    rows = repeats.study(days, "R")
+    assert rows[0]["all"][:2] == (len(taker), len(taker)) and rows[0]["all"][2] < 0.05
+    assert rows[0]["big"][:2] == (sum(1 for q in taker.values() if abs(q) >= 7),) * 2
+    assert rows[1]["all"][1] == 0 and rows[0]["two"] == (0.0, None)
+    assert repeats.flagged(rows[:1]) == ["all", "small", "big"] and repeats.flagged(repeats.study(days[:2], "B")) == []
+    assert repeats.predicted(days[:2], "R") == [(i * 100, 1 if q > 0 else -1, abs(q), 1) for i, q in sorted(taker.items())]
