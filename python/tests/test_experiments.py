@@ -202,3 +202,28 @@ def test_the_abides_study_reads_the_fundamental_where_the_data_has_one(capsys, m
     out = run(capsys, monkeypatch, "abides_study", "--data", str(tmp_path), "--days", "1", "--products", "KELP")
     assert "(against the fundamental now / the mid 50 ticks ahead)" in out and "| wall_mid | " in out
     assert "| 2 | " in out  # the continuation table's first row
+
+
+def test_a_lobster_day_converts_to_the_prosperity_layout(tmp_path):
+    from arena.formats import prosperity
+    from experiments import lobster_days
+
+    e = lobster_days.EMPTY
+    # second 34200: an ask only (dropped); then the book at the end of 34201, 34202 and 34203
+    events = [(34200.5, 1, 1, 100, 5_852_100, -1), (34201.2, 1, 2, 50, 5_851_900, 1), (34201.9, 4, 1, 10, 5_852_100, -1),
+              (34202.4, 4, 2, 20, 5_851_900, 1), (34203.1, 1, 3, 40, 5_852_000, 1)]
+    books = [[5_852_100, 100, -e, 0], [5_852_100, 100, 5_851_900, 50], [5_852_100, 90, 5_851_900, 50],
+             [5_852_100, 90, 5_851_900, 30], [5_852_100, 90, 5_852_000, 40]]
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    pad = lambda row: row + [e, 0, -e, 0] * 2  # levels 2 and 3 empty
+    (raw / "AAPL_2012-06-21_34200000_57600000_message_3.csv").write_text("\n".join(",".join(map(str, r)) for r in events) + "\n")
+    (raw / "AAPL_2012-06-21_34200000_57600000_orderbook_3.csv").write_text("\n".join(",".join(map(str, pad(b))) for b in books) + "\n")
+    lobster_days.main([str(raw), "--out", str(tmp_path / "data")])
+
+    (day,) = prosperity.load_days(tmp_path / "data", ["1-1"])
+    assert day.products == ["AAPL"] and day.limits == {"AAPL": lobster_days.LIMIT}
+    assert [(t.books["AAPL"].bids, t.books["AAPL"].asks) for t in day.ticks] == [
+        (((58_519, 50),), ((58_521, 90),)), (((58_519, 30),), ((58_521, 90),)), (((58_520, 40),), ((58_521, 90),))]
+    # the execution in second 34202 (after tick 0's snapshot at the end of 34201) is tick 0's; 34201's is before any tick
+    assert {t.timestamp: [(x.price, x.quantity) for x in t.trades.get("AAPL", [])] for t in day.ticks} == {0: [(58_519, 20)], 100: [], 200: []}

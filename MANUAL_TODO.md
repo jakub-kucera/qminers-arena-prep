@@ -85,6 +85,11 @@ registers it in `literature_md/convert.sh` and converts it. All links returned H
   - Why: `literature_md/` has no options material; these are a free, short primer.
   - Done when: converted, or ticked as "no options expected".
 
+- [ ] **LOBSTER's sample files: one NASDAQ stock, one day, level 5 or deeper** (2026-10-27; `TODO.md`, "The edge plan"). Real books with real informed flow, to see what `arena.diagnose`'s "trades move the wall mid" note and negative markouts look like on a real market, next to ABIDES's simulated one.
+  - Why a person: lobsterdata.com no longer serves its free samples by a public link (2026-10-27: the old `/info/sample/...zip` paths return the site's app page). It sends a time-limited download link after a request on the site (an account, or for the book samples a purchase proof).
+  - Save: the unzipped `*_message_*.csv` and `*_orderbook_*.csv` files in `data/lobster/raw/` (gitignored; the sample's terms are LOBSTER's, so nothing is committed).
+  - Done when: `uv run python -m experiments.lobster_days data/lobster/raw` has converted them, and `arena.diagnose`, `experiments.quote_markouts` and the shuffle test on `--data data/lobster` are in `IDEAS.md` beside the ABIDES row.
+
 ## C. Books (library access or purchase; use legal copies)
 
 Save scans or ebooks of the chapters named, as `literature_raw/<short-name>.pdf`. The converted markdown is committed
