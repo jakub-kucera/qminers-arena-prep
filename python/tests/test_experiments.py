@@ -193,3 +193,12 @@ def test_an_abides_export_converts_to_the_prosperity_layout(tmp_path):
     assert (bought.price, bought.buyer, bought.seller) == (100_000, "NoiseAgent", "ValueAgent")
     fundamental = (tmp_path / "data" / "round1" / "fundamental_round_1_day_1.csv").read_text().splitlines()
     assert fundamental[1:] == ["0;ABM;100000.000", "100;ABM;100002.500"]
+
+
+def test_the_abides_study_reads_the_fundamental_where_the_data_has_one(capsys, monkeypatch, tmp_path):
+    spec = sim.preset_market(ticks=400)
+    for k in range(2):
+        sim.write_day(sim.run(spec, 3000 + k), tmp_path, 1, k)
+    out = run(capsys, monkeypatch, "abides_study", "--data", str(tmp_path), "--days", "1", "--products", "KELP")
+    assert "(against the fundamental now / the mid 50 ticks ahead)" in out and "| wall_mid | " in out
+    assert "| 2 | " in out  # the continuation table's first row

@@ -229,6 +229,7 @@ From the organisers' e-mail of 7 Oct (saved as the first message of `references/
   - Then: if a source turns up, first check that the Technical Rules allow using it. If they do, it tells you what kind of process each product is (a level it returns to, trends, news jumps), and possibly how the private run continues.
 - [ ] **What kind of market is each product?**
   - Find out: once the loader reads the download, run `uv run python -m arena.diagnose <days> --format qminers --data <folder>`, and go through its notes with the table in `references/wiki/concepts/reading-the-data-on-day-one.md`.
+  - **Is it Prosperity's kind of market at all?** (2026-10-27) Two checks before trusting any prior in `IDEAS.md`: the shuffle test, `uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>.make_edge=0.5,1,2 --permute 20 [--engine rust]`, and passive markouts, `uv run python -m experiments.quote_markouts --data D --days ... --format qminers --bot BOT`. On Prosperity, shuffling the ticks changes nothing (P3 Kelp: 27,390 real, 27,326 shuffled) and no fill state loses; on ABIDES's agent market the shuffled days paid 4.6M against 28k, fills against the last move lost every day, and every quoting setting lost money with resting orders (`IDEAS.md`, "An independent generator: ABIDES's RMSC04"). If the download looks like ABIDES, a bot that does nothing beats the playbook until something in it is shown to pay.
   - We assume the Prosperity picture (P3 round 1):
     - small-tick books;
     - a noisy mid around a quiet wall mid;

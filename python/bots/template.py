@@ -153,6 +153,9 @@ PARAMS = {
                       "stop_loss": 48_000},
     "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 30, "clear_edge": 2,
                             "stop_loss": 39_000},
+    # ABIDES RMSC04's one stock (experiments.abides_days, a market we didn't write): its limit, and DEFAULTS
+    # for the rest as for a product first seen on the day, so every tool runs on --data data/abides.
+    "ABM": {"limit": 100},
 }
 for _strike in (9500, 9750, 10000, 10250, 10500):
     PARAMS[f"VOLCANIC_ROCK_VOUCHER_{_strike}"] = {"limit": 200, "fair": "wall_mid", "follow": "VOLCANIC_ROCK", "strike": _strike,
