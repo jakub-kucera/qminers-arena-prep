@@ -401,6 +401,18 @@ def test_quote_markouts_autocov_is_negative_for_a_bounce_and_positive_for_runs()
     assert autocov(runs, len(runs) - 1) > 0
 
 
+def test_family_fills_counts_clustered_ticks_against_independence(capsys, monkeypatch, drill_data):
+    from experiments import family_fills
+
+    assert family_fills.families(["A_X", "A_Y", "B_Z"]) == {"A": ["A_X", "A_Y"]}
+    assert family_fills.at_least_two([0.5, 0.5]) == pytest.approx(0.25)
+    together = [{"A_X": 1, "A_Y": 1}, {}, {}, {}] * 25  # both fill on the same ticks, each a quarter of the time
+    c = family_fills.clustering(together, ["A_X", "A_Y"])
+    assert c["observed"] == 25 and c["expected"] == pytest.approx(100 / 16) and c["same"] == 25
+    out = run(capsys, monkeypatch, "family_fills", "--data", drill_data, "--days", "all", "--format", "drill", "--jobs", "2")
+    assert "0. The market's trade ticks" in out
+
+
 def test_fill_curve_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "fill_curve", "--data", drill_data, "--days", "all", "--format", "drill", "--products", "ALPHA")
     assert "### drill all ALPHA" in out and "The fill-size curve" in out
