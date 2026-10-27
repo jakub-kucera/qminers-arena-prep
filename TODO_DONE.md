@@ -7,6 +7,17 @@ not here.
 
 ## Decisions
 
+- [x] **Hydrogel's `cross_excess`: keep None, or 25?** Raised 2026-10-27 by the passive-first grid.
+  - Options: (a) set `cross_excess` 25 on `HYDROGEL_PACK` (and leave Velvetfruit as is); (b) keep None.
+  - Evidence: on P4 rounds 3–4 (`uv run python -m arena.grid python/bots/template.py 3 4 --data p4 --grid 'PARAMS.HYDROGEL_PACK.cross_excess=None,25,50,100' --modes all,worse --scenario rest:resting,queue=prob --holdout last --engine rust`) 25 is the summary's pick, +29,941 under `all`, `worse` and resting, and it beats the bot as is on the held-out day (+4,321); 50 is flat and 100 loses 78k. In `arena.sim`'s reacting market 50 makes 9% more than None, 100 2% less (`IDEAS.md`, "Passive-first execution toward a target"). Velvetfruit gains only 5k at 25 and loses at 50.
+  - Recommendation: (a). It is the grid's pick by the rule the day uses, held out, and the reacting market agrees in direction; the risk is small since 25 of 200 is close to crossing everything.
+
+## Harder-round prep
+
+Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals"), in this order.
+  - **Decided 2026-10-27 by the user: (a).** `HYDROGEL_PACK` has `cross_excess` 25; P4 rounds 3–4 make 1,757,750 (1,727,809 before). Earlier P4 round 3–4 totals in `IDEAS.md` predate it.
+
+
 Choices only the user can make, each with the options, the evidence and a recommendation.
 
 - [x] **Which harder-round preps to build before the event?** Decided 2026-10-14: (c), then (a), then (b), each its own entry under "Harder-round prep" below. (d)–(g) are not chosen yet. `references/wiki/concepts/harder-rounds.md` lists 25 ways the organisers could make rounds harder than Prosperity, and ranks the prep for them.
@@ -288,7 +299,7 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 - [x] **Template: a `linear` fair** (brought back 2026-10-27: its trigger fired on ABIDES, where `experiments.predict`'s held-out forecast beats the half-spread on all 10 days, driven by momentum and ρ3; not on Prosperity). Done when: a `fair` mode adds the dot product of `predict.py`'s features and weights (PARAMS) to a base fair, in STRATEGY, the Rust twin and the drill template, graded on the ABIDES days against `wall_mid` by held-out days under `all`, `worse` and `--resting`, in `IDEAS.md`.
   - **Done 2026-10-27:** `lin_rho3`, `lin_momentum`, `lin_window` in STRATEGY, the twin and the drill template (additive terms on the fair, as `imbalance`); on ABIDES the grid's pick, held out, +1.3M under every mode; off by default (`IDEAS.md`, "A linear fair and a gate on the last move, in an agent market").
 
-- [x] **Template and sim: the large-tick regime (R9).** At a one-tick spread the template joins the back of the best (`make_edge` ≤ 0.5) or sits a tick behind it, where it never fills (`python/bots/template.py:788-800`), and no `arena.sim` preset is large-tick. Done when: `diagnose` has the jump rate λ and the uninformed-hit rate λ± per side (making pays where λ± > λ/2, Gao & Wang); the template has a hysteretic mid and a join/stand-aside gate per side (Albers); `arena.sim` (and `sim.rs`) has a large-tick preset; each graded on it under `--queue back|prob|front`, in `IDEAS.md`.
+- [x] **Template and sim: the large-tick regime (R9).** At a one-tick spread the template joins the back of the best (`make_edge` ≤ 0.5) or sits a tick behind it, where it never fills (`python/bots/template.py:789-801`), and no `arena.sim` preset is large-tick. Done when: `diagnose` has the jump rate λ and the uninformed-hit rate λ± per side (making pays where λ± > λ/2, Gao & Wang); the template has a hysteretic mid and a join/stand-aside gate per side (Albers); `arena.sim` (and `sim.rs`) has a large-tick preset; each graded on it under `--queue back|prob|front`, in `IDEAS.md`.
   - **Done 2026-10-27:** `diagnose`'s λ and λ± (the diagnose worker), `hysteresis_mid`, `join_min`/`join_ratio` in the template, the twin and the drill template, and `arena.sim`'s `LARGE_TICK` preset; both settings `dropped here`, and the finding that only `make_edge` ≤ 0.5 quotes at all at a one-tick spread (`IDEAS.md`, "A large-tick book").
 
 - [x] **Template: passive-first execution toward a target (R11; harder-rounds A2).** The target modes (`level`, `jump`, `copy`, `follow`, `basket`) cross the whole gap in one tick. Cross only the part above a threshold, quote the rest one tick inside, and cap takes at a share of the recent trade rate. Done when: it is in STRATEGY, the Rust twin and the drill template, graded in `arena.sim` (impact exists) against the full cross by PnL, ticks to target and lots crossed, in `IDEAS.md`.
@@ -524,7 +535,7 @@ A read-through of `python/arena/`, `python/bots/template.py`, the tests and the 
   - `analysis.trade_impact` counts trades on a tick with an empty side as `inside`, while `arena.diagnose` skips them.
   - Done when: each one is fixed or marked as intended in its docstring.
 - [x] **Fix the docs that have drifted from the code:** Done 2026-10-13. The contradictions rows were fixed with the template re-mapping (`9f13090`). The lint now warns when a cited range into `python/bots/`, `python/arena/` or `python/experiments/` doesn't start a definition (`def`, `class`, a decorator, an assignment, a field or a dict entry). Its first run caught three more stale ranges, now fixed: `python/arena/analysis.py` (markouts), `python/arena/model.py` (`MarketTrade`) and `python/arena/diagnose.py` (the thresholds).
-  - `references/wiki/contradictions.md` rows 12 and 16 cite `python/bots/template.py:534-566` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
+  - `references/wiki/contradictions.md` rows 12 and 16 cite `python/bots/template.py:535-567` (`execute` and the ADAPTER) for the quoting rule, which is `make` at 398–430.
   - `references/wiki/concepts/book-imbalance-and-micro-price.md` lists three `fair` methods; there are five.
   - The README's `--out` row names three CSVs; there are four (`_trades.csv`).
   - The README says `python/tests/test_parity.py` pins 15 comparisons; it pins 6 (2 days × 3 modes).

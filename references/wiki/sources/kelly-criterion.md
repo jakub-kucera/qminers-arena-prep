@@ -55,7 +55,7 @@ Thorp's practitioner survey of the Kelly criterion: bet the fraction of capital 
 ## In our notation
 | Paper | Ours |
 |---|---|
-| fraction of capital `f` | position over limit, `plan.net / plan.limit` (`python/bots/template.py:795`) |
+| fraction of capital `f` | position over limit, `plan.net / plan.limit` (`python/bots/template.py:796`) |
 | excess drift `m − r` | expected price move per tick from a signal, or edge per fill (half spread minus adverse selection) |
 | variance `s²` | variance of per-tick changes of `mark` in `_timeline.csv` |
 | `f* = (m − r)/s²` | a target position proportional to predicted move over variance, capped by `limit` |

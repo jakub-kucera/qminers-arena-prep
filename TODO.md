@@ -23,15 +23,6 @@ Choices only the user can make, each with the options, the evidence and a recomm
   - Evidence (P3 round 1, `uv run python -m arena.grid python/bots/template.py 1 --data p3 --grid PARAMS.KELP.make_edge=0.5,1,1.5,2 --modes all,worse --scenario wfee05:match=worse,fee=0.5 --scenario rest:resting,queue=prob --scenario late:delay=1 --engine rust`), `all` / `worse` / `worse` with a 0.5 fee / resting / one tick late: 0.5 makes 72,674 / 63,302 / 40,608 / 66,562 / 40,472; 1 makes 81,366 / 57,764 / 40,623 / 68,058 / 44,019; 1.5 makes 84,512 / 52,294 / 38,936 / 59,968 / 45,173. 1 has the best worst case (40,623) and wins every model but `worse`, where it loses 5,538 (−9%); 1.5 loses 11,008 there and is worst resting. Under `all` with fees (`IDEAS.md`, "Fees") 1.5 leads by more as the fee grows.
   - Recommendation: (a) for now. The default matters only if the day's grid isn't run, and the RUNBOOK re-grids `make_edge` at T+1:00 under the playground's mode with `worse` as the gate (`ON_THE_DAY.md`, "Which modes gate the grid's pick?"); if that grid can't be run, (b) is the safer default because of its worst case.
 
-- [ ] **Hydrogel's `cross_excess`: keep None, or 25?** Raised 2026-10-27 by the passive-first grid.
-  - Options: (a) set `cross_excess` 25 on `HYDROGEL_PACK` (and leave Velvetfruit as is); (b) keep None.
-  - Evidence: on P4 rounds 3–4 (`uv run python -m arena.grid python/bots/template.py 3 4 --data p4 --grid 'PARAMS.HYDROGEL_PACK.cross_excess=None,25,50,100' --modes all,worse --scenario rest:resting,queue=prob --holdout last --engine rust`) 25 is the summary's pick, +29,941 under `all`, `worse` and resting, and it beats the bot as is on the held-out day (+4,321); 50 is flat and 100 loses 78k. In `arena.sim`'s reacting market 50 makes 9% more than None, 100 2% less (`IDEAS.md`, "Passive-first execution toward a target"). Velvetfruit gains only 5k at 25 and loses at 50.
-  - Recommendation: (a). It is the grid's pick by the rule the day uses, held out, and the reacting market agrees in direction; the risk is small since 25 of 200 is close to crossing everything.
-
-## Harder-round prep
-
-Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals"), in this order.
-
 - [ ] **(a, part 2) Zoo bots from other LLM providers.** The first zoo is all Claude, so it shares one model's habits; the field on the day will be written by many. The user has access to Gemini (4 at least) and to ChatGPT, older models included; others may be added.
   - Needs a person: follow `python/bots/zoo/README.md`, "Running a model cleanly": a fresh chat with memory and custom instructions off, `python3 python/bots/zoo/bundle.py <prompt> | pbcopy`, and the reply saved unchanged as `python/bots/zoo/gemini/<model>_<prompt>.py` (or `chatgpt/`, `other/`). Then `uv run python -m experiments.zoo`.
   - Done when: at least Gemini's bots are in `python/bots/zoo/` and in the zoo's results in `IDEAS.md`, with whether they behave unlike Claude's.

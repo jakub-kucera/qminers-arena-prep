@@ -182,8 +182,9 @@ PARAMS = {
     "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "make_size": 10, "target": 80, "skew": 20,
                              "stop_loss": 4500},
     # IMC Prosperity 4, rounds 3-4. Both return to a level that held across days (IDEAS.md).
+    # Hydrogel crosses only the part of its bet beyond 25 lots and quotes the rest (TODO_DONE.md, "Hydrogel's cross_excess").
     "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 35, "level_exit": 0, "clear_edge": 10,
-                      "stop_loss": 48_000},
+                      "cross_excess": 25, "stop_loss": 48_000},
     "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 30, "clear_edge": 2,
                             "stop_loss": 39_000},
     # ABIDES RMSC04's one stock (experiments.abides_days, a market we didn't write): its limit, and DEFAULTS
