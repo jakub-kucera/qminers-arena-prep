@@ -232,18 +232,31 @@ def test_a_jump_target_crosses_up_to_jump_edge(bot):
 def test_copy_target_trades_the_named_traders_way(bot):
     p = params(bot, copy={"Olivia": 1, "Pablo": -0.5})
     memory = {}
-    assert bot.copy_target([("Caesar", "Paris", 5)], p, memory) == 0  # no name in copy: no signal
-    assert bot.copy_target([("Olivia", "Paris", 15)], p, memory) == 10  # she buys: the full limit long
+    assert bot.copy_target([("Caesar", "Paris", 5, 100)], p, memory) == 0  # no name in copy: no signal
+    assert bot.copy_target([("Olivia", "Paris", 15, 100)], p, memory) == 10  # she buys: the full limit long
     assert bot.copy_target([], p, memory) == 10  # held until the next signal
-    assert bot.copy_target([("Pablo", "Caesar", 3)], p, memory) == -5  # against Pablo, at his weight
-    assert bot.copy_target([("Pablo", "Olivia", 3)], p, memory) == -10  # both say sell: capped at the limit
+    assert bot.copy_target([("Pablo", "Caesar", 3, 100)], p, memory) == -5  # against Pablo, at his weight
+    assert bot.copy_target([("Pablo", "Olivia", 3, 100)], p, memory) == -10  # both say sell: capped at the limit
 
 
 def test_copy_hold_flattens_after_that_many_ticks(bot):
     p = params(bot, copy={"Olivia": 1}, copy_hold=2)
     memory = {}
-    targets = [bot.copy_target(trades, p, memory) for trades in ([("Paris", "Olivia", 1)], [], [], [])]
+    targets = [bot.copy_target(trades, p, memory) for trades in ([("Paris", "Olivia", 1, 100)], [], [], [])]
     assert targets == [-10, -10, 0, 0]
+
+
+def test_copy_sizes_follows_a_size_that_buys_at_the_days_low(bot):
+    # The trades a call sees printed at the last call's book and fair: the extreme is checked on that fair.
+    p = params(bot, copy_sizes=[15], copy_warmup=2)
+    memory, book = {}, bot.Book([[99, 20]], [[101, 20]])
+    target = lambda trades, fair: bot.copy_target(trades, p, memory, fair, book)
+    assert [target([], f) for f in (100, 102, 98)] == [0, 0, 0]  # warming up; 98 is a new low
+    assert target([("", "", 5, 101)], 99) == 0  # a buy at that low, but not of the size
+    assert target([("", "", 15, 101)], 103) == 0  # ...and of it, but the last fair, 99, was no new low
+    assert target([("", "", 15, 99)], 100) == -10  # 15 sold at the bid while that fair, 103, was a new high: short
+    assert target([("", "", 15, 101)], 100) == -10  # bought, but at 100, no new low: held
+
 
 
 def test_copy_reads_the_counterparty_of_our_own_fills(bot, monkeypatch):

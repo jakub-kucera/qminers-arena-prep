@@ -149,6 +149,8 @@ VARIANTS = [
     ("changepoint, drop", {K + "level": 2031, K + "level_band": 2, K + "cpd_hazard": 3000, K + "cpd_reversion": 0.02, K + "cpd_sd": 1.2,
                            K + "cpd_block": 20, K + "cpd_action": "drop", K + "cpd_threshold": 0.3}),
     ("jumps", {K + "jump_min": 0.5, K + "jump_seen": 2, K + "jump_share": 0.3, K + "jump_hold": 15, K + "jump_edge": 2}),
+    ("copy_sizes: a size at the day's extremes", {K + "copy_sizes": [5, 15], K + "copy_warmup": 50, K + "copy_hold": 200, R + "copy_sizes": [3],
+                                                  R + "copy": {"rival": 0.5}}),
     ("copy: our own fills and a rival", {K + "copy": {"SUBMISSION": 0.4, "rival": -1.5}, K + "copy_hold": 30}),
     ("basket with a hedged leg", {R + "basket": {"KELP": 5}, R + "fair": "wall_mid", R + "level": "day", R + "level_band": 3, R + "hedge_ratio": 0.5,
                                   R + "make_size": 0, K + "hedge": True}),

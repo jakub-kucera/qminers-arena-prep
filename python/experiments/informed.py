@@ -28,12 +28,11 @@ anonymise its trades (ON_THE_DAY.md, "Other traders"), so this is the same rule,
    the share of flags that are that trader's (and the share of all trades that are, by chance), and
    the share of that trader's trades the detector flags.
 3. Copying the detector (on the held-out days, the products with a chosen class): the template's
-   `copy` mode reads names only, and can't filter trades by size or extreme, so the detector's flags
-   are written into the day's trades as a name (INFORMED, the buyer of a flagged buy, the seller of a
-   flagged sell; every other name blanked) and `copy` follows that name. The detector is causal (the
-   flag uses only the day so far), so this is what a template mode running it would do. Against plain
-   market making and copying the named trader with names kept (counterparties' part 2 settings: the
-   data's limits, wall_mid, make_edge 1).
+   `copy_sizes` (its copy mode following the chosen sizes, an octave as every size in it, at the day's
+   running extremes of its fair after copy_warmup = WARMUP ticks; python/bots/template.py,
+   `informed_signal`), on the day's trades with their names blanked, as an anonymous feed gives them.
+   Against plain market making and copying the named trader with names kept (counterparties' part 2
+   settings: the data's limits, wall_mid, make_edge 1).
 
 Default: P3 round 5 (KELP, SQUID_INK, CROISSANTS; Olivia named). With --data any dataset; for ABIDES's
 days with --names, --informed ValueAgent.
@@ -65,7 +64,6 @@ WARMUP = 200
 RATIO = 3.0
 HIT_SHARE = 0.8
 MAX_SIZES = 30
-FLAG = "INFORMED"
 ENGINE = ["python"]
 BOT = TEMPLATE
 _DAYS: dict = {}
@@ -156,20 +154,10 @@ def choose(train: list[tuple[dict, float]]) -> list[str]:
     return sorted(s for s in sizes if all(informed_on(ev, s, half) for ev, half in train))
 
 
-def relabel(day, flags: dict[str, set[int]]):
-    """The day with every trade's names blanked, and FLAG as the buyer (seller) of each flagged buy (sell).
-    flags: product -> ids (id(trade)) of flagged trades, with their sides."""
-    ticks = []
-    for tick in day.ticks:
-        trades = {}
-        for product, prints in tick.trades.items():
-            marked = flags.get(product, {})
-            out = []
-            for t in prints:
-                s = marked.get(id(t), 0)
-                out.append(MarketTrade(t.product, t.price, t.quantity, FLAG if s > 0 else "", FLAG if s < 0 else "", t.timestamp))
-            trades[product] = out
-        ticks.append(Tick(tick.timestamp, tick.books, trades, tick.marks))
+def anonymous(day):
+    """The day with every trade's names blanked, as an anonymous feed gives them."""
+    ticks = [Tick(tick.timestamp, tick.books, {product: [MarketTrade(t.product, t.price, t.quantity, "", "", t.timestamp) for t in prints]
+                                               for product, prints in tick.trades.items()}, tick.marks) for tick in day.ticks]
     return dataclasses.replace(day, ticks=ticks)
 
 
@@ -181,33 +169,40 @@ def _init(engine: str, settings: dict | None = None) -> None:
     _DAYS.update({d.name: d for d in fmt.load_days(fmt.resolve_data_dir(DATA), list(DAYS))})
 
 
-def _params(day, copy: dict[str, dict]) -> dict:
+def _params(day, copy: dict[str, dict], sizes: dict[str, list[int]] | None = None) -> dict:
     out = {}
     for product in day.products:
         p = {"limit": day.limits[product], "fair": "wall_mid", "make_edge": 1}
         if product in copy:
             p["copy"] = dict(copy[product])
+        if sizes and product in sizes:
+            p.update(copy_sizes=sizes[product], copy_warmup=WARMUP)
         out[product] = p
     return out
+
+
+def sizes_in(classes: list[str]) -> list[int]:
+    """Every size in the chosen classes: a size itself, or each one of an octave "a-b"."""
+    out = set()
+    for c in classes:
+        low, _, high = c.partition("-")
+        out.update(range(int(low), int(high or low) + 1))
+    return sorted(out)
 
 
 def _run(job) -> tuple:
     day_name, variant, products, flagged = job
     day = _DAYS[day_name]
+    sizes = None
     if variant == "detector":
-        classify = {p: size_classes(list(_DAYS.values()), p) for p in products}
-        sizes = dict(flagged)
-        flags = {}
-        for product in products:
-            ev = events(day, product, classify[product])
-            flags[product] = {id(t["trade"]): t["side"] for t in ev["trades"] if t["extreme"] and t["size"] in sizes[product]}
-        day = relabel(day, flags)
-        copy = {p: {FLAG: 1} for p in products}
+        day = anonymous(day)
+        sizes = {p: sizes_in(classes) for p, classes in flagged}
+        copy = {}
     elif variant == "named":
         copy = {p: {INFORMED: 1} for p in products}
     else:
         copy = {}
-    (result,) = backtest(day, [("you", BOT, {"PARAMS": _params(day, copy)}, False)], EngineConfig(), ENGINE[0], True, ("pnl",), FORMAT)
+    (result,) = backtest(day, [("you", BOT, {"PARAMS": _params(day, copy, sizes)}, False)], EngineConfig(), ENGINE[0], True, ("pnl",), FORMAT)
     return job, {p: result.pnl[p][-1] if result.pnl.get(p) else 0.0 for p in products}
 
 
@@ -307,7 +302,7 @@ def main(argv: list[str] | None = None) -> None:
             jobs.append((test, "detector", tuple(sorted(chosen)), tuple(sorted(chosen.items()))))
         if named:
             jobs.append((test, "named", named, ()))
-    print(f"\n3. Copying the detector's flags (named {FLAG} in the trades) on the held-out day's chosen products, and {INFORMED} "
+    print(f"\n3. The template's copy_sizes following the chosen classes, names blanked, on the held-out day's chosen products, and {INFORMED} "
           f"by name on the products where the name trades, against plain market making (PnL per product, thousands)\n")
     if not jobs:
         print(f"   no class chosen on any fold and no trades named {INFORMED}: nothing to copy")

@@ -26,9 +26,9 @@ A market maker in a book with a **tick-valued spread**: the spread is a Markov c
 ## In our notation
 | Paper | Ours (`python/bots/template.py`) |
 |---|---|
-| `Bb+` / `Ba−` | `make` quotes at `best_bid + 1` / `best_ask − 1` when `make_edge` allows (`python/bots/template.py:789-794`) |
-| keep `Bb`, improve `Ba−` when long | a `skew` of about one tick: the shift moves the bid back to the best and the ask one more tick in (`python/bots/template.py:796-797`) *(inferred from the code)* |
-| market order past a threshold | `clear` (`python/bots/template.py:755`) and `take` |
+| `Bb+` / `Ba−` | `make` quotes at `best_bid + 1` / `best_ask − 1` when `make_edge` allows (`python/bots/template.py:823-828`) |
+| keep `Bb`, improve `Ba−` when long | a `skew` of about one tick: the shift moves the bid back to the best and the ask one more tick in (`python/bots/template.py:830-831`) *(inferred from the code)* |
+| market order past a threshold | `clear` (`python/bots/template.py:789`) and `take` |
 | `λ_i(q)` per (quote choice, spread) | computable from `_orders.csv` and `_fills.csv` with eqs. 10–11 |
 
 ## Traps

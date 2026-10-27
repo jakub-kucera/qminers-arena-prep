@@ -20,7 +20,7 @@ IMC Prosperity is a market against bots only. Two events in the clones (UChicago
 
 - **Measured: the template against the teams' own P4 bots** (2026-10-13; DU, Baguette Fromage and DTU in one market with it, P4 rounds 1–2, `IDEAS.md` has the numbers):
   - **With orders that live one tick,** Osmium's spread is a fixed pie the bots split: the template keeps 45–51% of it against one rival and 20% against three. The drift on Pepper Root pays everyone. This is the Grossman–Miller dilution below, in a simulation.
-  - **With resting orders,** the template loses up to 445k on Osmium in a round. A rival's large order far from fair becomes the "largest level", so the template's `wall_mid` follows it (`python/bots/template.py:436`). At tick 2,400 of round 1 day 0, a 40-lot bid at 9,906 outweighed the market maker's 23-lot wall at 9,991, and the template sold into the real bids. Its fair was 5+ off on 36% of ticks *(checked)*.
+  - **With resting orders,** the template loses up to 445k on Osmium in a round. A rival's large order far from fair becomes the "largest level", so the template's `wall_mid` follows it (`python/bots/template.py:442`). At tick 2,400 of round 1 day 0, a 40-lot bid at 9,906 outweighed the market maker's 23-lot wall at 9,991, and the template sold into the real bids. Its fair was 5+ off on 36% of ticks *(checked)*.
   - That is Harris's trap below, played without intent: the rivals' far quotes are not bait, yet they move a fair value built on size.
 
 - **Measured: the template against adversaries built for it** (2026-10-15, `python/bots/rivals/`, `python/experiments/adversaries.py`, P3 round 1, `--resting`; `IDEAS.md`, "Adversarial rivals"). Alone the template makes 66.5k; a plain copy of itself costs it 38.2k, more than any adversary:

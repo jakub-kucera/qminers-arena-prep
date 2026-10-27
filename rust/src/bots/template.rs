@@ -134,6 +134,8 @@ struct P {
     jump_seen: f64,
     jump_share: f64,
     copy: Option<Vec<(String, f64)>>,
+    copy_sizes: Option<Vec<i64>>,
+    copy_warmup: i64,
     copy_hold: Option<f64>,
     copy_edge: f64,
     stop_loss: Option<f64>,
@@ -306,6 +308,12 @@ impl P {
             jump_seen: r.num("jump_seen")?,
             jump_share: r.num("jump_share")?,
             copy: r.weights("copy")?,
+            copy_sizes: match r.value("copy_sizes")? {
+                Value::Null => None,
+                Value::List(v) => Some(v.iter().map(|x| x.as_i64().ok_or_else(|| format!("{product}: copy_sizes must hold whole numbers"))).collect::<Result<_, _>>()?),
+                _ => return r.fail("copy_sizes", "a list of sizes or None"),
+            },
+            copy_warmup: r.int("copy_warmup")?,
             copy_hold: r.opt_num("copy_hold")?,
             copy_edge: r.num("copy_edge")?,
             stop_loss: r.opt_num("stop_loss")?,
@@ -368,6 +376,12 @@ struct Memory {
     jump_n: i64,
     jump_rev: i64,
     copy_age: i64,
+    cp_low: Option<f64>,
+    cp_high: Option<f64>,
+    cp_ticks: i64,
+    cp_fair: Option<f64>,
+    cp_bid: Option<i64>,
+    cp_ask: Option<i64>,
     cost: Option<f64>,
     delta: Option<f64>,
     offset: Option<f64>,
@@ -443,7 +457,7 @@ impl Plan {
 /// What a product's strategy sees of the others (Python's Market).
 struct Market<'a> {
     books: &'a [Option<Book>],
-    trades: &'a [(Name, Name, i64)], // this product's: (buyer, seller, quantity)
+    trades: &'a [(Name, Name, i64, Price)], // this product's: (buyer, seller, quantity, price)
     fills: &'a [(Price, i64)],       // this product's own fills
     timestamp: i64,
     plans: &'a [Option<Plan>],
@@ -485,8 +499,8 @@ fn trade_product(product: usize, book: &Book, position: i64, p: &P, memory: &mut
         e.target = basket_target(fair, p, memory, market, &mut plan);
     } else if p.level != Level::Off {
         e.target = level_target(fair, p, memory);
-    } else if p.copy.is_some() {
-        let target = copy_target(market.trades, market.weights, p, memory);
+    } else if p.copy.is_some() || p.copy_sizes.is_some() {
+        let target = copy_target(market.trades, market.weights, p, memory, fair, book);
         e = Eff { target, clear_edge: if target != 0 { p.copy_edge } else { p.clear_edge }, ..e };
     } else if p.jump_min.is_some() {
         let target = jump_target(fair, p, memory);
@@ -762,8 +776,11 @@ fn jump_target(fair: f64, p: &P, memory: &mut Memory) -> i64 {
     held
 }
 
-fn copy_target(trades: &[(Name, Name, i64)], weights: &[f64], p: &P, memory: &mut Memory) -> i64 {
-    let signal = trades.iter().fold(0.0, |s, &(buyer, seller, _)| s + (weights[buyer as usize] - weights[seller as usize]));
+fn copy_target(trades: &[(Name, Name, i64, Price)], weights: &[f64], p: &P, memory: &mut Memory, fair: f64, book: &Book) -> i64 {
+    let mut signal = trades.iter().fold(0.0, |s, &(buyer, seller, _, _)| s + (weights[buyer as usize] - weights[seller as usize]));
+    if p.copy_sizes.is_some() {
+        signal += informed_signal(trades, fair, book, p, memory) as f64;
+    }
     let (mut held, mut age) = (memory.held, memory.copy_age + 1);
     if signal != 0.0 {
         let capped = if signal < 1.0 { signal } else { 1.0 };
@@ -776,6 +793,38 @@ fn copy_target(trades: &[(Name, Name, i64)], weights: &[f64], p: &P, memory: &mu
     memory.held = held;
     memory.copy_age = age;
     held
+}
+
+/// +1 for each trade of a copy_sizes size that bought at the day's running low of the fair, -1 for each that
+/// sold at its high; its side from the book the bot saw before it printed.
+fn informed_signal(trades: &[(Name, Name, i64, Price)], fair: f64, book: &Book, p: &P, memory: &mut Memory) -> i64 {
+    let sizes = p.copy_sizes.as_deref().unwrap_or(&[]);
+    let mut signal = 0;
+    let warm = memory.cp_ticks >= p.copy_warmup;
+    if let (true, Some(bid), Some(ask), Some(low), Some(high), Some(last)) = (warm, memory.cp_bid, memory.cp_ask, memory.cp_low, memory.cp_high, memory.cp_fair) {
+        for &(_, _, quantity, price) in trades {
+            if sizes.contains(&quantity) {
+                let buying = price >= ask || (price > bid && price as f64 >= (bid + ask) as f64 / 2.0);
+                if buying && last <= low {
+                    signal += 1;
+                } else if !buying && last >= high {
+                    signal -= 1;
+                }
+            }
+        }
+    }
+    if let Some(last) = memory.cp_fair {
+        // the extremes before the latest fair
+        memory.cp_low = Some(memory.cp_low.map_or(last, |low| low.min(last)));
+        memory.cp_high = Some(memory.cp_high.map_or(last, |high| high.max(last)));
+    }
+    memory.cp_fair = Some(fair);
+    memory.cp_ticks += 1;
+    if let (Some(bid), Some(ask)) = (book.bids.first(), book.asks.first()) {
+        memory.cp_bid = Some(bid.0);
+        memory.cp_ask = Some(ask.0);
+    }
+    signal
 }
 
 fn follow_target(book: &Book, fair: f64, p: &P, memory: &mut Memory, underlying: Option<&Plan>) -> i64 {
@@ -1082,7 +1131,7 @@ pub struct Template {
     memory: Vec<Memory>,
     // Buffers reused tick to tick.
     order: Vec<usize>,
-    trades: Vec<Vec<(Name, Name, i64)>>,
+    trades: Vec<Vec<(Name, Name, i64, Price)>>,
     fills: Vec<Vec<(Price, i64)>>,
     plans: Vec<Option<Plan>>,
     plan_order: Vec<usize>,
@@ -1230,7 +1279,8 @@ impl Bot for Template {
         // read_trades: (buyer, seller, quantity), named or not; read_fills: our fills as (price in ticks, signed quantity)
         for (k, list) in self.trades.iter_mut().enumerate() {
             list.clear();
-            list.extend(market_trades[k].iter().map(|t| if a.names { (t.buyer, t.seller, t.quantity) } else { (0, 0, t.quantity) }));
+            let price = |t: &MarketTrade| if a.units { d.ticks(k, t.price) } else { t.price };
+            list.extend(market_trades[k].iter().map(|t| if a.names { (t.buyer, t.seller, t.quantity, price(t)) } else { (0, 0, t.quantity, price(t)) }));
             self.fills[k].clear();
         }
         for f in own_fills {
@@ -1239,7 +1289,7 @@ impl Bot for Template {
                 // our own fills with their counterparty among the trades; read_fills signs by `buyer == US`,
                 // so a sale to a trader named SUBMISSION counts as a buy there too
                 let (buyer, seller) = if f.quantity > 0 { (self.us, f.counterparty) } else { (f.counterparty, self.us) };
-                self.trades[f.product].push((buyer, seller, f.quantity.abs()));
+                self.trades[f.product].push((buyer, seller, f.quantity.abs(), price));
                 self.fills[f.product].push((price, if buyer == self.us { f.quantity.abs() } else { -f.quantity.abs() }));
             } else {
                 self.fills[f.product].push((price, f.quantity));

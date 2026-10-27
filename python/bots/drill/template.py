@@ -111,6 +111,12 @@ DEFAULTS = {
     # name, negative to trade against it. None turns it off. While on, it sets target instead.
     "copy": None,
     "copy_hold": None,  # ticks to hold after a signal; None: until the next one
+    # Following an informed trader without a name (experiments.informed; Frankfurt Hedgehogs on
+    # P3's Olivia): a trade of one of these sizes that buys at the day's running low of the fair, or
+    # sells at its high, after copy_warmup ticks, is a signal of weight 1 its way. None: off. It
+    # turns copy on alone, and adds to the named weights where both are set.
+    "copy_sizes": None,
+    "copy_warmup": 100,
     "copy_edge": 5,  # clear_edge while the target follows a signal
     # Protection against a regime the parameters weren't tuned for (see loss_stop, regime_guard;
     # arena.stress tests them).
@@ -213,14 +219,14 @@ class Plan:
 
 class Market:
     """What one product's strategy sees of the others this tick: every book, before anyone trades,
-    the other traders' trades since the last tick as (buyer, seller, quantity), and the plans of
+    the other traders' trades since the last tick as (buyer, seller, quantity, price), and the plans of
     the products traded so far. Trader.run trades a product that follows or hedges another after
     it, so one level of dependency works."""
 
     def __init__(
         self,
         books: dict[str, Book],
-        trades: dict[str, list[tuple[str, str, int]]] | None = None,
+        trades: dict[str, list[tuple[str, str, int, int]]] | None = None,
         fills: dict[str, list[tuple[float, int]]] | None = None,
         timestamp: int = 0,
     ):
@@ -259,8 +265,8 @@ def trade_product(product: str, book: Book, position: int, p: dict, memory: dict
         p = {**p, "target": basket_target(fair, p, memory, market, plan)}
     elif p["level"] is not None:
         p = {**p, "target": level_target(fair, p, memory)}
-    elif p["copy"] is not None:
-        target = copy_target(market.trades.get(product, []), p, memory)
+    elif p["copy"] is not None or p["copy_sizes"] is not None:
+        target = copy_target(market.trades.get(product, []), p, memory, fair, book)
         p = {**p, "target": target, "clear_edge": p["copy_edge"] if target else p["clear_edge"]}
     elif p["jump_min"] is not None:
         target = jump_target(fair, p, memory)
@@ -546,7 +552,7 @@ def jump_target(fair: float, p: dict, memory: dict) -> int:
     return held
 
 
-def copy_target(trades: list[tuple[str, str, int]], p: dict, memory: dict) -> int:
+def copy_target(trades: list[tuple[str, str, int, int]], p: dict, memory: dict, fair: float = 0.0, book: Book | None = None) -> int:
     """The position to hold when some traders know where the price is going: up to the full limit their way.
 
     Each trade since the last tick adds the buyer's weight in copy and takes away the seller's.
@@ -554,7 +560,10 @@ def copy_target(trades: list[tuple[str, str, int]], p: dict, memory: dict) -> in
     copy_hold ticks or until the next signal: a weight of 0.5 leaves half the room to market making. On P3 round 5, Olivia bought at or near the day's low and sold at
     or near its high on all 19 of her trades (Kelp, Squid Ink, Croissants) (IDEAS.md).
     """
-    signal = sum(p["copy"].get(buyer, 0) - p["copy"].get(seller, 0) for buyer, seller, _ in trades)
+    weights = p["copy"] or {}
+    signal = sum(weights.get(buyer, 0) - weights.get(seller, 0) for buyer, seller, _, _ in trades)
+    if p["copy_sizes"] is not None:
+        signal += informed_signal(trades, fair, book, p, memory)
     held, age = memory.get("held", 0), memory.get("copy_age", 0) + 1
     if signal:
         held, age = round(max(-1.0, min(1.0, signal)) * p["limit"]), 0
@@ -562,6 +571,31 @@ def copy_target(trades: list[tuple[str, str, int]], p: dict, memory: dict) -> in
         held = 0
     memory["held"], memory["copy_age"] = held, age
     return held
+
+
+def informed_signal(trades: list[tuple[str, str, int, int]], fair: float, book: Book | None, p: dict, memory: dict) -> int:
+    """+1 for each trade of a copy_sizes size that bought at the day's running low of the fair, -1 for
+    each that sold at its high. The trades since the last call printed against the book and fair of the
+    last call: a trade's side is read from that book (at or above its ask a buy, at or below its bid a
+    sell, inside it by the mid), and it is at an extreme if that fair was at or beyond every fair before it."""
+    low, high, seen = memory.get("cp_low"), memory.get("cp_high"), memory.get("cp_ticks", 0)
+    last, bid, ask = memory.get("cp_fair"), memory.get("cp_bid"), memory.get("cp_ask")
+    signal = 0
+    if seen >= p["copy_warmup"] and None not in (bid, ask, low, high, last):
+        for _, _, quantity, price in trades:
+            if quantity in p["copy_sizes"]:
+                buying = price >= ask or (price > bid and price >= (bid + ask) / 2)
+                if buying and last <= low:
+                    signal += 1
+                elif not buying and last >= high:
+                    signal -= 1
+    if last is not None:  # the extremes before the latest fair
+        memory["cp_low"] = last if low is None else min(low, last)
+        memory["cp_high"] = last if high is None else max(high, last)
+    memory["cp_fair"], memory["cp_ticks"] = fair, seen + 1
+    if book is not None and book.bids and book.asks:
+        memory["cp_bid"], memory["cp_ask"] = book.bids[0][0], book.asks[0][0]
+    return signal
 
 
 def follow_target(book: Book, fair: float, p: dict, memory: dict, underlying: Plan | None) -> int:
@@ -812,7 +846,7 @@ def param_conflicts(product: str) -> list[str]:
     if modes and own.get("target", 0) != 0:
         found.append(f"target is ignored: {modes[0]} sets the target")
     for mode, keys in _MODE_SETTINGS.items():
-        on = p[mode] is not None or (mode == "level" and p["basket"] is not None)
+        on = p[mode] is not None or (mode == "level" and p["basket"] is not None) or (mode == "copy" and p["copy_sizes"] is not None)
         found += [f"{key} does nothing without {mode}" for key in keys if key in own and not on]
     if p["fair"] != "fixed":
         found += [f"{key} does nothing unless fair is \"fixed\"" for key in ("fixed_fair", "fixed_guard") if key in own]
@@ -879,9 +913,10 @@ def params_for(api, product: str) -> dict | None:
     return {**DEFAULTS, **PARAMS[product], "limit": api.max_position(product)}
 
 
-def read_trades(api) -> dict[str, list[tuple[str, str, int]]]:
-    """Trades this step as (buyer, seller, quantity). The drill names no traders, so `copy` can't work."""
-    return {symbol: [("", "", trade.size) for trade in api.trades(symbol)] for symbol in api.symbols()}
+def read_trades(api) -> dict[str, list[tuple[str, str, int, int]]]:
+    """Trades this step as (buyer, seller, quantity, price in ticks). The drill names no traders, so `copy`
+    can follow sizes (copy_sizes) but not names."""
+    return {symbol: [("", "", trade.size, to_ticks(api, symbol, trade.price)) for trade in api.trades(symbol)] for symbol in api.symbols()}
 
 
 def read_fills(api, fills) -> dict[str, list[tuple[float, int]]]:
