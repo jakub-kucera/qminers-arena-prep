@@ -274,6 +274,34 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
   - **Closed 2026-10-26:** what is left needs a person: the book chapters and papers in `MANUAL_TODO.md`, section G. Ingest them when they arrive; a check of `arena.grid --permute` against Masters' chapters would be its own `TODO.md` item.
 
 
+## The edge plan (2026-10-27)
+
+- [x] **An independent generator: ABIDES days in our layout.** Every number in `IDEAS.md` comes from Prosperity's generator or from `arena.sim`, which was calibrated to it. ABIDES's RMSC04 (noise, value, momentum agents and adaptive makers around a hidden fundamental) is a market we didn't write. A converted day is a recording: it tests the book's shape and adverse selection, not a market that reacts to us.
+  - How: pinned in `references/clone.sh`, run (never imported) in its own `uv` environment; an export script run by ABIDES's Python writes each day's L2 snapshots (sampled once a second) and trades as CSV; a standard-library converter in `python/experiments/` writes the Prosperity layout (prices in cents, limit 50); a seeded command regenerates 10–20 days under `data/abides/` (gitignored). PyMarketSim if ABIDES's install fights for more than an hour.
+  - Done when: the days regenerate from one command, `arena.diagnose` and the template run on them, and the first results (`diagnose`, the fair modes, a `make_edge` grid, `stress`, markouts, continuation after large moves (R16), and the shuffle test of a generator) are in `IDEAS.md`.
+  - **Done 2026-10-27:** `experiments.abides_days` (ABIDES pinned, run in its own environment, a pomegranate stand-in), 10 days; the first results (`experiments.abides_study`, `quote_markouts`, the grid, `stress`, the shuffle test) in `IDEAS.md`, "An independent generator: ABIDES's RMSC04": trades move the price, passive fills lose to adverse selection, moves continue, and no quoting setting pays with resting orders.
+
+- [x] **Day tools, built in parallel** (each its own commit, with a test and a row in `IDEAS.md`):
+  - Kalman-implied `smoothing` in `diagnose` (from the signature plot's `q` and `r`), checked against the gridded best on `KELP_NOISY` (0.95) and Osmium (0.9); the day-one wiki page with it.
+  - A structure scan: autocorrelation to lag 2,000, a periodogram, the increment grid, trade inter-arrival against Poisson, plus the integer-weight fixed-sum search with held-out days (R2) and the fingerprint pack (inner-order offsets, shared noise streams, hidden depth: R3). Known answers: it must find Pebbles and the chocolate/vanilla mirror and reject the UV sum and P3 round 1; folds in the jump-size item under "Tooling".
+  - A cross-day repeat scan (R1): the share of (timestamp, side, size) trades that recur the next day against a shifted baseline (P4 round 2 Osmium: 91%).
+  - A nameless informed-trade detector (R4): a size class trading at new daily extremes, scored against the named `copy` on P3 round 5.
+  - The fill curve: half one from the data (trades printing at or beyond each distance from fair, by spread state, imbalance and size), half two a reader for the results ZIP with a column map.
+  - Implementation shortfall and missed-trade cost per order (R8), checked against `--delay 0,1,2`'s PnL loss.
+  - `predict.py`: an extra feed as a same-tick fair term and an event study (R5), then the leave-one-day-out forecast of the wall mid.
+  - `diagnose --suggest`: a PARAMS block per product from the notes, against the hand-tuned PARAMS on held-out days.
+  - Grid risk columns: the PnL concentration in any 500-tick window and the ticks under water (R7), then per-day Sharpe and max drawdown, as columns and `--sort` keys.
+  - A spoofability number per product in `diagnose` (R6, the scalar only).
+  - An autocovariance bin in `quote_markouts` (R15).
+  - Fills arriving in several family members at once on P4 round 5 (R17d), from `--out`.
+  - A standings calculator for round 4, on the leaderboard layout and a synthetic field.
+  - A best-response iteration over `rival_field`'s payoff matrix.
+  - Done when: every bullet above has its commit and its `IDEAS.md` row.
+  - **Done 2026-10-27**, each its own commit with its `IDEAS.md` row: `diagnose`'s Kalman-implied `smooth`, jump sizes, λ and λ±, the spoof score and `--suggest` (with `experiments.suggest_check`); `experiments.structure`, `repeats`, `fill_curve`, `shortfall`, `family_fills`, `informed`, `predict`, `standings`; `quote_markouts`' autocov bin; the grid's risk columns and late-reversal flag; `rival_field --game`.
+
+- [x] **The claims that failed a second look.** Alpha Search's Microchip lead-lag, the UV visor sum, residual baskets, turn-to-turn lead-lag, the Pebbles package take, Linear Utility's reversion term, size alone as an informed trader (`research_new_ideas.md` section 4). Done when: each is reproduced by a committed command and marked `dropped here` in `IDEAS.md`, and `references/wiki/concepts/baskets-and-fixed-sums.md` says so.
+  - **Done 2026-10-27:** reproduced by committed commands (`experiments.structure`, `lead_lag --horizons/--lags`, `experiments.reversion_term`). One claim held: Alpha Search's Microchip lead is real at exact lags of 50–200 ticks (`open` in `IDEAS.md`; the audit's follow test missed it). The UV sum, residual baskets, the package take, turn-to-turn lead-lag and Linear Utility's reversion term are `dropped here`; `references/wiki/concepts/baskets-and-fixed-sums.md` says so. Size alone as an informed-trader tell fails on Kelp and Squid Ink (`experiments.informed`).
+
 ## Tooling
 
 - [x] **`--deplete`: volume we take stays gone while its level is shown.** Our engine restores the recorded book every tick; an exchange that replays a recording may keep what we took off it. In the mock round that choice moved a take-heavy bot's score by a quarter (66.7k against 49.7k). Probe 17 tells which the Arena does.

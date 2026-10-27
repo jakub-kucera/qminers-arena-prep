@@ -45,13 +45,10 @@ Agreed with the user 2026-10-27 from two audit notes (`~/Documents/qminers_arena
 then an independent generator (ABIDES) and its first results, the engine and template items one after another, the
 day tools in parallel, and a summary last. Each new feature carries its result on the ABIDES days in its own commit.
 
-- [ ] **An independent generator: ABIDES days in our layout.** Every number in `IDEAS.md` comes from Prosperity's generator or from `arena.sim`, which was calibrated to it. ABIDES's RMSC04 (noise, value, momentum agents and adaptive makers around a hidden fundamental) is a market we didn't write. A converted day is a recording: it tests the book's shape and adverse selection, not a market that reacts to us.
-  - How: pinned in `references/clone.sh`, run (never imported) in its own `uv` environment; an export script run by ABIDES's Python writes each day's L2 snapshots (sampled once a second) and trades as CSV; a standard-library converter in `python/experiments/` writes the Prosperity layout (prices in cents, limit 50); a seeded command regenerates 10–20 days under `data/abides/` (gitignored). PyMarketSim if ABIDES's install fights for more than an hour.
-  - Done when: the days regenerate from one command, `arena.diagnose` and the template run on them, and the first results (`diagnose`, the fair modes, a `make_edge` grid, `stress`, markouts, continuation after large moves (R16), and the shuffle test of a generator) are in `IDEAS.md`.
 - [ ] **LOBSTER's sample, one stock at level 5.** Real adverse selection: what `diagnose`'s "trades move the wall mid" note and negative markouts look like on a real book. Its samples are no longer a public download, so a person requests one (`MANUAL_TODO.md`, "LOBSTER's sample files"); the converter is ready (`experiments.lobster_days`, 2026-10-27). Done when: that item is done.
 - [ ] **Engine: the fee's unit, maker and taker fees, `--deplete`, order caps.** One after another, each in Python and Rust with parity recorded.
-  - The fee's unit (the third audit's F1): `--fee` is charged in the engine's integer units, but ON_THE_DAY says the data's price units; with decimal prices (`snapshots`, `orderlog`) a fee of 0.01 is charged 100 times too small. Divide by each product's unit.
-  - Maker and taker fees: an aggressor flag on `Fill`, `--fee-maker`/`--fee-taker` (and scenario keys), rebates allowed; markouts split by take and make.
+  - Done 2026-10-27 (`41dedb3`). The fee's unit (the third audit's F1): `--fee` is charged in the engine's integer units, but ON_THE_DAY says the data's price units; with decimal prices (`snapshots`, `orderlog`) a fee of 0.01 is charged 100 times too small. Divide by each product's unit.
+  - Done 2026-10-27 (`--maker-fee`, `--maker-fee-bps`; a fill's `source` already names the aggressor). Maker and taker fees: rebates allowed; markouts split by take and make.
   - `--deplete` in both engines (done 2026-10-27: `TODO_DONE.md`, "`--deplete`: volume we take stays gone while its level is shown").
   - Order caps: a per-tick order count in `Plan`, a `validate` WARN at a cap, and an engine option that drops orders beyond it.
   - Done when: each has a test and a README/ARCHITECTURE line, and its result on P3 round 1 (and the ABIDES days where it matters) is in `IDEAS.md`.
@@ -59,33 +56,16 @@ day tools in parallel, and a summary last. Each new feature carries its result o
 - [ ] **Template: per-side edges (R10), then laddered quotes.** `make_edge` and `take_edge` per side (or one `side_bias`), and asymmetric level bands; then a `ladder` make mode (sizes at `make_edge`, +1, +2). Per-side first: a symmetric ladder lost 21,000 on Hydrogel against asymmetric quoting (Ryan Challman's claim). Done when: each is in the template, the twin and the drill template, gridded on P3 Kelp, P4 Pepper Root, `arena.sim` and the ABIDES days, kept only if it beats the symmetric best on held-out days.
 - [ ] **Template and sim: the large-tick regime (R9).** At a one-tick spread the template joins the back of the best (`make_edge` ≤ 0.5) or sits a tick behind it, where it never fills (`python/bots/template.py:706-718`), and no `arena.sim` preset is large-tick. Done when: `diagnose` has the jump rate λ and the uninformed-hit rate λ± per side (making pays where λ± > λ/2, Gao & Wang); the template has a hysteretic mid and a join/stand-aside gate per side (Albers); `arena.sim` (and `sim.rs`) has a large-tick preset; each graded on it under `--queue back|prob|front`, in `IDEAS.md`.
 - [ ] **Template: the close (R13) and a soft limit (R14).** A `flatten_keep` threshold (keep a small end position by widening, work a large one down; Capponi et al.), and a cap on the passive position that keeps room for takes. Done when: both are in the template, twin and drill template, gridded under `--mark touch` (the close) and `all`/`worse`/`--resting`/`--vs` (the limit), in `IDEAS.md`.
-- [ ] **Day tools, built in parallel** (each its own commit, with a test and a row in `IDEAS.md`):
-  - Kalman-implied `smoothing` in `diagnose` (from the signature plot's `q` and `r`), checked against the gridded best on `KELP_NOISY` (0.95) and Osmium (0.9); the day-one wiki page with it.
-  - A structure scan: autocorrelation to lag 2,000, a periodogram, the increment grid, trade inter-arrival against Poisson, plus the integer-weight fixed-sum search with held-out days (R2) and the fingerprint pack (inner-order offsets, shared noise streams, hidden depth: R3). Known answers: it must find Pebbles and the chocolate/vanilla mirror and reject the UV sum and P3 round 1; folds in the jump-size item under "Tooling".
-  - A cross-day repeat scan (R1): the share of (timestamp, side, size) trades that recur the next day against a shifted baseline (P4 round 2 Osmium: 91%).
-  - A nameless informed-trade detector (R4): a size class trading at new daily extremes, scored against the named `copy` on P3 round 5.
-  - The fill curve: half one from the data (trades printing at or beyond each distance from fair, by spread state, imbalance and size), half two a reader for the results ZIP with a column map.
-  - Implementation shortfall and missed-trade cost per order (R8), checked against `--delay 0,1,2`'s PnL loss.
-  - `predict.py`: an extra feed as a same-tick fair term and an event study (R5), then the leave-one-day-out forecast of the wall mid.
-  - `diagnose --suggest`: a PARAMS block per product from the notes, against the hand-tuned PARAMS on held-out days.
-  - Grid risk columns: the PnL concentration in any 500-tick window and the ticks under water (R7), then per-day Sharpe and max drawdown, as columns and `--sort` keys.
-  - A spoofability number per product in `diagnose` (R6, the scalar only).
-  - An autocovariance bin in `quote_markouts` (R15).
-  - Fills arriving in several family members at once on P4 round 5 (R17d), from `--out`.
-  - A standings calculator for round 4, on the leaderboard layout and a synthetic field.
-  - A best-response iteration over `rival_field`'s payoff matrix.
-  - Done when: every bullet above has its commit and its `IDEAS.md` row.
-- [ ] **The claims that failed a second look.** Alpha Search's Microchip lead-lag, the UV visor sum, residual baskets, turn-to-turn lead-lag, the Pebbles package take, Linear Utility's reversion term, size alone as an informed trader (`research_new_ideas.md` section 4). Done when: each is reproduced by a committed command and marked `dropped here` in `IDEAS.md`, and `references/wiki/concepts/baskets-and-fixed-sums.md` says so.
+- [ ] **Template: a `linear` fair** (brought back 2026-10-27: its trigger fired on ABIDES, where `experiments.predict`'s held-out forecast beats the half-spread on all 10 days, driven by momentum and ρ3; not on Prosperity). Done when: a `fair` mode adds the dot product of `predict.py`'s features and weights (PARAMS) to a base fair, in STRATEGY, the Rust twin and the drill template, graded on the ABIDES days against `wall_mid` by held-out days under `all`, `worse` and `--resting`, in `IDEAS.md`.
+- [ ] **Template: gate a side on the expected adverse move** (R12 and R16, brought back 2026-10-27: ABIDES's passive fills against the last move lose on every day, and its moves continue). Done when: a per-side gate (quote a side only where `make_edge` beats the adverse move expected in the current state: the last move's sign and size, the imbalance) runs in STRATEGY, the twin and the drill template, learned online from the bot's own markouts or set from PARAMS, graded on ABIDES and P3/P4 (where it should change nothing), in `IDEAS.md`.
 - [ ] **The summary.** Done when: which Prosperity conclusions held on the ABIDES and LOBSTER days and which didn't is in `IDEAS.md`'s header, any default worth changing is under "Decisions", and the day's advice is in `ON_THE_DAY.md` and `RUNBOOK.md`.
 
 ### Deferred, and what would bring each back
 
 Each idea has an untested row in `IDEAS.md`.
 - **A Kalman fair mode** (a filter with gaps, a trend and an error bar): if the ABIDES days show the smoothed fair set by the Kalman formula falls short.
-- **A `linear` fair in the template:** if `predict.py` finds a signal on the ABIDES or LOBSTER days or the day's download.
 - **Our bot as an agent inside ABIDES** (a market that reacts to us, not a recording): if the ABIDES replay and `arena.sim` disagree enough to matter.
 - **Fitting `arena.sim` to the download** (method of moments over a preset's parameters): last, if time is left; worthless if the download is unlike our presets.
-- **An online, mirrored table of the adverse move per book state (R12):** if the ABIDES or LOBSTER days show negative markouts; both the static and the online `make_edge` versions were dropped on Prosperity.
 - **Tao's spoof detector made exact (R6's second half):** if probe 22 shows other teams' orders in the feed.
 - **Cross-product terms (R17a–c):** an informed signal on a leg moving the basket's level, a signal traded through the baskets' limits, two baskets' premium difference: if a round has baskets or named traders.
 - **Reading the field (R18):** a taker-mix classifier, rival archetypes from visible orders, how cheaply the closing mark moves: if the market is shared and orders rest.
