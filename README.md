@@ -38,6 +38,7 @@ uv run --group analysis jupyter lab python/notebooks/analysis.ipynb   # optional
 uv run python -m arena.diagnose 1                      # Prosperity 3 round 1, every day
 uv run python -m arena.diagnose 1 --data p4 --csv results/diag.csv
 uv run python -m arena.diagnose 1 --profile            # ...and each product's spread, volatility and trades by tenth of the day
+uv run python -m arena.diagnose 1 --data p4 --suggest  # ...and a PARAMS block for the template, read off the notes
 ```
 
 ```
@@ -58,6 +59,8 @@ The first thing to run on a new data download: it needs no bot. Per product it m
 - **The noise:** how much the mid and the wall mid revert from one tick to the next, and whether the wall mid returns to a level over about 1,000 ticks. `smooth` is the template's `smoothing` a Kalman filter would use on the wall mid: a random walk in noise, fitted to its squared changes at lags 1–50, gives the filter's gain `K` and `smoothing` = 1 − K (0 for a random walk). The PnL optimum sat near it, mostly a little smoother (`IDEAS.md`, "The Kalman-implied smoothing").
 - **The drift:** how far the wall mid moves over a day.
 - **The market trades:** which side they hit, whether their signs persist (`C(1)`), what the taker paid, how far the wall mid moves after them, and the margin per unit a market maker would make on them (Bouchaud et al. eqs. 17.13–17.14).
+
+`--suggest` turns the notes into a PARAMS entry per product, as the day-one table reads them: `fixed` for a pegged price, `wall_mid` smoothed at the Kalman value where both mids are noisy, `level` where it reverts (and swings at least two spreads), a `target` for a drift every day, the jump mode where jumps snap back, `make_edge` from the margin, no quotes where Gao & Wang's condition fails, `make_size` where the limit dwarfs the depth, and a `stop_loss` from the wall mid's moves. `uv run python -m experiments.suggest_check` scores it against the hand-tuned PARAMS on held-out days.
 
 The notes under the table name the regime. [Reading the data on day one](references/wiki/concepts/reading-the-data-on-day-one.md) maps each one to a strategy choice. `--csv` writes every number, against both the mid and the wall mid.
 

@@ -24,7 +24,7 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
   playground and read the `PROBE` lines ["Probes"]. If their rules forbid dynamic imports or sleeps, or
   uploads are scarce, delete its RISKY PROBES block first.
 - **Data (B):** copy the nearest of `python/arena/formats/snapshots.py`, `orderlog.py` and `drill.py` to `qminers.py` and register it ["The format swap, step by
-  step"]; then run `uv run python -m arena.diagnose DAYS --format qminers --data D --profile` ["What kind of market is
+  step"]; then run `uv run python -m arena.diagnose DAYS --format qminers --data D --profile --suggest` ["What kind of market is
   each product?"].
 - **Bot (A):** in a copy of `python/bots/template.py`, rewrite only the imports, PARAMS and ADAPTER. Then
   `uv run python -m arena.validate BOT DAYS --format qminers --data D --time-limit-ms <theirs> --max-size <the dashboard's> [--allow numpy]`.

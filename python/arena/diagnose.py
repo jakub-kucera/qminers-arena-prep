@@ -3,6 +3,7 @@
     uv run python -m arena.diagnose 1 --data p4        # every day of round 1
     uv run python -m arena.diagnose 3-0 --data p4 --csv results/diag.csv
     uv run python -m arena.diagnose 1 --data p3 --profile   # ...and each product by tenth of the day
+    uv run python -m arena.diagnose 1 --data p4 --suggest   # ...and a PARAMS block for the template, from the notes
 
 No bot is needed: it reads the days through the format plug-in, so it works on the Arena's
 first data download as soon as its format module exists. For each product, pooled over the days:
@@ -69,6 +70,9 @@ first data download as soon as its format module exists. For each product, poole
   is `PROFILE_RATIO` times the middle's median, or less than its inverse, the notes say so: an open
   that is wider or faster than the day is a reason to quote wider there, a close that is to flatten
   earlier (`flatten_from`). `--profile` prints the whole table.
+- **`--suggest`:** a PARAMS entry per product for the template, read off the notes as the wiki's
+  day-one table says (see `suggest`): a starting point for the first backtest and grid, not a
+  tuned setting. `python/experiments/suggest_check.py` scores it against the hand-tuned PARAMS.
 - **Notes:** which regime the numbers point to, using the thresholds below. They are rules of
   thumb calibrated on Prosperity data, not verdicts.
   `references/wiki/concepts/reading-the-data-on-day-one.md` says what each one means for the
@@ -162,6 +166,9 @@ class _Acc:
     drifts: list[float] = field(default_factory=list)  # wall mid change per day
     drift_ratios: list[float] = field(default_factory=list)  # that change over the day's noise
     drift_rates: list[float] = field(default_factory=list)  # that change over the day's ticks
+    day_means: list[float] = field(default_factory=list)  # the wall mid's mean per day
+    limit: int | None = None  # the position limit the data gives
+    bot_tick: float | None = None  # the data's price units in one of the bot's (a format with a tick per product: Day.info)
     trades: int = 0
     buys: int = 0
     inside: int = 0
@@ -228,6 +235,12 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         series["mid"].append(book.mid)
         series["wall"].append(book.wall_mid)
     acc.mids += [m for m in series["mid"] if m is not None]
+    acc.limit = day.limits.get(product, acc.limit)
+    info = day.info.get(product, {})
+    if "tick" in info and "unit" in info:
+        acc.bot_tick = info["tick"] / info["unit"]
+    if any(w is not None for w in series["wall"]):
+        acc.day_means.append(statistics.fmean(w for w in series["wall"] if w is not None))
     acc.walls += [w for w in series["wall"] if w is not None]
     day_spreads = acc.spreads[len(acc.spreads) - sum(w is not None for w in series["mid"]):]
     if day_spreads:
@@ -335,6 +348,10 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "mean_mid": _mean(acc.mids),
         "wall_median": statistics.median(acc.walls) if acc.walls else None,
         "wall_sd": statistics.pstdev(acc.walls) if acc.walls else None,
+        "wall_mean": _mean(acc.walls),
+        "wall_day_means_sd": statistics.pstdev(acc.day_means) if len(acc.day_means) > 1 else None,
+        "limit": acc.limit,
+        "bot_tick": acc.bot_tick,
         "spread_ticks_median": statistics.median(spread_ticks) if spread_ticks else None,
         "spread_ticks_mean": _mean(spread_ticks),
         "wall_size": statistics.median(acc.largest) if acc.largest else None,
@@ -622,6 +639,81 @@ def _share(part: int, whole: int) -> float | None:
     return part / whole if whole else None
 
 
+# ---------------------------------------------------------------------------- suggest
+
+STOP_SDS = 10  # stop_loss: this many times the limit times the sd of the wall mid's STOP_HORIZON-tick moves...
+STOP_HORIZON = 500
+STOP_SPREADS = 2  # ...and at least the limit times this many median spreads (the hand-set stops: 7.5-12 times, Kelp to Velvetfruit)
+LEVEL_SPREADS = 2  # a level is faded only where the wall mid's sd is at least this many median spreads, so the swings pay for crossing
+LEVEL_AGREE = 0.5  # the days' mean wall mids agree when their sd is at most this share of the wall mid's sd: a fixed level
+MIN_SMOOTHING = 0.1  # a Kalman smoothing below this is left out
+SIZE_TO_DEPTH = 5  # a limit this many times the largest level's median gets make_size at that level
+PRICES = ("fixed_fair", "fixed_guard", "make_edge", "jump_min", "jump_edge", "level", "level_band", "clear_edge", "skew", "stop_loss")
+
+
+def suggest(row: dict) -> tuple[dict, list[str]]:
+    """A template PARAMS entry from one product's diagnostics, and why each setting is there.
+
+    The day-one table in references/wiki/concepts/reading-the-data-on-day-one.md, row by row: a nearly
+    fixed wall mid is `fair: fixed` with a guard; otherwise `wall_mid`, smoothed at the Kalman value
+    where mid and wall mid are both noisy; a level the wall mid reverts to is `level` (the days' mean
+    when they agree, else "day"); a drift every day is a `target` at the limit; jumps that snap back
+    are the jump mode at half their size; make_edge a tick where market making pays, at the touch
+    where it is thin or the position only grows; no quotes where Gao & Wang's condition fails on
+    both sides; make_size where the limit dwarfs the depth; stop_loss from the wall mid's moves.
+    Prices are in the data's unit, or in the bot's ticks where the format gives one (the drill's).
+    """
+    notes, tick = row["notes"], row["tick"] or 1.0
+    spread = (row["spread_ticks_median"] or 2) * tick
+    out: dict = {"limit": row["limit"]} if row.get("limit") else {}
+    why: list[str] = []
+    if "nearly fixed" in notes:
+        out.update(fair="fixed", fixed_fair=round(row["wall_median"] / tick) * tick, fixed_guard=spread / 2 + tick)
+        why.append("pegged")
+    else:
+        out["fair"] = "wall_mid"
+        if "both noisy" in notes and (row["smoothing_wall"] or 0) >= MIN_SMOOTHING:
+            out["smoothing"] = round(row["smoothing_wall"], 2)
+            why.append("noisy wall mid: Kalman smoothing")
+    if "market making pays" in notes:
+        out["make_edge"] = tick
+        why.append("margin pays: a tick")
+    elif "thin or negative" in notes or "only grows" in notes:
+        out["make_edge"] = max(2 * tick, spread / 2)
+        why.append("thin margin: quote at the touch")
+    if "pays on neither side" in notes:
+        out["make_size"] = 0
+        why.append("Gao & Wang: no side pays")
+    elif row.get("wall_size") and row.get("limit") and row["limit"] >= SIZE_TO_DEPTH * row["wall_size"]:
+        out["make_size"] = round(row["wall_size"])
+        why.append("limit dwarfs the depth")
+    if "snap back" in notes and row.get("jump_size"):
+        out.update(jump_min=row["jump_size"] / 2, jump_edge=spread / 2 + tick)
+        why.append("jumps snap back")
+    elif "reverts to a level" in notes and row["wall_sd"] and row["wall_sd"] >= LEVEL_SPREADS * spread:
+        agree = row["wall_day_means_sd"] is not None and row["wall_day_means_sd"] <= LEVEL_AGREE * row["wall_sd"]
+        out.update(level=round(row["wall_mean"]) if agree else "day", level_band=round(row["wall_sd"]), clear_edge=round(spread / 2))
+        why.append("reverts to a level" + ("" if agree else " that moves across days"))
+    elif "drifts up every day" in notes or "drifts down every day" in notes:
+        sign = 1 if "drifts up" in notes else -1
+        out.update(target=sign * (row["limit"] or 0), skew=(row["limit"] or 0) / 4)
+        why.append("drifts every day")
+    if row.get("limit") and row["q_wall"] is not None:
+        stop = max(STOP_SDS * row["limit"] * math.sqrt(STOP_HORIZON * row["q_wall"]), STOP_SPREADS * row["limit"] * spread)
+        out["stop_loss"] = float(f"{stop:.2g}")
+    scale = row.get("bot_tick") or 1.0
+    out = {k: v / scale if k in PRICES and isinstance(v, (int, float)) else v for k, v in out.items()}
+    return {k: int(v) if isinstance(v, float) and v.is_integer() else round(v, 6) if isinstance(v, float) else v for k, v in out.items()}, why
+
+
+def format_suggestion(rows: dict[str, dict]) -> str:
+    lines = ["PARAMS = {  # arena.diagnose --suggest: a starting point to backtest and grid, not a tuned setting"]
+    for product, row in rows.items():
+        params, why = suggest(row)
+        lines.append(f"    {product!r}: {params!r},  # {'; '.join(why) or 'plain market making'}")
+    return "\n".join(lines + ["}"])
+
+
 # ---------------------------------------------------------------------------- report
 
 COLUMNS = (  # (key, header, format)
@@ -719,6 +811,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--data", default="p3", help="data folder, or p2 / p3 / p4 for the Prosperity data in references/ (default: p3)")
     parser.add_argument("--csv", type=Path, help="also write every diagnostic, against both references, to this CSV")
     parser.add_argument("--profile", action="store_true", help="also print each product's spread, volatility and trades by tenth of the day")
+    parser.add_argument("--suggest", action="store_true", help="also print a PARAMS block for the template, read off the notes")
     args = parser.parse_args(argv)
     fmt = FORMATS[args.format]
     try:
@@ -730,6 +823,8 @@ def main(argv: list[str] | None = None) -> int:
     print(format_report(rows))
     if args.profile:
         print("\n" + format_profile(time_profile(days)))
+    if args.suggest:
+        print("\n" + format_suggestion(rows))
     if args.csv:
         write_csv(rows, args.csv)
         print(f"\nwritten to {args.csv}")

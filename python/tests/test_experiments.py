@@ -52,6 +52,12 @@ def test_an_experiment_runs_on_the_days_data_in_another_format(capsys, monkeypat
     assert expect in run(capsys, monkeypatch, name, "--data", drill_data, *DRILL, *extra)
 
 
+def test_suggest_check_runs_on_the_days_data(capsys, monkeypatch, drill_data):
+    # Suggested from the first session, scored on the second against the drill template as it is.
+    out = run(capsys, monkeypatch, "suggest_check", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "| drill all | ALPHA | `{'fair': " in out and "| total |" in out
+
+
 def test_imbalance_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "imbalance", "--data", drill_data, "--days", "all", "--format", "drill")
     assert "| drill all | ALPHA |" in out

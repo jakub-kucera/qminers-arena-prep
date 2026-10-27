@@ -436,3 +436,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-27] lint | Tao et al.'s spoofability in arena.diagnose
 - `arena.diagnose` gets the `spoof` column (Proposition 3.3 / eq. 5.1's `max_k 2ρµ+(1 − ı̄)ı̄w_k − Q_kρ − ν_k`, its inputs in the CSV) and a `spoofable` note above 0. `sources/detecting-spoofing-strategies` gets the condition (checked against the PDF, pp. 8–9 and 19: the Marker text of (3.4) drops the `ı̄`), our choices for each input, the results (below 0 on every market-making product; above 0 on P2/P3's baskets, Macarons and some vouchers, an association in a replay; ABIDES −0.01) and deeper read depth. `concepts/reading-the-data-on-day-one` gets the note's row; its thresholds citation moved (`python/arena/diagnose.py:84-119` → `94-130`).
+
+## [2026-10-27] lint | arena.diagnose --suggest
+- `concepts/reading-the-data-on-day-one` says `--suggest` reads its table into a PARAMS entry per product (`python/arena/diagnose.py:654`), with the held-out result (`python/experiments/suggest_check.py`: the hand-tuned market makers matched, 58% of the level products, ABIDES above the template as is; `IDEAS.md`, "`arena.diagnose --suggest`"). Its thresholds citation moved (`python/arena/diagnose.py:94-130` → `98-134`).

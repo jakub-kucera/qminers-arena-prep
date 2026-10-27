@@ -312,3 +312,42 @@ def test_tao_et_als_spoofability():
     calm = diagnose.diagnose([_book_led_day(False, 35)])["X"]
     assert abs(calm["spoof_mu"]) < 0.1 and calm["spoof_q0"] == 1 and calm["spoof_score"] < 0
     assert "spoofable" not in calm["notes"]
+
+
+def test_suggest_reads_the_notes_into_params():
+    # Pegged, with uninformed trades around it: fair fixed at the peg, a tick of make_edge, the data's limit.
+    trades = {i: [101 if i % 4 == 0 else 99] for i in range(0, 300, 2)}
+    pegged, why = diagnose.suggest(diagnose.diagnose([make_day([100] * 300, trades=trades)])["X"])
+    assert pegged["fair"] == "fixed" and pegged["fixed_fair"] == 100 and pegged["limit"] == 10
+    assert pegged["make_edge"] == 2 and "pegged" in why  # a tick: the book's prices, 99 and 101, are 2 apart
+    # A steady rise every day: hold the limit.
+    rising = diagnose.diagnose([make_day([100 + i * 0.1 for i in range(1000)], name=f"d{n}") for n in range(2)])["X"]
+    assert diagnose.suggest(rising)[0]["target"] == 10
+    # Jumps of 100 that snap back: the jump mode at half the size, no target from anything else.
+    jumping = diagnose.suggest(diagnose.diagnose([make_day(_jumping(200, 0.95), name="r5d4")])["X"])[0]
+    assert jumping["jump_min"] == 50 and "target" not in jumping and "level" not in jumping
+    # A random walk in noise: the wall mid at the Kalman smoothing.
+    rng, walls, level = random.Random(3), [], 1000.0
+    for _ in range(5000):
+        level += rng.gauss(0, 0.5)
+        walls.append(level + rng.gauss(0, 2))
+    noisy = diagnose.diagnose([make_day(walls)])["X"]
+    assert diagnose.suggest(noisy)[0]["smoothing"] == round(noisy["smoothing_wall"], 2)
+
+
+def test_suggest_gives_prices_in_the_bots_ticks_where_the_format_has_them():
+    trades = {i: [101 if i % 4 == 0 else 99] for i in range(0, 300, 2)}
+    day = make_day([100] * 300, trades=trades)
+    row = diagnose.diagnose([Day(day.name, day.products, day.limits, day.ticks, {"X": {"tick": 0.05, "unit": 0.01}})])["X"]
+    params = diagnose.suggest(row)[0]
+    assert params["fixed_fair"] == 20 and params["make_edge"] == 0.4  # 100 and 2 (the data's tick here) in its unit, the bot's tick being 5
+
+
+def test_cli_suggest_prints_a_params_block(data_dir, capsys):
+    import ast
+
+    assert diagnose.main(["1", "--data", str(data_dir), "--suggest"]) == 0
+    out = capsys.readouterr().out
+    block = out[out.index("PARAMS = {"):]
+    params = ast.literal_eval(block.split("=", 1)[1].strip())
+    assert set(params) == {"KELP", "RAINFOREST_RESIN"} and all(p["fair"] in ("wall_mid", "fixed") for p in params.values())

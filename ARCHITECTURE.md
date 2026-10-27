@@ -15,7 +15,7 @@ moved here word for word.
 - It records per-tick positions, marks, PnL and best bid/ask, plus orders, fills, errors, limit breaches and timings, in a `DayResult`.
 - `python/arena/report.py` `write_csvs` turns it into `<day>_timeline.csv` (with the book's `wall_mid`), `_fills.csv`, `_orders.csv` and `_trades.csv` (the data's market trades). Those columns are the contract with `python/arena/analysis.py`, so change both together.
 - **Only `python/arena/analysis.py` imports pandas and matplotlib.** Everything else is standard library.
-- **`python/arena/diagnose.py`** reads days through the format plug-in, with no bot or engine. Per product, it prints the spread regime, noise, drift, and the market trades' impact and market-making margins. Its notes use thresholds calibrated on Prosperity data, as module constants. `references/wiki/concepts/reading-the-data-on-day-one.md` maps each note to a strategy choice, so change both together.
+- **`python/arena/diagnose.py`** reads days through the format plug-in, with no bot or engine. Per product, it prints the spread regime, noise, drift, and the market trades' impact and market-making margins. Its notes use thresholds calibrated on Prosperity data, as module constants. `references/wiki/concepts/reading-the-data-on-day-one.md` maps each note to a strategy choice, so change both together. `--suggest` reads the notes into a PARAMS entry per product (`suggest`, the same table).
 - The engine catches the bot's exceptions and records them per tick, so a run never aborts.
 
 **Formats are plug-ins** (`python/arena/formats/`). A format module must provide:
