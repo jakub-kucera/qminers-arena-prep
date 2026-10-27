@@ -26,6 +26,7 @@
 //! ENGINE: --match-trades all|worse|none  --resting  --queue back|prob|front  --queue-power X
 //!         --fill-ratio X  --seed N  --mark mid|touch|last  --limit-penalty RATE  --delay TICKS
 //!         --fee PER_LOT  --fee-bps BPS  --maker-fee PER_LOT  --maker-fee-bps BPS (a passive fill's, negative a rebate)
+//!         --deplete (volume taken from the recorded book stays gone while its level shows more)
 //!         --product NAME (grid only: the product it varies and trades; default KELP)
 
 mod commands;

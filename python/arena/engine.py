@@ -58,6 +58,12 @@ does, so a bot that quotes all the room under its limit loses many ticks to race
 the template races on 3,248 of day 0's 10,000 ticks on P3 round 1. The bot is called before that
 tick's late orders are matched, so it never learns of a tick's trades before the next. For an
 exchange that applies orders a step late (probe 3); 0 is Prosperity's rule.
+Depletion (EngineConfig.deplete): a replay may keep what we took off its book ("they only consume
+the liquidity they trade against"). With deplete, the lots a take removes from the recorded book
+stay missing from that price level in later snapshots, for every participant, while the recording
+shows more there than we left; once its volume falls to what we left or below, or the level goes,
+the recording's level stands again. Only takes from the recorded book count, not fills on another
+bot's order or a resting order's cross. Off is Prosperity's rule: each snapshot as recorded.
 """
 
 from __future__ import annotations
@@ -119,6 +125,7 @@ class EngineConfig:
     fee_bps: float = 0.0  # charged per fill, in basis points of its value
     maker_fee: float | None = None  # a passive fill's fee a lot instead of fee (negative: a rebate)
     maker_fee_bps: float | None = None  # a passive fill's basis points instead of fee_bps (negative: a rebate)
+    deplete: bool = False  # volume taken from the recorded book stays gone from later snapshots (see the module docstring)
 
 
 class Bot(Protocol):
@@ -264,7 +271,12 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             player.result.fills.append(fill)
             player.unseen_fills.append(fill)
 
+    missing: dict[tuple[str, bool, float], list[int]] = {}  # deplete: (product, ask side, price) -> [lots taken, lots left]
+
     for tick in day.ticks:
+        if config.deplete:
+            tick = _deplete(tick, missing)
+        taken_now: dict[tuple[str, bool, float], int] = defaultdict(int)
         books, trades = _liquidity(tick, config.fill_ratio, rng)
         if resting:
             crossed, taken = _cross(resting, books, tick.timestamp)
@@ -312,7 +324,11 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             for order, live in zip(orders, placed):
                 # Settled straight away: a fill on another bot's resting order changes its
                 # position before its own new orders meet the limit check.
-                settle(_take(live, books, working, names, tick.timestamp, between))
+                took = _take(live, books, working, names, tick.timestamp, between)
+                for fill in took:
+                    if fill.source == "book" and not fill.counterparty:  # from the recorded book, not another bot's order
+                        taken_now[(fill.product, fill.quantity > 0, fill.price)] += abs(fill.quantity)
+                settle(took)
                 if live.quantity and not (config.resting and order.ioc):
                     live.ahead = live.seen = _volume_at(live, tick.books)
                     working.append(live)  # in the default mode, only until the end of this tick
@@ -325,6 +341,12 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             settle([fill for order in working for fill in _take_trades(order, trades, config.trade_matching, tick.timestamp)])
         else:
             settle(_match_trades(working, trades, config.trade_matching, tick.timestamp))
+        for key, lots in taken_now.items() if config.deplete else ():
+            product, ask, price = key
+            shown = next((v for p, v in (tick.books[product].asks if ask else tick.books[product].bids) if p == price), 0)
+            entry = missing.setdefault(key, [0, 0])
+            entry[0] += lots
+            entry[1] = max(shown - lots, 0)
         remaining = _remaining_trades(trades)
         for player in players:
             player.market_trades = _market_view(remaining, between, player.name)
@@ -713,6 +735,23 @@ def _without(tick: Tick, taken) -> Tick:
             asks=_minus(book.asks, [taken.get((product, True, price), 0) for price, _ in book.asks]),
         )
     return replace(tick, books=books)
+
+
+def _deplete(tick: Tick, missing: dict[tuple[str, bool, float], list[int]]) -> Tick:
+    """EngineConfig.deplete: the tick with what we took from the recorded book still gone. A level's
+    deficit holds while the recording shows more at that price than we left there; once the
+    recorded volume falls to what we left or below (the recording's own trades and cancels have
+    gone past it), or the level leaves the book, the recording's level stands again."""
+    for key in list(missing):
+        product, ask, price = key
+        book = tick.books.get(product)
+        volume = next((v for p, v in ((book.asks if ask else book.bids) if book else ()) if p == price), 0)
+        lots, left = missing[key]
+        if volume <= left:
+            del missing[key]
+        else:
+            missing[key][1] = max(volume - lots, 0)
+    return _without(tick, {key: lots for key, (lots, _) in missing.items()})
 
 
 def _minus(levels, used) -> tuple:

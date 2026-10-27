@@ -163,6 +163,26 @@ def test_a_makers_fee_replaces_the_fee_on_passive_fills_and_can_be_a_rebate():
     assert bps.pnl["X"][0] == pytest.approx(2 - 20 * 100 / 10_000 + 10 * 198 / 10_000)
 
 
+def test_deplete_keeps_what_we_took_off_the_book_until_the_recording_goes_below_it():
+    levels = ([(101, 5)], [(101, 5)], [(101, 7)], [(101, 2)], [(101, 4)], [], [(101, 5)])
+    d = day(*(tick(t, asks=a, mark=100) for t, a in enumerate(levels)))
+    bot = ScriptedBot({0: [Order("X", 101, 3)]})
+    run_day(d, bot, EngineConfig(deplete=True))
+    # 3 taken from 5: 2 left; the recording grows to 7 (4 shown); it falls to 2, what we left, and is its own
+    # again (2, then 4); the level goes, and comes back as recorded
+    assert [b["X"].asks for b in bot.books] == [((101, 5),), ((101, 2),), ((101, 4),), ((101, 2),), ((101, 4),), (), ((101, 5),)]
+    plain = ScriptedBot({0: [Order("X", 101, 3)]})
+    run_day(d, plain)
+    assert [b["X"].asks for b in plain.books][1] == ((101, 5),)
+
+
+def test_deplete_limits_a_second_take_to_what_was_left():
+    d = day(*(tick(t, asks=[(101, 5), (102, 9)], mark=100) for t in range(2)))
+    script = {0: [Order("X", 101, 3)], 1: [Order("X", 101, 3)]}
+    assert [f.quantity for f in run_day(d, ScriptedBot(script)).fills] == [3, 3]
+    assert [f.quantity for f in run_day(d, ScriptedBot(script), EngineConfig(deplete=True)).fills] == [3, 2]
+
+
 def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_limit_each_tick():
     d = day(tick(0, asks=[(101, 20)], mark=100), tick(1, mark=100), tick(2, bids=[(99, 20)], mark=100), limits={"X": 10})
     script = {0: [Order("X", 101, 6), Order("X", 101, 6)], 2: [Order("X", 99, -12)]}

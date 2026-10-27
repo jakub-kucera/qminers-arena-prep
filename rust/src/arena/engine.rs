@@ -52,6 +52,7 @@ pub struct EngineConfig {
     pub fee_bps: f64,               // charged per fill, in basis points of its value
     pub maker_fee: Option<f64>,     // a passive fill's fee a lot instead of fee (negative: a rebate)
     pub maker_fee_bps: Option<f64>, // a passive fill's basis points instead of fee_bps (negative: a rebate)
+    pub deplete: bool,              // volume taken from the recorded book stays gone from later snapshots
 }
 
 impl Default for EngineConfig {
@@ -70,6 +71,7 @@ impl Default for EngineConfig {
             fee_bps: 0.0,
             maker_fee: None,
             maker_fee_bps: None,
+            deplete: false,
         }
     }
 }
@@ -256,16 +258,21 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
     let mut trades: Vec<Vec<Entry>> = (0..n).map(|_| Vec::new()).collect();
     let mut s = Scratch { buys: vec![0; n], sells: vec![0; n], remaining: vec![Vec::new(); n], ..Default::default() };
 
+    let mut missing: Vec<((usize, bool, Price), (i64, i64))> = Vec::new(); // deplete: (product, ask side, price) -> (lots taken, lots left)
+    let mut taken_now: Taken = Vec::new();
+
     for tick in &day.ticks {
         let ts = tick.timestamp;
-        liquidity(tick, config.fill_ratio, &mut rng, &mut books, &mut trades);
-        let mut current: Cow<[Option<Book>]> = Cow::Borrowed(&tick.books);
+        let depleted = if config.deplete { Some(deplete(&tick.books, &mut missing)) } else { None };
+        let base: &[Option<Book>] = depleted.as_deref().unwrap_or(&tick.books);
+        liquidity(base, tick, config.fill_ratio, &mut rng, &mut books, &mut trades);
+        let mut current: Cow<[Option<Book>]> = Cow::Borrowed(base);
         if !resting.is_empty() {
             cross(&mut resting, &mut books, ts, &mut s);
             spend_crossed(&mut trades, &s.taken);
-            requeue(&mut resting, &tick.books, config.queue, config.queue_power);
+            requeue(&mut resting, base, config.queue, config.queue_power);
             if !s.taken.is_empty() {
-                current = Cow::Owned(without(&tick.books, &s.taken));
+                current = Cow::Owned(without(base, &s.taken));
             }
             resting.retain(|order| order.quantity != 0);
             settle(&mut players, &mut s.fills, config, &lot_fee, maker_lot_fee.as_deref());
@@ -335,6 +342,15 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             for k in 0..s.orders.len() {
                 let (ioc, mut live) = (s.orders[k].ioc, s.placed[k].clone());
                 take(&mut live, &mut books, &mut working, &ids, ts, &mut s.between, &mut s.queue, &mut s.fills);
+                if config.deplete {
+                    for (_, fill) in s.fills.iter().filter(|(_, f)| f.source == Source::Book && f.counterparty == 0) {
+                        let key = (fill.product, fill.quantity > 0, fill.price); // from the recorded book, not another bot's order
+                        match taken_now.iter_mut().find(|(k, _)| *k == key) {
+                            Some((_, lots)) => *lots += fill.quantity.abs(),
+                            None => taken_now.push((key, fill.quantity.abs())),
+                        }
+                    }
+                }
                 settle(&mut players, &mut s.fills, config, &lot_fee, maker_lot_fee.as_deref());
                 if live.quantity != 0 && !(config.resting && ioc) {
                     let volume = volume_at(&live, &current);
@@ -361,6 +377,19 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             settle(&mut players, &mut s.fills, config, &lot_fee, maker_lot_fee.as_deref());
         }
         working.clear();
+        for ((p, ask, price), lots) in taken_now.drain(..) {
+            let book = current[p].as_ref().expect("a product we took from has a book");
+            let shown = (if ask { &book.asks } else { &book.bids }).iter().find(|l| l.0 == price).map_or(0, |l| l.1);
+            let k = match missing.iter().position(|(k, _)| *k == (p, ask, price)) {
+                Some(k) => k,
+                None => {
+                    missing.push(((p, ask, price), (0, 0)));
+                    missing.len() - 1
+                }
+            };
+            missing[k].1 .0 += lots;
+            missing[k].1 .1 = (shown - lots).max(0);
+        }
         remaining_trades(&trades, &mut s.remaining);
         for player in players.iter_mut() {
             market_view(&s.remaining, &s.between, player.name, &mut player.market_trades);
@@ -527,9 +556,9 @@ pub fn breaches(orders: &[Order], position: &[i64], resting: impl Iterator<Item 
 }
 
 /// Mutable copies of what this tick's orders can trade against, with the fill ratio's draws.
-fn liquidity(tick: &Tick, fill_ratio: f64, rng: &mut PyRandom, books: &mut [Side], trades: &mut [Vec<Entry>]) {
+fn liquidity(base: &[Option<Book>], tick: &Tick, fill_ratio: f64, rng: &mut PyRandom, books: &mut [Side], trades: &mut [Vec<Entry>]) {
     let mut available = |volume: i64| if fill_ratio >= 1.0 { volume } else { rng.binomialvariate(volume, fill_ratio) };
-    for (side, book) in books.iter_mut().zip(&tick.books) {
+    for (side, book) in books.iter_mut().zip(base) {
         side.bids.clear();
         side.asks.clear();
         side.present = book.is_some();
@@ -805,6 +834,22 @@ fn spend_crossed(trades: &mut [Vec<Entry>], taken: &Taken) {
 }
 
 /// The books as the bots see them: without the levels resting orders just traded with.
+/// EngineConfig::deplete: the books with what we took from the recorded book still gone. A level's
+/// deficit holds while the recording shows more at that price than we left there; once the recorded
+/// volume falls to what we left or below, or the level leaves the book, the recording's level stands.
+fn deplete(books: &[Option<Book>], missing: &mut Vec<((usize, bool, Price), (i64, i64))>) -> Vec<Option<Book>> {
+    missing.retain_mut(|((p, ask, price), (lots, left))| {
+        let volume = books[*p].as_ref().map_or(0, |b| (if *ask { &b.asks } else { &b.bids }).iter().find(|l| l.0 == *price).map_or(0, |l| l.1));
+        if volume <= *left {
+            return false;
+        }
+        *left = (volume - *lots).max(0);
+        true
+    });
+    let taken: Taken = missing.iter().map(|(k, (lots, _))| (*k, *lots)).collect();
+    without(books, &taken)
+}
+
 fn without(books: &[Option<Book>], taken: &Taken) -> Vec<Option<Book>> {
     let mut out = books.to_vec();
     let used = |product: usize, buying: bool, price: Price| taken.iter().find(|(k, _)| *k == (product, buying, price)).map_or(0, |(_, v)| *v);

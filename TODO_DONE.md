@@ -276,6 +276,10 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 ## Tooling
 
+- [x] **`--deplete`: volume we take stays gone while its level is shown.** Our engine restores the recorded book every tick; an exchange that replays a recording may keep what we took off it. In the mock round that choice moved a take-heavy bot's score by a quarter (66.7k against 49.7k). Probe 17 tells which the Arena does.
+  - Done when: `EngineConfig.deplete` takes each level's volume we traded off the following snapshots while that price level stays (refilled when the recorded volume drops below what is left), Python first (Rust may refuse it until its twin has it, as `--delay` did before it was ported), with a test, a README row, and the mock round's two bots re-scored under it in `IDEAS.md`.
+  - **Done 2026-10-27:** in both engines with parity (`python/arena/engine.py` `_deplete`, `rust/src/arena/engine.rs` `deplete`), `--deplete` and a scenario's `deplete`; the mock round's two final bots lose 26–27% under it on the hidden days (`IDEAS.md`, "The kickoff prompts on a disguised round").
+
 - [x] **`--engine rust` for a format other than Prosperity.** The Rust template reads ticks the way the Prosperity plug-in presents them. The drill format's template (`python/bots/drill/template.py`: prices in cents, tick sizes from `Day.info`, opaque order ids) has the same STRATEGY behind another ADAPTER, so it has no twin yet, and on the day neither will the Arena's.
   - Done when: `python/bots/drill/template.py` is a twin in `rust/twins.json`, with parity on drill-format days, so that the Arena's template can follow on the day by changing only an adapter. Or the reason it can't is written here.
   - Done 2026-10-21 (the step below): `Template::drill` in `rust/src/bots/template.rs`, the drill ADAPTER on the same core; `ON_THE_DAY.md` says how the Arena's follows.

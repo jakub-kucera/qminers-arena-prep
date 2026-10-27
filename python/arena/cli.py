@@ -97,6 +97,8 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help="charge every fill this much a lot, in the data's price units (default: 0, Prosperity's)")
     parser.add_argument("--fee-bps", type=float, default=0.0, metavar="BPS",
                         help="charge every fill this many basis points of its value (default: 0)")
+    parser.add_argument("--deplete", action="store_true",
+                        help="volume we take from the recorded book stays gone from later snapshots while its level shows more (a replay that keeps what we consume)")
     parser.add_argument("--maker-fee", type=float, metavar="PER_LOT",
                         help="a passive fill's fee a lot instead of --fee, in the data's price units; negative is a rebate")
     parser.add_argument("--maker-fee-bps", type=float, metavar="BPS",
@@ -157,6 +159,7 @@ def setup(args: argparse.Namespace) -> Setup:
         fee_bps=args.fee_bps,
         maker_fee=args.maker_fee,
         maker_fee_bps=args.maker_fee_bps,
+        deplete=args.deplete,
     )
     if config.delay < 0:
         raise ValueError("--delay needs 0 or more ticks")

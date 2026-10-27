@@ -5,8 +5,8 @@ arena.compare score every cell or bot under.
 
 Each item changes one engine setting from the run's own (`--match-trades`, `--resting`, `--queue`,
 `--queue-power`, `--fill-ratio`, `--seed`, `--mark`, `--limit-penalty`, `--delay`, `--fee`, `--fee-bps`, and `mfee`, `mbps` for
-`--maker-fee`, `--maker-fee-bps`); `resting=no`
-turns resting off. `vs=` (repeatable) gives
+`--maker-fee`, `--maker-fee-bps`, and `deplete` for `--deplete`); `resting=no` (and `deplete=no`)
+turns it off. `vs=` (repeatable) gives
 the scenario its own rivals in place of `--vs`, each a file or a variant FILE@PATH=VALUE@... as
 arena.compare takes them; `vs=none` runs it with none. A value can't hold a comma. Without NAME the
 scenario is named by its items. `--modes all,worse` are the plain scenarios, named by their mode,
@@ -60,6 +60,7 @@ class Scenario:
     fee_bps: float | None = None  # basis points of a fill's value
     maker_fee: float | None = None  # a passive fill's, instead (negative: a rebate)
     maker_fee_bps: float | None = None
+    deplete: bool | None = None  # what we take from the recorded book stays gone
 
     def __str__(self) -> str:
         return self.name
@@ -77,7 +78,7 @@ class Scenario:
         return self == Scenario(self.name, self.trade_matching) and self.trade_matching is not None and self.name == self.trade_matching.value
 
     def config(self, base: EngineConfig) -> EngineConfig:
-        changed = {name: getattr(self, name) for name in ("trade_matching", "resting", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps", "maker_fee", "maker_fee_bps")}
+        changed = {name: getattr(self, name) for name in ("trade_matching", "resting", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps", "maker_fee", "maker_fee_bps", "deplete")}
         return replace(base, **{name: value for name, value in changed.items() if value is not None})
 
 
@@ -95,7 +96,7 @@ def rivals_for(default: list, mode: Scenario | TradeMatching) -> list:
     return list(mode.rivals) if isinstance(mode, Scenario) and mode.rivals is not None else list(default)
 
 
-KEYS = {"match", "resting", "queue", "power", "fill", "seed", "mark", "penalty", "vs", "delay", "fee", "bps", "mfee", "mbps"}
+KEYS = {"match", "resting", "queue", "power", "fill", "seed", "mark", "penalty", "vs", "delay", "fee", "bps", "mfee", "mbps", "deplete"}
 
 
 def parse_scenario(text: str) -> Scenario:
@@ -118,7 +119,7 @@ def parse_scenario(text: str) -> Scenario:
         if key in found:
             raise ValueError(f"--scenario {name}: {key} given twice")
         try:
-            if key == "resting":
+            if key in ("resting", "deplete"):
                 if value not in ("", "yes", "no"):
                     raise ValueError
                 found[key] = value != "no"
@@ -146,13 +147,13 @@ def parse_scenario(text: str) -> Scenario:
         raise ValueError(f"--scenario {name}: fill must be in (0, 1]")
     return Scenario(name, found.get("match"), found.get("resting"), found.get("queue"), found.get("power"), found.get("fill"), found.get("seed"),
                     None if rivals is None else tuple(rivals), found.get("mark"), found.get("penalty"), found.get("delay"),
-                    found.get("fee"), found.get("bps"), found.get("mfee"), found.get("mbps"))
+                    found.get("fee"), found.get("bps"), found.get("mfee"), found.get("mbps"), found.get("deplete"))
 
 
 def add_scenario_argument(parser) -> None:
     parser.add_argument("--scenario", dest="scenarios", action="append", default=[], metavar="NAME:ITEM,...",
                         help="score every run under this fill model too, after the --modes: match=all|worse|none, resting[=no], "
-                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS, fee=PER_LOT, bps=BPS, mfee=PER_LOT, mbps=BPS (a maker's, negative a rebate), vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
+                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS, fee=PER_LOT, bps=BPS, mfee=PER_LOT, mbps=BPS (a maker's, negative a rebate), deplete[=no], vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
                         "Repeatable; with one, the summary adds the worst case over all of them (python/arena/scenario.py)")
 
 

@@ -22,7 +22,7 @@ impl Args {
         let mut k = 0;
         while k < raw.len() {
             let a = &raw[k];
-            if a == "--resting" || a == "--hold" || a == "--replay" {
+            if a == "--resting" || a == "--hold" || a == "--replay" || a == "--deplete" {
                 flags.push(a.clone());
             } else if a.starts_with("--") {
                 let value = raw.get(k + 1).unwrap_or_else(|| fail(&format!("{a} needs a value"))).clone();
@@ -59,6 +59,7 @@ impl Args {
             fee_bps: number(self.get("--fee-bps").unwrap_or("0")),
             maker_fee: self.get("--maker-fee").map(number),
             maker_fee_bps: self.get("--maker-fee-bps").map(number),
+            deplete: self.flags.iter().any(|f| f == "--deplete"),
         }
     }
 }
@@ -378,6 +379,7 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
         fee_bps: number("fee_bps", 0.0)?,
         maker_fee: optional("maker_fee")?,
         maker_fee_bps: optional("maker_fee_bps")?,
+        deplete: value.get("deplete").is_some_and(Value::truthy),
     })
 }
 

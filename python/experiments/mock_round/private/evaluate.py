@@ -17,6 +17,7 @@ import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -255,10 +256,10 @@ def _clock(seq: int) -> str:
 # ---------------------------------------------------------------------------- running
 
 
-def run_session(bot_path: str, data_dir: str, date: str) -> dict:
+def run_session(bot_path: str, data_dir: str, date: str, deplete: bool = False) -> dict:
     day = load_session(Path(data_dir), date)
     bot = ArenaBot(BotFile(Path(bot_path), {}, strict=False))
-    result = run_day(day, bot, CONFIG)
+    result = run_day(day, bot, replace(CONFIG, deplete=deplete))
     ticks = {sym: info["tick"] for sym, info in day.info.items()}
     per = {}
     for sym in day.products:
@@ -288,6 +289,7 @@ def main(argv=None) -> int:
     parser.add_argument("--session", action="append", help="only this date (repeatable)")
     parser.add_argument("--jobs", type=int, default=0, help="worker processes (default: one per session)")
     parser.add_argument("--json", help="also write the per-session results here")
+    parser.add_argument("--deplete", action="store_true", help="the other reading of the rules: what a take consumes stays gone (EngineConfig.deplete); not the round's own rule")
     args = parser.parse_args(argv)
 
     bot_path = Path(args.bot).resolve()
@@ -300,10 +302,10 @@ def main(argv=None) -> int:
     start = time.time()
     jobs = args.jobs or len(dates)
     if jobs == 1:
-        results = [run_session(str(bot_path), str(data_dir), d) for d in dates]
+        results = [run_session(str(bot_path), str(data_dir), d, args.deplete) for d in dates]
     else:
         with ProcessPoolExecutor(jobs) as pool:
-            results = list(pool.map(run_session, [str(bot_path)] * len(dates), [str(data_dir)] * len(dates), dates))
+            results = list(pool.map(run_session, [str(bot_path)] * len(dates), [str(data_dir)] * len(dates), dates, [args.deplete] * len(dates)))
 
     products = sorted(results[0]["products"])
     total = sum(r["products"][p]["pnl"] for r in results for p in products)

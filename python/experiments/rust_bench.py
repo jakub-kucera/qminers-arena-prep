@@ -109,6 +109,10 @@ CONFIGS = [
     ("fee 0.25 a lot and 1 bp, two bots, resting", EngineConfig(resting=True, fee=0.25, fee_bps=1.0), TWO),
     ("takers 2 bps, makers a 1 bp rebate, two bots, resting", EngineConfig(resting=True, fee_bps=2.0, maker_fee_bps=-1.0), TWO),
     ("takers 0.5 a lot, makers 0.1, worse", EngineConfig(fee=0.5, maker_fee=0.1, trade_matching=WORSE), ONE),
+    ("deplete, one bot", EngineConfig(deplete=True), ONE),
+    ("deplete, two bots, worse", EngineConfig(deplete=True, trade_matching=WORSE), TWO),
+    ("deplete, two bots, resting, prob", EngineConfig(deplete=True, resting=True, queue=QueueModel.PROB), TWO),
+    ("deplete, fill ratio 0.6, delay 1", EngineConfig(deplete=True, fill_ratio=0.6, delay=1, seed=3), ONE),
     ("fee 2 bps, delay 1, limit penalty, a bot quoting past its limit", EngineConfig(delay=1, fee_bps=2.0, limit_penalty=2.5), OVER),
 ]
 
@@ -164,6 +168,7 @@ def template_cases(variants=VARIANTS) -> list[tuple[str, EngineConfig, list]]:
         ("as committed, delay 1", EngineConfig(delay=1), bots(committed)),
         ("as committed against a copy, resting, delay 2", EngineConfig(resting=True, delay=2), bots(committed, [copy])),
         ("as committed, fee 1 a lot and 2 bps", EngineConfig(fee=1.0, fee_bps=2.0), bots(committed)),
+        ("as committed, deplete", EngineConfig(deplete=True), bots(committed)),
     ]
     return cases
 
