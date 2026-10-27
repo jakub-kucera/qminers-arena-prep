@@ -413,6 +413,25 @@ def test_family_fills_counts_clustered_ticks_against_independence(capsys, monkey
     assert "0. The market's trade ticks" in out
 
 
+def test_informed_flags_a_buy_at_the_days_low_and_relabels_it(capsys, monkeypatch, drill_data):
+    from arena.model import Book, Day, MarketTrade, Tick
+    from experiments import informed
+
+    monkeypatch.setattr(informed, "WARMUP", 2)
+    path = [100, 99, 98, 97, 96, 97, 98, 99, 100, 101]  # the wall mid: down to a low at tick 4, then up; a sell at the low of tick 2 is against it
+    trades = {4: [MarketTrade("X", 97, 15, "Olivia", "b")], 2: [MarketTrade("X", 97, 15, "c", "d")], 7: [MarketTrade("X", 98, 2, "e", "f")]}
+    ticks = [Tick(k * 100, {"X": Book(((p - 1, 20),), ((p + 1, 20),))}, {"X": trades.get(k, [])}, {}) for k, p in enumerate(path)]
+    day = Day("d", ["X"], {"X": 50}, ticks)
+    ev = informed.events(day, "X", informed.size_classes([day], "X"))
+    by_tick = {t["i"]: t for t in ev["trades"]}
+    assert by_tick[4]["extreme"] and by_tick[4]["side"] == 1 and by_tick[4]["name"] == "Olivia"  # a buy at the ask, at the low
+    assert not by_tick[2]["extreme"] and not by_tick[7]["extreme"]
+    flagged = informed.relabel(day, {"X": {id(by_tick[4]["trade"]): 1}})
+    assert [(t.buyer, t.seller) for tick in flagged.ticks for t in tick.trades["X"]] == [("", ""), (informed.FLAG, ""), ("", "")]
+    out = run(capsys, monkeypatch, "informed", "--data", drill_data, "--days", "all", "--format", "drill", "--jobs", "2")
+    assert "2. Leave one day out" in out
+
+
 def test_fill_curve_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "fill_curve", "--data", drill_data, "--days", "all", "--format", "drill", "--products", "ALPHA")
     assert "### drill all ALPHA" in out and "The fill-size curve" in out
