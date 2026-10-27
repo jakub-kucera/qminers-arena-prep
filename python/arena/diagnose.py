@@ -17,7 +17,10 @@ first data download as soon as its format module exists. For each product, poole
   share is low, `sized_mid` falls back to the best level, i.e. the plain mid, on most ticks.
 - **Jumps that snap back:** the wall mid's moves of at least `SNAP_SPREADS` times the day's median
   spread, and the share that went the opposite way to the one before. Where that share is high,
-  fading each jump pays (the template's `jump` mode); elsewhere it is a coin flip.
+  fading each jump pays (the template's `jump` mode); elsewhere it is a coin flip. The note gives
+  the jumps' usual size (their median), the share that is exactly that size, and the grid the wall
+  mid sits on: the share of ticks at its most common value modulo that size (P4 round 5's
+  ROBOT_DISHES: steps of 100 between multiples of 100). The template's `jump_min` is about half the size.
 - **Noise:** the lag-1 autocorrelation of one-tick changes of the mid, and the signature ratio of
   the mid and of the wall mid (the midpoint of the largest level on each side): the variance per
   tick of one-tick changes over that of `LAG`-tick changes. Near 1 is a random walk; well above 1
@@ -65,6 +68,7 @@ import csv
 import math
 import statistics
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -89,6 +93,7 @@ JUMPY = 0.05
 SNAP_SPREADS = 6
 MIN_JUMPS = 20
 SNAP_BACK = 0.75
+GRID_SHARE = 0.5  # share of a jumping day's ticks at one value modulo the jump size from which the note names that grid
 MEAN_REVERTING = -0.2  # lag-1 autocorrelation of the mid's changes at or below which the mid is mostly noise
 NOISY_SIGNATURE = 1.5  # signature ratio from which a price is noisy
 # Wall mid variance per tick at LAG over LONG_LAG from which it reverts to a level. Three days of 10,000 ticks hold
@@ -148,6 +153,8 @@ class _Acc:
     moves: dict[tuple[str, int], list[float]] = field(default_factory=dict)  # (reference, horizon)
     slow_gains: dict[str, list[float]] = field(default_factory=lambda: {r: [] for r in REFERENCES})
     snaps: list[tuple[str, int, int, int]] = field(default_factory=list)  # (day, jumps, pairs, pairs reversed) per day
+    jump_sizes: list[float] = field(default_factory=list)  # |wall mid move| of every jump that snaps back or not
+    jump_days: dict[str, tuple[list[float], list[float]]] = field(default_factory=dict)  # day with MIN_JUMPS: (|jumps|, wall mids)
     parts: list[_Parts] = field(default_factory=list)  # per day, for the time-of-day profile
 
 
@@ -203,7 +210,12 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
     acc.walls += [w for w in series["wall"] if w is not None]
     day_spreads = acc.spreads[len(acc.spreads) - sum(w is not None for w in series["mid"]):]
     if day_spreads:
-        acc.snaps.append((day.name, *_snap_backs([w for w in series["wall"] if w is not None], statistics.median(day_spreads))))
+        walls, spread = [w for w in series["wall"] if w is not None], statistics.median(day_spreads)
+        acc.snaps.append((day.name, *_snap_backs(walls, spread)))
+        sizes = [abs(m) for m in _jump_moves(walls, spread)]
+        acc.jump_sizes += sizes
+        if len(sizes) >= MIN_JUMPS:
+            acc.jump_days[day.name] = (sizes, walls)
     ordered = sorted(prices)
     gaps = [b - a for a, b in zip(ordered, ordered[1:])]
     if gaps:
@@ -281,6 +293,7 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "jump_share": _share(sum(1 for move, half in acc.wall_moves if move > max(half, tick) + 1e-9), len(acc.wall_moves)),
         "snap_jumps": sum(n for _, n, _, _ in acc.snaps),
         "snap_back": _share(sum(r for *_, r in acc.snaps), sum(p for _, _, p, _ in acc.snaps)) if sum(n for _, n, _, _ in acc.snaps) >= MIN_JUMPS else None,
+        "jump_size": statistics.median(acc.jump_sizes) if acc.jump_sizes else None,
         "mid_lag1_autocorr": _weighted(acc.autocorr),
         "mid_signature": _weighted(acc.signature["mid"]),
         "wall_signature": _weighted(acc.signature["wall"]),
@@ -361,7 +374,10 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
     snapping = [(day, n, r / p) for day, n, p, r in acc.snaps if n >= MIN_JUMPS and p and r / p >= SNAP_BACK]
     if snapping:
         days = ", ".join(f"{day} {share:.0%} of {n}" for day, n, share in snapping)
-        notes.append(f"jumps of {SNAP_SPREADS}+ spreads snap back ({days} reversed the one before): fade them, the template's jump mode")
+        size, exact, residue, on_grid = _jump_grid(acc.jump_days, [day for day, _, _ in snapping], row["tick"] or 1.0)
+        grid = f", the wall mid at {residue:g} mod {size:g} on {on_grid:.0%} of ticks" if on_grid >= GRID_SHARE else ""
+        notes.append(f"jumps of {SNAP_SPREADS}+ spreads snap back ({days} reversed the one before; usual size {size:g}, "
+                     f"exactly that on {exact:.0%}{grid}): fade them, the template's jump mode with jump_min about {size / 2:g}")
     fixed = row["wall_sd"] is not None and row["wall_sd"] <= FIXED_SD_TICKS * (row["tick"] or 1.0)
     if fixed:
         notes.append(f"wall mid nearly fixed at {row['wall_median']:g} (sd {row['wall_sd']:.2f})")
@@ -417,9 +433,25 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
     return notes
 
 
+def _jump_moves(walls: list[float], spread: float) -> list[float]:
+    """One day's wall mid moves of at least SNAP_SPREADS × spread, signed."""
+    return [b - a for a, b in zip(walls, walls[1:]) if spread and abs(b - a) >= SNAP_SPREADS * spread]
+
+
+def _jump_grid(jump_days: dict[str, tuple[list[float], list[float]]], days: list[str], tick: float) -> tuple[float, float, float, float]:
+    """Over these days' jumps: (their median size, the share within half a tick of it, the wall mid's most common value
+    modulo that size, the share of ticks there)."""
+    sizes = [v for day in days for v in jump_days[day][0]]
+    size = statistics.median(sizes)
+    exact = _share(sum(1 for v in sizes if abs(v - size) <= tick / 2 + 1e-9), len(sizes))
+    residues = Counter(round(round((w % size) / tick) * tick % size, 9) for day in days for w in jump_days[day][1])
+    residue, count = residues.most_common(1)[0]
+    return size, exact, residue, count / sum(residues.values())
+
+
 def _snap_backs(walls: list[float], spread: float) -> tuple[int, int, int]:
     """One day's wall mids: (jumps of at least SNAP_SPREADS × spread, consecutive pairs of them, pairs in opposite directions)."""
-    jumps = [b - a for a, b in zip(walls, walls[1:]) if spread and abs(b - a) >= SNAP_SPREADS * spread]
+    jumps = _jump_moves(walls, spread)
     pairs = list(zip(jumps, jumps[1:]))
     return len(jumps), len(pairs), sum(1 for a, b in pairs if a * b < 0)
 

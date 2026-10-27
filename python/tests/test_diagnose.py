@@ -87,14 +87,14 @@ def test_a_wall_mid_that_jumps_past_half_the_spread_is_flagged():
     assert "jumps" not in calm["notes"]
 
 
-def _jumping(steps, reverse_share, seed=0):
+def _jumping(steps, reverse_share, seed=0, noise=(-1, 0, 1), start=10_000):
     """Wall mids that step by 100 (50 spreads of 2) every fifth tick, each step reversing the one before with this probability."""
-    rng, walls, wall, step = random.Random(seed), [], 10_000, 100
+    rng, walls, wall, step = random.Random(seed), [], start, 100
     for i in range(steps * 5):
         if i % 5 == 0 and i:
             step = -step if rng.random() < reverse_share else step
             wall += step
-        walls.append(wall + rng.choice((-1, 0, 1)))
+        walls.append(wall + rng.choice(noise))
     return walls
 
 
@@ -105,6 +105,20 @@ def test_jumps_that_snap_back_are_flagged(share, snaps):
     assert row["snap_back"] == pytest.approx(share, abs=0.06)
     assert ("jumps of 6+ spreads snap back (r5d4" in row["notes"]) is snaps
     assert ("the template's jump mode" in row["notes"]) is snaps
+    assert row["jump_size"] == 100  # the median |move|: steps of 100 between noise of a tick
+    assert ("usual size 100" in row["notes"] and "jump_min about 50" in row["notes"]) is snaps
+    assert "mod 100" not in row["notes"]  # the noise spreads the wall mid over three values modulo 100
+
+
+def test_the_snap_back_note_gives_the_jumps_size_and_grid():
+    # Steps of exactly 100 between prices 30 above a multiple of 100, apart from one tick in five.
+    row = diagnose.diagnose([make_day(_jumping(200, 0.95, noise=(0, 0, 0, 0, 1), start=10_030), name="r5d4")])["X"]
+    assert row["jump_size"] == 100
+    assert "reversed the one before; usual size 100, exactly that on " in row["notes"]
+    assert "the wall mid at 30 mod 100 on 8" in row["notes"]  # about 80% of ticks
+    assert "the template's jump mode with jump_min about 50" in row["notes"]
+    size, exact, residue, share = diagnose._jump_grid({"d": ([6, 6, 6, 7], [3, 9, 15, 9, 16])}, ["d"], 1.0)
+    assert (size, exact, residue) == (6, 0.75, 3) and share == pytest.approx(0.8)
 
 
 def test_too_few_jumps_get_no_snap_back_note():
