@@ -190,6 +190,29 @@ The highest backtest PnL is usually overfit, so each combination is ranked on fo
 | `nbhd` | Mean PnL of the combination and its grid neighbours (one step along any axis), leaving out neighbours with errors or limit breaches. A plateau beats a lone spike. |
 | `pnl(<mode>)` | Total under each extra mode, e.g. `worse` fills |
 
+Next to them the table shows the shape of each cell's PnL path under the first mode, from its PnL
+at the end of each 100-tick block of each day (the blocks SPA uses, so it costs no extra runs and
+works with `--engine rust`):
+
+| Column | Meaning (`--sort` key) |
+|---|---|
+| `max dd` | The largest fall from a running high within a day (`drawdown`, smallest first) |
+| `conc` | The largest share of a day's PnL made in one 500-tick window; an even day makes 5% (`conc`) |
+| `under` | The share of the time below the running high (`under`) |
+| `run` | The longest stretch without a new high, as a share of its day (`run`) |
+| `sharpe/d` | Mean over sd of the days' PnL, with two or more days (`sharpe-day`); `--sort sharpe-block` ranks by the 100-tick changes' |
+
+A cell is flagged `late` when one window made half or more of a day's PnL after the start of a
+stretch without a new high lasting half the day or more: heyman7913's lucky late reversal (80% of
+a backtest's PnL in its last 500 ticks, underwater for 7,000, `references/online-snapshots/heyman7913_imc-prosperity-4.README.md:117-122`).
+The line under the table names the flagged cells, or says there are none. `--out` adds the same
+measures per mode (`max_dd_`, `conc_`, `under_`, `run_`, `sharpe_day_`, `sharpe_block_`,
+`late_days_`) after the counts. A single backtest prints them per tick (`pnl path:` under each day,
+`risk:` under the total); every tick a marked position wobbles below its high, so `under` is
+80–85% of ticks for the template on P3 round 1 against 1% of 100-tick blocks, and the longest run
+is the one to read. On P3 round 1 no Kelp `make_edge` cell is flagged (`IDEAS.md`, "Risk measures
+on the PnL path").
+
 ```
 rank  KELP.make_edge  KELP.take_edge  pnl(all)  min day    nbhd  pnl(worse)   fills
    1               1               1    81,366   25,998  75,693      57,764  19,294

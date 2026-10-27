@@ -17,6 +17,14 @@ combination also gets:
   worst     the least PnL over the modes and scenarios: a measure to read, not a rule (picked by it,
             cells lost most often on unseen days: python/experiments/selection_rules.py, part 2).
 
+Next to them, the shape of the first mode's PnL path, from each day's PnL at the end of every
+FINE_TICKS block (report.PathRisk): max dd (the largest fall from a running high within a day),
+conc (the largest share of a day's PnL made in one report.WINDOW_TICKS window), under (the time
+below the running high), run (its longest stretch, as a share of the day) and sharpe/d (mean over
+sd of the days' PnL). A cell is flagged `late` when one window made half a day's PnL or more after
+a stretch without a new high lasting half the day: a lucky late reversal. --sort takes each, and
+--out writes them per mode.
+
 The summary names the best combination by each measure and says whether they agree. With two or
 more days it also holds out each day in turn: the combination with the best PnL on the other days
 is scored on the held-out day. The total of those scores is what choosing by PnL earns on days it
@@ -135,6 +143,7 @@ class Outcome:
     product_pnl: dict[TradeMatching, dict[str, float]] = field(default_factory=dict)  # mode -> product -> pnl
     block_pnl: dict[TradeMatching, list[float]] = field(default_factory=dict)  # mode -> PnL per block, days in order
     fine_pnl: dict[TradeMatching, list[float]] = field(default_factory=dict)  # the same per block of FINE_TICKS ticks
+    risk: dict[TradeMatching, dict[str, report.PathRisk | None]] = field(default_factory=dict)  # mode -> day -> its path at FINE_TICKS
     fills: int = 0  # under the first mode
     errors: int = 0  # over all modes
     limit_breaches: int = 0
@@ -143,12 +152,49 @@ class Outcome:
     def pnl(self, mode: TradeMatching) -> float:
         return sum(self.day_pnl[mode].values())
 
+    def risks(self, mode: TradeMatching) -> list[report.PathRisk]:
+        return [r for r in self.risk.get(mode, {}).values() if r is not None]
+
     def min_day(self, mode: TradeMatching) -> float:
         return min(self.day_pnl[mode].values())
 
     @property
     def failed(self) -> bool:
         return bool(self.errors or self.limit_breaches)
+
+
+@dataclass(frozen=True)
+class Risk:
+    """A combination's PnL path under one mode, from its days' PathRisks at FINE_TICKS (None: not measured)."""
+
+    drawdown: float | None  # the largest fall from a running high within a day
+    conc: float | None  # the largest share of a day's PnL made in one WINDOW_TICKS window (days that made money)
+    under: float | None  # the share of the time below the running high (at FINE_TICKS: a tick path wobbles below it most of the time)
+    run: float | None  # the longest stretch without a new high, as a share of its day (the most over the days)
+    sharpe_day: float | None  # mean over sd of the days' PnL (two or more days)
+    sharpe_block: float | None  # mean over sd of the PnL changes per FINE_TICKS block, within days
+    late: int  # days that look like a lucky late reversal (report.PathRisk.late)
+
+
+def risk_of(outcome: Outcome, mode: TradeMatching) -> Risk:
+    risks = outcome.risks(mode)
+    shares = [r.share for r in risks if r.share is not None]
+    steps = sum(r.steps for r in risks)
+    return Risk(
+        drawdown=max((r.drawdown for r in risks), default=None),
+        conc=max(shares, default=None),
+        under=sum(r.underwater for r in risks) / steps if steps else None,
+        run=max((r.longest / r.steps for r in risks), default=None),
+        sharpe_day=report.day_sharpe(list(outcome.day_pnl[mode].values())),
+        sharpe_block=report.sharpe(risks),
+        late=sum(r.late for r in risks),
+    )
+
+
+def fine_risk(fine) -> report.PathRisk | None:
+    """A day's PathRisk from its FINE_TICKS blocks: the path sampled at each block's end, the window
+    report.WINDOW_TICKS long."""
+    return report.path_risk(list(itertools.accumulate(fine)), max(1, report.WINDOW_TICKS // FINE_TICKS))
 
 
 @dataclass(frozen=True)
@@ -162,6 +208,7 @@ class Row:
     fills: int
     failed: bool
     worst: float = 0.0  # the least pnl over the modes (scenarios)
+    risk: Risk | None = None  # under the first mode
 
 
 # ---------------------------------------------------------------------------- axes
@@ -281,12 +328,15 @@ def _assemble(index: tuple, values: tuple, pieces: dict, days: list[Day], modes:
         day_pnl, products = outcome.day_pnl.setdefault(mode, {}), outcome.product_pnl.setdefault(mode, {})
         # arrays, not lists: a grid of 100,000 cells holds every cell's block PnL
         blocks, fine = outcome.block_pnl.setdefault(mode, array("d")), outcome.fine_pnl.setdefault(mode, array("d"))
+        risk = outcome.risk.setdefault(mode, {})
         for d, day in enumerate(days):
             piece = pieces[(d, mode)]
             more = extra[(d, mode)] if extra else None
             day_pnl[day.name] = piece.pnl + (more.pnl if more else 0.0)
             blocks.extend([a + b for a, b in zip(piece.blocks, more.blocks)] if more else piece.blocks)
-            fine.extend([a + b for a, b in zip(piece.fine, more.fine)] if more else piece.fine)
+            day_fine = [a + b for a, b in zip(piece.fine, more.fine)] if more else piece.fine
+            fine.extend(day_fine)
+            risk[day.name] = fine_risk(day_fine)  # from the blocks: they add up across products, as a path's shape doesn't
             for source in (piece, more) if more else (piece,):
                 for product, value in source.products.items():
                     products[product] = products.get(product, 0.0) + value
@@ -690,6 +740,7 @@ def build_rows(axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tupl
             fills=outcome.fills,
             failed=outcome.failed,
             worst=worst_case(outcome, modes),
+            risk=risk_of(outcome, primary),
         )
         for index, outcome in sorted(outcomes.items())
     ]
@@ -719,6 +770,26 @@ def measures(modes: list[TradeMatching]) -> dict[str, Callable[[Row], float]]:
     return named
 
 
+RISK_KEYS = {  # --sort keys on the first mode's PnL path, best first; not among the summary's "best by" measures
+    "sharpe-day": lambda r: r.sharpe_day,
+    "sharpe-block": lambda r: r.sharpe_block,
+    "drawdown": lambda r: None if r.drawdown is None else -r.drawdown,
+    "conc": lambda r: None if r.conc is None else -r.conc,
+    "under": lambda r: None if r.under is None else -r.under,
+    "run": lambda r: None if r.run is None else -r.run,
+}
+
+
+def sort_keys(modes: list[TradeMatching]) -> dict[str, Callable[[Row], float]]:
+    """Every --sort key: the measures, then the risk keys (a cell without the measure last)."""
+    def risky(get):
+        def key(row: Row) -> float:
+            value = get(row.risk) if row.risk is not None else None
+            return float("-inf") if value is None else value
+        return key
+    return measures(modes) | {name: risky(get) for name, get in RISK_KEYS.items()}
+
+
 def format_summary(axes, modes, baseline: Outcome, rows: list[Row], sort: str, top: int) -> str:
     primary = modes[0]
     named = measures(modes)
@@ -730,12 +801,15 @@ def format_summary(axes, modes, baseline: Outcome, rows: list[Row], sort: str, t
 
     header = ["rank", *(axis.label for axis in axes), f"pnl({primary})", "min day", "nbhd"]
     worst = scored_worst(modes)
-    header += [f"pnl({mode})" for mode in modes[1:]] + (["worst"] if worst else []) + ["fills", ""]
-    ranked = sorted(rows, key=named[sort], reverse=True)
+    daily = any(row.risk is not None and row.risk.sharpe_day is not None for row in rows)
+    header += [f"pnl({mode})" for mode in modes[1:]] + (["worst"] if worst else []) + ["max dd", "conc", "under", "run"] + (["sharpe/d"] if daily else [])
+    header += ["fills", ""]
+    ranked = sorted(rows, key=sort_keys(modes)[sort], reverse=True)
     table = []
     for rank, row in enumerate(ranked[:top], 1):
         cells = [str(rank), *(str(v) for v in row.values), _num(row.pnl[primary]), _num(row.min_day), _num(row.nbhd)]
-        cells += [_num(row.pnl[mode]) for mode in modes[1:]] + ([_num(row.worst)] if worst else []) + [f"{row.fills:,}", "!" if row.failed else ""]
+        cells += [_num(row.pnl[mode]) for mode in modes[1:]] + ([_num(row.worst)] if worst else []) + _risk_cells(row.risk, daily)
+        cells += [f"{row.fills:,}", " ".join(flag for flag, on in (("!", row.failed), ("late", row.risk is not None and row.risk.late)) if on)]
         table.append(cells)
     widths = [max(len(cell) for cell in column) for column in zip(header, *table)]
     lines.append("")
@@ -747,6 +821,7 @@ def format_summary(axes, modes, baseline: Outcome, rows: list[Row], sort: str, t
     usable = [row for row in rows if not row.failed]
     failed = len(rows) - len(usable)
     lines.append("")
+    lines.append(format_late(axes, primary, rows))
     if failed:
         lines.append(f"! {failed} combinations had errors or limit breaches and are left out below")
     if not usable:
@@ -765,6 +840,26 @@ def format_summary(axes, modes, baseline: Outcome, rows: list[Row], sort: str, t
     else:
         lines.append("measures disagree: prefer a setting near the top on every measure over the single best pnl")
     return "\n".join(lines)
+
+
+def _risk_cells(risk: Risk | None, daily: bool) -> list[str]:
+    """The summary's max dd, conc, under, run (and sharpe/d) cells."""
+    risk = risk or Risk(None, None, None, None, None, None, 0)
+    share = lambda x: "-" if x is None else f"{x:.0%}"
+    shown = [_num(risk.drawdown) if risk.drawdown is not None else "-", share(risk.conc), share(risk.under), share(risk.run)]
+    return shown + ([f"{risk.sharpe_day:.2f}" if risk.sharpe_day is not None else "-"] if daily else [])
+
+
+def format_late(axes: list[Axis], mode: TradeMatching, rows: list[Row]) -> str:
+    """The cells with a day that looks like a lucky late reversal (report.PathRisk.late), or that none has."""
+    late = sorted((row for row in rows if row.risk is not None and row.risk.late and not row.failed), key=lambda row: -row.pnl[mode])
+    rule = (f"one {report.WINDOW_TICKS:,}-tick window made {report.CONCENTRATED:.0%}+ of a day's pnl({mode}), which went {report.UNDERWATER:.0%}+ "
+            f"of the day without a new high, in blocks of {FINE_TICKS} ticks")
+    if not late:
+        return f"late reversals: none ({rule})"
+    named = [", ".join(f"{a.label}={v}" for a, v in zip(axes, row.values)) + f" ({row.risk.late} day{'s' if row.risk.late > 1 else ''})" for row in late]
+    shown = " | ".join(named[:5]) + (f" | ... {len(named) - 5} more" if len(named) > 5 else "")
+    return f"! late reversals in {len(late)} of {len(rows)} cells ({rule}): {shown}"
 
 
 def _fingerprint(outcome: Outcome, modes: list[TradeMatching]) -> tuple:
@@ -1139,8 +1234,13 @@ def format_overfitting(baseline: Outcome, outcomes: dict[tuple[int, ...], Outcom
     return "\n".join(lines)
 
 
+RISK_COLUMNS = {"max_dd": "drawdown", "conc": "conc", "under": "under", "run": "run", "sharpe_day": "sharpe_day", "sharpe_block": "sharpe_block",
+                "late_days": "late"}
+
+
 def write_csv(path: Path, axes: list[Axis], modes: list[TradeMatching], outcomes: dict[tuple[int, ...], Outcome]) -> None:
-    """One row per combination: axis values, then per mode its pnl, min day, nbhd, per-day and per-product pnl."""
+    """One row per combination: axis values, then per mode its pnl, min day, nbhd, per-day and per-product pnl; after
+    the counts, per mode its PnL path's measures (Risk: max_dd, conc, under, run, sharpe_day, sharpe_block, late_days)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     ordered = sorted(outcomes.items())
     shape = tuple(len(axis.values) for axis in axes)
@@ -1155,6 +1255,7 @@ def write_csv(path: Path, axes: list[Axis], modes: list[TradeMatching], outcomes
         header += [f"pnl_{mode}_{product}" for product in products[mode]]
     worst = scored_worst(modes)
     header += (["worst"] if worst else []) + ["fills", "errors", "limit_breaches"]
+    header += [f"{name}_{mode}" for mode in modes for name in RISK_COLUMNS]
 
     with path.open("w", newline="") as file:
         writer = csv.writer(file)
@@ -1166,6 +1267,9 @@ def write_csv(path: Path, axes: list[Axis], modes: list[TradeMatching], outcomes
                 row += [outcome.day_pnl[mode][day] for day in days[mode]]
                 row += [outcome.product_pnl[mode].get(product, 0.0) for product in products[mode]]
             row += ([worst_case(outcome, modes)] if worst else []) + [outcome.fills, outcome.errors, outcome.limit_breaches]
+            for mode in modes:
+                risk = risk_of(outcome, mode)
+                row += ["" if getattr(risk, name) is None else getattr(risk, name) for name in RISK_COLUMNS.values()]
             writer.writerow(row)
 
 
@@ -1197,7 +1301,8 @@ def main(argv: list[str] | None = None) -> int:
         "The first is the main one (default: --match-trades)",
     )
     add_scenario_argument(parser)
-    parser.add_argument("--sort", default="pnl", help="rank by pnl, nbhd, min-day, an extra mode's pnl, or with --scenario the worst over them (default: pnl)")
+    parser.add_argument("--sort", default="pnl", help="rank by pnl, nbhd, min-day, an extra mode's pnl, with --scenario the worst over them, or the "
+                        "first mode's PnL path: sharpe-day, sharpe-block, drawdown, conc, under, run (the last four smallest first) (default: pnl)")
     parser.add_argument("--top", type=int, default=15, help="rows to show (default: 15)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     parser.add_argument("--out", type=Path, help="write every combination's results to this CSV")
@@ -1340,8 +1445,8 @@ def _check(axes: list[Axis], modes: list[TradeMatching], s: Setup, sort: str) ->
         raise ValueError(f"set more than once by --grid/--set: {', '.join(sorted(duplicated))}")
     if len(set(modes)) != len(modes):
         raise ValueError("--modes lists a mode twice")
-    if sort not in measures(modes):
-        raise ValueError(f"--sort must be one of {', '.join(measures(modes))}")
+    if sort not in sort_keys(modes):
+        raise ValueError(f"--sort must be one of {', '.join(sort_keys(modes))}")
 
 
 if __name__ == "__main__":

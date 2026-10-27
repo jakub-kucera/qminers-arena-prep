@@ -1,6 +1,6 @@
 import statistics
 
-from arena import backtest, report
+from arena import backtest, grid, report
 from arena.engine import DayResult, EngineConfig, run_day
 from arena.model import Order
 from tests.test_engine import ScriptedBot, day, tick
@@ -67,3 +67,38 @@ def test_backtest_prints_the_portal_metrics_on_request(capsys, tmp_path, data_di
     out = capsys.readouterr().out
     assert "portal metrics (--metrics):" in out
     assert "portal metrics over 2 days" in out
+
+
+def test_a_late_reversal_is_flagged_and_steady_gains_are_not():
+    # heyman7913's case: underwater for most of the day, then 80%+ of the PnL in the last 500 ticks
+    late = [-0.01 * k for k in range(9_000)] + [-90 + 0.2 * k for k in range(1, 1_001)]
+    risk = report.path_risk(late, report.WINDOW_TICKS)
+    assert risk.pnl == late[-1] > 0 and risk.share > 0.8 and risk.best_end >= 9_499
+    assert risk.longest >= 9_000 and abs(risk.drawdown - 89.99) < 1e-9 and risk.late
+    steady = [0.01 * k for k in range(1, 10_001)]
+    risk = report.path_risk(steady, report.WINDOW_TICKS)
+    assert abs(risk.share - 0.05) < 1e-9 and risk.underwater == risk.longest == 0 and risk.drawdown == 0 and not risk.late
+    # an early window, then a long bleed: concentrated and long underwater, but not a late reversal
+    early = [0.5 * k for k in range(1, 501)] + [250 - 0.01 * k for k in range(1, 9_501)]
+    risk = report.path_risk(early, report.WINDOW_TICKS)
+    assert risk.share > 1 and risk.longest == 9_500 and not risk.late
+    # sampled at the grid's 100-tick blocks, the same day is still a late reversal
+    fine = [b - a for a, b in zip([0.0, *late[99::100]], late[99::100])]
+    assert grid.fine_risk(fine).late and grid.fine_risk(fine).steps == 100
+    assert report.path_risk([], 5) is None
+
+
+def test_the_sharpes_pool_the_steps_and_the_days():
+    a, b = report.path_risk([1.0, 3.0], 1), report.path_risk([2.0, 2.0], 1)  # changes 1, 2 and 2, 0
+    changes = [1, 2, 2, 0]
+    assert abs(report.sharpe([a, b]) - statistics.fmean(changes) / statistics.pstdev(changes)) < 1e-12
+    assert abs(report.day_sharpe([3.0, 2.0, 4.0]) - 3 / 1) < 1e-12
+    assert report.day_sharpe([3.0]) is None and report.sharpe([report.path_risk([0.0, 0.0], 1)]) is None
+
+
+def test_backtest_prints_the_pnl_path(capsys, tmp_path, data_dir):
+    path = tmp_path / "bot.py"
+    path.write_text(BOT)
+    assert backtest.main([str(path), "1", "--data", str(data_dir)]) == 0
+    text = capsys.readouterr().out
+    assert "pnl path: " in text and "below the running high" in text and "risk: Sharpe of the days' pnl" in text

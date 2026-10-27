@@ -413,3 +413,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-26] lint | learning make_edge online, tested
 - `python/experiments/online_edge.py` and the learner in `python/bots/research/online_edge.py`: `concepts/optimal-quoting-models` gets the result (`dropped here`: it finds Kelp's best edge under each fill model, but its worst case over the models stays below the best fixed edge's), and `sources/online-learning-market-making`'s notation table says where the update lives. No line citations into our code were added or moved.
+
+## [2026-10-27] lint | the grid's PnL-path columns moved citations
+- `python/arena/grid.py` gained `Risk`, `risk_of` and `fine_risk` (max dd, conc, under, run, Sharpe), and `python/arena/report.py` `PathRisk` and `format_path`: the citations moved (`python/arena/grid.py:112` → `120` for `FINE_TICKS` in `sources/superior-predictive-ability`, `1025` → `1120` for `format_snooping` in `concepts/validation-and-overfitting`; `python/arena/report.py:316` → `421` for the timeline's `pnl` column in `sources/probability-of-backtest-overfitting`). heyman7913's late-reversal example (`references/online-snapshots/heyman7913_imc-prosperity-4.README.md:117-122`) is now a grid flag; the result is in `IDEAS.md`, "Risk measures on the PnL path".

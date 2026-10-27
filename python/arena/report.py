@@ -51,6 +51,105 @@ def max_drawdown(series: list[float]) -> float:
     return drawdown
 
 
+WINDOW_TICKS = 500  # the window for PnL concentration: heyman7913 found 80% of a backtest's PnL in its last 500 ticks
+CONCENTRATED = 0.5  # a day is a late reversal when one window makes at least this share of its PnL...
+UNDERWATER = 0.5  # ...after a stretch below its running high of at least this share of the day
+
+
+@dataclass(frozen=True, slots=True)
+class PathRisk:
+    """The shape of one day's cumulative PnL path, sampled every tick (a backtest) or at the end of
+    each FINE_TICKS block (the grid): what the final number hides (heyman7913's README 117-122: a
+    backtest that made 80% of its PnL in its last 500 ticks after 7,000 ticks underwater).
+
+    Every tick, a marked position wobbles below its running high, so a market maker's tick path is
+    "below the high" most of the time (`underwater`, 80-85% for the template on P3 round 1, 1% at
+    100-tick blocks); the longest stretch without a new high (`longest`) is the robust one, and the
+    one the late-reversal flag reads."""
+
+    pnl: float  # the day's PnL
+    best: float  # the most PnL made in any `window` consecutive steps
+    best_end: int  # the step that window ends on (0-based)
+    underwater: int  # steps that end below the running high, the open's 0 counted as one
+    longest: int  # the longest run of such steps: the longest stretch without a new high
+    longest_end: int  # the step that stretch ends on
+    steps: int
+    drawdown: float  # the largest fall from a running high, from 0 at the open
+    square: float  # the sum of the steps' squared PnL changes, for their sd
+
+    @property
+    def share(self) -> float | None:
+        """The share of the day's PnL made in the best window; None on a day that lost (or made 0)."""
+        return self.best / self.pnl if self.pnl > 0 else None
+
+    @property
+    def late(self) -> bool:
+        """A lucky late reversal: most of the PnL from one window that ends after the start of a stretch
+        without a new high lasting most of the day (an early window, then a bleed, is not one)."""
+        return ((self.share or 0.0) >= CONCENTRATED and self.longest >= UNDERWATER * self.steps
+                and self.best_end >= self.longest_end - self.longest + 1)
+
+
+def path_risk(series, window: int) -> PathRisk | None:
+    """A cumulative PnL series' PathRisk, with the best window `window` steps long (the whole series
+    if shorter); None for an empty series."""
+    if not len(series):
+        return None
+    window = min(window, len(series))
+    best, best_end, underwater, longest, longest_end, run = float("-inf"), 0, 0, 0, 0, 0
+    high, drawdown, square, last = 0.0, 0.0, 0.0, 0.0
+    for i, value in enumerate(series):
+        start = series[i - window] if i >= window else 0.0
+        if i >= window - 1 and value - start > best:
+            best, best_end = value - start, i
+        high = max(high, value)
+        below = value < high - 1e-9
+        underwater += below
+        run = run + 1 if below else 0
+        if run > longest:
+            longest, longest_end = run, i
+        drawdown = max(drawdown, high - value)
+        square += (value - last) ** 2
+        last = value
+    return PathRisk(series[-1], best, best_end, underwater, longest, longest_end, len(series), drawdown, square)
+
+
+def sharpe(risks: list[PathRisk]) -> float | None:
+    """Mean over sd of the steps' PnL changes within the days, pooled (population sd); None if flat."""
+    steps = sum(r.steps for r in risks)
+    if not steps:
+        return None
+    mean = sum(r.pnl for r in risks) / steps
+    variance = sum(r.square for r in risks) / steps - mean**2
+    return mean / variance**0.5 if variance > 1e-12 else None
+
+
+def day_sharpe(day_pnl: list[float]) -> float | None:
+    """Mean over sd (n - 1) of the days' PnL; None with fewer than two days or no spread."""
+    if len(day_pnl) < 2 or statistics.stdev(day_pnl) == 0:
+        return None
+    return statistics.fmean(day_pnl) / statistics.stdev(day_pnl)
+
+
+def format_path(result: DayResult) -> str:
+    """One line on the day's PnL path: the best WINDOW_TICKS window's share, the ticks below the
+    running high and the longest stretch of them, the largest drawdown and the per-tick Sharpe,
+    flagged when it looks like a lucky late reversal (PathRisk.late)."""
+    risk = path_risk(total_pnl(result), WINDOW_TICKS)
+    if risk is None:
+        return "  pnl path: no ticks"
+    window = min(WINDOW_TICKS, risk.steps)
+    lost = "the day lost" if risk.pnl < 0 else "the day made nothing"
+    share = f"{risk.share:.0%} of the pnl" if risk.share is not None else f"{risk.best:,.0f} ({lost})"
+    ticks = sharpe([risk])
+    line = (f"  pnl path: {share} made in the best {window:,} ticks ({risk.best_end - window + 1:,}-{risk.best_end:,}) · "
+            f"below the running high {risk.underwater / risk.steps:.0%} of ticks, at most {risk.longest:,} in a row · "
+            f"max drawdown {risk.drawdown:,.0f} · per-tick Sharpe {'-' if ticks is None else f'{ticks:.3f}'}")
+    if risk.late:
+        line += "\n  ! a late reversal: most of the pnl came in one window, after most of the day without a new high; read the plot before trusting the number"
+    return line
+
+
 def format_day(result: DayResult, penalty: float | None = None) -> str:
     """The day's summary; `penalty` is the run's --limit-penalty, which changes what a breach is."""
     stats = [s for s in product_stats(result) if s.fills or s.max_position]
@@ -294,7 +393,13 @@ def format_overall(results: list[DayResult]) -> str:
             by_product[s.product] = by_product.get(s.product, 0.0) + s.pnl
     days = " · ".join(f"{day} {pnl:,.0f}" for day, pnl in finals.items())
     products = " · ".join(f"{product} {pnl:,.0f}" for product, pnl in by_product.items() if pnl)
-    return f"total over {len(results)} days: {sum(finals.values()):,.0f}\n  by day: {days}\n  by product: {products or '-'}"
+    risks = [r for r in (path_risk(total_pnl(result), WINDOW_TICKS) for result in results) if r is not None]
+    daily, ticks = day_sharpe(list(finals.values())), sharpe(risks)
+    late = sum(r.late for r in risks)
+    risk = (f"  risk: Sharpe of the days' pnl {'-' if daily is None else f'{daily:.2f}'} · per-tick Sharpe within days "
+            f"{'-' if ticks is None else f'{ticks:.3f}'} · max drawdown {max((r.drawdown for r in risks), default=0.0):,.0f}"
+            + (f" · ! {late} late reversal day{'s' if late > 1 else ''}" if late else ""))
+    return f"total over {len(results)} days: {sum(finals.values()):,.0f}\n  by day: {days}\n  by product: {products or '-'}\n{risk}"
 
 
 def last_line(text: str) -> str:

@@ -71,7 +71,7 @@ def test_the_grid_scores_each_scenario_and_the_worst_case(capsys, tmp_path, data
     assert code == 0
     assert "scenarios:\n  crowd: match worse, per tick; against " in text and "@PARAMS.size=2" in text
     header = next(line for line in text.splitlines() if line.lstrip().startswith("rank")).split()
-    assert header[-3:] == ["pnl(crowd)", "worst", "fills"] and "best by worst" in text
+    assert header[header.index("pnl(crowd)") + 1] == "worst" and header[-1] == "fills" and "best by worst" in text
     header = (tmp_path / "grid.csv").read_text().splitlines()[0].split(",")
     assert "pnl_crowd" in header and "worst" in header
     # under --modes alone, nothing new is printed

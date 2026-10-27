@@ -534,3 +534,36 @@ def test_an_axis_that_never_changes_the_pnl_is_flagged(capsys, bot, data_dir):
     assert code == 0
     assert "! unused never changed the PnL" in text and "! typo never changed the PnL" in text
     assert "! size never changed" not in text
+
+
+def test_the_grid_writes_the_pnl_paths_measures_and_sorts_by_them(capsys, bot, data_dir, tmp_path):
+    out = tmp_path / "grid.csv"
+    code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3", "--sort", "drawdown", "--out", str(out))
+    assert code == 0 and "late reversals: none" in text
+    header = next(line for line in text.splitlines() if line.lstrip().startswith("rank")).split()
+    assert header[header.index("dd") + 1:][:3] == ["conc", "under", "run"]
+    rows = list(csv.DictReader(out.open()))
+    assert {"max_dd_all", "conc_all", "under_all", "run_all", "sharpe_day_all", "sharpe_block_all", "late_days_all"} <= set(rows[0])
+
+
+def test_the_risk_measures_read_each_days_path_at_fine_blocks():
+    mode, days = TradeMatching.ALL, [SimpleNamespace(name="d1"), SimpleNamespace(name="d2")]
+
+    def piece(fine):
+        return grid.Piece(sum(fine), [sum(fine)], fine, {"X": sum(fine)}, 1, 0, 0, "")
+
+    steady = [1.0] * 100
+    late = [-1.0] * 90 + [20.0] * 10  # 90 blocks down, then 200 back in the last 1,000 ticks: 110 for the day
+    outcomes = {(0,): grid._assemble((0,), ("steady",), {(0, mode): piece(steady), (1, mode): piece(steady[:50] + [3.0] * 50)}, days, [mode]),
+                (1,): grid._assemble((1,), ("late",), {(0, mode): piece(late), (1, mode): piece(steady)}, days, [mode])}
+    risk = grid.risk_of(outcomes[(1,)], mode)
+    assert risk.late == 1 and risk.drawdown == 90 and abs(risk.conc - 100 / 110) < 1e-9 and risk.run >= 0.5
+    assert grid.risk_of(outcomes[(0,)], mode).late == 0 and grid.risk_of(outcomes[(0,)], mode).drawdown == 0
+    assert abs(grid.risk_of(outcomes[(0,)], mode).sharpe_day - statistics.fmean([100, 200]) / statistics.stdev([100, 200])) < 1e-12
+    axes = [grid.Axis("cell", ["steady", "late"])]
+    rows = grid.build_rows(axes, [mode], outcomes)
+    keys = grid.sort_keys([mode])
+    for name in ("drawdown", "conc", "run", "sharpe-block"):
+        assert max(rows, key=keys[name]).values == ("steady",), name
+    late_line = grid.format_late(axes, mode, rows)
+    assert "! late reversals in 1 of 2 cells" in late_line and "cell=late (1 day)" in late_line

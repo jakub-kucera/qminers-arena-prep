@@ -62,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         results.append(result)
         rival_results.append(rivals)
         print(report.format_day(result, config.limit_penalty))
+        print(report.format_path(result))
         if args.metrics:
             print(report.format_metrics(result, config.limit_penalty))
         if rivals:
