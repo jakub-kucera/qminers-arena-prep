@@ -1,7 +1,7 @@
 ---
 title: Risk appetite and protecting a lead
 type: concept
-updated: 2026-10-14
+updated: 2026-10-27
 ---
 
 # Risk appetite and protecting a lead
@@ -41,6 +41,8 @@ No team argues for more variance after taking a lead; the Qminers 2024 winner, t
 
 ## What it means for our code
 The decision is a policy (flatten, or stop) rather than a strategy. Since 2026-10-17 the template has the flatten as a parameter: from `flatten_from` it works every position to zero, crossing up to the spread (`python/bots/template.py:261`, in `trade_product`). Every Prosperity day tested closes flat; valued at the mid it costs 1.7–3.3% of a day over the last 200 ticks, so it is off unless the close is settled worse than the mid (`IDEAS.md`, "Flattening before the close"). If the Arena charges for inventory left at the close, [Capponi et al.](../sources/stochastic-liquidity-demand.md) is a closed-form discrete-time model of how quotes should change toward it; its twist, that simultaneous buy and sell fills make the close cheaper, does not apply here: both sides trade in the same tick on 0.01–1.1% of ticks on Prosperity data *(checked)*. If the close is a VWAP over a window, a holder of inventory can move its own mark by trading in it ([Shearer, Rauterberg & Wellman](../sources/benchmark-manipulation.md)); expect others to, and don't do it ourselves, since the organisers verify solutions.
+
+Since 2026-10-27, `python/experiments/standings.py` is the Qminers 2024 method for the last round: from the saved leaderboards it simulates round 4 (the field's spread, how well earlier rounds predict a team's next, and the field's common bet with each team's loading on it, read from the curves) and gives our chance of 1st, top 3 and of losing a place for each risk multiplier and each relative hedge (Frankfurt Hedgehogs', `prosperity3-frankfurt-hedgehogs/README.md:616`). On a synthetic field the answer turned on our round's Sharpe: with the sd a third of the mean, keeping all the risk protected a lead best; only with the sd above the mean did half the risk help, and mostly the mean rank (`IDEAS.md`, "A standings calculator for round 4") *(checked, on a synthetic field only)*.
 
 For sizing, nothing is built either. If a round has a directional signal (a predicted move per tick), size its target position as predicted move over the variance of the per-tick price change, then take a fraction of that, capped by the limit. For market making, compare products by PnL per unit of inventory risk before giving each the full limit. *(Inferred from [Kelly](../sources/kelly-criterion.md).)*
 
