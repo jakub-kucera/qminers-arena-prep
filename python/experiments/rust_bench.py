@@ -110,6 +110,8 @@ CONFIGS = [
     ("takers 2 bps, makers a 1 bp rebate, two bots, resting", EngineConfig(resting=True, fee_bps=2.0, maker_fee_bps=-1.0), TWO),
     ("takers 0.5 a lot, makers 0.1, worse", EngineConfig(fee=0.5, maker_fee=0.1, trade_matching=WORSE), ONE),
     ("deplete, one bot", EngineConfig(deplete=True), ONE),
+    ("at most 3 orders a tick, two bots, resting", EngineConfig(max_orders=3, resting=True), TWO),
+    ("at most 1 order a tick", EngineConfig(max_orders=1), ONE),
     ("deplete, two bots, worse", EngineConfig(deplete=True, trade_matching=WORSE), TWO),
     ("deplete, two bots, resting, prob", EngineConfig(deplete=True, resting=True, queue=QueueModel.PROB), TWO),
     ("deplete, fill ratio 0.6, delay 1", EngineConfig(deplete=True, fill_ratio=0.6, delay=1, seed=3), ONE),
@@ -169,6 +171,7 @@ def template_cases(variants=VARIANTS) -> list[tuple[str, EngineConfig, list]]:
         ("as committed against a copy, resting, delay 2", EngineConfig(resting=True, delay=2), bots(committed, [copy])),
         ("as committed, fee 1 a lot and 2 bps", EngineConfig(fee=1.0, fee_bps=2.0), bots(committed)),
         ("as committed, deplete", EngineConfig(deplete=True), bots(committed)),
+        ("as committed, at most 4 orders a tick", EngineConfig(max_orders=4), bots(committed)),
     ]
     return cases
 

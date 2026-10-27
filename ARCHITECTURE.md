@@ -62,6 +62,8 @@ The validator's `fresh_each_tick` mode reloads the module every tick to catch st
 
 **Depletion** (`--deplete`, `EngineConfig.deplete`): `run_market` keeps a deficit per (product, side, price) for the lots our takes removed from the recorded book (fills of source `book` with no counterparty), and `_deplete` takes it off each later snapshot before anyone sees or trades it, until the recorded volume at that price falls to what we left or the level goes. Every later step (the bots' view, `_liquidity`, the queue, the mark) reads the depleted snapshot; the Rust twin's `deplete` does the same.
 
+**Order caps** (`--max-orders N`, `EngineConfig.max_orders`; a scenario's `cap=`): after `known`, a bot's new orders past N in a tick are dropped, in the order sent, and logged as an error, so `arena.validate` fails on them; both engines.
+
 **Fees** (`--fee`, `--fee-bps`, `EngineConfig.fee` and `fee_bps`): `settle` takes them from the product's cash as each fill settles, a lot's fee (in the data's price units: divided by `Day.info`'s `unit` where a format has decimal prices, so `--fee 0.01` is a cent) then basis points of the fill's value, for every participant; the Rust twin's `settle` does the same in the same order, and a scenario can carry them (`fee=`, `bps=`). `--maker-fee` and `--maker-fee-bps` (`maker_fee`, `maker_fee_bps`; a scenario's `mfee=`, `mbps=`) replace them for passive fills, negative for a rebate: a fill's `source` already says which side it was (`book` took a level; `trade` and `cross` rested). `arena.sim`'s market charges none.
 
 **Shared market** (`run_market(day, [(name, bot), ...], config)`, CLI `--vs BOT`):

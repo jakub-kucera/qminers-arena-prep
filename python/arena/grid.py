@@ -1434,6 +1434,7 @@ def format_scenarios(modes: list, s: Setup) -> str:
             setting += (f", maker {config.maker_fee:g} a lot" if config.maker_fee is not None else "") + (
                 f", maker {config.maker_fee_bps:g} bps" if config.maker_fee_bps is not None else "")
             setting += ", deplete" if config.deplete else ""
+            setting += f", at most {config.max_orders} orders a tick" if config.max_orders is not None else ""
             setting += f"; against {', '.join(str(r) for r in rivals)}" if rivals else "; no rivals"
             lines.append(f"  {mode}: {setting}")
     return "scenarios:\n" + "\n".join(lines) if lines else ""

@@ -183,6 +183,15 @@ def test_deplete_limits_a_second_take_to_what_was_left():
     assert [f.quantity for f in run_day(d, ScriptedBot(script), EngineConfig(deplete=True)).fills] == [3, 2]
 
 
+def test_an_order_cap_drops_the_orders_past_it_in_the_order_sent():
+    d = day(tick(0, asks=[(101, 5), (102, 5)], mark=100))
+    script = {0: [Order("X", 101, 1), Order("X", 102, 1), Order("X", 99, 1)]}
+    result = run_day(d, ScriptedBot(script), EngineConfig(max_orders=2))
+    assert [o.price for _, o in result.orders] == [101, 102] and len(result.fills) == 2  # the bid at 99 never reached the book
+    assert result.errors == [(0, "order cap: 1 of 3 new orders over --max-orders 2 dropped")]
+    assert not run_day(d, ScriptedBot(script)).errors
+
+
 def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_limit_each_tick():
     d = day(tick(0, asks=[(101, 20)], mark=100), tick(1, mark=100), tick(2, bids=[(99, 20)], mark=100), limits={"X": 10})
     script = {0: [Order("X", 101, 6), Order("X", 101, 6)], 2: [Order("X", 99, -12)]}

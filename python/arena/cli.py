@@ -99,6 +99,8 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help="charge every fill this many basis points of its value (default: 0)")
     parser.add_argument("--deplete", action="store_true",
                         help="volume we take from the recorded book stays gone from later snapshots while its level shows more (a replay that keeps what we consume)")
+    parser.add_argument("--max-orders", type=int, metavar="N",
+                        help="new orders a bot may send a tick: the rest are dropped and logged as an error (an exchange's rate limit)")
     parser.add_argument("--maker-fee", type=float, metavar="PER_LOT",
                         help="a passive fill's fee a lot instead of --fee, in the data's price units; negative is a rebate")
     parser.add_argument("--maker-fee-bps", type=float, metavar="BPS",
@@ -160,9 +162,12 @@ def setup(args: argparse.Namespace) -> Setup:
         maker_fee=args.maker_fee,
         maker_fee_bps=args.maker_fee_bps,
         deplete=args.deplete,
+        max_orders=args.max_orders,
     )
     if config.delay < 0:
         raise ValueError("--delay needs 0 or more ticks")
+    if config.max_orders is not None and config.max_orders < 0:
+        raise ValueError("--max-orders needs 0 or more")
     if config.fee < 0 or config.fee_bps < 0:
         raise ValueError("--fee and --fee-bps need 0 or more (a maker's rebate is a negative --maker-fee or --maker-fee-bps)")
     overrides = dict(parse_override(text) for text in args.overrides)

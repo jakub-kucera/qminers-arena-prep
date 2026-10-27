@@ -64,6 +64,10 @@ stay missing from that price level in later snapshots, for every participant, wh
 shows more there than we left; once its volume falls to what we left or below, or the level goes,
 the recording's level stands again. Only takes from the recorded book count, not fills on another
 bot's order or a resting order's cross. Off is Prosperity's rule: each snapshot as recorded.
+Order caps (EngineConfig.max_orders): a bot may send this many new orders a tick (cancels don't
+count); the rest, in the order it sent them, are dropped and the tick logs an error, as an exchange
+that refuses or disconnects past its rate limit would (AlgoTrade closed the connection above 500
+messages a second). None, Prosperity's rule, takes them all.
 """
 
 from __future__ import annotations
@@ -126,6 +130,7 @@ class EngineConfig:
     maker_fee: float | None = None  # a passive fill's fee a lot instead of fee (negative: a rebate)
     maker_fee_bps: float | None = None  # a passive fill's basis points instead of fee_bps (negative: a rebate)
     deplete: bool = False  # volume taken from the recorded book stays gone from later snapshots (see the module docstring)
+    max_orders: int | None = None  # new orders a bot may send a tick; the rest are dropped, an error (see the module docstring)
 
 
 class Bot(Protocol):
@@ -308,6 +313,9 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             orders, cancelled, kept = _cancel(actions[i], mine, {o.id for o in seen}, config.resting, tick.timestamp, player.result)
             working = [order for order in working if order.id not in cancelled]
             orders = known(orders, day.limits, tick.timestamp, player.result)
+            if config.max_orders is not None and len(orders) > config.max_orders:
+                player.result.errors.append((tick.timestamp, f"order cap: {len(orders) - config.max_orders} of {len(orders)} new orders over --max-orders {config.max_orders} dropped"))
+                orders = orders[:config.max_orders]
             if config.limit_penalty is None:
                 # Orders that don't fit the position the bot saw are its bug. Orders that did fit, but
                 # no longer do because another bot filled one of its orders since, lost a race.

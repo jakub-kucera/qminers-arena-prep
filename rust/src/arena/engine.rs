@@ -53,6 +53,7 @@ pub struct EngineConfig {
     pub maker_fee: Option<f64>,     // a passive fill's fee a lot instead of fee (negative: a rebate)
     pub maker_fee_bps: Option<f64>, // a passive fill's basis points instead of fee_bps (negative: a rebate)
     pub deplete: bool,              // volume taken from the recorded book stays gone from later snapshots
+    pub max_orders: Option<usize>,  // new orders a bot may send a tick; the rest are dropped, an error
 }
 
 impl Default for EngineConfig {
@@ -72,6 +73,7 @@ impl Default for EngineConfig {
             maker_fee: None,
             maker_fee_bps: None,
             deplete: false,
+            max_orders: None,
         }
     }
 }
@@ -318,6 +320,11 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
                 working.retain(|o| !s.cancelled.contains(&o.id));
             }
             known(&mut s.orders, n, ts, &mut player.result, &*bots[i].1);
+            if let Some(cap) = config.max_orders.filter(|&cap| s.orders.len() > cap) {
+                let sent = s.orders.len();
+                player.result.errors.push((ts, format!("order cap: {} of {sent} new orders over --max-orders {cap} dropped", sent - cap)));
+                s.orders.truncate(cap);
+            }
             if config.limit_penalty.is_none() {
                 let cancelled = &s.cancelled;
                 let seen_left = player.decided_open.iter().filter(|o| !cancelled.contains(&o.id)).map(|o| (o.product, o.quantity));

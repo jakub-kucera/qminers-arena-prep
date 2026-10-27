@@ -60,6 +60,7 @@ impl Args {
             maker_fee: self.get("--maker-fee").map(number),
             maker_fee_bps: self.get("--maker-fee-bps").map(number),
             deplete: self.flags.iter().any(|f| f == "--deplete"),
+            max_orders: self.get("--max-orders").map(|t| t.parse().unwrap_or_else(|_| fail("--max-orders needs a whole number"))),
         }
     }
 }
@@ -380,6 +381,11 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
         maker_fee: optional("maker_fee")?,
         maker_fee_bps: optional("maker_fee_bps")?,
         deplete: value.get("deplete").is_some_and(Value::truthy),
+        max_orders: match value.get("max_orders") {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(v.as_i64().filter(|&n| n >= 0).ok_or("config max_orders must be a whole number or null")? as usize),
+        },
     })
 }
 

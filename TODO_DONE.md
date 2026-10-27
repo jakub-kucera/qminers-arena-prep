@@ -276,6 +276,13 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 ## The edge plan (2026-10-27)
 
+- [x] **Engine: the fee's unit, maker and taker fees, `--deplete`, order caps.** One after another, each in Python and Rust with parity recorded.
+  - Done 2026-10-27 (`41dedb3`). The fee's unit (the third audit's F1): `--fee` is charged in the engine's integer units, but ON_THE_DAY says the data's price units; with decimal prices (`snapshots`, `orderlog`) a fee of 0.01 is charged 100 times too small. Divide by each product's unit.
+  - Done 2026-10-27 (`--maker-fee`, `--maker-fee-bps`; a fill's `source` already names the aggressor). Maker and taker fees: rebates allowed; markouts split by take and make.
+  - `--deplete` in both engines (done 2026-10-27: `TODO_DONE.md`, "`--deplete`: volume we take stays gone while its level is shown").
+  - Done 2026-10-27. Order caps: `--max-orders` in both engines (dropped orders logged as errors, so `validate` fails on them), `validate` prints the busiest tick; the template itself isn't capped (choose which products quote on the day).
+  - Done when: each has a test and a README/ARCHITECTURE line, and its result on P3 round 1 (and the ABIDES days where it matters) is in `IDEAS.md`.
+
 - [x] **An independent generator: ABIDES days in our layout.** Every number in `IDEAS.md` comes from Prosperity's generator or from `arena.sim`, which was calibrated to it. ABIDES's RMSC04 (noise, value, momentum agents and adaptive makers around a hidden fundamental) is a market we didn't write. A converted day is a recording: it tests the book's shape and adverse selection, not a market that reacts to us.
   - How: pinned in `references/clone.sh`, run (never imported) in its own `uv` environment; an export script run by ABIDES's Python writes each day's L2 snapshots (sampled once a second) and trades as CSV; a standard-library converter in `python/experiments/` writes the Prosperity layout (prices in cents, limit 50); a seeded command regenerates 10–20 days under `data/abides/` (gitignored). PyMarketSim if ABIDES's install fights for more than an hour.
   - Done when: the days regenerate from one command, `arena.diagnose` and the template run on them, and the first results (`diagnose`, the fair modes, a `make_edge` grid, `stress`, markouts, continuation after large moves (R16), and the shuffle test of a generator) are in `IDEAS.md`.

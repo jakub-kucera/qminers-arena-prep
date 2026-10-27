@@ -27,6 +27,7 @@ Exits with 1 if any check fails.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import ast
 import gc
 import hashlib
@@ -218,7 +219,8 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     state = max((getattr(bot, "max_state_chars", 0) for bot in bots), default=0)
     output = max(r.max_output_chars for r in results)
     checks.append(Check(INFO, f"pnl: {pnl}"))
-    checks.append(Check(INFO, f"largest state {state:,} chars, largest print per tick {output:,} chars"))
+    busiest = max((max(Counter(ts for ts, _ in r.orders).values(), default=0) for r in results), default=0)
+    checks.append(Check(INFO, f"largest state {state:,} chars, largest print per tick {output:,} chars, most orders in a tick {busiest:,} (--max-orders N drops those past a cap)"))
     if max_state is not None and state > max_state:  # Prosperity cut traderData at 50,000 and the bot read it back broken
         checks.append(Check(WARN, f"largest state {state:,} chars is over --max-state {max_state:,}: the exchange may cut it"))
     return checks

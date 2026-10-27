@@ -25,6 +25,7 @@ def test_a_scenario_changes_only_the_settings_it_names():
     assert config_for(EngineConfig(), parse_scenario("fees:fee=0.5,bps=2")) == EngineConfig(fee=0.5, fee_bps=2.0)
     assert config_for(EngineConfig(), parse_scenario("rtg:bps=2,mbps=-1")) == EngineConfig(fee_bps=2.0, maker_fee_bps=-1.0)  # a maker's rebate
     assert config_for(EngineConfig(), parse_scenario("kept:deplete")) == EngineConfig(deplete=True)
+    assert config_for(EngineConfig(), parse_scenario("capped:cap=8")) == EngineConfig(max_orders=8)
 
 
 def test_modes_are_plain_scenarios_and_names_are_unique():
