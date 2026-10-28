@@ -85,7 +85,7 @@ def setup() -> None:
 def export(seed: int, out: Path, end: str = "16:00:00", extra: list[str] | None = None, options: dict | None = None) -> dict:
     """Runs one RMSC04 day (with `options` for its build_config, e.g. fewer momentum agents) under ABIDES's Python
     (extra: export.py's --bot, --set, --resting); returns its meta.json."""
-    python = ENV / "bin" / "python"
+    python, out = ENV / "bin" / "python", out.resolve()  # export.py runs in out's parent, so a relative path would land elsewhere
     if not python.exists():
         sys.exit("needs ABIDES's environment: uv run python -m experiments.abides_days setup")
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(

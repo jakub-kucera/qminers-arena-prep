@@ -459,3 +459,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-28] lint | report.py citation re-mapped
 - `--limit-penalty` is now charged in the data's price units (the fourth audit's R2): `penalty_paid`'s docstring grew a line in `python/arena/report.py`, and the one citation after it (`sources/probability-of-backtest-overfitting`) re-mapped.
+
+## [2026-10-28] lint | ABIDES figures on the regenerated days
+- `data/abides` was regenerated with the export code its rows' command runs (the fourth audit's R13). `sources/market-making-latency` and `concepts/reading-the-data-on-day-one` get Gao & Wang's ABIDES rates on those days (λ+ 0.135, λ− 0.143 against λ/2 0.116); the conclusion (both sides barely pass) is unchanged.
