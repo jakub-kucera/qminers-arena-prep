@@ -41,7 +41,7 @@ Positions are valued at each tick's mark price: the data's, else the book's mid 
     trade in the data (the mark until its first).
   - limit_penalty: no order is rejected for the limit (rule 2 is off). After each tick's fills,
     every lot of a position beyond its limit costs this much, charged to that product, and the
-    tick counts as a breach.
+    tick counts as a breach. Like `fee` below, it is in the data's price units (price_units).
 Fees (EngineConfig.fee, fee_bps): each fill costs `fee` a lot and `fee_bps` basis points of its
 value, charged to the product's cash as it settles, the same for every participant and for passive
 and aggressive fills alike. `fee` is in the data's price units, as a person reads the rules: with a
@@ -180,6 +180,7 @@ class DayResult:
     races: list[tuple[int, str]] = field(default_factory=list)
     step_seconds: list[float] = field(default_factory=list)
     max_output_chars: int = 0
+    units: dict[str, float] = field(default_factory=dict)  # price_units: what a rate in the currency is per engine unit (1 if absent)
 
 
 @dataclass
@@ -253,11 +254,11 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
     # With a delay, each tick's decisions wait here until they reach the exchange.
     late = deque(([[] for _ in players], [(dict(p.position), []) for p in players]) for _ in range(config.delay)) if config.delay else None
 
-    # The fee a lot in engine units: Day.info's unit for decimal prices (0.01 if a tick is given without one, as
-    # python/arena/rust.py exports it), else the data's own integer prices.
-    unit = {p: day.info[p].get("unit", 0.01) if "tick" in day.info.get(p, {}) else 1 for p in day.products}
+    # The fee and the limit penalty a lot in engine units (see price_units).
+    unit = price_units(day)
     lot_fee = {p: config.fee / unit[p] for p in day.products}
     maker_lot_fee = {p: config.maker_fee / unit[p] for p in day.products} if config.maker_fee is not None else None
+    penalty = {p: config.limit_penalty / unit[p] for p in day.products} if config.limit_penalty is not None else None
 
     def settle(fills: list[Fill]) -> None:
         for fill in fills:
@@ -364,19 +365,19 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             if tick.trades.get(product):
                 last[product] = float(tick.trades[product][-1].price)
         for player in players:
-            if config.limit_penalty is not None:
-                _charge(player, day.limits, config.limit_penalty, tick.timestamp)
+            if penalty is not None:
+                _charge(player, day.limits, penalty, tick.timestamp)
             record(player, tick, mark if config.mark is Mark.MID else _valued(player.position, tick, mark, last, config.mark))
 
     return [player.result for player in players]
 
 
-def _charge(player: _Participant, limits: dict[str, int], rate: float, timestamp: int) -> None:
-    """EngineConfig.limit_penalty: each lot of a position beyond its limit costs `rate`, this tick."""
+def _charge(player: _Participant, limits: dict[str, int], rate: dict[str, float], timestamp: int) -> None:
+    """EngineConfig.limit_penalty: each lot of a position beyond its limit costs its product's `rate`, this tick."""
     for product in sorted(player.position):
         over = abs(player.position[product]) - limits[product]
         if over > 0:
-            player.cash[product] -= rate * over
+            player.cash[product] -= rate[product] * over
             player.result.limit_breaches.append((timestamp, product))
 
 
@@ -396,6 +397,13 @@ def _valued(position: dict[str, int], tick: Tick, mark: dict[str, float], last: 
 # call_bot, known and breaches. The rest of this module is private to it.
 
 
+def price_units(day: Day) -> dict[str, float]:
+    """Per product, the currency one engine price unit is worth, for rates given in the currency (--fee,
+    --maker-fee, --limit-penalty): Day.info's unit for decimal prices (0.01 if a tick is given without one,
+    as python/arena/rust.py exports it), else 1 (the data's own integer prices)."""
+    return {p: day.info[p].get("unit", 0.01) if "tick" in day.info.get(p, {}) else 1 for p in day.products}
+
+
 def new_result(day: Day) -> DayResult:
     return DayResult(
         day.name,
@@ -407,6 +415,7 @@ def new_result(day: Day) -> DayResult:
         best_bids={product: [] for product in day.products},
         best_asks={product: [] for product in day.products},
         wall_mids={product: [] for product in day.products},
+        units=price_units(day),
     )
 
 

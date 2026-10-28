@@ -94,6 +94,18 @@ def test_mm_records_what_our_engine_records_in_every_configuration(bench, tmp_pa
 
 
 @needs_cargo
+def test_a_limit_penalty_in_decimal_prices_is_charged_the_same_in_rust(bench, tmp_path):
+    """Day.info's unit (prices in cents, a rate in dollars): both engines charge 0.05 as 5 engine units a lot."""
+    from arena.engine import EngineConfig
+
+    day = sim.run(sim.preset_market(["KELP", "RAINFOREST_RESIN"]), 5).day
+    day = replace(day, ticks=day.ticks[:1500], info={p: {"tick": 0.01, "unit": 0.01} for p in day.products})
+    (result,) = bench.parity(day, tmp_path, [("limit penalty 0.05, decimal prices", EngineConfig(limit_penalty=0.05), bench.OVER)])
+    name, counts, found = result
+    assert found == [] and counts[3] > 0  # the same, with ticks over the limit charged
+
+
+@needs_cargo
 def test_the_template_trades_the_same_in_every_part_of_its_strategy(bench, tmp_path):
     results = bench.parity(bench.sim_day(1500), tmp_path, bench.template_cases())
     assert {label: found[:1] for label, _, found in results} == {label: [] for label, _, _ in results}

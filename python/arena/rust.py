@@ -523,6 +523,7 @@ def read_results(text: str, day: Day | None = None) -> dict[str, DayResult]:
     for name, r in read_dump(text).items():
         products = r["products"]
         result = DayResult(r["day"], list(products), dict(zip(products, r["limits"])), r["timestamps"])
+        result.units = dict(zip(products, r["units"]))
         for field in SERIES:
             setattr(result, field, {p: r["series"][p][field] for p in products})
         result.market_trades = list(market_trades)

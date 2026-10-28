@@ -194,9 +194,10 @@ def format_day(result: DayResult, penalty: float | None = None) -> str:
 
 
 def penalty_paid(result: DayResult, rate: float, product: str | None = None) -> float:
-    """What --limit-penalty charged the bot: `rate` for each lot beyond a limit, each tick (one product's, or all)."""
+    """What --limit-penalty charged the bot, in engine units: `rate` (in the data's price units) for each lot beyond
+    a limit, each tick (one product's, or all)."""
     products = result.positions if product is None else [product]
-    return sum(rate * max(abs(p) - result.limits[name], 0) for name in products for p in result.positions[name])
+    return sum(rate / result.units.get(name, 1) * max(abs(p) - result.limits[name], 0) for name in products for p in result.positions[name])
 
 
 QUANTILES = (0.5, 0.68, 0.95, 0.997)  # the portal's |position| quantiles

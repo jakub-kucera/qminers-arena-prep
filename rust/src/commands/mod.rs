@@ -280,6 +280,10 @@ pub fn dump(out: &mut String, day: &Day, participant: &str, r: &DayResult, names
     list(out, day.order.len(), &mut |out, k| {
         let _ = write!(out, "{}", day.limits[day.order[k]]);
     });
+    out.push_str(", \"units\": ");  // the currency an engine price unit is worth (engine.py price_units)
+    list(out, day.order.len(), &mut |out, k| {
+        let _ = write!(out, "{:?}", day.info.get(day.order[k]).copied().flatten().map_or(1.0, |(_, unit)| unit));
+    });
     out.push_str(", \"timestamps\": ");
     list(out, r.timestamps.len(), &mut |out, k| {
         let _ = write!(out, "{}", r.timestamps[k]);

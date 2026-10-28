@@ -456,3 +456,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-28] lint | --suggest's held-out figures re-run
 - `concepts/reading-the-data-on-day-one`: the level products' share is 56% (97.4k against 173.9k, the hand-tuned Hydrogel having `cross_excess` 25 since `fd9fc50`), and on ABIDES's regenerated days (the fourth audit's R13) `--suggest` comes out about level with the template as is, not above it.
+
+## [2026-10-28] lint | report.py citation re-mapped
+- `--limit-penalty` is now charged in the data's price units (the fourth audit's R2): `penalty_paid`'s docstring grew a line in `python/arena/report.py`, and the one citation after it (`sources/probability-of-backtest-overfitting`) re-mapped.

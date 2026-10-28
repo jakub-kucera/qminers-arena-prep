@@ -246,10 +246,11 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
     for (_, bot) in bots.iter_mut() {
         bot.begin_day(day, &names);
     }
-    // The fee a lot in engine units: Day.info's unit for decimal prices, else the data's own integer prices.
+    // The fee and the limit penalty a lot in engine units: Day.info's unit for decimal prices, else the data's own integer prices.
     let unit: Vec<f64> = (0..n).map(|p| day.info.get(p).copied().flatten().map_or(1.0, |(_, unit)| unit)).collect();
     let lot_fee: Vec<f64> = unit.iter().map(|u| config.fee / u).collect();
     let maker_lot_fee: Option<Vec<f64>> = config.maker_fee.map(|fee| unit.iter().map(|u| fee / u).collect());
+    let penalty: Option<Vec<f64>> = config.limit_penalty.map(|rate| unit.iter().map(|u| rate / u).collect());
     let mut mark = vec![0.0f64; n];
     let mut last: Vec<Option<f64>> = vec![None; n]; // Mark::Last: each product's last market trade
     let mut valued = vec![0.0f64; n];
@@ -409,7 +410,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
             }
         }
         for player in players.iter_mut() {
-            if let Some(rate) = config.limit_penalty {
+            if let Some(rate) = &penalty {
                 charge(player, &day.limits, rate, ts);
             }
             if config.mark == Mark::Mid {
@@ -423,12 +424,12 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
     players.into_iter().map(|p| p.result).collect()
 }
 
-/// EngineConfig.limit_penalty: each lot of a position beyond its limit costs `rate`, this tick.
-fn charge(player: &mut Participant, limits: &[i64], rate: f64, ts: i64) {
+/// EngineConfig.limit_penalty: each lot of a position beyond its limit costs its product's `rate`, this tick.
+fn charge(player: &mut Participant, limits: &[i64], rate: &[f64], ts: i64) {
     for p in 0..limits.len() {
         let over = player.position[p].abs() - limits[p];
         if over > 0 {
-            player.cash[p] -= rate * over as f64;
+            player.cash[p] -= rate[p] * over as f64;
             player.result.limit_breaches.push((ts, p));
         }
     }

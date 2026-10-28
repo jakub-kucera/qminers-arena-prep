@@ -82,7 +82,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         metavar="RATE",
-        help="no order is rejected for a position limit: each lot beyond it costs RATE every tick instead "
+        help="no order is rejected for a position limit: each lot beyond it costs RATE every tick instead, in the data's price units "
         "(default: Prosperity's rule, every order for a product rejected if they could breach)",
     )
     parser.add_argument(

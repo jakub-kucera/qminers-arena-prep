@@ -206,6 +206,15 @@ def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_
     assert "ticks with orders cancelled for breaching a limit" in report.format_day(rejected)
 
 
+def test_a_limit_penalty_is_in_the_datas_price_units():
+    d = day(tick(0, asks=[(10_000, 20)], mark=10_000), tick(1, mark=10_000), limits={"X": 10})  # $100.00 in cents
+    d.info["X"] = {"tick": 0.01, "unit": 0.01}
+    charged = run_day(d, ScriptedBot({0: [Order("X", 10_000, 12)]}), EngineConfig(limit_penalty=0.05))
+    # 0.05 dollars a lot a tick is 5 cents: 2 lots over on two ticks
+    assert charged.pnl["X"] == pytest.approx([-10, -20])
+    assert report.penalty_paid(charged, 0.05) == pytest.approx(20)
+
+
 def test_with_a_limit_penalty_nothing_is_rejected_so_no_bot_loses_a_race():
     quiet = dict(bids=[(98, 5)], asks=[(104, 5)])
     d = day(tick(0, **quiet), tick(1, **quiet), limits={"X": 10})
