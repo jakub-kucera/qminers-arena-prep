@@ -1,6 +1,6 @@
 """The docs' cross-references: what a fresh session follows on the day must lead somewhere. RUNBOOK's
 bracketed section names, the relative links and doc paths, every `experiments.<name>` the docs and
-usage strings name, the experiments README's tables, and the sizes that keep the day's files one read."""
+usage strings name, the experiments README's tables, and the sizes that keep the day's files a read or two."""
 
 import re
 from pathlib import Path
@@ -9,8 +9,11 @@ import pytest
 
 ROOT = Path(__file__).parents[2]
 DAY_DOCS = ["CLAUDE.md", "RUNBOOK.md", "ON_THE_DAY.md", "KICKOFF_PROMPT.md", "README.md", "ARCHITECTURE.md", "IDEAS.md", "TODO.md"]
-DOCS = DAY_DOCS + sorted(str(p.relative_to(ROOT)) for p in (ROOT / "docs").glob("*.md") if p.name != "RESTRUCTURE_PLAN.md")
-SIZES = {"CLAUDE.md": 10_240, "RUNBOOK.md": 8_192, "ON_THE_DAY.md": 85_000}  # ON_THE_DAY in one Read (~25k tokens), with ~15k left for the day's answers
+DOCS = DAY_DOCS + sorted(str(p.relative_to(ROOT)) for p in (ROOT / "docs").glob("*.md"))
+SIZES = {"CLAUDE.md": 10_240, "RUNBOOK.md": 8_192, "ON_THE_DAY.md": 85_000}
+# ON_THE_DAY in two Reads: a Read stops at 25,000 tokens, and this prose runs about 2.2 bytes a token (measured
+# 2026-10-28: 57,116 bytes to the cut at line 263), so about 54 KB a read; 85 KB is about 39k tokens, leaving
+# about 11k for the day's answers.
 
 
 def text(name: str) -> str:

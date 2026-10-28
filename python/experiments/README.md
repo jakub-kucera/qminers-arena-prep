@@ -7,7 +7,7 @@ Prosperity data in `references/`. Three groups:
   its built-in Prosperity datasets: `--data DIR --days ...`, `--format` its plug-in, `--bot` the template
   written for it, `--products` (`arena.cli.add_dataset_arguments`), plus the Prosperity-specific pieces'
   own options (`--basket`, `--underlying`, `--prefix`, `--expiry`, `--war`, `--trade`, selection_rules'
-  `--train`, `--test` and `--grid`). `python/tests/test_experiments.py` runs each on drill-format data,
+  `--train`, `--test` and `--grid`). `python/tests/test_experiments.py` runs about half of them on drill-format data,
   as the Arena's plug-in will present its own.
 - **`study/`**: Prosperity one-offs whose numbers live in `IDEAS.md` (the second table, with why each
   doesn't take the day's data).
