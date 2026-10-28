@@ -26,6 +26,38 @@ def test_the_mark_and_the_limit_penalty_reach_the_engine_config(tmp_path, data_d
     assert s.config.mark is Mark.MID and s.config.limit_penalty is None
 
 
+
+def test_a_formats_engine_settings_are_every_tools_defaults_and_flags_override_them(monkeypatch, data_dir):
+    # The rules fix the queue, a taker fee, the mark and the matching: the plug-in says so once (ENGINE), and a
+    # flag given on the command line still wins (the 2026-10-28 rehearsal needed four flags on every command).
+    import argparse
+
+    import pytest
+
+    from arena.cli import add_common_arguments, format_config, setup
+    from arena.engine import Mark, QueueModel, TradeMatching
+    from arena.formats import prosperity
+
+    monkeypatch.setattr(prosperity, "ENGINE", {"queue": "prob", "fee": 1.0, "maker_fee": 0.0, "mark": "touch", "trade_matching": "worse"}, raising=False)
+    parser = argparse.ArgumentParser()
+    add_common_arguments(parser)
+    s = setup(parser.parse_args(["bot.py", "1", "--data", str(data_dir)]))
+    assert (s.config.queue, s.config.fee, s.config.maker_fee, s.config.mark, s.config.trade_matching) == \
+        (QueueModel.PROB, 1.0, 0.0, Mark.TOUCH, TradeMatching.WORSE)
+    s = setup(parser.parse_args(["bot.py", "1", "--data", str(data_dir), "--mark", "mid", "--fee", "0", "--match-trades", "all"]))
+    assert (s.config.mark, s.config.fee, s.config.trade_matching, s.config.queue) == (Mark.MID, 0.0, TradeMatching.ALL, QueueModel.PROB)
+    assert format_config("prosperity", resting=True).resting and format_config("prosperity").queue is QueueModel.PROB
+    monkeypatch.setattr(prosperity, "ENGINE", {"queues": "prob"})
+    with pytest.raises(ValueError, match="names no engine setting: queues"):
+        format_config("prosperity")
+
+
+def test_without_an_engine_dict_a_format_runs_under_prosperitys_settings():
+    from arena.cli import format_config
+    from arena.engine import EngineConfig
+
+    assert format_config("prosperity") == EngineConfig() and format_config("drill").resting
+
 def test_backtest_reports_rivals(capsys, tmp_path, data_dir):
     path = tmp_path / "bot.py"
     path.write_text(BOT)

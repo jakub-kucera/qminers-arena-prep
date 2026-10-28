@@ -54,7 +54,7 @@ notebook: `uv run --group analysis jupyter nbconvert --to notebook --execute pyt
 
 Read `ARCHITECTURE.md`'s section before changing the engine, a format, bot loading, the grid, the simulator, the Rust port, the analysis or the template.
 - **Standard library only,** except `python/arena/analysis.py` (pandas, matplotlib).
-- **The engine knows no format.** A plug-in in `python/arena/formats/` provides `PROVIDED_MODULES`, `resolve_data_dir`, `load_days`, `load_bot`, `check_source`, is in `FORMATS`, and sets `RESTING = True` if orders rest.
+- **The engine knows no format.** A plug-in in `python/arena/formats/` provides `PROVIDED_MODULES`, `resolve_data_dir`, `load_days`, `load_bot`, `check_source`, is in `FORMATS`, sets `RESTING = True` if orders rest, and `ENGINE`, the engine settings its rules fix (every tool's defaults, `arena.cli.format_config`).
 - **Change together:** `report.write_csvs`' columns and `analysis.py`; `arena.diagnose`'s note thresholds and the day-one wiki page; the template's DEFAULTS, STRATEGY or EXECUTION and every `python/bots/<format>/template.py` (`format_drill --sync`; `test_drill.py` fails until you do); an `IDEAS.md` row and its index (`experiments.ideas_index`).
 - **Parity with prosperity3bt is pinned:** matching, limits and marking keep `test_parity.py` passing; its fixture `python/tests/fixtures/parity_bot.py` is frozen; resting-mode code stays in its own branch of `run_day`.
 - **Rust twins:** a change to a twin's Python code goes into its Rust file too, then `rust_bench --parity-only --record`. A new zoo bot needs its own twin.

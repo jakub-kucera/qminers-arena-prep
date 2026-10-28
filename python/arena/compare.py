@@ -300,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         s = setup(args)
-        modes = scenarios_from(args.modes, args.scenarios, args.match_trades)
+        modes = scenarios_from(args.modes, args.scenarios, s.config.trade_matching)
         base = Candidate(args.bot, s.overrides, default_label(args.bot, s.overrides))
         candidates = labelled([base, *(parse_candidate(text) for text in args.bots)])
         if s.engine == "rust":

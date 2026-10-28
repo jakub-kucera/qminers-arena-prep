@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from types import ModuleType
 
@@ -35,9 +35,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--match-trades",
         type=TradeMatching,
         choices=list(TradeMatching),
-        default=TradeMatching.ALL,
+        default=None,
         help="which market trades leftover orders can fill against: at the order's price or worse (all), "
-        "strictly worse (worse), or none (default: all)",
+        "strictly worse (worse), or none (default: the format's ENGINE, else all)",
     )
     parser.add_argument(
         "--resting",
@@ -49,22 +49,22 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--queue",
         type=QueueModel,
         choices=list(QueueModel),
-        default=QueueModel.BACK,
+        default=None,
         help="with --resting, where other orders' cancellations at your price fall: always behind you (back), "
         "split by your place in the queue (prob, see --queue-power), or everyone re-posts behind you every tick "
-        "(front) (default: back)",
+        "(front) (default: the format's ENGINE, else back)",
     )
     parser.add_argument(
         "--queue-power",
         type=float,
-        default=1.0,
+        default=None,
         help="--queue prob: a cancellation lands ahead of you with probability x**N, x your share of the queue "
         "ahead; 1 is uniform, a large N tends to back (default: 1)",
     )
     parser.add_argument(
         "--fill-ratio",
         type=float,
-        default=1.0,
+        default=None,
         help="share of book and market-trade volume available to you; below 1 approximates other teams "
         "competing for the same fills (default: 1)",
     )
@@ -73,9 +73,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--mark",
         type=Mark,
         choices=list(Mark),
-        default=Mark.MID,
+        default=None,
         help="the price positions are valued at each tick: the data's mid (mid), the best bid for a long position and "
-        "the best ask for a short one (touch), or the last market trade (last) (default: mid)",
+        "the best ask for a short one (touch), or the last market trade (last) (default: the format's ENGINE, else mid)",
     )
     parser.add_argument(
         "--limit-penalty",
@@ -88,16 +88,16 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--delay",
         type=int,
-        default=0,
+        default=None,
         metavar="TICKS",
         help="orders reach the exchange this many ticks after the bot decides, meeting that tick's book and trades, as on an "
         "exchange that applies them a step late (default: 0, Prosperity's)",
     )
-    parser.add_argument("--fee", type=float, default=0.0, metavar="PER_LOT",
-                        help="charge every fill this much a lot, in the data's price units (default: 0, Prosperity's)")
-    parser.add_argument("--fee-bps", type=float, default=0.0, metavar="BPS",
-                        help="charge every fill this many basis points of its value (default: 0)")
-    parser.add_argument("--deplete", action="store_true",
+    parser.add_argument("--fee", type=float, default=None, metavar="PER_LOT",
+                        help="charge every fill this much a lot, in the data's price units (default: the format's ENGINE, else 0, Prosperity's)")
+    parser.add_argument("--fee-bps", type=float, default=None, metavar="BPS",
+                        help="charge every fill this many basis points of its value (default: the format's ENGINE, else 0)")
+    parser.add_argument("--deplete", action="store_true", default=None,
                         help="volume we take from the recorded book stays gone from later snapshots while its level shows more (a replay that keeps what we consume)")
     parser.add_argument("--max-orders", type=int, metavar="N",
                         help="new orders a bot may send a tick: the rest are dropped and logged as an error (an exchange's rate limit)")
@@ -144,26 +144,34 @@ def add_engine_argument(parser: argparse.ArgumentParser, help: str | None = None
                         "runs the old code (default: refuse)")
 
 
+# The engine flags a format's ENGINE can set; a flag left out keeps the format's value (format_config).
+CONFIG_FLAGS = ("trade_matching", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps",
+                "maker_fee", "maker_fee_bps", "deplete", "max_orders")
+_ENUMS = {"trade_matching": TradeMatching, "queue": QueueModel, "mark": Mark}
+
+
+def format_config(format_name: str, **changes) -> EngineConfig:
+    """The engine settings a format's rules fix (its RESTING and ENGINE), with `changes` on top: what every tool
+    starts from, so a backtest of their data runs under their rules without a flag for each. Prosperity's: the
+    EngineConfig defaults."""
+    fmt = FORMATS[format_name]
+    engine = dict(getattr(fmt, "ENGINE", {}))
+    known = {f.name for f in fields(EngineConfig)}
+    unknown = sorted(set(engine) - known)
+    if unknown:
+        raise ValueError(f"{format_name}.ENGINE names no engine setting: {', '.join(unknown)} (EngineConfig's fields: {', '.join(sorted(known))})")
+    base = {name: _ENUMS[name](value) if name in _ENUMS else value for name, value in engine.items()}
+    base.setdefault("resting", bool(getattr(fmt, "RESTING", False)))  # a format whose orders rest runs that way
+    return replace(EngineConfig(**base), **changes)
+
+
 def setup(args: argparse.Namespace) -> Setup:
     fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
-    config = EngineConfig(
-        trade_matching=args.match_trades,
-        resting=args.resting or getattr(fmt, "RESTING", False),  # a format whose orders rest runs that way
-        queue=args.queue,
-        queue_power=args.queue_power,
-        fill_ratio=args.fill_ratio,
-        seed=args.seed,
-        mark=args.mark,
-        limit_penalty=args.limit_penalty,
-        delay=args.delay,
-        fee=args.fee,
-        fee_bps=args.fee_bps,
-        maker_fee=args.maker_fee,
-        maker_fee_bps=args.maker_fee_bps,
-        deplete=args.deplete,
-        max_orders=args.max_orders,
-    )
+    flags = {name: getattr(args, "match_trades" if name == "trade_matching" else name) for name in CONFIG_FLAGS}
+    config = format_config(args.format, **{name: value for name, value in flags.items() if value is not None})
+    if args.resting:
+        config = replace(config, resting=True)
     if config.delay < 0:
         raise ValueError("--delay needs 0 or more ticks")
     if config.max_orders is not None and config.max_orders < 0:

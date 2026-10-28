@@ -1435,7 +1435,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         s = setup(args)
         axes = [parse_axis(text) for text in args.axes]
-        modes = scenarios_from(args.modes, args.scenarios, args.match_trades)
+        modes = scenarios_from(args.modes, args.scenarios, s.config.trade_matching)
         _check(axes, modes, s, args.sort)
         if args.permute < 0 or args.permute_block < 1:
             raise ValueError("--permute needs N >= 0 and --permute-block a run of at least 1 tick")

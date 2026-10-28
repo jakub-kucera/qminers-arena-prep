@@ -596,3 +596,7 @@ A second whole-repository audit, by another agent session (read-only, at `6797c1
   - **Page done 2026-10-26:** `ON_THE_DAY.md`, "If no agent is available" (the skeleton, the ADAPTER, validate, and a 40-line market maker by hand). Left: the user names the second provider there.
   - **Done 2026-10-26:** the second provider is ChatGPT (the user: we will have both ChatGPT and Anthropic), named in `ON_THE_DAY.md`, "If no agent is available".
 
+## From the 2026-10-28 rehearsal
+
+- [x] **A format sets the engine settings its rules fix.** The Halden rules fixed the queue (`prob`), a taker fee and the mark (`touch`); only `RESTING` can live in a plug-in, so every command needed four flags and a missing one silently gave another PnL. Done when: a plug-in can set its `EngineConfig` defaults (fees, queue, mark, matching), the CLI and `add_dataset_arguments` start from them, and a test shows `--format F` alone gets them.
+  - Done 2026-10-28: a format's `ENGINE` (EngineConfig fields) is every tool's default through `arena.cli.format_config`; the engine flags default to None so a flag given overrides one field (`python/tests/test_cli.py`, two tests); `qminers.py` has `ENGINE = {}` marked TODO(day), and the swap checklist's step 3 says to fill it. The grid's and compare's `--modes` start from it too.

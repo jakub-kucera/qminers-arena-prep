@@ -20,6 +20,11 @@ Optional:
     RESTING: bool
         True if the competition's orders rest until cancelled; the tools then run as with
         --resting.
+    ENGINE: dict[str, object]
+        The engine settings the competition's rules fix, as EngineConfig fields: e.g.
+        {"queue": "prob", "fee": 1, "maker_fee": 0, "mark": "touch", "trade_matching": "worse"}.
+        Every tool starts from them (arena.cli.format_config); a flag given on the command line
+        overrides its field. Without it, Prosperity's settings (EngineConfig's defaults).
 
 The Arena's format is qminers.py, already registered as `--format qminers`: a day-of skeleton (a copy
 of snapshots.py with TODO(day) markers) to fill in on the day, by ON_THE_DAY.md, "The format swap,
