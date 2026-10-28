@@ -21,15 +21,17 @@ Optional:
         True if the competition's orders rest until cancelled; the tools then run as with
         --resting.
 
-To support a new competition, copy the format whose shape is nearest the new one and rewrite it:
-drill.py (book changes, a callback API, decimal prices, orders that rest; the differences from
-Prosperity marked), or one of the skeletons, whose loaders and wrappers are built so that the
-day's work is renaming fields: snapshots.py (book snapshots in CSV, a bot answering a state with
-orders) and orderlog.py (an order-by-order event log, with the drill's bot API).
+The Arena's format is qminers.py, already registered as `--format qminers`: a day-of skeleton (a copy
+of snapshots.py with TODO(day) markers) to fill in on the day, by ON_THE_DAY.md, "The format swap,
+step by step". Its loader and its wrapper are replaced separately, each from the nearest shape:
+snapshots.py (book snapshots in CSV, a bot answering a state with orders), orderlog.py (an
+order-by-order event log, with the drill's bot API) or drill.py (book changes, a callback API,
+decimal prices, orders that rest; the differences from Prosperity marked).
 """
 
 from types import ModuleType
 
-from arena.formats import drill, orderlog, prosperity, snapshots
+from arena.formats import drill, orderlog, prosperity, qminers, snapshots
 
-FORMATS: dict[str, ModuleType] = {"prosperity": prosperity, "drill": drill, "snapshots": snapshots, "orderlog": orderlog}
+FORMATS: dict[str, ModuleType] = {"prosperity": prosperity, "drill": drill, "snapshots": snapshots, "orderlog": orderlog,
+                              "qminers": qminers}

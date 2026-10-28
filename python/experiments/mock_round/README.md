@@ -3,7 +3,7 @@
 A disguised round for rehearsing the day: three products from `arena.sim` (a level, jumps that snap
 back, a market maker that doesn't know the price), renamed, repriced and written in a layout and
 bot API unlike any in the repo. An agent made it out of sight of the two that ran it (the second
-audit's A2; `TODO_DONE.md`, "From the audit (2026-10-26)").
+audit's A2; `docs/TODO_DONE.md`, "From the audit (2026-10-26)").
 
 **Spent:** this round's answer key is committed, so its seeds, specs and layout are known. A new
 rehearsal needs new data: change the seeds and specs in `private/generate.sh` and the names and
@@ -26,3 +26,5 @@ uv run python python/experiments/mock_round/private/evaluate.py python/experimen
 ```
 
 Results: `IDEAS.md`, "The kickoff prompts on a disguised round".
+
+A second round, the Halden Exchange, ran the restructure's before/after rehearsal on 2026-10-28: `round2/README.md`.

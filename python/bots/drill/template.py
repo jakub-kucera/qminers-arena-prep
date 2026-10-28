@@ -1,6 +1,6 @@
 """The template, with its ADAPTER rewritten for the drill format (python/arena/formats/drill.py).
 
-The format drill (TODO_DONE.md, "Practise the format swap"): the same file as python/bots/template.py down to the end of EXECUTION,
+The format drill (docs/TODO_DONE.md, "Practise the format swap"): the same file as python/bots/template.py down to the end of EXECUTION,
 except PARAMS. Only the imports, PARAMS and ADAPTER changed, which is the edit to make on the
 day for the Arena's real API. python/tests/test_drill.py checks that DEFAULTS, STRATEGY and
 EXECUTION still match python/bots/template.py word for word.
@@ -27,11 +27,11 @@ DEFAULTS = {
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly
     # Take, clear and make around fair + imbalance * rho, rho = (Vb - Va)/(Vb + Va) at the best
-    # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.imbalance.
+    # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.day.imbalance.
     "imbalance": 0.0,
     # A linear fair (IDEAS.md, "A `linear` fair"): add lin_rho3 x the depth imbalance over the best 3
     # levels, and lin_momentum x the fair's move over the last lin_window ticks, in an agent market
-    # where flow and momentum carry the price (experiments.predict). 0 turns each off.
+    # where flow and momentum carry the price (experiments.day.predict). 0 turns each off.
     "lin_rho3": 0.0,
     "lin_momentum": 0.0,
     "lin_window": 100,
@@ -75,7 +75,7 @@ DEFAULTS = {
     "level_guard": None,  # past this many level_bands from the level, drop the bet (target 0) until back within one band
     # Changepoint detection on a number level (see changepoint_level): the expected ticks between
     # shifts of the level, None for off. It needs the product's reversion to the level a tick and the
-    # sd of its one-tick steps, measured on the download (python/experiments/sim_regimes.py shows how).
+    # sd of its one-tick steps, measured on the download (python/experiments/study/sim_regimes.py shows how).
     "cpd_hazard": None,
     "cpd_reversion": None,
     "cpd_sd": None,
@@ -111,7 +111,7 @@ DEFAULTS = {
     # name, negative to trade against it. None turns it off. While on, it sets target instead.
     "copy": None,
     "copy_hold": None,  # ticks to hold after a signal; None: until the next one
-    # Following an informed trader without a name (experiments.informed; Frankfurt Hedgehogs on
+    # Following an informed trader without a name (experiments.day.informed; Frankfurt Hedgehogs on
     # P3's Olivia): a trade of one of these sizes that buys at the day's running low of the fair, or
     # sells at its high, after copy_warmup ticks, is a signal of weight 1 its way. None: off. It
     # turns copy on alone, and adds to the named weights where both are set.
@@ -141,7 +141,7 @@ DEFAULTS = {
 # "Stress: what a regime change costs").
 # Prices in PARAMS are in each product's ticks (ALPHA: 0.05, BETA: 0.01, GAMMA: 0.25), and the
 # limit comes from api.max_position, so it can't drift from the exchange's. Set from
-# arena.diagnose on the drill data, as ON_THE_DAY.md says to (TODO_DONE.md, the format drill).
+# arena.diagnose on the drill data, as ON_THE_DAY.md says to (docs/TODO_DONE.md, the format drill).
 PARAMS = {
     # wall mid filters the mid's noise
     "ALPHA": {"fair": "wall_mid", "make_edge": 1},
@@ -662,7 +662,7 @@ def smile_fair(book: Book, p: dict, memory: dict, market: Market) -> float | Non
     """A call's fair value: Black-Scholes at the smile's volatility, plus its usual offset from that.
 
     The smile v(m) = a m^2 + b m + c in m = ln(strike / S) / sqrt(T) is fitted on earlier days
-    (python/experiments/p3_smile.py does it), S is the underlying's price and T the years to expiry. A
+    (python/experiments/day/p3_smile.py does it), S is the underlying's price and T the years to expiry. A
     strike keeps a steady offset from any fitted smile (P3's volcanic vouchers: up to 2 a day), so
     the fair adds the EMA of the call's own price less the model, up to the last tick; what is
     left to trade is the fast deviation. Keeps the last fair while either book has an empty side.

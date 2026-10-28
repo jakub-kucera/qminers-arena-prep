@@ -23,7 +23,7 @@ file as a twin (rust/README.md). Days are loaded by our format plug-ins and expo
      Resin's settings) on the three days under all and worse, whole, then with --halving 0.5, and a
      random 100,000 of 1,000,000 cells halved the same way: wall time, peak memory, and the best cell
      (about 8 minutes in all; 298 s, 96 s and 98 s on 14 cores, at most 1.9 GB).
-Results went into TODO_DONE.md (the decisions on the Rust port), rust/README.md, and README.md's "Grid search" (part 4). python/tests/test_rust.py runs part 1, shorter.
+Results went into docs/TODO_DONE.md (the decisions on the Rust port), rust/README.md, and README.md's "Grid search" (part 4). python/tests/test_rust.py runs part 1, shorter.
 
 --twin FILE checks one template twin by config (a row of rust/twins.json with an `adapter`, such as the
 Arena's template on the day) on its own data: the committed settings in each engine mode and against a
@@ -283,7 +283,7 @@ def zoo_parity(scratch: Path, days: list[tuple[str, Day]], paths: list[Path] | N
 def zoo_cases(paths: list[Path] | None = None) -> list[tuple[str, EngineConfig, list]]:
     """Each zoo twin alone (all, worse, a fill ratio, resting as written, resting requoted), then
     all of them with the template in one market, per tick and resting (requoted, as
-    python/experiments/zoo.py runs them)."""
+    python/experiments/study/zoo.py runs them)."""
     paths = zoo_twins() if paths is None else paths
     cases = []
     for path in paths:

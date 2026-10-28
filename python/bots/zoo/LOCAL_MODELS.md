@@ -1,6 +1,6 @@
 # Local models with llama.cpp
 
-How to run the zoo's prompts on a model served on the laptop (`TODO_DONE.md`, "(a, part 3)";
+How to run the zoo's prompts on a model served on the laptop (`docs/TODO_DONE.md`, "(a, part 3)";
 `ON_THE_DAY.md`, "The round's zoo"). Measured on the M4 Max with 36 GB, 2026-10-17, llama.cpp
 build 11669.
 
@@ -9,7 +9,7 @@ the challenge with a 14–27B model, so local bots don't look like the field; th
 baseline. gemma4 writes a bot in 3–4 minutes and its replies parse cleanly. gpt-oss:20b is faster but
 garbles its channel markers, qwen3.8 takes 20–30 minutes, and phi4 and deepseek-r1 added nothing over
 them (`IDEAS.md`, "The LLM zoo"). The twenty local bots already made stay in the zoo, but
-`experiments.zoo` leaves them out of the field unless `--local`. The other four models are documented
+`experiments.study.zoo` leaves them out of the field unless `--local`. The other four models are documented
 below as measured.
 
 ## Install
@@ -86,7 +86,7 @@ curl -s localhost:8080/health          # {"status":"ok"} once the model is loade
 
 With the server up: `uv run python python/bots/zoo/local.py <prompt> [--n N] [--effort LEVEL]`. It writes
 `other/<model>_<prompt>.py` and a `.json` beside it; its docstring has the protocol. Then add the
-README row and run `experiments.zoo`.
+README row and run `experiments.study.zoo`.
 
 Time per bot, both turns where there was a repair (2026-10-17 and 18, `-c 32768`; phi4 at `-c 16384`, its
 trained context):

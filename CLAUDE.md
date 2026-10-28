@@ -1,133 +1,81 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Prep tooling for the Qminers Algo Trade Arena, a 24-hour in-person hackathon (7–8 Nov 2026): four 5-hour
+rounds, a Python bot file submitted at the end of each. The real API is unknown until the event, so
+everything runs on **IMC Prosperity data and its bot format as a stand-in**. The day's format is
+`qminers`: a registered skeleton (`python/arena/formats/qminers.py`) and a prepared bot (`python/bots/qminers/`).
 
-## What this is
+## On the day, start here
 
-Prep tooling for the Qminers Algo Trade Arena, a 24-hour in-person hackathon (7–8 Nov 2026). It
-has four 5-hour rounds, and teams submit a Python bot file at the end of each one. The real API
-won't be known until the event, so everything here runs on **IMC Prosperity data and its bot
-format as a stand-in**. Keep competition-specific code isolated so it can be swapped quickly on
-the day (see "Architecture" below, and `RUNBOOK.md` for the day itself).
+`RUNBOOK.md` (one page, the day's index) → the `ON_THE_DAY.md` sections it names (its "The format swap, step
+by step" is the swap's one checklist) → `ARCHITECTURE.md`'s paragraph "**Formats are plug-ins**" before the plug-in →
+`references/wiki/concepts/reading-the-data-on-day-one.md` before any PARAMS. `KICKOFF_PROMPT.md` is what the
+user pastes to start a session. `IDEAS.md`'s first 150 lines index every tested idea by line;
+`python/experiments/README.md` says which experiment answers what.
 
-## Layout
+## Layout and docs
 
-The Python code is in `python/` (`arena/`, `bots/`, `experiments/`, `tests/`, `notebooks/`); `uv sync` installs it editable (`pyproject.toml`, `module-root = "python"`), so every command below runs from the repository's root. `rust/` holds the Rust twins, laid out as `python/` is. The rest of the root is docs (`*.md`: `ARCHITECTURE.md` for how the code fits together, `README.md` the guide, `RUNBOOK.md`, `ON_THE_DAY.md`, `TODO.md`, `IDEAS.md`), `references/` and `literature_md/`.
+`python/` (`arena/` the engine and CLIs, `bots/`, `experiments/`, `tests/`, `notebooks/`; `uv sync` installs it
+editable, so commands run from the root), `rust/` (the Rust twins, laid out as `python/`), `references/`
+(clones and the wiki), `literature_md/`, `data/` (gitignored but `data/arena/round*/HANDOVER.md` and `leaderboard.json`).
+- `RUNBOOK.md`, `ON_THE_DAY.md`, `KICKOFF_PROMPT.md`: the day (above).
+- `IDEAS.md`: every idea tested on Prosperity data, with results; priors for the day.
+- `README.md`: the user's guide to every tool. `ARCHITECTURE.md`: how the code fits together.
+- `TODO.md`: prep work left. `docs/TODO_DONE.md`: finished items, with their evidence and decisions.
+  `docs/MANUAL_TODO.md`: what only a person can obtain.
 
 ## Commands
 
 ```sh
-references/clone.sh                 # fetch the reference repos + Prosperity data at their pinned commits (gitignored, ~2 GB)
-uv sync                             # Python 3.12; dev group = pytest, pandas, matplotlib
-uv run pytest                       # all tests (~2–3 min; python/tests/test_rust.py's parity checks are most of it)
-uv run pytest python/tests/test_engine.py::test_trade_matching_at_the_same_price   # one test
-
-uv run python -m arena.diagnose 1 --data p4                       # per-product market diagnostics, no bot needed
-uv run python -m arena.diagnose 1 --data p4 --profile             # ...and each product by tenth of the day: the open's and close's spread, volatility, trades
-uv run python -m experiments.premise --data data/abides --days 1 --engine rust   # round 1's first check: is each product Prosperity-like or agent-like, and what to grid
-uv run python -m arena.backtest python/bots/template.py 1                # Prosperity 3 round 1, every day
-uv run python -m arena.backtest python/bots/template.py 1-0 --data p2    # Prosperity 2, round 1 day 0
-uv run python -m arena.backtest python/bots/template.py 1 --set PARAMS.KELP.make_edge=2 --out results/
-uv run python -m arena.backtest python/bots/template.py 1 --resting --vs python/bots/template.py   # orders rest; a rival copy shares the market
-uv run python -m arena.backtest python/bots/template.py 1 --engine rust   # the same report and CSVs, on rust/ (compare, stress, sim and the experiments take it too)
-uv run python -m arena.backtest python/bots/template.py 1 --mark touch --limit-penalty 5   # positions valued at the touch; a breach charged per lot a tick, not rejected
-uv run python -m arena.backtest python/bots/template.py 1 --metrics      # also the figures the Arena's portal shows on a submission, to compare with it
-uv run python -m arena.backtest python/bots/template.py 1 --delay 1      # orders reach the exchange a tick after the bot decides (--engine rust too)
-uv run python -m arena.backtest python/bots/template.py 1 --fee 0.1 --fee-bps 1   # every fill pays 0.1 a lot and 1 bp of its value (--engine rust too)
-uv run python -m arena.validate python/bots/template.py 1                # pre-submission checks, exit 1 on FAIL
-uv run python -m arena.validate python/bots/template.py 1 --max-size 100KB   # ...and the dashboard's file-size cap
-uv run python -m arena.compact python/bots/template.py submit/template.py   # over the cap: the same code without comments or docstrings (~26 KB)
-uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..3 --modes all,worse --out results/grid.csv
-uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..7 --grid PARAMS.KELP.take_edge=0..7 --modes all,worse --screen 0.25   # big grids: screen on the first day, the best quarter on all
-uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --grid PARAMS.KELP.skew=0..9 --sample 1000 --halving 0.5 --modes all,worse --engine rust   # huge grids: a random 1,000 cells, halved day by day
-uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0..15 --grid PARAMS.KELP.take_edge=0..15 --engine rust   # the same output, its backtests on rust/ (a bot with a Rust twin)
-uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0.5,1,1.5,2,3 --grid PARAMS.KELP.take_edge=0..3 --grid PARAMS.KELP.skew=0,1,2,4 --grid PARAMS.KELP.smoothing=0,0.5,0.8 --modes all,worse --search tpe --budget 1000 --holdout last --engine rust   # past ~100k cells: a search (tpe or coord) instead of every cell
-uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0.5,1,2 --modes all,worse --scenario rest:resting,queue=prob --scenario war:vs=python/bots/template.py@PARAMS.KELP.make_edge=0 --engine rust   # fill-model scenarios, each with its own settings and rivals
-uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/zoo/claude/*.py "python/bots/template.py@PARAMS.KELP.make_edge=1" --modes all,worse   # several bots or variants against a baseline
-uv run python -m arena.analysis results/                          # PNGs to results/plots/ + fill/markout tables
-uv run python -m arena.stress python/bots/template.py 1                    # the bot on perturbed days (trend, shift, spike, vol x2, no wall)
-uv run python -m arena.sim generate data/sim --days 5              # simulated days in the Prosperity layout (--data data/sim)
-uv run python -m arena.sim run python/bots/template.py --days 5           # the bot inside the agent market, against replaying the same days
-uv run python -m arena.sim run python/bots/template.py --products KELP,RAINFOREST_RESIN,HYDROGEL_PACK --regime trend_up   # a mid-day regime change, in a market that reacts
-uv run python -m arena.sim run python/bots/template.py --days 20 --engine rust   # the same output, the market in rust/src/arena/sim.rs (generate takes it too)
-uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict   # the probe bot: one PROBE line per first-hour probe
-uv run python -m experiments.format_drill data/drill               # drill-format data, then any tool with --format drill --data data/drill/drill
-uv run python -m experiments.format_drill --sync                   # copy the template's DEFAULTS, STRATEGY and EXECUTION into python/bots/drill/template.py
-uv run python -m arena.analysis --grid results/grid.csv           # grid heatmaps
-uv run --group analysis jupyter lab python/notebooks/analysis.ipynb      # the analysis group adds Jupyter
-uv run python -m experiments.p4_levels                            # a one-off study; its numbers are in IDEAS.md
-uv run python -m experiments.glft_skew --data data/arena --days 1 --format qminers --bot python/bots/qminers/template.py   # a re-test on the day's data (python/experiments/README.md lists which take it)
-uv run python -m experiments.zoo                                  # scores every LLM-written bot in python/bots/zoo/ against the template (--local: local models in the field too)
-uv run python -m experiments.zoo_h2h                              # the template against each zoo bot, per product, under all and worse
-uv run python -m experiments.adversaries                          # the template against a trapper, spoofers and a sniper (python/bots/rivals/), --resting
-uv run python -m experiments.rival_field --engine rust            # candidate settings against fields of rival archetypes (mm at three edges, taker, sniper, spoofer, trapper, a copy)
-uv run python -m experiments.leaderboard_curves --engine rust     # can the leaderboard's PnL curves tell a shared market? On the day: --read FILE --team NAME
-uv run python -m experiments.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team NAME --ours GRID.csv   # before round 4: our rank under each way the rounds combine, per risk multiplier and relative hedge
-uv run python -m experiments.quote_inside --engine rust           # make_inside (quotes nearer fair than one tick inside the book) against rivals nearer fair, and alone
-uv run python -m experiments.undercut                             # the template against a copy of itself at make_edge 0 (Wang et al.), per tick and --resting
-uv run python -m experiments.kelp_drift                            # why the template holds Kelp long: each day mirrored, Harris's test, skew 0-3
-uv run python -m experiments.quote_size                           # make_size caps against rivals: a copy, the trapper, spoofer and sniper
-uv run python -m experiments.p3_smile                             # P3's volcanic vouchers: the smile by held-out days, its residual, and the template's smile fair traded on it (~3 min)
-uv run python -m experiments.imbalance                            # does the best-level imbalance predict the mid / the wall mid, per product and day
-uv run python -m experiments.lead_lag                             # which products move together, and does one lead another (--data for the day's download)
-uv run python -m experiments.fill_curve                           # what a quote at each distance from fair could fill, from the data; --results ZIP: our fills' queue share
-uv run python -m experiments.shortfall                            # implementation shortfall per order vs the PnL --delay costs (P3 r1); --results ZIP for one run
-uv run python -m experiments.informed                             # a nameless informed-trade detector (size class at a new daily extreme), scored against Olivia's name on P3 r5
-uv run python -m experiments.predict                              # a feed beside the book as a fair term (P3 r4), then a held-out ridge forecast against the half-spread
-uv run python -m experiments.family_fills --engine rust           # do fills arrive in several members of a family at once (P4 r5), and do family inventories net
-uv run python -m experiments.sim_regimes                          # the template's stops and guards under each arena.sim regime change
-uv run python -m experiments.snooping_tests                       # Hansen's SPA and Romano-Wolf's StepM next to the grid's DSR, on two grids and null controls
-uv run python -m experiments.snooping_null_rates --engine rust    # how often SPA, StepM and the pick name a cell on null grids, with the worse and holdout gates
-uv run python -m experiments.selection_rules                      # ten ways of picking a grid cell, scored on days the grid never saw; part 2 across ten fill-model scenarios
-uv run python -m experiments.selection_rules_sim                  # the same rules on fresh arena.sim days, tuned on 3 and scored on 20
-uv run python -m experiments.search_methods --engine rust [--part 1|2]   # random, halving, coordinate descent, TPE and a GP against the whole grid, at a budget of cells
-uv run python -m experiments.abides_days setup && uv run python -m experiments.abides_days generate --days 10   # ABIDES RMSC04 days in data/abides (--data data/abides), a generator we didn't write
-uv run python -m experiments.abides_market --days 10 [--set PARAMS.ABM.lin_rho3=3 --resting] [--options '{"num_momentum_agents": 0}']   # the template trading inside ABIDES's market, against the same day replayed
-uv run python -m experiments.rust_bench                           # the Rust port (rust/, needs cargo) against ours: every twin's parity, then speed
-uv run python -m experiments.rust_bench --parity-only --record    # after changing a twin (rust/twins.json): check it, then record its hash
+references/clone.sh && uv sync && uv run pytest     # the clones (~2 GB), Python 3.12, all tests (~3 min)
+uv run python -m arena.diagnose 1 --data p4 --profile --suggest      # per-product diagnostics and a PARAMS entry each, no bot
+uv run python -m arena.backtest python/bots/template.py 1 [--data p2|p3|p4] [--resting] [--match-trades worse] [--mark touch] [--metrics] [--engine rust] [--out results/]
+uv run python -m arena.validate python/bots/template.py 1 [--max-size 100KB] [--time-limit-ms 100]   # exit 1 on FAIL
+uv run python -m arena.compact python/bots/template.py submit/template.py   # over the size cap
+uv run python -m arena.grid python/bots/template.py 1 --grid PARAMS.KELP.make_edge=0.5,1,2 --modes all,worse [--holdout last] [--screen 0.25 | --search tpe --budget 1000] [--scenario rest:resting] --engine rust
+uv run python -m arena.compare python/bots/template.py 1 --bot python/bots/zoo/claude/*.py --modes all,worse
+uv run python -m arena.stress python/bots/template.py 1              # perturbed days; size stop_loss from it
+uv run python -m arena.sim run python/bots/template.py --days 5      # inside an agent market, against the same days replayed
+uv run python -m arena.analysis results/                             # PNGs and fill tables
+uv run python -m experiments.day.premise --data data/abides --days 1 --engine rust   # Prosperity-like or agent-like, per product
+uv run python -m experiments.day.structure --data D --days all --format qminers      # any day experiment: --data D --days ... --format F --bot BOT
+uv run python -m experiments.format_drill data/drill                # drill-format practice data (--format drill --data data/drill/drill)
+uv run python -m experiments.format_drill --sync                    # the template's DEFAULTS/STRATEGY/EXECUTION into every bots/<format>/template.py
+uv run python -m experiments.ideas_index                            # after editing IDEAS.md
+uv run python -m experiments.rust_bench --parity-only --record      # after changing a twin (rust/twins.json)
+python3 references/wiki/lint.py                                     # after editing the wiki
 ```
 
-- **Day specs:** `ROUND` (every day in the round) or `ROUND-DAY`, e.g. `1`, `1-0`, `1--1`.
-- **`--data` aliases:** `p2` and `p3` point into `references/prosperity{2,3}-backtester-jmerle/.../resources`, `p4` into `references/prosperity4-backtester/prosperity4bt/resources` (rounds 0–5).
-- **Tests without the data:** `python/tests/test_parity.py` skips if `references/` hasn't been cloned. All other tests use a tiny CSV fixture from `python/tests/conftest.py`.
-- **Notebook check:** `uv run --group analysis jupyter nbconvert --to notebook --execute python/notebooks/analysis.ipynb --output-dir <scratch>` runs it end to end. Commit the notebook without outputs.
-- **No linter or formatter is configured.**
+Day specs: `ROUND` or `ROUND-DAY` (`1`, `1-0`, `1--1`; `all` for non-Prosperity formats). `--data` aliases `p2`, `p3`,
+`p4` point into `references/`. Without the clones, `test_parity.py` skips and every other test uses fixtures. The
+notebook: `uv run --group analysis jupyter nbconvert --to notebook --execute python/notebooks/analysis.ipynb --output-dir <scratch>`; commit it without outputs. No linter or formatter.
 
-## Architecture
+## Rules that keep the parts consistent
 
-`ARCHITECTURE.md` describes every part: read its section before changing the engine, a format, bot
-loading, the grid, the simulator, the Rust port, the analysis or the template. The rules that keep
-the parts consistent:
-- **Standard library only,** except `python/arena/analysis.py`, the one module that imports pandas and matplotlib.
-- **The engine knows no format.** A format plug-in (`python/arena/formats/`) provides `PROVIDED_MODULES`, `resolve_data_dir`, `load_days`, `load_bot` and `check_source`, is registered in `FORMATS`, and sets `RESTING = True` if its orders rest. On the day, copy `drill.py`.
-- **Change these together:** `report.write_csvs`' columns and `python/arena/analysis.py`; `arena.diagnose`'s note thresholds and `references/wiki/concepts/reading-the-data-on-day-one.md`; the template's DEFAULTS, STRATEGY or EXECUTION and `python/bots/drill/template.py` (`uv run python -m experiments.format_drill --sync`; `python/tests/test_drill.py` fails until you do).
-- **Parity with prosperity3bt is pinned:** a change to matching, limits or marking must keep `python/tests/test_parity.py` passing, and its fixture `python/tests/fixtures/parity_bot.py` is frozen. Resting-mode code stays in its own branch of `run_day`; parity covers only the default mode.
-- **Rust twins:** a change to a twin's Python code goes into its Rust file too, then `uv run python -m experiments.rust_bench --parity-only --record` (`rust/twins.json`, `rust/README.md`). A new zoo bot needs its own twin.
-- **Bot files** (`python/bots/`): one self-contained file, standard library only, all cross-tick state in `traderData`. New strategy logic goes in STRATEGY, order management in EXECUTION, format code in ADAPTER. Never edit a zoo bot or a prompt once used.
+Read `ARCHITECTURE.md`'s section before changing the engine, a format, bot loading, the grid, the simulator, the Rust port, the analysis or the template.
+- **Standard library only,** except `python/arena/analysis.py` (pandas, matplotlib).
+- **The engine knows no format.** A plug-in in `python/arena/formats/` provides `PROVIDED_MODULES`, `resolve_data_dir`, `load_days`, `load_bot`, `check_source`, is in `FORMATS`, and sets `RESTING = True` if orders rest.
+- **Change together:** `report.write_csvs`' columns and `analysis.py`; `arena.diagnose`'s note thresholds and the day-one wiki page; the template's DEFAULTS, STRATEGY or EXECUTION and every `python/bots/<format>/template.py` (`format_drill --sync`; `test_drill.py` fails until you do); an `IDEAS.md` row and its index (`experiments.ideas_index`).
+- **Parity with prosperity3bt is pinned:** matching, limits and marking keep `test_parity.py` passing; its fixture `python/tests/fixtures/parity_bot.py` is frozen; resting-mode code stays in its own branch of `run_day`.
+- **Rust twins:** a change to a twin's Python code goes into its Rust file too, then `rust_bench --parity-only --record`. A new zoo bot needs its own twin.
+- **Bot files:** one self-contained file, standard library only, cross-tick state in `traderData`; strategy in STRATEGY, order management in EXECUTION, format code in ADAPTER. Never edit a zoo bot or a prompt once used.
+- **Experiments:** `experiments/day/` takes the day's data (`arena.cli.add_dataset_arguments`), `experiments/study/` holds Prosperity one-offs, the tools sit at the top.
 - **Charts:** `THEMES`' palettes were checked with the dataviz skill's validator; keep categorical colors in slot order.
 
 ## Repo conventions
 
-- **`TODO.md`:** prep work left before the event, each item with a "done when". When that holds, tick the item and move it, with its sub-bullets, to `TODO_DONE.md` under the same heading (cite it there as `TODO_DONE.md`, "<title>"); add new ones as they come up.
-- **`RUNBOOK.md`:** one page of the day's commands and checkpoints, each line naming the `ON_THE_DAY.md` section behind it. Keep it to a page: when a command or a time changes, change it here and in `ON_THE_DAY.md` together.
-- **`ON_THE_DAY.md`:** the checklist of what to find out about the real Arena. For each item it gives our current assumption and what to change if the Arena differs, and it ends with playground probes. When a session learns an answer, write it in under that item with its source. When a session adds an assumption about the real format, add an item.
-- **`IDEAS.md`:** every strategy idea tested on Prosperity data, with its result (date, data, command, numbers), and the ideas not yet tested. Results there are priors for the Arena, not verdicts: never remove an idea because it failed on Prosperity data; mark it `dropped here`, so it is re-tested on the day. Record every new test result in its row.
-- **`MANUAL_TODO.md`:** things only a person can obtain (organiser documents, web pages the agent's fetch tool is blocked from, books). Each item says where to save the file and what "done" means. When the user hands something over, ingest it as `references/wiki/SCHEMA.md` describes and tick the item.
-- **Nothing stays only in the chat.** Before ending a task, file what it turned up, in the same commit as the work:
-  - prep work or a follow-up → `TODO.md`, with a "done when"
-  - a new idea or a test result → `IDEAS.md`, with what to re-test on the day
-  - a question about the real Arena, or advice for the day → `ON_THE_DAY.md`
-  - something only a person can obtain → `MANUAL_TODO.md`
-  - a choice only the user can make → `TODO.md`, "Decisions", with the options, the evidence and a recommendation
+- **Where things are filed.** Nothing stays only in the chat; file it in the same commit as the work:
+  - prep work or a follow-up → `TODO.md`, with a "done when"; when it holds, tick it and move it with its sub-bullets to `docs/TODO_DONE.md` under the same heading (cited as `docs/TODO_DONE.md`, "<title>");
+  - a test result or a new idea → its `IDEAS.md` row (date, data, command, numbers; earlier results kept), with what to re-test on the day. Never remove an idea that failed on Prosperity data: mark it `dropped here`;
+  - a question about the real Arena or advice for the day → `ON_THE_DAY.md`: the item's question, assumption and what changes if different; an answer learned goes under its item with its source; supporting numbers go in the `IDEAS.md` row it names;
+  - something only a person can obtain → `docs/MANUAL_TODO.md` (where to save it, what "done" means; ingest it as `references/wiki/SCHEMA.md` says, then tick it);
+  - a choice only the user can make → `TODO.md`, "Decisions", with the options, the evidence and a recommendation.
 
-  When asked what to do next, start from the open items in `TODO.md` and the untested rows of `IDEAS.md`.
-- **Results reproduce from the repo.** The command given for a result in `IDEAS.md` or the wiki runs from a clean checkout: a CLI with `--set`, or a script committed under `python/experiments/` along with the result. A scratchpad path is not a command.
-
-- **`references/`:** third-party clones listed in `references/clone.sh`, each pinned to a commit (`python/tests/test_references.py` checks). Read them for ideas, but don't edit or import from them. Move a pin only with `clone.sh --update`, then the lint and the tests.
-  - `references/algotrade2026-pitfa19/` contains its own `CLAUDE.md` and `AGENTS.md`. They describe that repo, not this one, so don't follow them.
-  - `references/README.md` summarises what each repo is useful for.
-  - **`references/wiki/` is the way into the clones and the literature.** It follows Karpathy's LLM-wiki pattern: read `references/wiki/index.md` first, then a concept page, then the source page, and only then the raw file at the cited line. Pages cite code as `path:line`, say what is a team's claim and what was checked, and say what was not read. `references/wiki/SCHEMA.md` has the conventions and the ingest / query / lint workflows. After editing the wiki run `python3 references/wiki/lint.py`; log changes in `references/wiki/log.md`.
-  - **Pages cite our code by line** (`python/bots/template.py` most, and `python/arena/*.py`), and the lint only checks that the line exists (and that a range starts a definition). After an edit shifts a cited file's lines, re-map those citations (`grep -rn 'template\.py:[0-9]' references/wiki`, likewise for the file you changed).
-- **`literature_md/`:** market-microstructure papers and books, converted from `literature_raw/*.pdf` to markdown by `literature_md/convert.sh` (Marker). Committed (the source PDFs in `literature_raw/` are gitignored); `literature_md/README.md` indexes the documents. For the theory behind a strategy (market making, order-book imbalance, micro-price, price impact), go through the wiki first: the Literature section of `references/wiki/index.md`, then the concept page, and only then the raw text at the cited line.
-  - **Verify formulas against the PDF.** Marker's equations are LaTeX but OCR-based, so they can contain slips (e.g. `S_{τ1}, S_{τ1}` where the paper has `I_{τ1}, S_{τ1}`). Before implementing any formula from `literature_md/`, check it against the original PDF page (`python3 literature_md/pdfpage.py <slug> <line>` finds the page and prints its text), and don't trust a formula that disagrees with the surrounding text or with its own derivation.
-- **Commits:** commit each finished step on its own, with the docs it changed, once the tests (and the wiki lint, if the wiki changed) pass. A request with several steps gets one commit per step. Author commits as the user (Jakub) only. Never put a `Co-Authored-By: Claude …` trailer, or any other Claude attribution, in commit messages or PR descriptions.
+  When asked what to do next, start from `TODO.md`'s open items and `IDEAS.md`'s untested rows.
+- **`RUNBOOK.md` stays one page;** a command or time that changes there changes in `ON_THE_DAY.md` too. `python/tests/test_docs.py` checks the docs' cross-references.
+- **Results reproduce from the repo:** a result's command in `IDEAS.md` or the wiki runs from a clean checkout (a CLI with `--set`, or a script committed under `python/experiments/`), never a scratchpad path.
+- **`references/`:** pinned third-party clones (`references/clone.sh`; move a pin only with `--update`). Read them, never edit or import them; `references/algotrade2026-pitfa19/`'s own `CLAUDE.md` and `AGENTS.md` are not for this repo.
+  - **`references/wiki/` is the way in:** `index.md`, then a concept page, then the source page, then the raw file at the cited line (`SCHEMA.md` has the workflows). After editing it, `python3 references/wiki/lint.py` and an entry in `log.md`.
+  - **Pages cite our code by line** (`template.py` most): after an edit shifts a cited file's lines, re-map them (`grep -rn 'template\.py:[0-9]' references/wiki`).
+- **`literature_md/`:** papers and books converted by Marker (`literature_md/README.md` indexes them); reach them through the wiki's Literature section. **Verify every formula against the PDF** before implementing it (`python3 literature_md/pdfpage.py <slug> <line>`): the OCR can slip.
+- **Commits:** each finished step on its own with the docs it changed, once the tests (and the wiki lint) pass; one commit per step of a request. Author them as the user (Jakub) only. Never put a `Co-Authored-By: Claude …` trailer, or any other Claude attribution, in commit messages or PR descriptions.

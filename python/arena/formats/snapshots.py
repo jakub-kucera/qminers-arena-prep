@@ -2,9 +2,9 @@
 answers with orders. One of the API shapes the Arena's site makes likely (the second audit, A2).
 
 Skeletons are starting points for the day, so the work there is renaming fields rather than
-writing a loader: if the Arena's download and API look like this, copy this file to qminers.py,
-register it in FORMATS, and change only the names in COLUMNS, FILES and ENTRY, PRICE_SCALE, and
-`api` (or provide their own module instead: ON_THE_DAY.md, "The format swap, step by step").
+writing a loader: if the Arena's download and API look like this, qminers.py (this file with
+TODO(day) markers, already registered) needs only the names in COLUMNS, FILES and ENTRY, PRICE_SCALE,
+and `api` (or their own module instead: ON_THE_DAY.md, "The format swap, step by step").
 drill.py is the shape with book changes and a callback API; orderlog.py loads an order-by-order
 event log into the drill's bot API.
 

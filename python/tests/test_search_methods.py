@@ -1,11 +1,11 @@
-"""experiments.search_methods' searches, on a planted landscape instead of backtests."""
+"""experiments.study.search_methods' searches, on a planted landscape instead of backtests."""
 
 import itertools
 import random
 
 import pytest
 
-from experiments import search_methods as sm
+from experiments.study import search_methods as sm
 
 
 def planted(sizes=(6, 6, 6, 6), peak=(4, 1, 3, 2), dead=3):

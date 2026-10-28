@@ -1,4 +1,4 @@
-"""The make_edge learner in python/bots/research/online_edge.py, and python/experiments/online_edge.py's scoring."""
+"""The make_edge learner in python/bots/research/online_edge.py, and python/experiments/study/online_edge.py's scoring."""
 
 from dataclasses import replace
 from pathlib import Path
@@ -10,7 +10,7 @@ from arena.botfile import BotFile
 from arena.engine import EngineConfig, run_market
 from arena.formats import prosperity
 from arena.formats import prosperity_datamodel as dm
-from experiments import online_edge as experiment
+from experiments.study import online_edge as experiment
 
 BOTS = Path(__file__).parents[1] / "bots"
 RESEARCH = BOTS / "research" / "online_edge.py"

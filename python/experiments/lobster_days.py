@@ -1,6 +1,6 @@
 """LOBSTER's NASDAQ sample days (real books, real informed flow) in the Prosperity layout.
 
-usage (from the repo root, once a sample is saved: MANUAL_TODO.md, "LOBSTER's sample files"):
+usage (from the repo root, once a sample is saved: docs/MANUAL_TODO.md, "LOBSTER's sample files"):
   uv run python -m experiments.lobster_days data/lobster/raw          # every *_message_*.csv there -> data/lobster
   uv run python -m arena.diagnose 1 --data data/lobster               # then any tool, with --data data/lobster
 

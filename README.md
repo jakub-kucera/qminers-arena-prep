@@ -11,17 +11,21 @@ everything runs on IMC Prosperity data and its bot format as a stand-in.
 | `python/bots/template.py` | Single-file market maker to copy for each round |
 | `python/bots/probe.py` | The first-hour probe bot: runs the probes in `ON_THE_DAY.md` and prints what it finds |
 | `python/bots/drill/template.py` | The template with its ADAPTER rewritten for the drill format, the worked example of the format swap |
+| `python/bots/qminers/` | The day's bot and probe, prepared: the template with PARAMS empty and its ADAPTER to write, for `python/arena/formats/qminers.py` (a registered skeleton) |
 | `python/bots/research/` | Copies of the template that test an idea before it is ported (no Rust twin, no drill copy): `online_edge.py` learns `make_edge` from its own fills |
 | `python/notebooks/analysis.ipynb` | Backtest → PnL, fills, one product's fills against the book, markouts, PnL split, market-trade impact, grid heatmaps |
 | `references/` | Reference repos and the Prosperity data; see [references/README.md](references/README.md) |
 | `literature_md/` | Market-microstructure papers and books as markdown with LaTeX equations, for learning the theory; see [literature_md/README.md](literature_md/README.md) |
 | `python/tests/` | Unit tests, plus a regression test pinned to jmerle's backtester |
-| `python/experiments/` | One-off studies whose results are in `IDEAS.md`; [its README](python/experiments/README.md) lists all of them, and the commands that run the re-tests on the day's data (`--data`, `--format`) |
+| `python/experiments/` | `day/`: the experiments re-run on the day's data (`--data`, `--format`); `study/`: Prosperity one-offs whose results are in `IDEAS.md`; the tools at the top. [Its README](python/experiments/README.md) lists all of them |
 | `rust/` | The Rust twins of the engine, the simulator, the grid's statistics and the bots, laid out as `python/` is (`rust/src/arena/engine.rs` for `python/arena/engine.py`); see [rust/README.md](rust/README.md) |
 | [`ON_THE_DAY.md`](ON_THE_DAY.md) | What to find out about the real Arena at the event, and what each answer changes here |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | How the code fits together: the engine, the formats, the matching rules and their modes, the grid and its statistics, the simulator, the Rust port |
 | [`RUNBOOK.md`](RUNBOOK.md) | One page for the day: the commands and checkpoints, in order, each pointing into `ON_THE_DAY.md` |
-| [`TODO.md`](TODO.md) | Prep work left before the event ([`TODO_DONE.md`](TODO_DONE.md): the finished items, with their evidence and decisions) |
+| [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md) | The prompts to paste into a fresh agent session at the start of each round |
+| [`IDEAS.md`](IDEAS.md) | Every strategy idea tested on Prosperity data, with its result, indexed by line at the top; priors for the day |
+| [`CLAUDE.md`](CLAUDE.md) | What an agent session reads first: where to start on the day, the commands, the rules that keep the parts consistent |
+| [`TODO.md`](TODO.md) | Prep work left before the event ([`docs/TODO_DONE.md`](docs/TODO_DONE.md): the finished items, with their evidence and decisions; [`docs/MANUAL_TODO.md`](docs/MANUAL_TODO.md): what only a person can obtain) |
 
 ## Setup
 
@@ -60,7 +64,7 @@ The first thing to run on a new data download: it needs no bot. Per product it m
 - **The drift:** how far the wall mid moves over a day.
 - **The market trades:** which side they hit, whether their signs persist (`C(1)`), what the taker paid, how far the wall mid moves after them, and the margin per unit a market maker would make on them (Bouchaud et al. eqs. 17.13–17.14).
 
-`--suggest` turns the notes into a PARAMS entry per product, as the day-one table reads them: `fixed` for a pegged price, `wall_mid` smoothed at the Kalman value where both mids are noisy, `level` where it reverts (and swings at least two spreads), a `target` for a drift every day, the jump mode where jumps snap back, `make_edge` from the margin, no quotes where Gao & Wang's condition fails, `make_size` where the limit dwarfs the depth, and a `stop_loss` from the wall mid's moves. `uv run python -m experiments.suggest_check` scores it against the hand-tuned PARAMS on held-out days.
+`--suggest` turns the notes into a PARAMS entry per product, as the day-one table reads them: `fixed` for a pegged price, `wall_mid` smoothed at the Kalman value where both mids are noisy, `level` where it reverts (and swings at least two spreads), a `target` for a drift every day, the jump mode where jumps snap back, `make_edge` from the margin, no quotes where Gao & Wang's condition fails, `make_size` where the limit dwarfs the depth, and a `stop_loss` from the wall mid's moves. `uv run python -m experiments.day.suggest_check` scores it against the hand-tuned PARAMS on held-out days.
 
 The notes under the table name the regime. [Reading the data on day one](references/wiki/concepts/reading-the-data-on-day-one.md) maps each one to a strategy choice. `--csv` writes every number, against both the mid and the wall mid.
 
@@ -264,7 +268,7 @@ held out 859,139 against 1,001,084 for the best combination (-14%); 2 different 
 ```
 
 This only covers the gridded values. A setting the bot takes from the data itself, such as a
-level from the days' mean, needs its own held-out test (`python/experiments/p4_level_template.py` does
+level from the days' mean, needs its own held-out test (`python/experiments/day/p4_level_template.py` does
 both). Days whose data repeats are flagged, product by product, since holding one out still trains on its
 copy. Prosperity reuses days across rounds: P4's round 4 days 1–2 are round 3's, and P3's round 3
 days 0–1 are round 2's for every product round 2 had. It reuses them across editions too, under a new
@@ -298,16 +302,16 @@ Then two bootstrap tests, on each cell's gain over the bot as is per block of 10
 - **StepM** (Romano and Wolf's step-down test): every cell that beats the bot as is, with the
   chance of naming even one false cell held at 5%. Each is then checked under the other `--modes`.
 - **pick**: StepM's best cell that beats the bot as is under every mode, else the bot as is. Ten
-  ways of choosing a cell were scored on unseen days. On Prosperity's (`python/experiments/selection_rules.py`)
+  ways of choosing a cell were scored on unseen days. On Prosperity's (`python/experiments/day/selection_rules.py`)
   it was the only one that never lost money under either fill mode. On fresh simulated days
-  (`python/experiments/selection_rules_sim.py`) it lost in 2 of 120 runs, where the rules that gained as
+  (`python/experiments/study/selection_rules_sim.py`) it lost in 2 of 120 runs, where the rules that gained as
   much lost in 10 to 22. From the template's defaults it found most of the gain the best cell on
   those days had. From the committed settings, though, it moved in none of the eight studies.
 
 Both studentize each bootstrap resample by its own standard error, as Romano and Wolf do. On null
 grids (no cell with an edge) they then name a cell in 6–8% of grids at a nominal 5%; with the
 data's standard error in every resample, as before 2026-10-26, it was about 10%, and 20% when the
-gains are strongly autocorrelated (`python/experiments/snooping_null_rates.py`). That costs Python
+gains are strongly autocorrelated (`python/experiments/study/snooping_null_rates.py`). That costs Python
 about 0.8 s a cell at 300 blocks, so a grid takes its statistics from Rust whenever the binary
 builds and `stats.py`'s twin is current, even with the backtests in Python (`rust.stats_engine`;
 the same numbers to the bit; 4,096 cells in about 10 s). Two options change the pick:
@@ -531,12 +535,12 @@ off: the rival's `wall_mid` treats your large quote as the market maker's level.
 one tick inside the best and sells into whoever steps in front of it (Harris); `spoofer.py` rests
 a large order `OFFSET` ticks behind the best and takes what that mispricing brings; `sniper.py`
 takes any order left through its fair; `taker.py` takes at the touch, on momentum and at random
-(seeded draws that don't depend on the other bots). `uv run python -m experiments.adversaries` runs the
+(seeded draws that don't depend on the other bots). `uv run python -m experiments.day.adversaries` runs the
 template against each. On P3 round 1 the trap and the near spoof barely cost it; a large order 10
 ticks behind the best took Kelp from 16.8k to −2.1k through `wall_mid`, and `sized_mid` is immune
 (`IDEAS.md`, "Adversarial rivals").
 
-`uv run python -m experiments.rival_field --engine rust` puts candidate settings against fields of
+`uv run python -m experiments.day.rival_field --engine rust` puts candidate settings against fields of
 these archetypes, `mm.py` at three edges and a copy, per tick and resting, and prints the payoff
 matrix, the best reply to each field, and the max-min and mean choices. On P3 round 1 the best
 reply changed with the field, and the reply to one copy was neither of the two robust choices
@@ -546,13 +550,13 @@ archetypes to every game), and the summary gives the pure equilibria, where best
 settle from every start, and fictitious play from the committed settings. On P3 round 1 play
 always settled, on Resin's edge 1 whenever a field was present.
 
-`uv run python -m experiments.leaderboard_curves --engine rust` asks whether the leaderboard's PnL curves, which
+`uv run python -m experiments.day.leaderboard_curves --engine rust` asks whether the leaderboard's PnL curves, which
 the portal shows for every team after each deadline, tell how the private run was played: each team on data
 of its own, alone on the same data, or in one market. On simulated fields whose answer was known, the
 correlations of pairs of curves' changes told them apart in 88 of 90 cases; on the day, `--read FILE --team NAME`
 reads the saved leaderboard (`IDEAS.md`, "Reading the leaderboard's curves").
 
-`uv run python -m experiments.quote_inside --engine rust` tests `make_inside` against rivals that quote nearer
+`uv run python -m experiments.study.quote_inside --engine rust` tests `make_inside` against rivals that quote nearer
 fair than the template's one tick inside the book. Per tick nobody's orders rest, so the template can't see
 them, and with price priority they take the trades first. On Resin, `make_inside` 3 took the template from
 5.7k to 24.8k in a field of 12 zoo bots, for 4–10k alone; with resting orders the template already steps in
@@ -647,7 +651,7 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
   - **Fair value:** fixed, mid, `wall_mid`, `outer_mid`, `sized_mid` (the default for a product whose PARAMS don't set `fair`) or `weighted_mid`. `imbalance` quotes around the fair plus a multiple of the best-level imbalance (the linear micro-price); it and `weighted_mid` lost on Prosperity data, so neither is used (`IDEAS.md`). `wall_mid` is the midpoint of the largest-size level on each side, which is how the top Prosperity teams found the market-maker bot's price. `outer_mid` takes the outermost levels. `sized_mid` takes the first level from the top with at least `wall_size`. It is the only one of the three that holds up when other traders' resting orders share the book (see [Shared market](#shared-market)).
   - **Take:** trade against book orders at least `take_edge` better than fair.
   - **Clear:** cut inventory at fair to free room under the limit.
-  - **Make:** quote `make_edge` from fair, or `make_inside` ticks inside the book (1; `None` quotes at `make_edge` whatever the book, against rivals nearer fair), moved by `skew` against inventory, with sizes scaled by `size_skew` (both work toward `target`). Each side can have its own edge (`make_edge_buy`/`_sell`, `take_edge_buy`/`_sell`), a side's quote can be split over `make_levels` prices `make_step` apart, and `take_reserve` keeps part of the limit free of quotes for takes. For a large-tick book, `fair` "hysteresis_mid" keeps a one-tick mid from flickering and `join_min`/`join_ratio` stand a quote back from a thin best; `cross_max` and `cross_excess` make the target modes cross less and quote the rest. In a market where flow and momentum carry the price, `lin_rho3` and `lin_momentum` (over `lin_window` ticks) add a linear term to the fair, and `gate_move` pulls the side a move of that size over `gate_window` ticks would run over. `copy_sizes` follows an informed trader without a name: a trade of one of those sizes that buys at the day's running low of the fair, or sells at its high (`experiments.informed` finds the sizes).
+  - **Make:** quote `make_edge` from fair, or `make_inside` ticks inside the book (1; `None` quotes at `make_edge` whatever the book, against rivals nearer fair), moved by `skew` against inventory, with sizes scaled by `size_skew` (both work toward `target`). Each side can have its own edge (`make_edge_buy`/`_sell`, `take_edge_buy`/`_sell`), a side's quote can be split over `make_levels` prices `make_step` apart, and `take_reserve` keeps part of the limit free of quotes for takes. For a large-tick book, `fair` "hysteresis_mid" keeps a one-tick mid from flickering and `join_min`/`join_ratio` stand a quote back from a thin best; `cross_max` and `cross_excess` make the target modes cross less and quote the rest. In a market where flow and momentum carry the price, `lin_rho3` and `lin_momentum` (over `lin_window` ticks) add a linear term to the fair, and `gate_move` pulls the side a move of that size over `gate_window` ticks would run over. `copy_sizes` follows an informed trader without a name: a trade of one of those sizes that buys at the day's running low of the fair, or sells at its high (`experiments.day.informed` finds the sizes).
   - **The close** (optional): from `flatten_from`, every product works its position to zero: no takes, `clear` crosses up to the spread, and `make` quotes only the side that reduces it. For an exchange that liquidates open positions at a bad price; over the last 200 ticks it cost 1.7–3.3% of a Prosperity day valued at the mid (`IDEAS.md`).
   - **Level** (optional): for a product that returns to a price `level`, the target becomes the full limit against any move of `level_band` from it, held until the other band (or until the price comes back within `level_exit` of the level, or past it). `clear` then crosses the spread toward it, up to `clear_edge` worse than fair. Set `level` from the earlier days' mean, or `"day"` when there is no history. On P4 rounds 3–4 it makes about 52k a day on Hydrogel and Velvetfruit when scored on days it wasn't tuned on, against 15k for plain market making (`IDEAS.md`). `cpd_*` adds online changepoint detection on the level (Adams & MacKay): it finds shifts and trends, but neither re-estimating the level nor dropping the bet paid on Prosperity data, so it is off.
   - **Follow** (optional): a call option on another product (`follow`, `strike`) holds that product's target as a share of its own limit, so it adds its delta to the same bet. A strike whose half-spread per unit of delta is above `max_cost_per_delta` stays flat. Delta comes from the option's own price through Black–Scholes in total variance, so no expiry date is needed. `Trader.run` trades the followed product first and hands its plan over. On P4 the vouchers following Velvetfruit add about 165k a day out of sample (`IDEAS.md`).
@@ -663,23 +667,16 @@ What it doesn't match: the takers' signs don't persist (`C(1)` about 0, against 
 
 `python/bots/zoo/` holds bots that language models wrote from a Prosperity-style spec alone: the
 baseline an agent-using team starts from, and rivals for `--vs`. `uv run python -m
-experiments.zoo` scores each one alone, against the template, inside `arena.sim` and all
+experiments.study.zoo` scores each one alone, against the template, inside `arena.sim` and all
 together. `python/bots/zoo/README.md` explains how to add bots from other providers (Gemini,
 ChatGPT, ...) cleanly. On P3 round 1, the best Claude-written market makers come close to the template
 alone on Kelp and Resin and beat it head to head, all of it on Squid Ink, which the template
-doesn't trade. `uv run python -m experiments.zoo_h2h` splits each pairing by product and fill
+doesn't trade. `uv run python -m experiments.study.zoo_h2h` splits each pairing by product and fill
 mode (`IDEAS.md`, "The LLM zoo" and "Why the zoo beat the template head to head").
 
 ## On the day: adapting to the real format
 
-Start from [`RUNBOOK.md`](RUNBOOK.md), one page of the day's commands; the steps below are the format swap in detail.
-
-1. **Work through [`ON_THE_DAY.md`](ON_THE_DAY.md).** It lists what to find out first (entry point, order handling, limits, whether orders rest, whether the book shows your own orders, the runtime), what each answer changes here, and probes for answering them in the playground. `python/bots/probe.py` runs most of the probes in one run: rewrite its ADAPTER like the template's, and read its `PROBE` lines (`uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict` shows what our engine answers).
-2. **Write `python/arena/formats/qminers.py`**, from the format nearest their shape: the skeletons `snapshots.py` (book snapshots in CSV, a bot answering a state with orders) and `orderlog.py` (an order-by-order event log), whose names to change sit in tables at the top, or `drill.py`, and register it in `python/arena/formats/__init__.py`. `drill.py` is a practice format deliberately unlike Prosperity's: JSON events of book changes, decimal prices with a tick per product, a callback API with calls for orders, opaque order ids, orders that rest. Every place it had to differ is marked "Unlike Prosperity". It needs a loader into `Day`/`Tick` and a bot wrapper that builds their view and converts orders back. `ON_THE_DAY.md`, "The format swap, step by step", is the checklist.
-3. **Update the bot:** rewrite its imports, PARAMS and ADAPTER section, and leave DEFAULTS, STRATEGY and EXECUTION alone. `python/bots/drill/template.py` is the worked example: it is the template with only those parts rewritten for the drill API, and on the same simulated days it makes the same PnL as the template, to the cent (`python/tests/test_drill.py`).
-4. **Validate** with `--format qminers`, their time limit, `--allow` for their libraries, and `--max-size` from the dashboard.
-
-Practise it: `uv run python -m experiments.format_drill <folder>` makes drill data from simulated days, then any tool runs with `--format drill --data <folder>/drill`.
+Start from [`RUNBOOK.md`](RUNBOOK.md), one page of the day's commands, each line naming the [`ON_THE_DAY.md`](ON_THE_DAY.md) section behind it. The format swap is that file's one checklist, "The format swap, step by step": the plug-in `python/arena/formats/qminers.py` is registered already (a skeleton to fill in), and the bot and the probe are prepared (`python/bots/qminers/template.py`, `probe.py`). Practise it: `uv run python -m experiments.format_drill <folder>` makes drill data from simulated days, then any tool runs with `--format drill --data <folder>/drill`. `python/experiments/README.md` says which experiment answers what on the day's data.
 
 ## Known gaps
 

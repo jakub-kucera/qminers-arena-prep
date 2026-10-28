@@ -1,5 +1,5 @@
 //! `arena-rs stats`: the grid's statistics (python/arena/rust.py `cscv`, `mean_correlation`, `snooping`, and
-//! `spa`, `stepm`, `scales` on their own, as experiments/snooping_tests.py calls them).
+//! `spa`, `stepm`, `scales` on their own, as experiments/study/snooping_tests.py calls them).
 
 use super::*;
 use std::fs;

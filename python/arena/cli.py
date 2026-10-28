@@ -221,7 +221,8 @@ def backtest(day: Day, bots: list[tuple[str, Path, dict, bool]], config: EngineC
 # ---------------------------------------------------------------------------- the day's data, for the experiments
 
 TEMPLATE = Path("python/bots/template.py")
-TEMPLATES = {"prosperity": TEMPLATE, "drill": Path("python/bots/drill/template.py")}  # the default --bot per format
+TEMPLATES = {"prosperity": TEMPLATE, "drill": Path("python/bots/drill/template.py"),
+             "qminers": Path("python/bots/qminers/template.py")}  # the default --bot per format
 
 
 def add_dataset_arguments(parser: argparse.ArgumentParser, products: bool = True, bot: bool = True) -> None:

@@ -5,6 +5,7 @@ quotes, so those stay as they were (checked by hand against the previous output,
 take minutes)."""
 
 import importlib
+import importlib.util
 import inspect
 import sys
 from pathlib import Path
@@ -27,7 +28,10 @@ def drill_data(tmp_path_factory):
 
 
 def run(capsys, monkeypatch, name: str, *args: str) -> str:
-    module = importlib.import_module(f"experiments.{name}")
+    for package in ("experiments.day", "experiments.study", "experiments"):  # day tools, studies, then the tools at the top
+        if importlib.util.find_spec(f"{package}.{name}") is not None:
+            module = importlib.import_module(f"{package}.{name}")
+            break
     monkeypatch.setattr(sys, "argv", [name, *args])
     if inspect.signature(module.main).parameters:
         module.main(list(args))
@@ -72,7 +76,7 @@ def test_lead_lag_finds_a_planted_lead_one_way_and_nothing_between_unrelated_wal
     import random
 
     from arena.model import Book, Day, Tick
-    from experiments import lead_lag
+    from experiments.day import lead_lag
 
     def day(seed, name):
         rng, a, c, ticks = random.Random(seed), [100], [500], []
@@ -96,7 +100,7 @@ def test_lead_lag_finds_a_small_exact_lag_and_takes_other_horizons(capsys, monke
     import random
 
     from arena.model import Book, Day, Tick
-    from experiments import lead_lag
+    from experiments.day import lead_lag
 
     def day(seed, name):
         rng, a, b, c, ticks = random.Random(seed), [1000], [3000], [5000], []
@@ -119,7 +123,7 @@ def test_lead_lag_finds_a_small_exact_lag_and_takes_other_horizons(capsys, monke
 def test_the_reversion_term_of_a_flickering_price_is_minus_a_half():
     import random
 
-    from experiments import reversion_term
+    from experiments.study import reversion_term
 
     rng = random.Random(4)
     w = [100 + rng.choice((-1, 0, 1)) for _ in range(20_000)]  # a level plus independent noise: every move half reverts
@@ -168,7 +172,7 @@ def test_the_rival_field_game_runs_on_prosperity_format_days(capsys, monkeypatch
 
 
 def test_the_games_equilibria_best_replies_and_fictitious_play():
-    from experiments import rival_field as rf
+    from experiments.day import rival_field as rf
 
     # matching pennies: no pure equilibrium, best replies cycle, fictitious play settles near half and half
     U = [[1.0, -1.0], [-1.0, 1.0]]
@@ -202,7 +206,7 @@ def test_the_days_data_options_need_data(capsys, monkeypatch):
 
 def test_kelp_drift_mirrors_a_day_and_the_template_mirrors_its_position():
     from arena.engine import run_day
-    from experiments import kelp_drift
+    from experiments.study import kelp_drift
 
     day = sim.run(sim.preset_market(["KELP"], ticks=800), 3).day
     flipped = kelp_drift.mirrored(day)
@@ -215,7 +219,7 @@ def test_kelp_drift_mirrors_a_day_and_the_template_mirrors_its_position():
 
 def test_order_flow_splits_the_best_levels_changes_into_adds_and_removals():
     from arena.model import Book, Day, MarketTrade, Tick
-    from experiments import imbalance
+    from experiments.day import imbalance
 
     books = [
         Book(((99, 5),), ((101, 5),)),
@@ -270,7 +274,7 @@ def test_an_abides_export_converts_to_the_prosperity_layout(tmp_path):
 
 
 def test_abides_market_keeps_each_setups_runs_apart_and_flags_a_runaway_day(tmp_path, monkeypatch):
-    from experiments import abides_market
+    from experiments.study import abides_market
 
     monkeypatch.setattr(abides_market, "MARKET", tmp_path)
     monkeypatch.setitem(abides_market.SETUP, "options", {})
@@ -360,7 +364,7 @@ def test_structure_finds_a_planted_sum_repeat_stream_grid_and_cycle():
     import random
 
     from arena.model import Book, Day, Tick
-    from experiments import structure
+    from experiments.day import structure
 
     def walk(rng, start, n, steps=(-1, 0, 0, 1)):
         out = [start]
@@ -415,7 +419,7 @@ def test_repeats_finds_a_taker_that_comes_back_the_next_day():
     import random
 
     from arena.model import Book, Day, MarketTrade, Tick
-    from experiments import repeats
+    from experiments.day import repeats
 
     def day(name, seed, plan):
         rng = random.Random(seed)
@@ -439,7 +443,7 @@ def test_repeats_finds_a_taker_that_comes_back_the_next_day():
 
 
 def test_quote_markouts_autocov_is_negative_for_a_bounce_and_positive_for_runs():
-    from experiments.quote_markouts import autocov
+    from experiments.day.quote_markouts import autocov
 
     import itertools
 
@@ -450,7 +454,7 @@ def test_quote_markouts_autocov_is_negative_for_a_bounce_and_positive_for_runs()
 
 
 def test_family_fills_counts_clustered_ticks_against_independence(capsys, monkeypatch, drill_data):
-    from experiments import family_fills
+    from experiments.day import family_fills
 
     assert family_fills.families(["A_X", "A_Y", "B_Z"]) == {"A": ["A_X", "A_Y"]}
     assert family_fills.at_least_two([0.5, 0.5]) == pytest.approx(0.25)
@@ -463,7 +467,7 @@ def test_family_fills_counts_clustered_ticks_against_independence(capsys, monkey
 
 def test_informed_flags_a_buy_at_the_days_low_and_the_template_can_copy_it(capsys, monkeypatch, drill_data):
     from arena.model import Book, Day, MarketTrade, Tick
-    from experiments import informed
+    from experiments.day import informed
 
     monkeypatch.setattr(informed, "WARMUP", 2)
     path = [100, 99, 98, 97, 96, 97, 98, 99, 100, 101]  # the wall mid: down to a low at tick 4, then up; a sell at the low of tick 2 is against it
@@ -484,7 +488,7 @@ def test_informed_flags_a_buy_at_the_days_low_and_the_template_can_copy_it(capsy
 def test_predict_ridge_recovers_a_planted_linear_rule_and_reads_feed_files(capsys, monkeypatch, tmp_path, drill_data):
     import random
 
-    from experiments import predict
+    from experiments.day import predict
 
     rng = random.Random(1)
     days = []
@@ -505,7 +509,7 @@ def test_predict_ridge_recovers_a_planted_linear_rule_and_reads_feed_files(capsy
 
 def test_the_forecast_sees_a_ticks_trades_a_tick_later(tmp_path):
     from arena.formats import prosperity
-    from experiments import predict
+    from experiments.day import predict
 
     sim.write_day(sim.run(sim.preset_market(["KELP"], ticks=400), 31), tmp_path, 1, 0)
     (day,) = prosperity.load_days(tmp_path, ["1-0"])
@@ -527,7 +531,8 @@ def test_fill_curve_reads_a_results_zip_and_a_per_tick_all_run_takes_every_print
 
     from arena.engine import EngineConfig, TradeMatching, run_day
     from arena.report import write_csvs
-    from experiments import fill_curve, kelp_drift
+    from experiments.day import fill_curve
+    from experiments.study import kelp_drift
 
     day = sim.run(sim.preset_market(["KELP"], ticks=1500), 5).day
     shares = {}
@@ -564,7 +569,8 @@ def test_fill_curve_reads_a_results_zip_and_a_per_tick_all_run_takes_every_print
 def test_fill_curve_counts_a_resting_quote_the_next_snapshot_crossed(tmp_path):
     from arena.engine import EngineConfig, QueueModel, run_day
     from arena.report import write_csvs
-    from experiments import fill_curve, kelp_drift
+    from experiments.day import fill_curve
+    from experiments.study import kelp_drift
 
     day = sim.run(sim.preset_market(["KELP"], ticks=1500), 5).day
     write_csvs(run_day(day, kelp_drift.FMT.load_bot(kelp_drift.TEMPLATE, {}, strict=True), EngineConfig(resting=True, queue=QueueModel.PROB)), tmp_path)
@@ -580,7 +586,8 @@ def test_shortfall_reads_a_runs_csvs_and_values_fills_at_the_decision(tmp_path, 
     from arena.engine import EngineConfig, run_day
     from arena.formats import prosperity
     from arena.report import write_csvs
-    from experiments import kelp_drift, shortfall
+    from experiments.day import shortfall
+    from experiments.study import kelp_drift
 
     sim.write_day(sim.run(sim.preset_market(["KELP"], ticks=1200), 9), tmp_path / "data", 1, 0)
     (day,) = prosperity.load_days(tmp_path / "data", ["1"])
@@ -601,7 +608,7 @@ def test_shortfall_reads_a_runs_csvs_and_values_fills_at_the_decision(tmp_path, 
 
 
 def test_the_premise_check_reads_a_market_whose_order_matters():
-    from experiments import premise
+    from experiments.day import premise
 
     pays = {"notes": "market making pays (0.4 of the spread a unit)"}
     kind, todo = premise.verdict("X", (10_000.0, 10_200.0), pays, fires=False)
@@ -626,7 +633,7 @@ def test_the_premise_check_runs_a_bot_without_a_twin_on_the_python_engine(capsys
     bot = tmp_path / "days_bot.py"  # the day's bot before its twin is recorded
     bot.write_text(Path("python/bots/drill/template.py").read_text())
     monkeypatch.setattr(rust, "require", lambda allow_stale=False: None)
-    module = importlib.import_module("experiments.premise")
+    module = importlib.import_module("experiments.day.premise")
     module.main(["--data", drill_data, "--days", "all", "--format", "drill", "--bot", str(bot), "--engine", "rust"])
     out, err = capsys.readouterr()
     assert "| ALPHA |" in out and "no Rust twin yet" in err and "--engine rust" not in out

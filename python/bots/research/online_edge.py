@@ -5,7 +5,7 @@ make_edge is the starting point of a learner (see learn_edge in STRATEGY): windo
 ticks quote at make_edge or make_edge +/- learn_delta, each passive fill is scored by its markout
 learn_horizon ticks later, and after each pair of windows make_edge steps learn_step toward the
 side that scored more, within [learn_min, learn_max]. The state is in traderData.
-python/experiments/online_edge.py tests it (IDEAS.md, "Learning make_edge online"). It is not the
+python/experiments/study/online_edge.py tests it (IDEAS.md, "Learning make_edge online"). It is not the
 template: it has no Rust twin and no drill copy. The template's own docstring follows.
 
 Single-file trading bot: market making around a fair value.
@@ -48,7 +48,7 @@ DEFAULTS = {
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly
     # Take, clear and make around fair + imbalance * rho, rho = (Vb - Va)/(Vb + Va) at the best
-    # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.imbalance.
+    # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.day.imbalance.
     "imbalance": 0.0,
     "take_edge": 1,  # take book orders priced at least this much better than fair
     "clear_edge": 0,  # cut inventory at prices up to this much worse than fair
@@ -67,7 +67,7 @@ DEFAULTS = {
     "level_guard": None,  # past this many level_bands from the level, drop the bet (target 0) until back within one band
     # Changepoint detection on a number level (see changepoint_level): the expected ticks between
     # shifts of the level, None for off. It needs the product's reversion to the level a tick and the
-    # sd of its one-tick steps, measured on the download (python/experiments/sim_regimes.py shows how).
+    # sd of its one-tick steps, measured on the download (python/experiments/study/sim_regimes.py shows how).
     "cpd_hazard": None,
     "cpd_reversion": None,
     "cpd_sd": None,
@@ -117,7 +117,7 @@ DEFAULTS = {
     "reduce_only": False,  # quote only the side that moves the position toward target (set while flattening)
     "vol_guard": None,  # fall back to plain market making while recent volatility is this many times the day's
     # Learning make_edge online from our own passive fills (see learn_edge). False: make_edge is fixed.
-    # The other settings are the ones python/experiments/online_edge.py chose on P3 round 1 day -2.
+    # The other settings are the ones python/experiments/study/online_edge.py chose on P3 round 1 day -2.
     "learn_edge": False,  # True: make_edge is where the learner starts
     "learn_design": "probe",  # "symmetric": every window probes, + then -; "probe": the centre against one probe side
     "learn_delta": 0.5,  # the probe: windows quote make_edge + or - this
@@ -137,11 +137,11 @@ PARAMS = {
     "RAINFOREST_RESIN": {"limit": 50, "fair": "fixed", "fixed_fair": 10_000, "fixed_guard": 5, "stop_loss": 1000},
     # Kelp's make_edge 0.5 (half a tick from a half-integer wall mid) was tuned on Prosperity
     # data, not the Arena's: chosen 2026-10-15 for --match-trades worse and a market that reacts,
-    # over all, where make_edge 1 made more (TODO_DONE.md, "Tune Kelp and Squid Ink for worse fills?").
+    # over all, where make_edge 1 made more (docs/TODO_DONE.md, "Tune Kelp and Squid Ink for worse fills?").
     # Re-grid make_edge on the day once the Arena's fill mode is known. Squid Ink isn't traded:
     # its quotes are picked off when orders rest (same TODO item). sized_mid since 2026-10-18: the
     # same PnL as wall_mid alone, and a rival's large order behind the best doesn't move it
-    # (TODO_DONE.md, "Move the Prosperity products' fair value to sized_mid?").
+    # (docs/TODO_DONE.md, "Move the Prosperity products' fair value to sized_mid?").
     "KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200},
     # IMC Prosperity 3, round 2. The baskets trade their spread against the legs (level: its mean
     # over the three days, level_band about one sd; IDEAS.md). They only take: their price jumps
@@ -151,7 +151,7 @@ PARAMS = {
                        "level": 49, "level_band": 84, "clear_edge": 5},
     "PICNIC_BASKET2": {"limit": 100, "fair": "wall_mid", "make_size": 0, "basket": {"CROISSANTS": 4, "JAMS": 2},
                        "level": 30, "level_band": 54, "clear_edge": 3},
-    # IMC Prosperity 3, round 3 (set in the dress rehearsal, TODO_DONE.md). The rock keeps no level
+    # IMC Prosperity 3, round 3 (set in the dress rehearsal, docs/TODO_DONE.md). The rock keeps no level
     # across days, so its level is the day's own running mean, and the vouchers follow it. Noisy:
     # every band lost on one of the three days (IDEAS.md). Squid Ink's like setting is left out so
     # the round 1 benchmarks stay Kelp and Resin's.
@@ -720,7 +720,7 @@ def smile_fair(book: Book, p: dict, memory: dict, market: Market) -> float | Non
     """A call's fair value: Black-Scholes at the smile's volatility, plus its usual offset from that.
 
     The smile v(m) = a m^2 + b m + c in m = ln(strike / S) / sqrt(T) is fitted on earlier days
-    (python/experiments/p3_smile.py does it), S is the underlying's price and T the years to expiry. A
+    (python/experiments/day/p3_smile.py does it), S is the underlying's price and T the years to expiry. A
     strike keeps a steady offset from any fitted smile (P3's volcanic vouchers: up to 2 a day), so
     the fair adds the EMA of the call's own price less the model, up to the last tick; what is
     left to trade is the fast deviation. Keeps the last fair while either book has an empty side.

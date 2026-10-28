@@ -15,7 +15,7 @@ A cluster-driven method using dynamic time warping to detect lead-lag between ma
 Mapped only: the abstract claims robust detection and economic benefit.
 
 ## Assumptions against the Arena
-- Daily equity returns with many series; an Arena round has a handful of products. Plain lagged correlations (as in `python/experiments/cross_product_timing.py`) come first; this is the method to try if those are noisy *(inferred)*.
+- Daily equity returns with many series; an Arena round has a handful of products. Plain lagged correlations (as in `python/experiments/study/cross_product_timing.py`) come first; this is the method to try if those are noisy *(inferred)*.
 
 ## In our notation
 The products' wall-mid returns per tick.

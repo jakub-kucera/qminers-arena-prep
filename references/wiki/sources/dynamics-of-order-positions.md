@@ -28,7 +28,7 @@ A 42-page probability paper: fluid limits (law-of-large-numbers), diffusion limi
 
 ## Assumptions against the Arena
 - **Fluid limits need many orders.** Prosperity's best levels are often one bot's quote of a fixed size, refreshed every tick, so "rate of cancellations ahead of you" has little meaning there, and Leo-Hawking found no queue priority at all ([queue position](../concepts/queue-position-and-fills.md)). The value is the vocabulary for the `--resting` queue options, not a formula to fit to Prosperity data.
-- **`Υ` is the queue-model choice in `TODO_DONE.md`** *(inferred mapping)*:
+- **`Υ` is the queue-model choice in `docs/TODO_DONE.md`** *(inferred mapping)*:
   - With `x = Z/Q`, our current `--resting` (cancels never advance you) is `Υ ≡ 0`.
   - hftbacktest's `ProbQueueModel` with `f(x) = x` is uniform cancellation, `Υ(x) = x`.
   - With `f(x) = xⁿ` it is `Υ(x) = xⁿ/(xⁿ + (1 − x)ⁿ)`.

@@ -38,11 +38,11 @@ DEFAULTS = {
     "wall_size": 15,  # sized_mid: the smallest level that counts as the market maker's quote
     "smoothing": 0.0,  # 0 uses each tick's fair as is; closer to 1 moves it more slowly
     # Take, clear and make around fair + imbalance * rho, rho = (Vb - Va)/(Vb + Va) at the best
-    # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.imbalance.
+    # levels: the linear micro-price. 0 turns it off. Fitted per product by experiments.day.imbalance.
     "imbalance": 0.0,
     # A linear fair (IDEAS.md, "A `linear` fair"): add lin_rho3 x the depth imbalance over the best 3
     # levels, and lin_momentum x the fair's move over the last lin_window ticks, in an agent market
-    # where flow and momentum carry the price (experiments.predict). 0 turns each off.
+    # where flow and momentum carry the price (experiments.day.predict). 0 turns each off.
     "lin_rho3": 0.0,
     "lin_momentum": 0.0,
     "lin_window": 100,
@@ -86,7 +86,7 @@ DEFAULTS = {
     "level_guard": None,  # past this many level_bands from the level, drop the bet (target 0) until back within one band
     # Changepoint detection on a number level (see changepoint_level): the expected ticks between
     # shifts of the level, None for off. It needs the product's reversion to the level a tick and the
-    # sd of its one-tick steps, measured on the download (python/experiments/sim_regimes.py shows how).
+    # sd of its one-tick steps, measured on the download (python/experiments/study/sim_regimes.py shows how).
     "cpd_hazard": None,
     "cpd_reversion": None,
     "cpd_sd": None,
@@ -122,7 +122,7 @@ DEFAULTS = {
     # name, negative to trade against it. None turns it off. While on, it sets target instead.
     "copy": None,
     "copy_hold": None,  # ticks to hold after a signal; None: until the next one
-    # Following an informed trader without a name (experiments.informed; Frankfurt Hedgehogs on
+    # Following an informed trader without a name (experiments.day.informed; Frankfurt Hedgehogs on
     # P3's Olivia): a trade of one of these sizes that buys at the day's running low of the fair, or
     # sells at its high, after copy_warmup ticks, is a signal of weight 1 its way. None: off. It
     # turns copy on alone, and adds to the named weights where both are set.
@@ -155,11 +155,11 @@ PARAMS = {
     "RAINFOREST_RESIN": {"limit": 50, "fair": "fixed", "fixed_fair": 10_000, "fixed_guard": 5, "stop_loss": 1000},
     # Kelp's make_edge 0.5 (half a tick from a half-integer wall mid) was tuned on Prosperity
     # data, not the Arena's: chosen 2026-10-15 for --match-trades worse and a market that reacts,
-    # over all, where make_edge 1 made more (TODO_DONE.md, "Tune Kelp and Squid Ink for worse fills?").
+    # over all, where make_edge 1 made more (docs/TODO_DONE.md, "Tune Kelp and Squid Ink for worse fills?").
     # Re-grid make_edge on the day once the Arena's fill mode is known. Squid Ink isn't traded:
     # its quotes are picked off when orders rest (same TODO item). sized_mid since 2026-10-18: the
     # same PnL as wall_mid alone, and a rival's large order behind the best doesn't move it
-    # (TODO_DONE.md, "Move the Prosperity products' fair value to sized_mid?").
+    # (docs/TODO_DONE.md, "Move the Prosperity products' fair value to sized_mid?").
     "KELP": {"limit": 50, "fair": "sized_mid", "make_edge": 0.5, "stop_loss": 1200},
     # IMC Prosperity 3, round 2. The baskets trade their spread against the legs (level: its mean
     # over the three days, level_band about one sd; IDEAS.md). They only take: their price jumps
@@ -169,7 +169,7 @@ PARAMS = {
                        "level": 49, "level_band": 84, "clear_edge": 5},
     "PICNIC_BASKET2": {"limit": 100, "fair": "wall_mid", "make_size": 0, "basket": {"CROISSANTS": 4, "JAMS": 2},
                        "level": 30, "level_band": 54, "clear_edge": 3},
-    # IMC Prosperity 3, round 3 (set in the dress rehearsal, TODO_DONE.md). The rock keeps no level
+    # IMC Prosperity 3, round 3 (set in the dress rehearsal, docs/TODO_DONE.md). The rock keeps no level
     # across days, so its level is the day's own running mean, and the vouchers follow it. Noisy:
     # every band lost on one of the three days (IDEAS.md). Squid Ink's like setting is left out so
     # the round 1 benchmarks stay Kelp and Resin's.
@@ -188,7 +188,7 @@ PARAMS = {
     "INTARIAN_PEPPER_ROOT": {"limit": 80, "fair": "wall_mid", "make_edge": 1, "make_size": 10, "target": 80, "skew": 20,
                              "stop_loss": 4500},
     # IMC Prosperity 4, rounds 3-4. Both return to a level that held across days (IDEAS.md).
-    # Hydrogel crosses only the part of its bet beyond 25 lots and quotes the rest (TODO_DONE.md, "Hydrogel's cross_excess").
+    # Hydrogel crosses only the part of its bet beyond 25 lots and quotes the rest (docs/TODO_DONE.md, "Hydrogel's cross_excess").
     "HYDROGEL_PACK": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 9994, "level_band": 35, "level_exit": 0, "clear_edge": 10,
                       "cross_excess": 25, "stop_loss": 48_000},
     "VELVETFRUIT_EXTRACT": {"limit": 200, "fair": "wall_mid", "make_edge": 1, "level": 5247, "level_band": 30, "clear_edge": 2,
@@ -719,7 +719,7 @@ def smile_fair(book: Book, p: dict, memory: dict, market: Market) -> float | Non
     """A call's fair value: Black-Scholes at the smile's volatility, plus its usual offset from that.
 
     The smile v(m) = a m^2 + b m + c in m = ln(strike / S) / sqrt(T) is fitted on earlier days
-    (python/experiments/p3_smile.py does it), S is the underlying's price and T the years to expiry. A
+    (python/experiments/day/p3_smile.py does it), S is the underlying's price and T the years to expiry. A
     strike keeps a steady offset from any fitted smile (P3's volcanic vouchers: up to 2 a day), so
     the fair adds the EMA of the call's own price less the model, up to the last tick; what is
     left to trade is the fast deviation. Keeps the last fair while either book has an empty side.

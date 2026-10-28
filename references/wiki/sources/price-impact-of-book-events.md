@@ -9,7 +9,7 @@ updated: 2026-10-12
 # Cont, Kukanov & Stoikov, "The price impact of order book events" (working paper, March 2011; later Journal of Financial Econometrics, 2014)
 
 ## What it is
-A 26-page empirical paper on one month (April 2010) of TAQ Level-1 data for 50 random S&P 500 stocks. It defines **order flow imbalance (OFI)**, the net change in the best bid and ask queues over an interval. It shows that the mid-price change over the *same* interval is linear in OFI, with a slope inversely proportional to depth. It is the source of the "order-flow imbalance" that teams and our `TODO_DONE.md` mention next to the static book imbalance `ρ`.
+A 26-page empirical paper on one month (April 2010) of TAQ Level-1 data for 50 random S&P 500 stocks. It defines **order flow imbalance (OFI)**, the net change in the best bid and ask queues over an interval. It shows that the mid-price change over the *same* interval is linear in OFI, with a slope inversely proportional to depth. It is the source of the "order-flow imbalance" that teams and our `docs/TODO_DONE.md` mention next to the static book imbalance `ρ`.
 
 ## Main results
 - **Event contribution** (`price-impact-of-book-events.md:75-77` (p. 4, checked)): between two snapshots n−1 and n of the best levels (`P^B, q^B, P^A, q^A`), `e_n = 1{P^B_n ≥ P^B_{n−1}} q^B_n − 1{P^B_n ≤ P^B_{n−1}} q^B_{n−1} − 1{P^A_n ≤ P^A_{n−1}} q^A_n + 1{P^A_n ≥ P^A_{n−1}} q^A_{n−1}`. In words:

@@ -18,7 +18,7 @@ A short blog post comparing a queue-position estimate built from level data (MBP
 - **Their conclusions** (their claims): "cancels are mostly pulled from the back of the queue" (`databento-queue-position.md:31` (p. 3)); the most common mistake is underestimating the bias, and every L2 "market replay" backtester they have come across was overly optimistic about passive fills, and also underestimates adverse fills (`databento-queue-position.md:33` (p. 3)); estimates break once the price leaves the visible levels (`databento-queue-position.md:35` (p. 3)).
 
 ## Assumptions against the Arena
-- **A real exchange's queue** (ES futures, FIFO, many participants who cancel stale orders). In Prosperity the bots re-quote every tick, which is a different mechanism; that is the case for the `front` option in `TODO_DONE.md`, not for this one.
+- **A real exchange's queue** (ES futures, FIFO, many participants who cancel stale orders). In Prosperity the bots re-quote every tick, which is a different mechanism; that is the case for the `front` option in `docs/TODO_DONE.md`, not for this one.
 - **One order on one day.** The direction is plausible and agrees with Huang, Lehalle & Rosenbaum's caveat ([queue-reactive model](queue-reactive-model.md)); the size of the bias is not established.
 
 ## In our notation

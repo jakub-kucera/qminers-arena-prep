@@ -157,7 +157,7 @@ Each entry gives:
 - **D2. A monoculture of agent-written bots** (likelihood: high if the market is shared). Most teams will hand the docs to an agent, so their bots will look alike: a mid or wall-mid fair value, quotes one tick inside, a linear skew, z-score mean reversion.
   - Breaks: they crowd the same edges, so the spread splits about 1/(n+1). They also become a predictable population we can exploit, for example by trapping the penny-jumpers.
   - Prep: build an **LLM zoo**. Give fresh agents (Claude, GPT and Gemini, with no repo context) a Prosperity-style spec. Save the bots they write under `python/bots/zoo/`. Use them as `--vs` rivals and as the baseline the template must beat. Write down what they all do alike, since that is also the baseline the organisers will design against.
-  - **Built 2026-10-15:** `python/bots/zoo/`, six Claude bots so far; `python/experiments/zoo.py` scores them. They all play the Prosperity 3 winners' playbook (wall mid, take, clear, penny; Resin hard-coded at 10,000), and the best of them beat the template head to head on P3 round 1 (`IDEAS.md`, "The LLM zoo").
+  - **Built 2026-10-15:** `python/bots/zoo/`, six Claude bots so far; `python/experiments/study/zoo.py` scores them. They all play the Prosperity 3 winners' playbook (wall mid, take, clear, penny; Resin hard-coded at 10,000), and the best of them beat the template head to head on P3 round 1 (`IDEAS.md`, "The LLM zoo").
   - Evidence: LLM agents keep to the trading style they are told (value, momentum, market making) and, built on similar foundation models, may respond in correlated ways ([Lopez-Lira](../sources/llm-agents-market-simulation.md), `literature_md/llm-agents-market-simulation/llm-agents-market-simulation.md:35` (p. 4)); its archetype prompts are templates for the zoo. Bots that fit a model to book features are the fragile ones: small, cheap orders can mislead them ([Goldblum et al.](../sources/adversarial-attacks-hft.md)). A field that reads one shared signal is easier to exploit: an RL trader that could steer an LLM-written feed learned, unprompted, to pump the traders following it, and adding more followers made them fall for it more ([Byrd 2025](../sources/accidental-pump-and-dump.md), `literature_md/accidental-pump-and-dump/accidental-pump-and-dump.md:240` (p. 6)). Its gain was mostly in sample, though (77 against 72 a day out of sample).
 - **D3. Organiser bots built to punish the playbook** (likelihood: medium–high):
   - spoofed walls that appear and vanish, aimed at `wall_mid`;
@@ -166,7 +166,7 @@ Each entry gives:
   - takers that fade the obvious signal.
 
   Prep:
-  - the trapper and sniper rivals already in `TODO_DONE.md`, plus a spoofer that posts a large wall of the market maker's usual size and pulls it before it trades (`sized_mid` doesn't filter that);
+  - the trapper and sniper rivals already in `docs/TODO_DONE.md`, plus a spoofer that posts a large wall of the market maker's usual size and pulls it before it trades (`sized_mid` doesn't filter that);
   - in the template, trust a wall only after it has persisted for N ticks.
 
   Evidence: [Wang & Wellman](../sources/spoofing-abm.md) model the spoofer as a 200-lot bid one tick behind the best, re-posted whenever the best bid moves. It reliably raised prices against book-reading traders, but added little to an exploiter's profit (206.1 against 201.8, `literature_md/spoofing-abm/spoofing-abm.md:237` (p. 7)): a fake wall is a cheap distortion, not a big earner. The sequels agree and add what to do about it:

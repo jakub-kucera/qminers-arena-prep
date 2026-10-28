@@ -1,5 +1,7 @@
 """The format skeletons (python/arena/formats/snapshots.py, orderlog.py): starting points for the
-day's format, each loading its layout and running a bot through the engine."""
+day's format, each loading its layout and running a bot through the engine. qminers.py, the day's
+format, is snapshots.py until it is filled in, so the snapshots tests run on it while its SKELETON
+flag is set."""
 
 import json
 import textwrap
@@ -7,7 +9,10 @@ import textwrap
 import pytest
 
 from arena.engine import EngineConfig, run_day
-from arena.formats import FORMATS, orderlog, snapshots
+from arena.formats import FORMATS, orderlog, qminers, snapshots
+
+SHAPED = [snapshots] + ([qminers] if qminers.SKELETON else [])  # the formats in snapshots.py's shape
+SHAPED_IDS = [m.__name__.rsplit(".", 1)[1] for m in SHAPED]
 
 
 def write(folder, files):
@@ -30,19 +35,21 @@ TRADES = """
 """
 
 
-def test_snapshots_load_decimal_prices_as_whole_units(tmp_path):
+@pytest.mark.parametrize("fmt", SHAPED, ids=SHAPED_IDS)
+def test_snapshots_load_decimal_prices_as_whole_units(fmt, tmp_path):
     data = write(tmp_path, {"limits.json": json.dumps({"GOLD": 20, "SILVER": 10}), "d1_book.csv": BOOK, "d1_trades.csv": TRADES})
-    (day,) = snapshots.load_days(snapshots.resolve_data_dir(str(data)), ["all"])
+    (day,) = fmt.load_days(fmt.resolve_data_dir(str(data)), ["all"])
     assert day.products == ["GOLD", "SILVER"] and day.limits == {"GOLD": 20, "SILVER": 10}
     first = day.ticks[0].books["GOLD"]
     assert first.bids == ((9990, 5), (9980, 10)) and first.asks == ((10010, 4),)
     assert day.info["GOLD"] == {"tick": 0.05, "unit": 0.01} and day.info["SILVER"]["tick"] == 0.1
     assert [(t.price, t.quantity) for t in day.ticks[1].trades["GOLD"]] == [(10005, 1)]
     with pytest.raises(ValueError, match="no day 'd9'"):
-        snapshots.load_days(data, ["d9"])
+        fmt.load_days(data, ["d9"])
 
 
-def test_snapshots_run_a_strategy_in_decimal_prices(tmp_path):
+@pytest.mark.parametrize("fmt", SHAPED, ids=SHAPED_IDS)
+def test_snapshots_run_a_strategy_in_decimal_prices(fmt, tmp_path):
     data = write(tmp_path, {"limits.json": json.dumps({"GOLD": 20, "SILVER": 10}), "d1_book.csv": BOOK})
     bot_path = write(tmp_path / "bot", {"bot.py": """
         from api import Order
@@ -57,14 +64,15 @@ def test_snapshots_run_a_strategy_in_decimal_prices(tmp_path):
                     return [Order("GOLD", 100.05, 1), Order("GOLD", 2001 * 0.05, 1)]  # the best ask, the second with a float's error
                 return []
     """}) / "bot.py"
-    (day,) = snapshots.load_days(data, ["d1"])
-    bot = snapshots.load_bot(bot_path, {}, strict=True)
+    (day,) = fmt.load_days(data, ["d1"])
+    bot = fmt.load_bot(bot_path, {}, strict=True)
     result = run_day(day, bot, EngineConfig())
     assert [(f.price, f.quantity) for f in result.fills] == [(10005, 1), (10005, 1)]
     assert bot._bot.seen == [(100.1, 4), (100.05, 2)] and not result.errors
 
 
-def test_snapshots_reject_what_the_api_doesnt_take(tmp_path):
+@pytest.mark.parametrize("fmt", SHAPED, ids=SHAPED_IDS)
+def test_snapshots_reject_what_the_api_doesnt_take(fmt, tmp_path):
     data = write(tmp_path, {"limits.json": json.dumps({"GOLD": 20, "SILVER": 10}), "d1_book.csv": BOOK})
     bot_path = write(tmp_path / "bot", {"bot.py": """
         from api import Order
@@ -73,12 +81,12 @@ def test_snapshots_reject_what_the_api_doesnt_take(tmp_path):
             def on_tick(self, state):
                 return [Order("GOLD", 100.051, 1)]  # finer than a cent
     """}) / "bot.py"
-    (day,) = snapshots.load_days(data, ["d1"])
-    result = run_day(day, snapshots.load_bot(bot_path, {}, strict=True), EngineConfig())
+    (day,) = fmt.load_days(data, ["d1"])
+    result = run_day(day, fmt.load_bot(bot_path, {}, strict=True), EngineConfig())
     assert result.errors and "finer than 1/100" in result.errors[0][1]
     import ast
-    assert snapshots.check_source(ast.parse("class Strategy:\n    def on_tick(self, state): return []")) == []
-    assert snapshots.check_source(ast.parse("class Bot: pass")) == ["no top-level class Strategy"]
+    assert fmt.check_source(ast.parse("class Strategy:\n    def on_tick(self, state): return []")) == []
+    assert fmt.check_source(ast.parse("class Bot: pass")) == ["no top-level class Strategy"]
 
 
 EVENTS = """
@@ -133,7 +141,8 @@ def test_the_snapshot_example_reproduces_prosperitys_books(tmp_path):
             assert a.books[product].bids == tuple((p * 10, v) for p, v in book.bids)  # prices / 10, in cents
 
 
-def test_snapshots_can_call_a_module_level_function(tmp_path, monkeypatch):
+@pytest.mark.parametrize("fmt", SHAPED, ids=SHAPED_IDS)
+def test_snapshots_can_call_a_module_level_function(fmt, tmp_path, monkeypatch):
     data = write(tmp_path, {"limits.json": json.dumps({"GOLD": 20, "SILVER": 10}), "d1_book.csv": BOOK})
     bot_path = write(tmp_path / "bot", {"bot.py": """
         from api import Order
@@ -141,10 +150,15 @@ def test_snapshots_can_call_a_module_level_function(tmp_path, monkeypatch):
         def trade(state):
             return [Order("GOLD", 100.05, 2)] if state.timestamp == 100 else []
     """}) / "bot.py"
-    monkeypatch.setattr(snapshots, "ENTRY", (None, "trade"))
-    (day,) = snapshots.load_days(data, ["d1"])
-    result = run_day(day, snapshots.load_bot(bot_path, {}, strict=True), EngineConfig())
+    monkeypatch.setattr(fmt, "ENTRY", (None, "trade"))
+    (day,) = fmt.load_days(data, ["d1"])
+    result = run_day(day, fmt.load_bot(bot_path, {}, strict=True), EngineConfig())
     assert [(f.price, f.quantity) for f in result.fills] == [(10005, 2)]
     import ast
-    assert snapshots.check_source(ast.parse("def trade(state): return []")) == []
-    assert snapshots.check_source(ast.parse("class Strategy: pass")) == ["no top-level function trade"]
+    assert fmt.check_source(ast.parse("def trade(state): return []")) == []
+    assert fmt.check_source(ast.parse("class Strategy: pass")) == ["no top-level function trade"]
+
+
+def test_the_days_format_is_registered():
+    assert FORMATS["qminers"] is qminers
+    assert all(hasattr(qminers, name) for name in ("PROVIDED_MODULES", "resolve_data_dir", "load_days", "load_bot", "check_source"))

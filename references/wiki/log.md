@@ -462,3 +462,8 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-28] lint | ABIDES figures on the regenerated days
 - `data/abides` was regenerated with the export code its rows' command runs (the fourth audit's R13). `sources/market-making-latency` and `concepts/reading-the-data-on-day-one` get Gao & Wang's ABIDES rates on those days (λ+ 0.135, λ− 0.143 against λ/2 0.116); the conclusion (both sides barely pass) is unchanged.
+
+## [2026-10-28] restructure | the repo reorganised for the day
+- `TODO_DONE.md` and `MANUAL_TODO.md` moved to `docs/`; every page's mention now says `docs/` (this log's older entries keep the old names).
+- `ON_THE_DAY.md` cut to the day's actions, its dated evidence replaced by pointers to the `IDEAS.md` rows; the Frankfurt Hedgehogs' relative hedge moved into `concepts/risk-and-protecting-a-lead`.
+- `python/experiments/` split into `day/` (run on the Arena's data) and `study/` (Prosperity one-offs), the tools left at the top; every page's `experiments.X` and `python/experiments/X.py` mention follows (lines unchanged: the files moved whole).

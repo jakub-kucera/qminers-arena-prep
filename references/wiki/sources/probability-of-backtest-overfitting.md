@@ -9,7 +9,7 @@ updated: 2026-10-12
 # Bailey, Borwein, López de Prado & Zhu, "The Probability of Backtest Overfitting" (Journal of Computational Finance, 2017)
 
 ## What it is
-A 34-page paper that defines the **probability of backtest overfitting (PBO)**: the chance that the configuration chosen as best in sample ranks below the median out of sample. It estimates PBO with **CSCV** (combinatorially symmetric cross-validation), which needs only the per-period PnL of every configuration tried. It is model-free and non-parametric, and the direct answer to `TODO_DONE.md`'s question of whether a PBO estimate for `arena.grid` is worth building.
+A 34-page paper that defines the **probability of backtest overfitting (PBO)**: the chance that the configuration chosen as best in sample ranks below the median out of sample. It estimates PBO with **CSCV** (combinatorially symmetric cross-validation), which needs only the per-period PnL of every configuration tried. It is model-free and non-parametric, and the direct answer to `docs/TODO_DONE.md`'s question of whether a PBO estimate for `arena.grid` is worth building.
 
 ## Main results
 - **Definitions** (`probability-of-backtest-overfitting.md:101-107` (p. 9–10, checked)):
@@ -49,7 +49,7 @@ A 34-page paper that defines the **probability of backtest overfitting (PBO)**: 
 | configuration / trial `n` | one `arena.grid` cell (parameter combination, with `--modes` as separate trials or as a robustness filter) |
 | `M` (T × N) | per-block PnL: rows are blocks of ticks (within days), columns are cells |
 | in-sample best | the grid's top cell by the chosen ranking (`pnl`, `min day` or `nbhd`) |
-| PBO | not computed today; `TODO_DONE.md`, "Make `arena.grid` say how many combinations it tried" |
+| PBO | not computed today; `docs/TODO_DONE.md`, "Make `arena.grid` say how many combinations it tried" |
 
 ## Traps
 - **Typo in the paper itself:** "if S = 16, we will form 12,780 combinations" (`probability-of-backtest-overfitting.md:132` (p. 11)); C(16, 8) = 12,870 *(computed)*. The PDF has 12,780 too *(checked)*. The other counts it gives (S = 12: 924; S = 24: 2,704,156) are right.

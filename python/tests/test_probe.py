@@ -7,9 +7,11 @@ import pytest
 
 from arena import sim
 from arena.engine import EngineConfig, run_day
-from arena.formats import prosperity
+from arena.formats import prosperity, qminers
 
 PROBE = Path(__file__).parents[1] / "bots" / "probe.py"
+# The day's copy (python/bots/qminers/probe.py) is the Prosperity probe until its ADAPTER is rewritten.
+PROBES = [PROBE] + ([PROBE.parent / "qminers" / "probe.py"] if qminers.SKELETON else [])
 
 
 def findings(capsys, monkeypatch, resting, path=PROBE):
@@ -22,9 +24,10 @@ def findings(capsys, monkeypatch, resting, path=PROBE):
     return dict(line[len("PROBE ") :].split(": ", 1) for line in lines), result, seen
 
 
+@pytest.mark.parametrize("path", PROBES, ids=lambda p: p.parent.name)
 @pytest.mark.parametrize("resting", [False, True])
-def test_the_probe_bot_answers_the_probes_in_both_engine_modes(capsys, monkeypatch, resting):
-    found, result, seen = findings(capsys, monkeypatch, resting)
+def test_the_probe_bot_answers_the_probes_in_both_engine_modes(capsys, monkeypatch, resting, path):
+    found, result, seen = findings(capsys, monkeypatch, resting, path)
     assert len(found) == 14  # every probe reported once
     assert len(seen) == 449  # and one SEEN line a tick, except the tick that raised on purpose
     assert found["resting"].startswith("orders rest between ticks: " + ("yes" if resting else "no"))

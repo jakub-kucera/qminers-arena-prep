@@ -174,7 +174,7 @@ def bootstrap(d: list[list[float]], q: float, boot: int, seed: int) -> tuple[lis
     vary far more than omega2 does (relative variance about 5 / blocks drawn), so the resamples'
     statistics would have heavier tails than the data's: too conservative on short-memory gains,
     and no closer to the data's omega2 on long-memory ones (a quick prototype on
-    experiments/snooping_null_rates.py's null grids agreed; it was not kept). The cost is every
+    experiments/study/snooping_null_rates.py's null grids agreed; it was not kept). The cost is every
     lag of every column of every resample, O(cells x resamples x blocks^2): about 0.8 s a cell
     at 1,000 resamples of 300 blocks in Python, so a grid of more than a few dozen cells wants
     --engine rust (rust/src/arena/stats.rs, on every core: 4,096 cells in about 10 s)."""
@@ -236,7 +236,7 @@ def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed:
     mean gain is significantly positive, the familywise error held at alpha. z_k = sqrt(n) mean_k /
     omega_k; each resample's sqrt(n) (mean*_k - mean_k) / omega*_k, omega*_k its own (studentize
     "resample", the paper's, default) or the original's in every resample ("fixed", what this
-    module did before 2026-10-26). On experiments/snooping_null_rates.py's null grids, at 5%, the
+    module did before 2026-10-26). On experiments/study/snooping_null_rates.py's null grids, at 5%, the
     original's named a noise cell in 9-22% of them, each its own in 6-8% (IDEAS.md, "Bootstrap
     tests of the best cell")."""
     n = len(d[0])

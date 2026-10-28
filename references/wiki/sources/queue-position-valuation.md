@@ -46,8 +46,8 @@ A 33-page model of what a resting order is worth as a function of its place in a
 | `δ` | the quote's distance from fair: `make_edge` or more (`python/bots/template.py:55`) |
 | `AS` | the markout of passive fills, sign-flipped (`python/arena/analysis.py:189`) |
 | `α(q)` | fill rate of resting orders by queue position; measurable only in `--resting` mode |
-| regular order / touch order | `--queue back` (our resting model today) / `--queue front` (`TODO_DONE.md`) |
-| `ℓ`, uniform cancels | `ProbQueueModel` with `f(x) = x` (`TODO_DONE.md` proposes `P(ahead) = xⁿ`) |
+| regular order / touch order | `--queue back` (our resting model today) / `--queue front` (`docs/TODO_DONE.md`) |
+| `ℓ`, uniform cancels | `ProbQueueModel` with `f(x) = x` (`docs/TODO_DONE.md` proposes `P(ahead) = xⁿ`) |
 
 ## Traps
 - **Typo in the paper itself:** case 2(b) says "J_k > 0. Under a negative price jump" (`queue-position-valuation.md:194` (p. 12)); the PDF has the same *(checked with `pdftotext`)*. It means `J_k < 0`.

@@ -18,7 +18,7 @@ A deep-learning predictor of the KOSPI 200 index future's direction from its con
 
 ## Assumptions against the Arena
 - A neural network over 137 futures–spot pairs cannot run in a standard-library bot; only the premise, that legs lead the basket, could be used, as a linear rule.
-- **The premise fails on Prosperity's baskets** *(checked 2026-10-13, P3 round 2, all three days, mid prices: `uv run python -m experiments.cross_product_timing`)*: the correlation between the legs' implied move this tick (`Σ wᵢ ΔSᵢ`) and the basket's move over the next 1, 5 or 20 ticks is +0.013 to +0.027 for PICNIC_BASKET1 and +0.020 to +0.027 for PICNIC_BASKET2, and the reverse direction (the basket leading the legs) is the same size, +0.007 to +0.036. Neither side leads.
+- **The premise fails on Prosperity's baskets** *(checked 2026-10-13, P3 round 2, all three days, mid prices: `uv run python -m experiments.study.cross_product_timing`)*: the correlation between the legs' implied move this tick (`Σ wᵢ ΔSᵢ`) and the basket's move over the next 1, 5 or 20 ticks is +0.013 to +0.027 for PICNIC_BASKET1 and +0.020 to +0.027 for PICNIC_BASKET2, and the reverse direction (the basket leading the legs) is the same size, +0.007 to +0.036. Neither side leads.
 
 ## In our notation
 OFI is Cont, Kukanov & Stoikov's order-flow imbalance ([price impact of book events](price-impact-of-book-events.md)), computable from consecutive `Book` snapshots.

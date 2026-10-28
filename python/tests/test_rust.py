@@ -492,7 +492,7 @@ def test_rust_reads_every_prosperity_day_as_the_plug_in_does(bench, tmp_path):
 
 @needs_cargo
 def test_a_day_cut_to_some_products_but_not_its_limits_exports(tmp_path):
-    """python/experiments/p3_smile.py keeps a day's options and drops the rest, leaving `limits` whole."""
+    """python/experiments/day/p3_smile.py keeps a day's options and drops the rest, leaving `limits` whole."""
     from arena import cli
     from arena.engine import EngineConfig
 

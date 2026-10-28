@@ -1,23 +1,22 @@
 # Experiments
 
-One-off studies whose results are in `IDEAS.md` (the row each feeds is named below). Each runs from
-the repository's root as `uv run python -m experiments.<name>`. With no options it reproduces the
-numbers `IDEAS.md` quotes, on the Prosperity data in `references/`.
-
-**On the day:** the experiments in the first table take the Arena's download in place of their
-built-in Prosperity datasets:
-- `--data DIR --days ...` picks the data and days, `--format` its plug-in, `--bot` the template
-  written for it, and `--products` the products to study (`arena.cli.add_dataset_arguments`);
-- the Prosperity-specific pieces get their own options: `--basket`, `--underlying`, `--prefix`,
-  `--expiry`, `--war`, `--trade`, and selection_rules' `--train`, `--test` and `--grid`;
-- `python/tests/test_experiments.py` runs each on drill-format data, as the Arena's plug-in will
-  present its own.
-
-The second table holds the rest: what each studies, and why it doesn't take the day's data.
+Each runs from the repository's root as `uv run python -m experiments.<folder>.<name>` (the tools at
+the top as `experiments.<name>`). With no options it reproduces the numbers `IDEAS.md` quotes, on the
+Prosperity data in `references/`. Three groups:
+- **`day/`**: re-run on the Arena's data (the first table). Each takes the day's download in place of
+  its built-in Prosperity datasets: `--data DIR --days ...`, `--format` its plug-in, `--bot` the template
+  written for it, `--products` (`arena.cli.add_dataset_arguments`), plus the Prosperity-specific pieces'
+  own options (`--basket`, `--underlying`, `--prefix`, `--expiry`, `--war`, `--trade`, selection_rules'
+  `--train`, `--test` and `--grid`). `python/tests/test_experiments.py` runs each on drill-format data,
+  as the Arena's plug-in will present its own.
+- **`study/`**: Prosperity one-offs whose numbers live in `IDEAS.md` (the second table, with why each
+  doesn't take the day's data).
+- **The tools at the top** (the third table): data makers, the Rust parity check, the IDEAS index, the
+  mock round.
 
 Every experiment that backtests takes `--engine rust` (and `--allow-stale`), with the same output.
 
-## Re-run on the Arena's data
+## `day/`: re-run on the Arena's data
 
 `ON_THE_DAY.md` or `IDEAS.md`'s "Re-test on the Arena" column names each of these.
 
@@ -30,7 +29,6 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `leaderboard_curves` | From the leaderboard's PnL curves, whether the teams traded on data of their own, alone on the same data, or in one market; with `--read`, also the cross-team PnL total (flat vs rising), the run's clock (points, spacing, resets, common grid) and the field's distribution and top drawdowns. Calibrated on simulated fields whose answer is known | "Reading the leaderboard's curves" | `--read FILE [--team NAME]`: the leaderboard's data, saved after each deadline |
 | `standings_check` | Does the standings calculator predict a real field's last round: the zoo and the template over P3 round 1 and 20 simulated round 4s, predicted against played | "A standings calculator for round 4" | A check of the calculator |
 | `standings` | Before the last round: our rank now under four ways the rounds may combine, then the chance of 1st, top 3 and of losing a place for each risk multiplier on our PnL and each relative hedge (a share of the field's bet), round 4 simulated from the field's spread, persistence and common bet on the leaderboards. `--synthetic` runs it on a made-up field | "A standings calculator for round 4" | `--rounds R1 R2 R3 --team NAME --ours GRID_CSV [--where PATH=V] [--days-per-round N]`: the saved leaderboards and round 4's grid |
-| `mock_round/` | The agent-only mock round: a disguised round's generator, the portal that scores a bot on its hidden days, its answer key, and the two runs' bots (its README) | "The kickoff prompts on a disguised round" | Spent: a new rehearsal needs new seeds and layout |
 | `quote_size` | `make_size` caps against copies and the rivals | "Using less than the full position limit" | `--data D --days ...`; rivals as in `adversaries` |
 | `quote_markouts` | The template's passive fills by state (spread, place, imbalance, momentum, inventory, the wall mid's lag-1 autocovariance), against the wall mid | "Passive fills' value by state" | `--data D --days ... [--set PARAMS.P="{...}"]` (a product the bot's PARAMS lacks needs its entry); spread bins in each product's ticks. Also on the playground's own fills (probe 18) |
 | `fill_curve` | From the data alone, what a quote at each distance from fair could fill (the market's prints at or beyond it, by spread, imbalance and trade size) and what those fills are worth; the fill-size curve; with `--results`, our own fills from the portal's results ZIP (a column map) against the same prints: the queue share | "A fill-rate curve", "A fill-size curve" | `--data D --days ... [--products ...] [--fair mid]`; on the first upload add `--results ZIP` after renaming `RESULT_FILES` / `RESULT_COLUMNS` to the ZIP's |
@@ -50,25 +48,21 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `p4_level_template` | The level mode by held-out days, and other ways to set the level | "Trading toward a known level" | `--data D --days ... --products A,B` (those `arena.diagnose` notes as reverting to a level) |
 | `p4_jumps` | Jumps that snap back, per product and day, and the `jump` mode on every product | "Fading jumps that snap back" | `--data D --days ... --jump-min J [--format F] [--trade]` (`--trade` runs part 2 on any data; `--jump-min` in the data's price unit) |
 | `selection_rules` | Which way of picking a grid cell holds up on unseen days; part 2, picking across ten fill-model scenarios (`--part 2`) | "Selection rules on unseen days", "Choosing a cell by its worst case over fill-model scenarios" | `--data D --train ... --test ... --products ... --grid PARAM=V1,V2 --grid ...` once two rounds exist |
+| `suggest_check` | Does `arena.diagnose --suggest`, read on the first days, get near the hand-tuned PARAMS on the last (all, worse, resting)? | "`arena.diagnose --suggest`" | `--data D --days ... [--products A,B]`: suggested from all days but the last, against the bot as it is on the last |
+| `lead_lag` | For any products: the same-tick correlation of their price changes, and for each ordered pair how far B moves 1/5/20 ticks after A moves (beyond B's drift and its own bounce), against B's half-spread; pairs steady on every day with \|t\| ≥ 3 and a quarter of the half-spread are listed (`--horizons` for others); with `--lags K`, the exact-lag test: the one-tick changes' correlation at each lag 1..K, listed at 4.5 standard errors | "A lead–lag table for any products", "Lead-lag within a family" | `--data D --days ... [--products A,B,...] [--horizons 20,50,100] [--lags 250]` (give `--lags` a family: its cost is pairs × K); the defaults are controls (P3's baskets and the rock's vouchers, P4 round 1) |
 
-## The rest
+## `study/`: Prosperity studies
 
 | Experiment | What it answers | `IDEAS.md` row | Why not on the day's data |
 |---|---|---|---|
 | `cross_product_timing` | Do a basket's legs lead it, and do one product's trades lead another | "Legs leading the basket" | Data only, Prosperity's baskets hard-coded; read it if the Arena has baskets |
-| `suggest_check` | Does `arena.diagnose --suggest`, read on the first days, get near the hand-tuned PARAMS on the last (all, worse, resting)? | "`arena.diagnose --suggest`" | `--data D --days ... [--products A,B]`: suggested from all days but the last, against the bot as it is on the last |
-| `lead_lag` | For any products: the same-tick correlation of their price changes, and for each ordered pair how far B moves 1/5/20 ticks after A moves (beyond B's drift and its own bounce), against B's half-spread; pairs steady on every day with \|t\| ≥ 3 and a quarter of the half-spread are listed (`--horizons` for others); with `--lags K`, the exact-lag test: the one-tick changes' correlation at each lag 1..K, listed at 4.5 standard errors | "A lead–lag table for any products", "Lead-lag within a family" | `--data D --days ... [--products A,B,...] [--horizons 20,50,100] [--lags 250]` (give `--lags` a family: its cost is pairs × K); the defaults are controls (P3's baskets and the rock's vouchers, P4 round 1) |
-| `lobster_days` | Converts LOBSTER's NASDAQ sample files (`data/lobster/raw`, `MANUAL_TODO.md`) to the Prosperity layout as `abides_days` does: a tick a second, three levels, cents, trades of the next second | "An independent generator: ABIDES's RMSC04" | A tool, not a study |
 | `abides_market` | The template trading inside ABIDES's market (its agents see our orders), against the same day replayed under `all`, `worse` and resting, per seed (`--set`, `--resting`; `--options` for another RMSC04 setup, e.g. no momentum agents; `--see-own`, `--out`); `abides_export/template_agent.py` runs the template's STRATEGY and EXECUTION as an ABIDES agent, within its limit while cancels are in flight and without its own orders in the book it reads | "The template inside ABIDES's market" | Simulated days only |
 | `abides_study` | On any data with a fundamental file (ABIDES's, `arena.sim`'s): each fair mode and smoothing against the fundamental and the mid 50 ticks ahead, and whether large moves continue, per day | "An independent generator: ABIDES's RMSC04" | Data only; the day's download has no fundamental, but `--data D --days ... --products P` still gives the continuation table and the mid-ahead errors |
-| `abides_days` | Makes days from ABIDES's RMSC04, a market we didn't write, in the Prosperity layout (`setup`, then `generate --days N`; `--names` for the agents' types as buyer and seller); `abides_export/` runs under ABIDES's own Python, and each day's `meta.json` carries a hash of its code, so `generate` won't mix days written by different code | "An independent generator: ABIDES's RMSC04" | A tool, not a study |
-| `format_drill` | Makes drill-format data (and `--sync` copies the template into the drill bot) | — | A tool, not a study |
 | `kelp_drift` | Why the template holds Kelp long: each day mirrored (the takers' flow or a bias), Harris's test, and `skew` 0–3 | "`skew` against Kelp's long position" | P3 round 1 hard-coded; on the day, `arena.diagnose`'s buy share and Harris's test on a `--out` timeline answer the same for any product |
 | `online_edge` | A `make_edge` learned online from the bot's own fills (`python/bots/research/online_edge.py`) against fixed edges, under six fill models: the learner's settings chosen on P3 round 1 day −2, then scored on the other days, P4 round 1 and fresh `arena.sim` days, with where the learned edge ends | "Learning `make_edge` online" | The learner lives in a Prosperity-format research copy with no Rust twin; port it into the template first |
 | `reversion_term` | Linear Utility's and DTU's one-tick reversion term in the fair against the plain wall mid and an EMA (`smoothing`), as forecasts 1/5/20 ticks ahead with β from the other days | "A one-tick reversion term in the fair" | The teams' products hard-coded; on the day, grid `smoothing` (0.25 among the values) instead |
 | `p4_levels` | How much of the teams' P4 PnL survives without their hard-coded levels | "Trading toward a known level", "What the P4 vouchers are" | Runs other teams' Prosperity bots |
 | `quote_inside` | `make_inside` (quoting nearer fair than one tick inside the book) against rivals that quote nearer fair, per tick and resting, and its cost alone | "Quoting nearer fair than one tick inside the book, against rivals that do" | Runs the Prosperity zoo on P3; on the day grid `PARAMS.<P>.make_inside=1,2,3,None` with `arena.grid --scenario` and a `vs=` rival |
-| `rust_bench` | Every Rust twin against its Python file, then the speed | — | The parity check (`--parity-only --record`) |
 | `search_methods` | Random cells, `--halving`, coordinate descent from DEFAULTS, TPE and a Gaussian-process search against the whole grid at a budget of cells: part 1 by lookup in three whole grids (Kelp, Osmium, ABIDES's ABM), part 2 live on Kelp's 933,120 cells | "Searching a big grid without running all of it" | Fixed studies on Prosperity and ABIDES days; on the day the same searches run in `arena.grid --search` |
 | `selection_rules_sim` | The selection rules on fresh `arena.sim` days; part 2 across the scenarios | "Selection rules on unseen days", "Choosing a cell by its worst case over fill-model scenarios" | Simulated days; calibrate `arena.sim` to the download first (`--spec`) |
 | `sim_regimes` | The template's stops and guards when `arena.sim`'s regime changes mid-day | "Regime changes in a market that reacts" | Simulated days |
@@ -78,3 +72,14 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `trade_clustering` | Do the market trades cluster in time (Hawkes) | "Quoting from clustered order flow" | Data only; untested idea |
 | `zoo` | Every zoo bot alone, against the template, in `arena.sim` and in one field | "The LLM zoo" | The day's zoo is written for the Arena's API: score it with `arena.compare` (`ON_THE_DAY.md`, "The round's zoo") |
 | `zoo_h2h` | The template against each zoo bot, per product and fill mode | "Why the zoo beat the template head to head" | As `zoo` |
+
+## The tools at the top
+
+| Tool | What it does | `IDEAS.md` row | Notes |
+|---|---|---|---|
+| `mock_round/` | The agent-only mock rounds: a disguised round's generator, the portal that scores a bot on its hidden days, its answer key, and the runs' bots (its README; `round2/`, the restructure's before/after rehearsal) | "The kickoff prompts on a disguised round" | Spent: a new rehearsal needs new seeds and layout |
+| `lobster_days` | Converts LOBSTER's NASDAQ sample files (`data/lobster/raw`, `docs/MANUAL_TODO.md`) to the Prosperity layout as `abides_days` does: a tick a second, three levels, cents, trades of the next second | "An independent generator: ABIDES's RMSC04" | A tool, not a study |
+| `abides_days` | Makes days from ABIDES's RMSC04, a market we didn't write, in the Prosperity layout (`setup`, then `generate --days N`; `--names` for the agents' types as buyer and seller); `abides_export/` runs under ABIDES's own Python, and each day's `meta.json` carries a hash of its code, so `generate` won't mix days written by different code | "An independent generator: ABIDES's RMSC04" | A tool, not a study |
+| `format_drill` | Makes drill-format data (and `--sync` copies the template into the drill bot) | — | A tool, not a study |
+| `rust_bench` | Every Rust twin against its Python file, then the speed | — | The parity check (`--parity-only --record`) |
+| `ideas_index` | Rewrites the index at the top of `IDEAS.md` (`--check`: exit 1 if stale; `python/tests/test_ideas_index.py`) | — | After any edit to an `IDEAS.md` row |

@@ -43,7 +43,7 @@ So for each (model, prompt):
    reply once in the same chat with just the error message, and save the new answer over the
    file. Record that in the table below. Don't repair a bot that runs but loses money: that is
    the result.
-6. **Add a row to the table below** and run `uv run python -m experiments.zoo`.
+6. **Add a row to the table below** and run `uv run python -m experiments.study.zoo`.
 7. **Give it a Rust twin** at the same path under `rust/src/` (`rust/src/bots/zoo/<provider>/<name>.rs`, a line-by-line translation, declared in `rust/src/bots/zoo/mod.rs`; `rust/README.md`, "Keeping it in step"), so the field runs in Rust too. `python/tests/test_rust.py` fails until it has one.
 
 Which models: Gemini (Gemini 4, and an older one such as 2.5 Pro), and ChatGPT, current and
@@ -52,7 +52,7 @@ teams will use whatever is free. Then all four prompts for the strongest of each
 the rest.
 
 Local models (`local.py`) aren't on that list: no team will code with them. Their twenty bots stay, and
-`experiments.zoo` leaves them out of the field unless `--local`.
+`experiments.study.zoo` leaves them out of the field unless `--local`.
 
 ## The bots
 

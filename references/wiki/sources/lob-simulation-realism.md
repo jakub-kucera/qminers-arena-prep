@@ -9,7 +9,7 @@ updated: 2026-10-14
 # Vyetrenko et al., "Get real: realism metrics for robust limit order book market simulations" (arXiv:1912.04941, 2019)
 
 ## What it is
-An 11-page catalogue of the stylised facts a simulated limit order book should reproduce, from J.P. Morgan AI Research. It tests two ABIDES configurations against real data. For us it is the acceptance test for a day generator (A1 in [harder-rounds](../concepts/harder-rounds.md)): a generated day should look like the Arena's download before we tune on it. It was on `MANUAL_TODO.md` E as an ACM item, and the agent fetched it from arXiv on 2026-10-14.
+An 11-page catalogue of the stylised facts a simulated limit order book should reproduce, from J.P. Morgan AI Research. It tests two ABIDES configurations against real data. For us it is the acceptance test for a day generator (A1 in [harder-rounds](../concepts/harder-rounds.md)): a generated day should look like the Arena's download before we tune on it. It was on `docs/MANUAL_TODO.md` E as an ACM item, and the agent fetched it from arXiv on 2026-10-14.
 
 ## Main results
 - **Why replay is not enough:** "simple market replay of historical data is not sufficient for back testing or strategy construction", because the market's response to our orders is missing (`lob-simulation-realism.md:29` (p. 2)). This is the same gap as probe 17 in `ON_THE_DAY.md`.

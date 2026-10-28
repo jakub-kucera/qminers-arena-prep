@@ -25,7 +25,7 @@ A market maker on a large-tick asset whose orders reach the book with a delay, a
 |---|---|
 | uninformed hit rate `λ±` | `arena.diagnose`'s `lambda_buy` / `lambda_sell`: a market trade at the best with the mid unchanged a tick later, per one-tick-spread tick |
 | jump rate `λ` | `arena.diagnose`'s `lambda`: the mid moved a tick later, per one-tick-spread tick |
-| latency | the engine option in `TODO_DONE.md` (harder-rounds C3) |
+| latency | the engine option in `docs/TODO_DONE.md` (harder-rounds C3) |
 
 ## Traps
 - None found.

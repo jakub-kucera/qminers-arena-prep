@@ -1,8 +1,10 @@
 # Runbook
 
-One page for the day. `ON_THE_DAY.md` has the reasons and the detail behind each line (its sections are
-named in brackets), and `KICKOFF_PROMPT.md` starts each agent session. `D` is the round's data
-folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/template.py`.
+**Start here.** This page is the day's index: each line names the `ON_THE_DAY.md` section behind it in
+brackets; read only those sections, when the line comes up. Before the plug-in: `ARCHITECTURE.md`'s paragraph "**Formats are plug-ins**".
+Before any product's PARAMS: `references/wiki/concepts/reading-the-data-on-day-one.md`. `KICKOFF_PROMPT.md` is
+the prompt the user pastes to start an agent session (it points back here). `D` is `data/arena/round<N>/`,
+`DAYS` its day specs (`all`), and `BOT` is `python/bots/qminers/template.py` (prepared, `--format qminers` registered).
 
 ## Before the doors open (Sat 08:00)
 - `git pull && uv sync && uv run pytest` on every laptop; `references/` was cloned at home.
@@ -19,14 +21,14 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
    ADAPTER may not be validated by 13:00 ["Spend the round's submissions", "A fallback first?"].
 
 ## Playground (10:30–12:00): three tracks at once ["Splitting the first hour"]
-- **Probes (A):** rewrite `python/bots/probe.py`'s ADAPTER and set `PRODUCT` and `LIMIT`. Check it locally with
-  `uv run python -m arena.backtest python/bots/probe.py 1 --print --no-strict`, then run it in the
+- **Probes (A):** rewrite `python/bots/qminers/probe.py`'s ADAPTER and set `PRODUCT` and `LIMIT`. Check it locally with
+  `uv run python -m arena.backtest python/bots/qminers/probe.py all --format qminers --data D --print --no-strict`, then run it in the
   playground and read the `PROBE` lines ["Probes"]. If their rules forbid dynamic imports or sleeps, or
   uploads are scarce, delete its RISKY PROBES block first.
-- **Data (B):** copy the nearest of `python/arena/formats/snapshots.py`, `orderlog.py` and `drill.py` to `qminers.py` and register it ["The format swap, step by
+- **Data (B):** fill in `python/arena/formats/qminers.py` (registered) by the 13-step checklist ["The format swap, step by
   step"]; then run `uv run python -m arena.diagnose DAYS --format qminers --data D --profile --suggest` ["What kind of market is
   each product?"].
-- **Bot (A):** in a copy of `python/bots/template.py`, rewrite only the imports, PARAMS and ADAPTER. Then
+- **Bot (A):** in the prepared `python/bots/qminers/template.py`, rewrite only the imports, PARAMS and ADAPTER (the checklist's step 5). Then
   `uv run python -m arena.validate BOT DAYS --format qminers --data D --time-limit-ms <theirs> --max-size <the dashboard's> [--allow numpy]`.
   Over the cap: `uv run python -m arena.compact BOT <copy>.py`, then validate and upload the copy ["How do submissions work?"].
 
@@ -41,14 +43,14 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 | When | Do |
 |---|---|
 | T+0:00 | Reload the dashboard; download the data (its link goes with the round) and the round's rules; note the submission deadline, which may come before the end. Write what changed into "Rule changes" and "Products". |
-| T+0:15 | `arena.diagnose --suggest` and `experiments.structure` (repeats of old days, sums, grids) on the new days; backtest last round's bot on them in each mode; `arena.validate` it: the first candidate. `uv run python -m experiments.premise --data D --days DAYS --format qminers --bot BOT --engine rust` (round 1 before any Prosperity prior; later rounds, whether a product changed kind): per product Prosperity-like or agent-like, and the grids to run ["What kind of market is each product?"]. |
+| T+0:15 | `arena.diagnose --suggest` and `experiments.day.structure` (repeats of old days, sums, grids) on the new days; backtest last round's bot on them in each mode; `arena.validate` it: the first candidate. `uv run python -m experiments.day.premise --data D --days DAYS --format qminers --bot BOT --engine rust` (round 1 before any Prosperity prior; later rounds, whether a product changed kind): per product Prosperity-like or agent-like, and the grids to run ["What kind of market is each product?"]. |
 | T+0:30 | New products into PARAMS, by `references/wiki/concepts/reading-the-data-on-day-one.md`. Rounds 2–4: by T+1:00, one alternative to last round's approach against it, and every setting gridded again; last round's choices are priors, not defaults ["Choose the approach again each round"]. Options, baskets, named traders or jumps: the experiment for each (`python/experiments/README.md`). |
 | T+1:00 | `uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>.make_edge=0.5,1,1.5,2 --modes <closest>,worse [--screen 0.25]` while the fill mode is uncertain; once the rules or the playground's fills pin it, `--modes <that>,worse,none --gate first --holdout last` (`--holdout 25%` for one day of data); past ~100k cells, `--search tpe --budget 1000` instead of the whole grid. Change a setting only to the summary's `pick` (the last one printed, with `--holdout`) ["Evaluation data", "Which modes gate the grid's pick"]. Fill model unsure: add a `--scenario` for each one left possible ["Which backtest settings match the playground?"]. |
 | T+1:30 | `uv run python -m arena.stress BOT DAYS --format qminers --data D`; set each `stop_loss` to about 3× its plain drawdown ["Stress the bot"]. If the market is shared: `--vs` copies, the round's zoo through `arena.compare`, and the rivals ["Is the market shared"]. |
 | T+2:00 | A validated bot at least as good as the last one, uploaded; its portal score against our backtest is the engine's error `T`. |
 | deadline − 0:30 | (T+4:30 if the deadline is the round's end; earlier if twice the first evaluation's time is longer.) Stop changing the strategy. Validate the final candidate and upload it. |
-| deadline − 0:10 | Check which submission is marked final. Write the handover note, then commit and push it. |
-| After | Once the private run is done: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
+| deadline − 0:10 | Check which submission is marked final. Write the handover note (`data/arena/round<N>/HANDOVER.md`, from round 1's template), then commit and push it. |
+| After | Once the private run is done: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.day.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
 
 ## Rules that hold all day
 - Never upload code `arena.validate` hasn't passed, and never spend a submission on untested code.
@@ -60,6 +62,6 @@ folder, `DAYS` its day specs, and `BOT` our bot, e.g. `python/bots/qminers/templ
 - Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00; while A sleeps, B uploads
   only from the written list ["The day: timeline and roles"].
 - Before round 4: decide in writing how much risk to keep, and any relative hedge, from
-  `uv run python -m experiments.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team <ours> --ours <round 4's grid CSV> --growth-from data/arena/round3:<days> data/arena/round4:<days> --proxy-bots <the round's zoo> --format qminers`
+  `uv run python -m experiments.day.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team <ours> --ours <round 4's grid CSV> --growth-from data/arena/round3:<days> data/arena/round4:<days> --proxy-bots <the round's zoo> --format qminers`
   (our rank under each way the rounds may combine; the 10/20/30/40% are unconfirmed); if rounds 2–3's private runs
   strayed from our backtests, a bot that sends nothing is on the list ["How is PnL scored?"].

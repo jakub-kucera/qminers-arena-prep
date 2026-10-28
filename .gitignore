@@ -40,10 +40,14 @@ python/experiments/mock_round/public/data/
 python/experiments/mock_round/private/raw_public/
 python/experiments/mock_round/private/raw_hidden/
 python/experiments/mock_round/private/hidden_data/
+python/experiments/mock_round/round2/public/data/
+python/experiments/mock_round/round2/private/raw/
+python/experiments/mock_round/round2/private/hidden_data/
 
 # Agent worktrees (Claude Code)
 .claude/worktrees/
 
 # ...but the mock round's results are the rehearsal's record (python/experiments/mock_round/README.md)
 !python/experiments/mock_round/results/
+!python/experiments/mock_round/round2/results/
 .env

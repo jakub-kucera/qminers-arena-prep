@@ -1,11 +1,11 @@
-"""python/experiments/standings.py: the scorings, the field read from the leaderboards, the
+"""python/experiments/day/standings.py: the scorings, the field read from the leaderboards, the
 simulation's answers on fields whose answer is known, and the CLI on a synthetic field."""
 
 import json
 
 import pytest
 
-from experiments import standings as st
+from experiments.day import standings as st
 
 
 def two_teams(lead: float, rounds: int = 1) -> st.Board:
