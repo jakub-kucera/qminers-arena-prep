@@ -627,6 +627,22 @@ def test_the_premise_check_runs_on_the_days_data(capsys, monkeypatch, drill_data
     assert "| ALPHA |" in out and "verdict" in out
 
 
+
+def test_the_premise_check_runs_under_the_formats_rules(capsys, monkeypatch, drill_data):
+    # The 2026-10-28 rehearsal: premise's PnL ignored the rules' fee and mark, and disagreed in sign with the
+    # backtest under them. Now it starts from the format's RESTING and ENGINE (arena.cli.format_config).
+    import re
+
+    from arena.formats import drill
+
+    real = lambda out: {m[0]: float(m[1].replace(",", "")) for m in re.findall(r"\| (\w+) \| (-?[\d,]+) \|", out)}
+    plain = run(capsys, monkeypatch, "premise", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "under the format's rules: resting True" in plain
+    monkeypatch.setattr(drill, "ENGINE", {"fee": 50.0, "trade_matching": "none"}, raising=False)
+    ruled = run(capsys, monkeypatch, "premise", "--data", drill_data, "--days", "all", "--format", "drill")
+    assert "trade_matching none" in ruled and "fee 50.0" in ruled  # premise has one mode: the rules' own
+    assert all(real(ruled)[p] < real(plain)[p] for p in real(plain) if real(plain)[p])
+
 def test_the_premise_check_runs_a_bot_without_a_twin_on_the_python_engine(capsys, monkeypatch, drill_data, tmp_path):
     from arena import rust
 

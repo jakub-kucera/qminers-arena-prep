@@ -165,6 +165,27 @@ def format_config(format_name: str, **changes) -> EngineConfig:
     return replace(EngineConfig(**base), **changes)
 
 
+# What the experiments vary as their modes; every other field of a format's ENGINE is the rules' (under_rules).
+VARIED = ("trade_matching", "resting", "delay")
+
+
+def under_rules(config: EngineConfig, format_name: str) -> EngineConfig:
+    """An experiment's config under the format's rules: each field the format's ENGINE sets, other than the
+    matching, resting and delay the experiments vary as their modes, replaces the config's where the config
+    leaves it at EngineConfig's default. So `experiments.day.premise` on their data pays their fees and is
+    marked as their rules say, while its own modes stay its own (Prosperity's ENGINE is empty: no change)."""
+    engine, default = getattr(FORMATS[format_name], "ENGINE", {}), EngineConfig()
+    rules = format_config(format_name)
+    changes = {name: getattr(rules, name) for name in engine if name not in VARIED and getattr(config, name) == getattr(default, name)}
+    return replace(config, **changes)
+
+
+def describe(config: EngineConfig) -> str:
+    """The fields a config sets away from EngineConfig's defaults, for a table's header ("Prosperity's" if none)."""
+    value = lambda v: v.value if hasattr(v, "value") else v
+    changed = [f"{f.name} {value(getattr(config, f.name))}" for f in fields(EngineConfig) if getattr(config, f.name) != getattr(EngineConfig(), f.name)]
+    return ", ".join(changed) or "Prosperity's"
+
 def setup(args: argparse.Namespace) -> Setup:
     fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
@@ -214,9 +235,10 @@ def backtest_days(data: str, specs: list[str], engine: str = "python", format_na
 def backtest(day: Day, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, engine: str = "python", strict: bool = False,
              fields: tuple[str, ...] | None = None, format_name: str = "prosperity") -> list[DayResult]:
     """The (name, bot file, overrides, requote) participants in one market on one day, in the format
-    (Prosperity's by default), on either engine: each one's DayResult. With engine "rust" the day may
+    (Prosperity's by default), on either engine, under the format's rules (under_rules): each one's DayResult. With engine "rust" the day may
     be a day file (arena.rust.sim_day_file), `fields` limits what is read back, and `strict` is moot
     (a Rust twin can't raise from a bug)."""
+    config = under_rules(config, format_name)
     if engine == "rust":
         from arena import rust
 

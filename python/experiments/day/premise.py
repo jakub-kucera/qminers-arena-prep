@@ -36,8 +36,7 @@ import sys
 from pathlib import Path
 
 from arena import diagnose, rust, stress
-from arena.cli import add_dataset_arguments, add_engine_argument, backtest, bot_params, dataset_from
-from arena.engine import EngineConfig
+from arena.cli import add_dataset_arguments, add_engine_argument, backtest, bot_params, dataset_from, describe, format_config, under_rules
 from arena.formats import FORMATS
 from experiments.day import predict
 
@@ -49,13 +48,14 @@ GATE_GRID = "--grid 'PARAMS.{p}.gate_move=None,2,5' --grid PARAMS.{p}.gate_windo
 
 
 def shuffle_test(days, products: list[str], bot: str, overrides: dict, engine: str, fmt: str) -> dict[str, tuple[float, float]]:
-    """Per product: (PnL on the days as recorded, mean PnL on COPIES shuffled copies)."""
+    """Per product: (PnL on the days as recorded, mean PnL on COPIES shuffled copies), under the format's rules."""
+    config = format_config(fmt)
     real = {p: 0.0 for p in products}
     shuffled = {p: 0.0 for p in products}
     for day in days:
         for seed in range(COPIES + 1):
             run = day if seed == 0 else stress.permute(day, seed)
-            (result,) = backtest(run, [("you", bot, overrides, False)], EngineConfig(), engine, False, ("pnl",), fmt)
+            (result,) = backtest(run, [("you", bot, overrides, False)], config, engine, False, ("pnl",), fmt)
             for p in products:
                 series = result.pnl.get(p)
                 value = series[-1] if series else 0.0
@@ -136,7 +136,8 @@ def main(argv: list[str] | None = None) -> int:
     overrides = {"PARAMS": {**{p: listed[p] for p in listed}, **{p: {"limit": limits[p]} for p in products if p not in listed}}}
     rows = diagnose.diagnose(days)
     order = shuffle_test(days, products, dataset.bot, overrides, args.engine, dataset.format)
-    print(f"{dataset.name}: {len(days)} day(s), the bot {dataset.bot} (DEFAULTS and the limit for products it doesn't list)\n")
+    print(f"{dataset.name}: {len(days)} day(s), the bot {dataset.bot} (DEFAULTS and the limit for products it doesn't list); "
+          f"under the format's rules: {describe(under_rules(format_config(dataset.format), dataset.format))}\n")
     print("| product | PnL as recorded | shuffled (mean of 5) | trades move the wall mid | margin | large-tick | forecast | verdict |")
     print("|---|---|---|---|---|---|---|---|")
     todos = {}

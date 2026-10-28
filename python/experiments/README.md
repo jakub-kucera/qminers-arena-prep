@@ -14,7 +14,7 @@ Prosperity data in `references/`. Three groups:
 - **The tools at the top** (the third table): data makers, the Rust parity check, the IDEAS index, the
   mock round.
 
-Every experiment that backtests takes `--engine rust` (and `--allow-stale`), with the same output.
+Every experiment that backtests takes `--engine rust` (and `--allow-stale`), with the same output. On a format with an `ENGINE`, its backtests run under those rules (`arena.cli.under_rules`: the fees, queue, mark and caps), while the matching, resting and delay each experiment varies as its modes stay its own; `premise` starts from the format's settings outright and prints them.
 
 ## `day/`: re-run on the Arena's data
 

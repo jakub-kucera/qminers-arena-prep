@@ -87,3 +87,17 @@ def test_requote_cancels_a_rivals_resting_orders_every_tick():
     assert piled.limit_breaches  # the bids pile up past the limit of 2
     assert not requoted.limit_breaches and len(requoted.cancels) == 4
     assert all(seen == [] for seen in wrapped.seen_open)  # it never sees its own resting orders
+
+
+def test_the_experiments_backtests_run_under_the_formats_rules_but_keep_their_modes(monkeypatch):
+    # cli.backtest is the experiments' (no CLI tool calls it): the rules' fees, queue and mark fill in, while the
+    # matching, resting and delay an experiment varies as its modes stay its own.
+    from arena.cli import describe, under_rules
+    from arena.engine import EngineConfig, Mark, QueueModel, TradeMatching
+    from arena.formats import prosperity
+
+    monkeypatch.setattr(prosperity, "ENGINE", {"fee": 1.0, "mark": "touch", "queue": "prob", "trade_matching": "worse"}, raising=False)
+    config = under_rules(EngineConfig(resting=True), "prosperity")
+    assert (config.fee, config.mark, config.queue, config.trade_matching, config.resting) == (1.0, Mark.TOUCH, QueueModel.PROB, TradeMatching.ALL, True)
+    assert under_rules(EngineConfig(queue=QueueModel.FRONT), "prosperity").queue is QueueModel.FRONT  # set away from the default: kept
+    assert describe(config) == "resting True, queue prob, mark touch, fee 1.0" and describe(EngineConfig()) == "Prosperity's"
