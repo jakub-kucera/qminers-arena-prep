@@ -437,7 +437,7 @@ It fails (exit code 1) on:
 - imports from outside the standard library that aren't listed in `--allow`
 - any exception, or malformed orders (e.g. float prices)
 - orders the engine cancels for possibly breaching a position limit
-- a tick slower than `--time-limit-ms`
+- a tick slower than `--time-limit-ms`, timed without the garbage collections that run inside the call (the backtester's objects, not the bot's work; the line says when it left some out, and the bot's own garbage is left out with them)
 - a traded product with no `limit` in PARAMS (the template refuses it: DEFAULTS' is a placeholder)
 
 Over the cap, `arena.compact` writes a copy without comments or docstrings (the template's 49 KB become about 26 KB) and checks that it parses back to the same code; it trades exactly as the original (`python/tests/test_compact.py`). Validate and upload the copy, and keep editing the original. Delete the probe bot's RISKY PROBES block before compacting it, since its markers are comments.

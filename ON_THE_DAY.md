@@ -181,7 +181,7 @@ From the organisers' e-mail of 7 Oct (saved as the first message of `references/
   - Find out: probe 7; is there a state string like `traderData`, and its cap (Prosperity cut it at 50,000 characters)? We assume: only `traderData` survives (the validator's reload-every-tick check enforces it); `arena.validate --max-state CHARS` warns above their cap.
   - If a failed or slow call's state is thrown away: `loss_stop`'s fill tally can fire on nothing; catch every error inside the call and keep well inside the time limit, or rebuild the stop's PnL from what the exchange reports (`TODO.md`, "A loss stop that survives discarded calls").
 - [ ] **What does the runtime allow?**
-  - Find out: the Python version, allowed imports (probe 10), the time limit per call (probe 8), prints (probe 9). Then `arena.validate` with `--allow numpy` (etc.) and `--time-limit-ms`.
+  - Find out: the Python version, allowed imports (probe 10), the time limit per call (probe 8), prints (probe 9). Then `arena.validate` with `--allow numpy` (etc.) and `--time-limit-ms` (its slowest tick leaves out the collector's pauses over the backtester's objects; keep a margin under their limit for their own).
   - The dashboard's file-size cap is a capacity budget: MB-scale fits a table or a small model; KB-scale means `arena.compact`. Read its value at the round's start.
 - [ ] **What data can you backtest on?**
   - Find out: the format of the "Download public backtest data" files, and whether the private evaluation's data looks the same (depth, tick spacing). The link goes with the round: download at the round's start and keep it (Known so far).

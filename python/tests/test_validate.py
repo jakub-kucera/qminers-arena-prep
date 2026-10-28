@@ -249,3 +249,27 @@ def test_the_action_and_resting_caps_fail_once_and_the_counts_are_what_the_bot_s
     assert int(out.split("most actions in a tick ")[1].split(" ")[0]) > 1  # what the bot sent, not the cap (its runs differ once capped)
     code, out = check(None, "--resting", "--max-resting", "1")
     assert code == 1 and "resting cap:" in out and "exceptions escaped" not in out
+
+
+def test_a_garbage_collection_inside_a_call_is_left_out_of_the_slowest_tick(check):
+    # The 2026-10-28 rehearsal: one call a session took 70-91 ms, a full collection over the backtester's own
+    # objects, and failed a 50 ms limit the bot's own work never came near. Here the collection is forced inside
+    # a call that otherwise does nothing; the check times the call without it, and says so.
+    code, out = check(
+        """
+        import gc
+
+        HEAP = [[i] for i in range(300_000)]  # tracked objects the collector has to walk
+        CALLS = [0]
+
+        class Trader:
+            def run(self, state):
+                CALLS[0] += 1
+                if CALLS[0] == 2:
+                    gc.collect()
+                return {}, 0, ""
+        """,
+        "--time-limit-ms", "5",
+    )
+    line = next(l for l in out.splitlines() if "slowest tick" in l)
+    assert "PASS" in line and "with the backtester's garbage collections, left out" in line, line

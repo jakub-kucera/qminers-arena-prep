@@ -85,7 +85,6 @@ None open.
 ## From the 2026-10-28 rehearsal
 
 Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; their logs in `python/experiments/mock_round/round2/results/`) hit these.
-- [ ] **`arena.validate`'s time check under load.** The same file passed at 15.6 ms, failed at 61.8 ms while pytest ran, and passed at 40.6 ms idle: one call a session takes 70–91 ms at a different step each time, a full garbage collection of the engine's own objects (2.5 ms with `gc.disable()`). Done when: the slowest-call check excludes the backtester's collections (or runs the bot's calls with collection deferred), and a test shows a bot that allocates nothing passes under a forced collection.
 - [ ] **`diagnose --suggest` on a large-tick product that trends.** On VANTA (large-tick, flat then trending from a point that changes each session) it suggested quoting both sides, the one product that lost on every session in both runs (−2,718 and −6,498 pips). Done when: the suggestion is checked on `arena.sim`'s large-tick preset with a regime change, and either a trend note switches it to take-only or `IDEAS.md`'s `--suggest` row says why not.
 
 ## Rehearsal and setup

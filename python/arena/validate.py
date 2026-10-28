@@ -38,6 +38,7 @@ import statistics
 import subprocess
 import sys
 import textwrap
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -166,18 +167,57 @@ def most_working(result) -> int:
     return max(Counter((ts, o.product) for ts, o in result.orders).values(), default=0)
 
 
+class _GcClock:
+    """Seconds the collector has run, from gc.callbacks: what to take out of a bot's timed call."""
+
+    def __init__(self):
+        self.total, self._start = 0.0, None
+
+    def __call__(self, phase: str, info: dict) -> None:
+        if phase == "start":
+            self._start = time.perf_counter()
+        elif self._start is not None:
+            self.total += time.perf_counter() - self._start
+            self._start = None
+
+
+class _Timed:
+    """The bot, with the collector's seconds during each of its calls recorded beside the engine's timing."""
+
+    def __init__(self, bot, clock: _GcClock):
+        self.bot, self.clock, self.gc_seconds = bot, clock, []
+
+    def step(self, *args):
+        before = self.clock.total
+        try:
+            return self.bot.step(*args)
+        finally:
+            self.gc_seconds.append(self.clock.total - before)
+
+    def __getattr__(self, name):  # begin_day and the rest, as the bot has them
+        return getattr(self.bot, name)
+
+
 def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None,
                   max_state: int | None = None) -> list[Check]:
     """argv, this run's arguments, lets the first day be replayed in other processes (hash_seed_check)."""
     results, bots = [], []
     # The loaded days are long-lived: freeze them out of the collector, or its pauses land inside
     # the bot's timed calls (43-53 ms against the bot's own 0.3 ms in the 2026-10-26 dry run).
+    # A collection can still start inside a call and walk the engine's own objects (70-91 ms once a session in the
+    # 2026-10-28 rehearsal, under load; 2.5 ms with the collector off): time it apart (_GcClock) and leave it out.
     gc.collect()
     gc.freeze()
-    for day in s.days:
-        bot = s.format.load_bot(path, s.overrides, strict=True)
-        results.append(run_day(day, bot, s.config))
-        bots.append(bot)
+    clock, timed = _GcClock(), []
+    gc.callbacks.append(clock)
+    try:
+        for day in s.days:
+            bot = s.format.load_bot(path, s.overrides, strict=True)
+            timed.append(_Timed(bot, clock))
+            results.append(run_day(day, timed[-1], s.config))
+            bots.append(bot)
+    finally:
+        gc.callbacks.remove(clock)
 
     checks = []
     ticks = sum(len(r.timestamps) for r in results)
@@ -204,13 +244,15 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     else:
         checks.append(Check(PASS, "orders never breach a position limit"))
 
-    step_ms = [seconds * 1000 for r in results for seconds in r.step_seconds]
+    step_ms = [(seconds - collected) * 1000 for r, t in zip(results, timed) for seconds, collected in zip(r.step_seconds, t.gc_seconds)]
+    raw = max((seconds * 1000 for r in results for seconds in r.step_seconds), default=0.0)
     slowest = max(step_ms, default=0.0)
     p99 = statistics.quantiles(step_ms, n=100)[98] if len(step_ms) >= 100 else slowest
+    pauses = f"; {raw:.1f} ms with the backtester's garbage collections, left out" if raw - slowest >= 1 else ""
     checks.append(
         Check(
             FAIL if slowest > time_limit_ms else PASS,
-            f"slowest tick {slowest:.1f} ms (limit {time_limit_ms:g} ms), 99th percentile {p99:.2f} ms, mean {statistics.fmean(step_ms or [0]):.2f} ms",
+            f"slowest tick {slowest:.1f} ms (limit {time_limit_ms:g} ms), 99th percentile {p99:.2f} ms, mean {statistics.fmean(step_ms or [0]):.2f} ms{pauses}",
         )
     )
 
