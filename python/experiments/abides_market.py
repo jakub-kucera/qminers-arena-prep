@@ -8,15 +8,18 @@ usage (from the repo root, after `uv run python -m experiments.abides_days setup
 Every ABIDES row in IDEAS.md comes from converted days: recordings, where the market's agents never
 see our orders. Here, for each seed, two runs of the same RMSC04 day (python/experiments/abides_export/
 export.py, with template_agent.TemplateAgent in both, so the latency draws and the market agree until
-our first order):
+our first order, though not the same day after it: our messages shift when the agents query the
+oracle, so the fundamental parts within a minute):
   - in the market: the bot (with --set) trades once a second from the open; its PnL, cents, its end
-    position valued at the last mid;
+    position valued at the last mid, and its largest |position| (within the limit since 2026-10-28,
+    template_agent.py); --see-own leaves its own orders in the book it reads;
   - replayed: the idle run's day converted (experiments.abides_days), and the same bot through our
     engine on it under `all`, `worse` and `--resting --queue prob`.
 With --resting the bot in the market keeps its quotes that haven't moved; without, every order of
 ours lives one second. --options passes RMSC04's build_config arguments (its agents' numbers, the
 fundamental's volatility), each setup's runs in its own folder. The idle runs are kept under
-data/abides/market/ and reused. A day whose idle run leaves a side of the book empty or the mid far
+--out (data/abides/market/) and reused while meta.json's `code` matches the export code
+(experiments.abides_days.code_hash); ABIDES's own log/ goes beside them. A day whose idle run leaves a side of the book empty or the mid far
 from the fundamental (BROKEN: the price ran away, as with 50 momentum agents) is flagged and left out
 of the total. Results:
 IDEAS.md, "The template inside ABIDES's market".
@@ -28,6 +31,7 @@ import argparse
 import csv
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 from arena.botfile import parse_override
@@ -49,9 +53,10 @@ def _folder(seed: int) -> Path:
 
 def replay(seed: int, bot: Path, overrides: dict) -> dict[str, float]:
     idle = _folder(seed) / "idle"
-    if not (idle / "meta.json").exists():
+    if not (idle / "meta.json").exists() or json.loads((idle / "meta.json").read_text()).get("code") != abides_days.code_hash():
         idle.mkdir(parents=True, exist_ok=True)
         abides_days.export(seed, idle, **SETUP)
+        shutil.rmtree(_folder(seed) / "data", ignore_errors=True)  # converted from the old idle run
     data = _folder(seed) / "data"
     if not (data / "round1").exists():
         abides_days.convert(idle, data, 1)
@@ -76,32 +81,36 @@ def sanity(seed: int) -> tuple[float, float]:
     return 1 - len(both) / len(rows), max(abs(mid - f) / f for mid, f in both)
 
 
-def in_market(seed: int, bot: Path, overrides: dict, resting: bool) -> dict:
-    key = hashlib.sha256(json.dumps([str(bot), overrides, resting], sort_keys=True).encode()).hexdigest()[:12]
+def in_market(seed: int, bot: Path, overrides: dict, resting: bool, see_own: bool = False) -> dict:
+    key = hashlib.sha256(json.dumps([str(bot), overrides, resting] + ([True] if see_own else []), sort_keys=True).encode()).hexdigest()[:12]
     run = _folder(seed) / f"bot-{key}"
     run.mkdir(parents=True, exist_ok=True)
-    extra = ["--bot", str(bot.resolve()), "--set", json.dumps(overrides)] + (["--resting"] if resting else [])
+    extra = ["--bot", str(bot.resolve()), "--set", json.dumps(overrides)] + (["--resting"] if resting else []) + (["--see-own"] if see_own else [])
     abides_days.export(seed, run, extra=extra, **SETUP)
     return json.loads((run / "agent.json").read_text())
 
 
 def main(argv: list[str] | None = None) -> None:
+    global MARKET
     parser = argparse.ArgumentParser(prog="python -m experiments.abides_market")
     parser.add_argument("--days", type=int, default=10, help="seeds 1..N")
     parser.add_argument("--bot", type=Path, default=Path("python/bots/template.py"))
     parser.add_argument("--set", dest="overrides", action="append", default=[], metavar="PATH=VALUE")
     parser.add_argument("--resting", action="store_true", help="in the market, keep the quotes that haven't moved")
+    parser.add_argument("--out", type=Path, default=MARKET, help=f"where the runs go (default {MARKET.relative_to(abides_days.ROOT)})")
+    parser.add_argument("--see-own", action="store_true", help="in the market, the bot's book keeps its own live orders in")
     parser.add_argument("--options", default="{}", help="its build_config arguments, a JSON object, e.g. '{\"num_momentum_agents\": 0}'")
     args = parser.parse_args(argv)
     SETUP.update(options=json.loads(args.options))
+    MARKET = args.out
     overrides = dict(parse_override(text) for text in args.overrides)
-    print(f"{args.bot} {' '.join(args.overrides) or '(as committed)'}, in ABIDES's market ({args.options}) {'resting' if args.resting else 'per second'}, "
+    print(f"{args.bot} {' '.join(args.overrides) or '(as committed)'}, in ABIDES's market ({args.options}) {'resting' if args.resting else 'per second'}{', seeing its own orders' if args.see_own else ''}, "
           "and its idle run replayed (PnL in cents)\n")
-    print("| seed | in the market | lots filled | end position | replay all | replay worse | replay resting | idle day: one-sided, mid off the fundamental |")
+    print("| seed | in the market | lots filled | end position, largest | replay all | replay worse | replay resting | idle day: one-sided, mid off the fundamental |")
     print("|---|---|---|---|---|---|---|---|")
     totals, sane = [0.0] * 4, 0
     for seed in range(1, args.days + 1):
-        live = in_market(seed, args.bot, overrides, args.resting)
+        live = in_market(seed, args.bot, overrides, args.resting, args.see_own)
         recorded = replay(seed, args.bot, overrides)
         row = [live["pnl"], recorded["all"], recorded["worse"], recorded["resting"]]
         one_sided, off = sanity(seed)
@@ -109,7 +118,7 @@ def main(argv: list[str] | None = None) -> None:
         if not broken:
             totals = [a + b for a, b in zip(totals, row)]
             sane += 1
-        print(f"| {seed} | {row[0]:,.0f} | {live['filled']:,} | {live['position']} | {row[1]:,.0f} | {row[2]:,.0f} | {row[3]:,.0f} | "
+        print(f"| {seed} | {row[0]:,.0f} | {live['filled']:,} | {live['position']}, {live['max_position']} | {row[1]:,.0f} | {row[2]:,.0f} | {row[3]:,.0f} | "
               f"{one_sided:.1%}, {off:.1%}{' **broken**, not in the total' if broken else ''} |")
     print(f"| total ({sane} days) | {totals[0]:,.0f} | | | {totals[1]:,.0f} | {totals[2]:,.0f} | {totals[3]:,.0f} | |")
 

@@ -51,7 +51,7 @@ def convert(message: Path, orderbook: Path, data_dir: Path, day: int, round_num:
 
     def levels(book: list[str], offset: int) -> list[tuple[int, int]]:
         out = []
-        for level in range(LEVELS):
+        for level in range(min(LEVELS, len(book) // 4)):  # a level-1 or level-2 file has fewer columns
             price, size = int(book[4 * level + offset]), int(book[4 * level + offset + 1])
             if abs(price) != EMPTY and size > 0:
                 out.append((price // UNITS_PER_CENT, size))

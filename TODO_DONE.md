@@ -284,6 +284,7 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 - [x] **Our bot as an agent inside ABIDES** (deferred in the edge plan; brought back 2026-10-27 when the linear fair's +1.3M came from a recording, where its takes meet no impact).
   - **Done 2026-10-27:** `experiments.abides_market` and `python/experiments/abides_export/template_agent.py`; in the market the committed template loses 617k over 10 seeds and the linear fair makes 1.07M, 87% of its replay (`IDEAS.md`, "The template inside ABIDES's market").
+  - **Corrected 2026-10-28** (the fourth audit's R14): the agent went up to three times its limit and read its own quotes as the book; fixed, the committed template loses 230k and the linear fair makes 1.27M, 104% of its replay (the same row).
 
 - [x] **The summary.** Done when: which Prosperity conclusions held on the ABIDES and LOBSTER days and which didn't is in `IDEAS.md`'s header, any default worth changing is under "Decisions", and the day's advice is in `ON_THE_DAY.md` and `RUNBOOK.md`.
   - **Done 2026-10-27** for ABIDES: `IDEAS.md`'s header (what held and what didn't), the Decision on Hydrogel's `cross_excess`, the day's check in `ON_THE_DAY.md` ("Is it Prosperity's kind of market at all?") and `RUNBOOK.md`'s T+0:15. LOBSTER's part waits for its sample (`MANUAL_TODO.md`).

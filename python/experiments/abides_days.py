@@ -26,7 +26,11 @@ and this module converts them (standard library only):
   - the position limit is LIMIT (100 lots: about the volume at the best, two median trades);
   - fundamental_round_1_day_<D>.csv holds the oracle's value at each tick, the answer key.
 
-The days are gitignored; the seeds make them again exactly. A recording of an agent market: it
+The days are gitignored; the seeds make them again exactly, with the same export code: each raw
+day's meta.json carries `code`, a hash of python/experiments/abides_export/*.py (code_hash), and
+`generate` refuses to add days to a folder written by other code (before 2026-10-28 nothing marked
+it, and data/abides/round1 was written before export.py added the idle agent, which changes every
+realisation: the fourth audit's R13). A recording of an agent market: it
 tests the book's shape and the agents' information, not a market that reacts to our orders
 (`TODO.md`, "The edge plan").
 """
@@ -36,6 +40,7 @@ from __future__ import annotations
 import argparse
 import bisect
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -52,6 +57,19 @@ LIMIT = 100
 LEVELS = 3
 TICK = 100  # timestamps a second apart, as Prosperity's ticks
 REQUIREMENTS = ["numpy<2", "pandas<2.2", "scipy<1.14", "tqdm", "coloredlogs", "psutil"]
+
+
+def code_hash() -> str:
+    """abides_export's .py files, hashed (export.py's code_hash, which writes it into meta.json)."""
+    digest = hashlib.sha256()
+    for path in sorted(EXPORT.glob("*.py")):
+        digest.update(path.name.encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def stale(folder: Path) -> list[Path]:
+    """The raw days under folder whose meta.json wasn't written by the current export code."""
+    return [meta for meta in sorted(folder.glob("raw/seed*/meta.json")) if json.loads(meta.read_text()).get("code") != code_hash()]
 
 
 def setup() -> None:
@@ -152,6 +170,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "setup":
         setup()
         return
+    if stale(args.out):
+        sys.exit(f"{args.out} holds days written by other export code ({len(stale(args.out))} of them, e.g. "
+                 f"{stale(args.out)[0].parent.name}): delete its raw/ and round1/ and generate them all again")
     for d in range(1, args.days + 1):
         raw = args.out / "raw" / f"seed{args.seed + d - 1}"
         raw.mkdir(parents=True, exist_ok=True)

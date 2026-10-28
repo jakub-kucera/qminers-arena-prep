@@ -289,6 +289,26 @@ def test_abides_market_keeps_each_setups_runs_apart_and_flags_a_runaway_day(tmp_
     assert one_sided > abides_market.BROKEN[0] and off > abides_market.BROKEN[1]
 
 
+def test_abides_days_wont_mix_days_written_by_other_export_code(tmp_path, monkeypatch):
+    import json
+
+    from experiments import abides_days
+
+    code = tmp_path / "abides_export"
+    code.mkdir()
+    (code / "export.py").write_text("print(1)\n")
+    monkeypatch.setattr(abides_days, "EXPORT", code)
+    first = abides_days.code_hash()
+    for seed, written in ((1, first), (2, "0123456789abcdef"), (3, None)):
+        (tmp_path / "raw" / f"seed{seed}").mkdir(parents=True)
+        (tmp_path / "raw" / f"seed{seed}" / "meta.json").write_text(json.dumps({"seed": seed, **({"code": written} if written else {})}))
+    assert [m.parent.name for m in abides_days.stale(tmp_path)] == ["seed2", "seed3"]  # no hash: written before 2026-10-28
+    (code / "export.py").write_text("print(2)\n")
+    assert abides_days.code_hash() != first and len(abides_days.stale(tmp_path)) == 3
+    with pytest.raises(SystemExit, match="other export code"):
+        abides_days.main(["generate", "--days", "1", "--out", str(tmp_path)])
+
+
 def test_the_abides_study_reads_the_fundamental_where_the_data_has_one(capsys, monkeypatch, tmp_path):
     spec = sim.preset_market(ticks=400)
     for k in range(2):
@@ -321,6 +341,14 @@ def test_a_lobster_day_converts_to_the_prosperity_layout(tmp_path):
         (((58_519, 50),), ((58_521, 90),)), (((58_519, 30),), ((58_521, 90),)), (((58_520, 40),), ((58_521, 90),))]
     # the execution in second 34202 (after tick 0's snapshot at the end of 34201) is tick 0's; 34201's is before any tick
     assert {t.timestamp: [(x.price, x.quantity) for x in t.trades.get("AAPL", [])] for t in day.ticks} == {0: [(58_519, 20)], 100: [], 200: []}
+    # a level-1 file (one level a side) converts the same
+    one = tmp_path / "raw1"
+    one.mkdir()
+    (one / "AAPL_2012-06-21_34200000_57600000_message_1.csv").write_text("\n".join(",".join(map(str, r)) for r in events) + "\n")
+    (one / "AAPL_2012-06-21_34200000_57600000_orderbook_1.csv").write_text("\n".join(",".join(map(str, b)) for b in books) + "\n")
+    lobster_days.main([str(one), "--out", str(tmp_path / "data1")])
+    (day1,) = prosperity.load_days(tmp_path / "data1", ["1-1"])
+    assert [(t.books["AAPL"].bids, t.books["AAPL"].asks) for t in day1.ticks] == [(t.books["AAPL"].bids, t.books["AAPL"].asks) for t in day.ticks]
 
 def test_structure_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "structure", "--data", drill_data, "--days", "all", "--format", "drill")
