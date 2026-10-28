@@ -84,8 +84,7 @@ None open.
 
 ## From the 2026-10-28 rehearsal
 
-Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; their logs in `python/experiments/mock_round/round2/results/`) hit these.
-- [ ] **`diagnose --suggest` on a large-tick product that trends.** On VANTA (large-tick, flat then trending from a point that changes each session) it suggested quoting both sides, the one product that lost on every session in both runs (−2,718 and −6,498 pips). Done when: the suggestion is checked on `arena.sim`'s large-tick preset with a regime change, and either a trend note switches it to take-only or `IDEAS.md`'s `--suggest` row says why not.
+Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; their logs in `python/experiments/mock_round/round2/results/`) hit these. All five are done (`docs/TODO_DONE.md`, the same heading).
 
 ## Rehearsal and setup
 
