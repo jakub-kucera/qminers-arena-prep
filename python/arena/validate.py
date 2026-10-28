@@ -134,16 +134,36 @@ def static_checks(source: str, fmt, allow: set[str]) -> tuple[list[Check], bool]
 
 
 CAPPED = re.compile(r"order cap: \d+ of (\d+) new orders")
+ACTIONS_CAPPED = re.compile(r"action cap: \d+ of (\d+) actions")
+RESTING_CAPPED = re.compile(r"resting cap: (\d+) new orders")
+UNKNOWN_CANCEL = re.compile(r"cancel for order \d+, which isn't open")
 
 
-def sent(result) -> Counter:
-    """New orders the bot sent per tick: those the engine kept, or, where --max-orders dropped some, all it sent."""
-    count = Counter(ts for ts, _ in result.orders)
+def sent(result) -> tuple[Counter, Counter]:
+    """What the bot sent per tick, before any cap dropped it: (new orders, actions: new orders and cancels). An
+    exchange that caps actions counts cancels too (the 2026-10-28 rehearsal's rules), and result.orders also
+    holds the orders kept from earlier ticks, so neither is its length."""
+    orders = Counter(ts for ts, o in result.orders if o.timestamp == ts)  # placed this tick
+    cancels = Counter(ts for ts, _ in result.cancels)
+    whole: dict[int, int] = {}
     for ts, error in result.errors:
-        match = CAPPED.match(error)
-        if match:
-            count[ts] = int(match.group(1))
-    return count
+        if (match := RESTING_CAPPED.match(error)):
+            orders[ts] += int(match.group(1))
+        elif UNKNOWN_CANCEL.match(error):
+            cancels[ts] += 1
+    for ts, error in result.errors:  # a cap applied earlier saw more: the order cap all new orders, the action cap all of it
+        if (match := CAPPED.match(error)):
+            orders[ts] = int(match.group(1))
+        elif (match := ACTIONS_CAPPED.match(error)):
+            whole[ts] = int(match.group(1))
+    actions = Counter({ts: orders[ts] + cancels[ts] for ts in set(orders) | set(cancels)})
+    actions.update({ts: n - actions[ts] for ts, n in whole.items()})
+    return orders, actions
+
+
+def most_working(result) -> int:
+    """The most orders one product had working in a tick (--max-resting's count)."""
+    return max(Counter((ts, o.product) for ts, o in result.orders).values(), default=0)
 
 
 def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None,
@@ -234,8 +254,12 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     state = max((getattr(bot, "max_state_chars", 0) for bot in bots), default=0)
     output = max(r.max_output_chars for r in results)
     checks.append(Check(INFO, f"pnl: {pnl}"))
-    busiest = max((max(sent(r).values(), default=0) for r in results), default=0)
-    checks.append(Check(INFO, f"largest state {state:,} chars, largest print per tick {output:,} chars, most orders in a tick {busiest:,} (--max-orders N drops those past a cap)"))
+    busiest = max((max(sent(r)[0].values(), default=0) for r in results), default=0)
+    actions = max((max(sent(r)[1].values(), default=0) for r in results), default=0)
+    working = max((most_working(r) for r in results), default=0)
+    checks.append(Check(INFO, f"largest state {state:,} chars, largest print per tick {output:,} chars, most orders in a tick {busiest:,} "
+                              f"(--max-orders N), most actions in a tick {actions:,} (orders and cancels, --max-actions N), "
+                              f"most orders working a product {working:,} (--max-resting N): what the bot sent, before any cap"))
     if max_state is not None and state > max_state:  # Prosperity cut traderData at 50,000 and the bot read it back broken
         checks.append(Check(WARN, f"largest state {state:,} chars is over --max-state {max_state:,}: the exchange may cut it"))
     return checks

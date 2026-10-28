@@ -235,3 +235,17 @@ def test_an_order_cap_fails_once_and_the_busiest_tick_counts_what_the_bot_sent(c
     assert code == 1 and "order cap:" in out
     assert "exceptions escaped" not in out  # dropped orders are the engine's, not the bot's
     assert f"most orders in a tick {busiest} " in out  # what the bot sent, not the cap
+
+
+def test_the_action_and_resting_caps_fail_once_and_the_counts_are_what_the_bot_sent(check):
+    # The 2026-10-28 rehearsal: "most orders in a tick 15" counted the orders kept from earlier ticks, read like a
+    # breach of a 10-action cap and wasn't one. Now actions count new orders and cancels, before any cap.
+    code, out = check(None, "--resting")
+    actions = int(out.split("most actions in a tick ")[1].split(" ")[0])
+    working = int(out.split("most orders working a product ")[1].split(" ")[0])
+    assert actions >= 2 and working >= 2
+    code, out = check(None, "--resting", "--max-actions", "1")
+    assert code == 1 and "action cap:" in out and "exceptions escaped" not in out
+    assert int(out.split("most actions in a tick ")[1].split(" ")[0]) > 1  # what the bot sent, not the cap (its runs differ once capped)
+    code, out = check(None, "--resting", "--max-resting", "1")
+    assert code == 1 and "resting cap:" in out and "exceptions escaped" not in out

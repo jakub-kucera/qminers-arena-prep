@@ -101,6 +101,10 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help="volume we take from the recorded book stays gone from later snapshots while its level shows more (a replay that keeps what we consume)")
     parser.add_argument("--max-orders", type=int, metavar="N",
                         help="new orders a bot may send a tick: the rest are dropped and logged as an error (an exchange's rate limit)")
+    parser.add_argument("--max-actions", type=int, metavar="N",
+                        help="orders and cancels a bot may send a tick: the rest are dropped and logged as an error")
+    parser.add_argument("--max-resting", type=int, metavar="N",
+                        help="orders a product may have working at once (kept ones first, then new ones that would rest): new ones beyond are dropped, an error")
     parser.add_argument("--maker-fee", type=float, metavar="PER_LOT",
                         help="a passive fill's fee a lot instead of --fee, in the data's price units; negative is a rebate")
     parser.add_argument("--maker-fee-bps", type=float, metavar="BPS",
@@ -146,7 +150,7 @@ def add_engine_argument(parser: argparse.ArgumentParser, help: str | None = None
 
 # The engine flags a format's ENGINE can set; a flag left out keeps the format's value (format_config).
 CONFIG_FLAGS = ("trade_matching", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps",
-                "maker_fee", "maker_fee_bps", "deplete", "max_orders")
+                "maker_fee", "maker_fee_bps", "deplete", "max_orders", "max_actions", "max_resting")
 _ENUMS = {"trade_matching": TradeMatching, "queue": QueueModel, "mark": Mark}
 
 
@@ -195,8 +199,9 @@ def setup(args: argparse.Namespace) -> Setup:
         config = replace(config, resting=True)
     if config.delay < 0:
         raise ValueError("--delay needs 0 or more ticks")
-    if config.max_orders is not None and config.max_orders < 0:
-        raise ValueError("--max-orders needs 0 or more")
+    for name in ("max_orders", "max_actions", "max_resting"):
+        if getattr(config, name) is not None and getattr(config, name) < 0:
+            raise ValueError(f"--{name.replace('_', '-')} needs 0 or more")
     if config.fee < 0 or config.fee_bps < 0:
         raise ValueError("--fee and --fee-bps need 0 or more (a maker's rebate is a negative --maker-fee or --maker-fee-bps)")
     overrides = dict(parse_override(text) for text in args.overrides)

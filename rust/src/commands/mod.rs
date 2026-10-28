@@ -61,6 +61,8 @@ impl Args {
             maker_fee_bps: self.get("--maker-fee-bps").map(number),
             deplete: self.flags.iter().any(|f| f == "--deplete"),
             max_orders: self.get("--max-orders").map(|t| t.parse().unwrap_or_else(|_| fail("--max-orders needs a whole number"))),
+            max_actions: self.get("--max-actions").map(|t| t.parse().unwrap_or_else(|_| fail("--max-actions needs a whole number"))),
+            max_resting: self.get("--max-resting").map(|t| t.parse().unwrap_or_else(|_| fail("--max-resting needs a whole number"))),
         }
     }
 }
@@ -389,6 +391,16 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
             None => None,
             Some(v) if v.is_null() => None,
             Some(v) => Some(v.as_i64().filter(|&n| n >= 0).ok_or("config max_orders must be a whole number or null")? as usize),
+        },
+        max_actions: match value.get("max_actions") {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(v.as_i64().filter(|&n| n >= 0).ok_or("config max_actions must be a whole number or null")? as usize),
+        },
+        max_resting: match value.get("max_resting") {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(v.as_i64().filter(|&n| n >= 0).ok_or("config max_resting must be a whole number or null")? as usize),
         },
     })
 }

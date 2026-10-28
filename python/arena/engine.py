@@ -67,7 +67,12 @@ bot's order or a resting order's cross. Off is Prosperity's rule: each snapshot 
 Order caps (EngineConfig.max_orders): a bot may send this many new orders a tick (cancels don't
 count); the rest, in the order it sent them, are dropped and the tick logs an error, as an exchange
 that refuses or disconnects past its rate limit would (AlgoTrade closed the connection above 500
-messages a second). None, Prosperity's rule, takes them all.
+messages a second). None, Prosperity's rule, takes them all. Two more caps an exchange may set
+(the 2026-10-28 rehearsal's rules had both): EngineConfig.max_actions caps everything a bot sends
+a tick, cancels included, keeping the first in the order sent; EngineConfig.max_resting caps the
+orders a product may have working at once, the ones kept from earlier ticks first, then the new
+orders that would rest (immediate-or-cancel ones don't count), in the order sent. What is over
+either cap is dropped, an error.
 """
 
 from __future__ import annotations
@@ -76,7 +81,7 @@ import io
 import random
 import time
 import traceback
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from contextlib import nullcontext, redirect_stdout
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
@@ -131,6 +136,8 @@ class EngineConfig:
     maker_fee_bps: float | None = None  # a passive fill's basis points instead of fee_bps (negative: a rebate)
     deplete: bool = False  # volume taken from the recorded book stays gone from later snapshots (see the module docstring)
     max_orders: int | None = None  # new orders a bot may send a tick; the rest are dropped, an error (see the module docstring)
+    max_actions: int | None = None  # orders and cancels a bot may send a tick; the rest are dropped, an error
+    max_resting: int | None = None  # orders a product may have working at once; new ones beyond are dropped, an error
 
 
 class Bot(Protocol):
@@ -311,12 +318,18 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             player = players[i]
             seen_position, seen = decided[i]
             mine = [order for order in working if order.owner == i]
-            orders, cancelled, kept = _cancel(actions[i], mine, {o.id for o in seen}, config.resting, tick.timestamp, player.result)
+            sent = actions[i]
+            if config.max_actions is not None and len(sent) > config.max_actions:
+                player.result.errors.append((tick.timestamp, f"action cap: {len(sent) - config.max_actions} of {len(sent)} actions over --max-actions {config.max_actions} dropped"))
+                sent = sent[:config.max_actions]
+            orders, cancelled, kept = _cancel(sent, mine, {o.id for o in seen}, config.resting, tick.timestamp, player.result)
             working = [order for order in working if order.id not in cancelled]
             orders = known(orders, day.limits, tick.timestamp, player.result)
             if config.max_orders is not None and len(orders) > config.max_orders:
                 player.result.errors.append((tick.timestamp, f"order cap: {len(orders) - config.max_orders} of {len(orders)} new orders over --max-orders {config.max_orders} dropped"))
                 orders = orders[:config.max_orders]
+            if config.max_resting is not None:
+                orders = _resting_cap(orders, kept, config.max_resting, tick.timestamp, player.result)
             if config.limit_penalty is None:
                 # Orders that don't fit the position the bot saw are its bug. Orders that did fit, but
                 # no longer do because another bot filled one of its orders since, lost a race.
@@ -466,6 +479,23 @@ def _cancel(actions, resting: list[_Live], seen: set[int], resting_mode: bool, t
             result.errors.append((timestamp, f"cancel for order {action.order_id}, which isn't open{hint}"))
     orders = [action for action in actions if not isinstance(action, Cancel)]
     return orders, cancelled, [order for order in resting if order.id not in cancelled]
+
+
+def _resting_cap(orders, kept, cap: int, timestamp, result) -> list[Order]:
+    """The new orders within each product's cap on working orders: its kept ones count first, then each new
+    order that would rest, in the order sent; immediate-or-cancel orders pass. Each product over it is an error."""
+    working = Counter(order.product for order in kept)
+    out, dropped = [], Counter()
+    for order in orders:
+        if not order.ioc:
+            if working[order.product] >= cap:
+                dropped[order.product] += 1
+                continue
+            working[order.product] += 1
+        out.append(order)
+    for product in sorted(dropped):
+        result.errors.append((timestamp, f"resting cap: {dropped[product]} new orders for {product} over --max-resting {cap} dropped"))
+    return out
 
 
 def known(orders, limits, timestamp, result) -> list[Order]:

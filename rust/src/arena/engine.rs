@@ -54,6 +54,8 @@ pub struct EngineConfig {
     pub maker_fee_bps: Option<f64>, // a passive fill's basis points instead of fee_bps (negative: a rebate)
     pub deplete: bool,              // volume taken from the recorded book stays gone from later snapshots
     pub max_orders: Option<usize>,  // new orders a bot may send a tick; the rest are dropped, an error
+    pub max_actions: Option<usize>, // orders and cancels a bot may send a tick; the rest are dropped, an error
+    pub max_resting: Option<usize>, // orders a product may have working at once; new ones beyond are dropped, an error
 }
 
 impl Default for EngineConfig {
@@ -74,6 +76,8 @@ impl Default for EngineConfig {
             maker_fee_bps: None,
             deplete: false,
             max_orders: None,
+            max_actions: None,
+            max_resting: None,
         }
     }
 }
@@ -316,6 +320,11 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
         for k in 0..s.arrival.len() {
             let i = s.arrival[k];
             let player = &mut players[i];
+            if let Some(cap) = config.max_actions.filter(|&cap| player.actions.len() > cap) {
+                let sent = player.actions.len();
+                player.result.errors.push((ts, format!("action cap: {} of {sent} actions over --max-actions {cap} dropped", sent - cap)));
+                player.actions.truncate(cap);
+            }
             cancel(&player.actions, &working, i, &player.decided_open, config.resting, ts, &mut player.result, &mut s.orders, &mut s.cancelled);
             if !s.cancelled.is_empty() {
                 working.retain(|o| !s.cancelled.contains(&o.id));
@@ -325,6 +334,9 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
                 let sent = s.orders.len();
                 player.result.errors.push((ts, format!("order cap: {} of {sent} new orders over --max-orders {cap} dropped", sent - cap)));
                 s.orders.truncate(cap);
+            }
+            if let Some(cap) = config.max_resting {
+                resting_cap(&mut s.orders, working.iter().filter(|o| o.owner == i).map(|o| o.product), cap, ts, &mut player.result, &day.products);
             }
             if config.limit_penalty.is_none() {
                 let cancelled = &s.cancelled;
@@ -529,6 +541,32 @@ fn cancel(actions: &[Action], working: &[Live], owner: usize, seen: &[OpenOrder]
 }
 
 /// Drops empty orders, and orders for unknown products (an error, naming the product as Python's repr does).
+/// The new orders within each product's cap on working orders: its kept ones count first, then each new order
+/// that would rest, in the order sent; immediate-or-cancel orders pass. Each product over it is an error, by name.
+fn resting_cap(orders: &mut Vec<Order>, kept: impl Iterator<Item = usize>, cap: usize, ts: i64, result: &mut DayResult, names: &[String]) {
+    let mut working = vec![0usize; names.len()];
+    for product in kept {
+        working[product] += 1;
+    }
+    let mut dropped = vec![0usize; names.len()];
+    orders.retain(|o| {
+        if o.ioc {
+            return true;
+        }
+        if working[o.product] >= cap {
+            dropped[o.product] += 1;
+            return false;
+        }
+        working[o.product] += 1;
+        true
+    });
+    let mut over: Vec<usize> = (0..names.len()).filter(|&p| dropped[p] > 0).collect();
+    over.sort_by(|&a, &b| names[a].cmp(&names[b]));
+    for p in over {
+        result.errors.push((ts, format!("resting cap: {} new orders for {} over --max-resting {cap} dropped", dropped[p], names[p])));
+    }
+}
+
 pub fn known(orders: &mut Vec<Order>, products: usize, ts: i64, result: &mut DayResult, bot: &dyn Bot) {
     for order in orders.iter() {
         if order.product >= products {

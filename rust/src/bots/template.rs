@@ -1039,7 +1039,7 @@ fn scaled(size: i64, factor: f64) -> i64 {
 // ------------------------------------------------------------------------------ EXECUTION
 
 /// Pushes the plan's cancels and new orders: resting holds (id, price, signed quantity left), oldest first.
-fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], out: &mut Vec<Action>) {
+fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], max_resting: Option<usize>, out: &mut Vec<Action>) {
     let mut wanted: Vec<((bool, Price), i64)> = Vec::with_capacity(2);
     for &(price, quantity) in &plan.quotes {
         let key = (quantity > 0, price);
@@ -1048,19 +1048,26 @@ fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], out: &mut
             None => wanted.push((key, quantity)),
         }
     }
+    let mut kept = resting.len();
     for &(id, price, quantity) in resting {
         let key = (quantity > 0, price);
         match wanted.iter_mut().find(|(k, _)| *k == key) {
             Some((_, v)) if quantity.abs() <= v.abs() => *v -= quantity,
-            _ => out.push(Action::Cancel(id)),
+            _ => {
+                out.push(Action::Cancel(id));
+                kept -= 1;
+            }
         }
     }
     for &(price, quantity) in &plan.takes {
         out.push(Action::Order(Order { product, price, quantity, ioc: true }));
     }
+    // max_resting: the posts beyond the room the kept orders leave are not sent
+    let mut room = max_resting.map_or(usize::MAX, |cap| cap.saturating_sub(kept));
     for &((_, price), quantity) in &wanted {
-        if quantity != 0 {
+        if quantity != 0 && room > 0 {
             out.push(Action::Order(Order { product, price, quantity, ioc: false }));
+            room -= 1;
         }
     }
 }
@@ -1083,15 +1090,16 @@ pub struct Adapter {
     pub exchange_limit: bool, // each product's limit is the exchange's (Day.limits), not PARAMS' (the drill's)
     pub exchange_order: bool, // products in the exchange's order (Day.limits'), those with a level; else the tick's (the drill's)
     pub sorted_resting: bool, // resting orders sorted by (timestamp, id); else as the engine lists them, oldest first (Prosperity's)
+    pub max_resting: Option<usize>, // the exchange's cap on orders working a product, passed to EXECUTION (none in the presets)
 }
 
 impl Adapter {
     pub const PROSPERITY: Adapter =
-        Adapter { units: false, names: true, own_trades: true, exchange_limit: false, exchange_order: false, sorted_resting: true };
+        Adapter { units: false, names: true, own_trades: true, exchange_limit: false, exchange_order: false, sorted_resting: true, max_resting: None };
     pub const DRILL: Adapter =
-        Adapter { units: true, names: false, own_trades: false, exchange_limit: true, exchange_order: true, sorted_resting: false };
+        Adapter { units: true, names: false, own_trades: false, exchange_limit: true, exchange_order: true, sorted_resting: false, max_resting: None };
 
-    /// "prosperity", "drill", or {choice: bool, ...}, the choices left out taken from Prosperity's.
+    /// "prosperity", "drill", or {choice: bool, ..., "max_resting": N}, the choices left out taken from Prosperity's.
     pub fn read(value: &Value) -> Result<Adapter, String> {
         match value {
             Value::Str(name) if name == "prosperity" => Ok(Adapter::PROSPERITY),
@@ -1099,6 +1107,14 @@ impl Adapter {
             Value::Object(choices) => {
                 let mut a = Adapter::PROSPERITY;
                 for (key, v) in choices {
+                    if key == "max_resting" {
+                        a.max_resting = match v {
+                            Value::Null => None,
+                            Value::Int(n) if *n >= 0 => Some(*n as usize),
+                            _ => return Err("adapter max_resting must be a whole number or null".to_string()),
+                        };
+                        continue;
+                    }
                     let on = match v {
                         Value::Bool(b) => *b,
                         _ => return Err(format!("adapter choice {key} must be true or false")),
@@ -1110,7 +1126,7 @@ impl Adapter {
                         "exchange_limit" => a.exchange_limit = on,
                         "exchange_order" => a.exchange_order = on,
                         "sorted_resting" => a.sorted_resting = on,
-                        other => return Err(format!("no adapter choice {other:?} (units, names, own_trades, exchange_limit, exchange_order, sorted_resting)")),
+                        other => return Err(format!("no adapter choice {other:?} (units, names, own_trades, exchange_limit, exchange_order, sorted_resting, max_resting)")),
                     }
                 }
                 Ok(a)
@@ -1333,7 +1349,7 @@ impl Bot for Template {
             }
             let resting: Vec<(u64, Price, i64)> = self.resting.iter().map(|&(_, id, price, q)| (id, price, q)).collect();
             let start = out.len();
-            execute(product, &plan, &resting, out);
+            execute(product, &plan, &resting, a.max_resting, out);
             if a.units {
                 for action in &mut out[start..] {
                     if let Action::Order(order) = action {

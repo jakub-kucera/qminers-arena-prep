@@ -855,7 +855,7 @@ def param_conflicts(product: str) -> list[str]:
 # ------------------------------------------------------------------------------ EXECUTION
 
 
-def execute(plan: Plan, resting: list[tuple[int, int, int]]) -> tuple[list[int], list[tuple[int, int, bool]]]:
+def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | None = None) -> tuple[list[int], list[tuple[int, int, bool]]]:
     """Turns the plan into (order ids to cancel, new orders as (price, signed quantity, ioc)).
 
     resting holds the product's resting orders as (id, price, signed quantity left), oldest
@@ -863,6 +863,9 @@ def execute(plan: Plan, resting: list[tuple[int, int, int]]) -> tuple[list[int],
     while a quote on its side and at its price still wants at least its size. The quote then
     only sends the difference. Every other resting order is cancelled. Takes go out as
     immediate-or-cancel, so whatever the book can't fill never rests at a crossing price.
+    max_resting, an exchange's cap on the orders a product may have working (ADAPTER passes it):
+    the posts beyond the room the kept orders leave are not sent, and the kept ones keep their
+    place (cancelling all and posting afresh cost the 2026-10-28 rehearsal's bot 775 of VANTA's PnL).
     """
     wanted: dict[tuple[bool, int], int] = {}  # (buying, price) -> signed quantity still to send
     for price, quantity in plan.quotes:
@@ -876,8 +879,10 @@ def execute(plan: Plan, resting: list[tuple[int, int, int]]) -> tuple[list[int],
         else:
             cancels.append(order_id)
     orders = [(price, quantity, True) for price, quantity in plan.takes]
-    orders += [(price, quantity, False) for (_, price), quantity in wanted.items() if quantity]
-    return cancels, orders
+    posts = [(price, quantity, False) for (_, price), quantity in wanted.items() if quantity]
+    if max_resting is not None:
+        posts = posts[: max(0, max_resting - (len(resting) - len(cancels)))]
+    return cancels, orders + posts
 
 
 # ------------------------------------------------------------------------------ ADAPTER
@@ -958,7 +963,7 @@ class Bot:  # TODO(day): their entry class and method (qminers.ENTRY)
                     continue
                 plan = trade_product(product, market.books[product], api.position(product), p, self.memory.setdefault(product, {}), market)
                 market.plans[product] = plan
-                cancels, new = execute(plan, read_resting(api, product))
+                cancels, new = execute(plan, read_resting(api, product))  # TODO(day): max_resting=<their cap> if their exchange caps orders working a product
                 for order_id in cancels:
                     api.cancel(order_id)
                 for price, quantity, ioc in new:

@@ -62,6 +62,8 @@ class Scenario:
     maker_fee_bps: float | None = None
     deplete: bool | None = None  # what we take from the recorded book stays gone
     max_orders: int | None = None  # new orders a bot may send a tick
+    max_actions: int | None = None  # orders and cancels a bot may send a tick
+    max_resting: int | None = None  # orders a product may have working at once
 
     def __str__(self) -> str:
         return self.name
@@ -79,7 +81,7 @@ class Scenario:
         return self == Scenario(self.name, self.trade_matching) and self.trade_matching is not None and self.name == self.trade_matching.value
 
     def config(self, base: EngineConfig) -> EngineConfig:
-        changed = {name: getattr(self, name) for name in ("trade_matching", "resting", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps", "maker_fee", "maker_fee_bps", "deplete", "max_orders")}
+        changed = {name: getattr(self, name) for name in ("trade_matching", "resting", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps", "maker_fee", "maker_fee_bps", "deplete", "max_orders", "max_actions", "max_resting")}
         return replace(base, **{name: value for name, value in changed.items() if value is not None})
 
 
@@ -97,7 +99,7 @@ def rivals_for(default: list, mode: Scenario | TradeMatching) -> list:
     return list(mode.rivals) if isinstance(mode, Scenario) and mode.rivals is not None else list(default)
 
 
-KEYS = {"match", "resting", "queue", "power", "fill", "seed", "mark", "penalty", "vs", "delay", "fee", "bps", "mfee", "mbps", "deplete", "cap"}
+KEYS = {"match", "resting", "queue", "power", "fill", "seed", "mark", "penalty", "vs", "delay", "fee", "bps", "mfee", "mbps", "deplete", "cap", "acap", "rcap"}
 
 
 def parse_scenario(text: str) -> Scenario:
@@ -130,9 +132,9 @@ def parse_scenario(text: str) -> Scenario:
                 found[key] = TradeMatching(value)
             elif key == "queue":
                 found[key] = QueueModel(value)
-            elif key in ("seed", "delay", "cap"):
+            elif key in ("seed", "delay", "cap", "acap", "rcap"):
                 found[key] = int(value)
-                if key in ("delay", "cap") and found[key] < 0:
+                if key in ("delay", "cap", "acap", "rcap") and found[key] < 0:
                     raise ValueError
             elif key == "mark":
                 found[key] = Mark(value)
@@ -148,13 +150,14 @@ def parse_scenario(text: str) -> Scenario:
         raise ValueError(f"--scenario {name}: fill must be in (0, 1]")
     return Scenario(name, found.get("match"), found.get("resting"), found.get("queue"), found.get("power"), found.get("fill"), found.get("seed"),
                     None if rivals is None else tuple(rivals), found.get("mark"), found.get("penalty"), found.get("delay"),
-                    found.get("fee"), found.get("bps"), found.get("mfee"), found.get("mbps"), found.get("deplete"), found.get("cap"))
+                    found.get("fee"), found.get("bps"), found.get("mfee"), found.get("mbps"), found.get("deplete"), found.get("cap"),
+                    found.get("acap"), found.get("rcap"))
 
 
 def add_scenario_argument(parser) -> None:
     parser.add_argument("--scenario", dest="scenarios", action="append", default=[], metavar="NAME:ITEM,...",
                         help="score every run under this fill model too, after the --modes: match=all|worse|none, resting[=no], "
-                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS, fee=PER_LOT, bps=BPS, mfee=PER_LOT, mbps=BPS (a maker's, negative a rebate), deplete[=no], cap=N, vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
+                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS, fee=PER_LOT, bps=BPS, mfee=PER_LOT, mbps=BPS (a maker's, negative a rebate), deplete[=no], cap=N (new orders a tick), acap=N (orders and cancels a tick), rcap=N (orders working a product), vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
                         "Repeatable; with one, the summary adds the worst case over all of them (python/arena/scenario.py)")
 
 

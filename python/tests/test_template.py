@@ -505,6 +505,16 @@ def test_execute_replaces_a_resting_order_larger_than_its_quote(bot):
     assert cancels == [1] and orders == [(98, 5, False)]
 
 
+
+def test_execute_under_a_resting_cap_drops_the_posts_past_its_room_and_keeps_the_rest_in_place(bot):
+    # An exchange capping orders working a product (the 2026-10-28 rehearsal's 4): the kept orders keep their
+    # queue place, takes still go, and only the posts past the room are not sent.
+    resting = [(1, 98, 4), (2, 102, -10)]
+    plan = plan_with(bot, takes=[(97, 1)], quotes=[(98, 6), (102, -10), (96, 3)])
+    assert bot.execute(plan, resting) == ([], [(97, 1, True), (98, 2, False), (96, 3, False)])
+    assert bot.execute(plan, resting, max_resting=3) == ([], [(97, 1, True), (98, 2, False)])
+    assert bot.execute(plan, resting, max_resting=2) == ([], [(97, 1, True)])
+
 def test_execute_tells_a_bid_and_an_ask_at_one_price_apart(bot):
     cancels, orders = bot.execute(plan_with(bot, quotes=[(100, 3), (100, -3)]), [(1, 100, -3)])
     assert cancels == [] and orders == [(100, 3, False)]

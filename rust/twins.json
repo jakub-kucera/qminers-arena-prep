@@ -1,7 +1,7 @@
 {
   "python/arena/engine.py": {
     "rust": "rust/src/arena/engine.rs",
-    "sha256": "c17e56ee0b56e100f8d2c11f0c660b83712d88bd22fdb244f6f75f6aefb96d98"
+    "sha256": "2781125a2af6f527754e2fc485f19761e2db56572f642db625e00e1e973c134d"
   },
   "python/arena/formats/prosperity.py": {
     "rust": "rust/src/arena/formats/prosperity.rs",
@@ -79,7 +79,7 @@
   "python/bots/template.py": {
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
-    "sha256": "4e09448bfd5816e2d10d772b8d0679dc94ffcf92697bc29d24c2df513dce580a",
+    "sha256": "15e9f1a016fb4ce39b3f445c76de455d6bfcd1ff057ef1f6d6765c22b3f0a36e",
     "reads": [
       "DEFAULTS",
       "PARAMS"
@@ -89,7 +89,7 @@
     "kind": "drill_template",
     "format": "drill",
     "rust": "rust/src/bots/drill/template.rs",
-    "sha256": "e7459ee75e8c22d7118882a5ae6d45a8466deb8681552ff3133267cd092bd715",
+    "sha256": "2658b1b8208dfdee0f90d27c5c460a854506f928226986c6a3289c2fb647f701",
     "reads": [
       "DEFAULTS",
       "PARAMS"

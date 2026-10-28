@@ -192,6 +192,25 @@ def test_an_order_cap_drops_the_orders_past_it_in_the_order_sent():
     assert not run_day(d, ScriptedBot(script)).errors
 
 
+
+def test_an_action_cap_counts_cancels_and_drops_what_is_past_it_in_the_order_sent():
+    # The 2026-10-28 rehearsal's rules: 10 actions a step, pulls included (--max-orders counts new orders only).
+    d = day(tick(0, asks=[(105, 5)], mark=100), tick(1, asks=[(105, 5)], mark=100))
+    script = {0: [Order("X", 98, 1), Order("X", 97, 1)], 1: [Cancel(1), Order("X", 96, 1), Order("X", 95, 1)]}
+    result = run_day(d, ScriptedBot(script), EngineConfig(resting=True, max_actions=2))
+    assert result.errors == [(1, "action cap: 1 of 3 actions over --max-actions 2 dropped")]
+    assert result.cancels == [(1, 1)] and sorted(o.price for t, o in result.orders if t == 1) == [96, 97]  # the bid at 95 never arrived
+
+
+def test_a_resting_cap_counts_the_kept_orders_first_and_lets_takes_through():
+    # The rehearsal's rules: 4 resting orders a product. Kept orders count first; immediate-or-cancel ones don't.
+    d = day(tick(0, asks=[(105, 5)], mark=100), tick(1, asks=[(105, 5)], mark=100))
+    script = {0: [Order("X", 98, 1), Order("X", 97, 1)], 1: [Order("X", 96, 1), Order("X", 105, 1, ioc=True), Order("X", 95, 1)]}
+    result = run_day(d, ScriptedBot(script), EngineConfig(resting=True, max_resting=3))
+    assert result.errors == [(1, "resting cap: 1 new orders for X over --max-resting 3 dropped")]
+    assert sorted(o.price for t, o in result.orders if t == 1) == [96, 97, 98, 105] and [f.price for f in result.fills] == [105]
+    assert not run_day(d, ScriptedBot(script), EngineConfig(resting=True)).errors
+
 def test_limit_penalty_lets_every_order_through_and_charges_each_lot_beyond_the_limit_each_tick():
     d = day(tick(0, asks=[(101, 20)], mark=100), tick(1, mark=100), tick(2, bids=[(99, 20)], mark=100), limits={"X": 10})
     script = {0: [Order("X", 101, 6), Order("X", 101, 6)], 2: [Order("X", 99, -12)]}
