@@ -16,7 +16,7 @@ volume in the results ZIP too (read through experiments.day.fill_curve's column 
 
 Our figures are converted to the portal's credits by the data's unit (Day.info; --scale to override). Where
 the portal's meaning is open, the nearest reading counts: the score as the days' sum or their mean, fills as
-fills or filled orders, pnlSe as the per-tick, block or per-day standard error (report.format_metrics). The
+fills or filled orders, pnlSe as the per-tick, block or per-day standard error (report.format_metrics), markPrice as the products' mean mark or any one's. The
 error per figure is |ours - theirs| / max(|theirs|, 1); a setting's error is their mean. The table ranks the
 settings, and the best one's ENGINE dict is printed to paste into the format plug-in. Settings within a few
 per cent of each other can't be told apart by this upload: the probes decide between them (ON_THE_DAY.md).
@@ -100,8 +100,8 @@ def figures(results, scale: float, penalty: float | None) -> dict[str, list[floa
         "pnlSe": [se_ticks * scale, se_blocks * scale, se_days * scale],
         **{name: [q] for name, q in zip(QUANTILES, quantiles)},
     }
-    if len(marks) == 1:  # one product: its mark is the portal's markPrice
-        out["markPrice"] = [next(iter(marks.values())) * scale]
+    if marks:  # one product: its mark; several: their mean, or any one of them (the portal shows one markPrice)
+        out["markPrice"] = [statistics.fmean(marks.values()) * scale, *(m * scale for m in marks.values())]
     for r in results:
         for f in r.fills:
             out.setdefault(f"fills {f.product}", [0.0])[0] += 1
