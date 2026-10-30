@@ -43,6 +43,14 @@ python/experiments/mock_round/private/hidden_data/
 python/experiments/mock_round/round2/public/data/
 python/experiments/mock_round/round2/private/raw/
 python/experiments/mock_round/round2/private/hidden_data/
+python/experiments/mock_round/round3/public/data/
+python/experiments/mock_round/round3/private/raw/
+python/experiments/mock_round/round3/private/hidden_data/
+python/experiments/mock_round/round3/private/hidden_runs/
+python/experiments/mock_round/round3/private/verification_uploads/
+python/experiments/mock_round/round3/private/state.json
+python/experiments/mock_round/round3/private/.evaluation.lock
+python/experiments/mock_round/round3/uploads/
 
 # Agent worktrees (Claude Code)
 .claude/worktrees/
@@ -50,4 +58,5 @@ python/experiments/mock_round/round2/private/hidden_data/
 # ...but the mock round's results are the rehearsal's record (python/experiments/mock_round/README.md)
 !python/experiments/mock_round/results/
 !python/experiments/mock_round/round2/results/
+!python/experiments/mock_round/round3/results/
 .env

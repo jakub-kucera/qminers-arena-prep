@@ -43,7 +43,7 @@ def test_relative_links_and_doc_paths_exist(name):
 def _mentions() -> list[tuple[str, str]]:
     files = [ROOT / name for name in DOCS] + [ROOT / "rust" / "README.md", ROOT / "python" / "experiments" / "README.md"]
     files += sorted((ROOT / "python").rglob("*.py")) + sorted((ROOT / "references" / "wiki").rglob("*.md"))
-    skip = ("mock_round/results", "mock_round/round2/results", "wiki/log.md", "/zoo/chatgpt/", "/zoo/claude/", "/zoo/gemini/", "/zoo/other/")
+    skip = ("mock_round/results", "mock_round/round2/results", "mock_round/round3/results", "wiki/log.md", "/zoo/chatgpt/", "/zoo/claude/", "/zoo/gemini/", "/zoo/other/")
     index = re.compile(r"<!-- ideas-index:start -->.*?<!-- ideas-index:end -->", re.S)  # its lines are cut short
     return [(str(f.relative_to(ROOT)), m) for f in files if not any(s in str(f) for s in skip)
             for m in re.findall(r"\bexperiments\.([a-z_]+(?:\.[a-z_]+)?)\b", index.sub("", f.read_text(encoding="utf-8")))]

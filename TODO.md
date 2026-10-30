@@ -80,6 +80,15 @@ None open.
 
 Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; their logs in `python/experiments/mock_round/round2/results/`) hit these. All five are done (`docs/TODO_DONE.md`, the same heading).
 
+## From the 2026-10-30 rehearsal
+
+The engine-fit rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; logs in `python/experiments/mock_round/round3/results/`).
+- [ ] **Count the orders in flight (high: both rehearsal uploads lost to it).** Where orders reach the exchange a step late, the template's ADAPTER sees only what the exchange lists, so `execute` re-posts every step, the resting cap refuses most of it and the limit room is overspent (round 3: −3,553 and −489 on the hidden days against a plain market maker's +325). Done when: EXECUTION (or a helper the ADAPTER calls) keeps the orders sent and not yet listed, by id, counts them against the resting cap and the limit room, and drops them once listed, filled or older than a step or two; the Rust twin and the drill and qminers copies follow; a test under `--delay 1 --max-resting 3` shows no refusals or breaches; round 3's bot re-scored with it.
+- [ ] **Validate under a delay when the rules are silent on timing.** `arena.validate` passed both rehearsal bots and reported "most orders working a product 5" against a cap of 3 without failing, because nothing said the orders arrive late. Done when: validate also runs a `--delay 1` replay (or the format's `ENGINE` delay plus one) and FAILs on its refusals and breaches, and the checklist's step 7 says so.
+- [ ] **calibrate's scale from the format.** `--scale` defaults to the data's price unit, which is wrong where a price unit is worth more than its face (round 3: a point worth 2 credits a lot); the after-run caught it only from the rules. Done when: a plug-in can state its credits per price unit (beside `ENGINE`), calibrate and `--metrics` read it, and the swap checklist's step 1 names it.
+- [ ] **Keep the handover template apart from round 1's note.** `data/arena/round1/HANDOVER.md` is both, so filling in round 1 loses the template. Done when: the template lives where `.gitignore` keeps it (e.g. a handover template under `docs/`) and the RUNBOOK and ON_THE_DAY copy it into each round's folder.
+- [ ] **The swap checklist's two missing shapes.** A level-indexed book feed (a level's price changes in place and the levels shift up when one empties), unlike `drill.py`'s price-keyed changes; and a function API returning dicts with the bot's own ids, for which the mock rounds' `results/*/qminers_format.py` and `template.py` were the closest models. Done when: step 1 names the first, step 3 and step 5 point at the mock rounds' results for the second.
+
 ## Rehearsal and setup
 
 - [ ] **Run a mock round before the event.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.
