@@ -653,3 +653,28 @@ def test_the_premise_check_runs_a_bot_without_a_twin_on_the_python_engine(capsys
     module.main(["--data", drill_data, "--days", "all", "--format", "drill", "--bot", str(bot), "--engine", "rust"])
     out, err = capsys.readouterr()
     assert "| ALPHA |" in out and "no Rust twin yet" in err and "--engine rust" not in out
+
+
+def test_calibrate_finds_the_engine_setting_a_portal_showed(capsys, monkeypatch, drill_data, tmp_path):
+    # A "portal" made by our own engine under one setting (worse, resting, the touch mark): the calibration
+    # ranks a setting that reproduces it first, at no error, and prints the ENGINE to paste.
+    import json
+    from dataclasses import replace
+
+    from arena.cli import backtest, format_config
+    from arena.engine import Mark, TradeMatching
+    from arena.formats import FORMATS
+    from experiments.day import calibrate
+
+    fmt = FORMATS["drill"]
+    days = fmt.load_days(fmt.resolve_data_dir(drill_data), ["all"])
+    config = replace(format_config("drill"), trade_matching=TradeMatching.WORSE, mark=Mark.TOUCH)
+    results = [backtest(d, [("you", "python/bots/drill/template.py", {}, False)], config, "python", False, None, "drill", rules=False)[0] for d in days]
+    f = calibrate.figures(results, 0.01, None)
+    portal = tmp_path / "metrics.json"
+    portal.write_text(json.dumps({"metrics": {"score": f["score"][0], "fills": f["fills"][1], "tradedVolume": f["tradedVolume"][0],
+                                              "cash": f["cash"][0], "absInventoryQ95": f["absInventoryQ95"][0]}}))
+    out = run(capsys, monkeypatch, "calibrate", "--data", drill_data, "--days", "all", "--format", "drill", "--portal", str(portal), "--jobs", "2")
+    best = out.split("Best: ")[1].split("\n")[0]
+    assert best.startswith("worse, resting,") and "touch" in best and "(0.0% off)" in best
+    assert 'ENGINE = {"trade_matching": "worse", "mark": "touch"}' in out and "RESTING = True" in out

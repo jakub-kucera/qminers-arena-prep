@@ -238,12 +238,12 @@ def backtest_days(data: str, specs: list[str], engine: str = "python", format_na
 
 
 def backtest(day: Day, bots: list[tuple[str, Path, dict, bool]], config: EngineConfig, engine: str = "python", strict: bool = False,
-             fields: tuple[str, ...] | None = None, format_name: str = "prosperity") -> list[DayResult]:
+             fields: tuple[str, ...] | None = None, format_name: str = "prosperity", rules: bool = True) -> list[DayResult]:
     """The (name, bot file, overrides, requote) participants in one market on one day, in the format
     (Prosperity's by default), on either engine, under the format's rules (under_rules): each one's DayResult. With engine "rust" the day may
     be a day file (arena.rust.sim_day_file), `fields` limits what is read back, and `strict` is moot
     (a Rust twin can't raise from a bug)."""
-    config = under_rules(config, format_name)
+    config = under_rules(config, format_name) if rules else config  # rules=False: the config exactly (experiments.day.calibrate)
     if engine == "rust":
         from arena import rust
 
