@@ -245,7 +245,7 @@ The repo list lives in `clone.sh`. To add a repo, add a line there with its curr
 (`git ls-remote https://github.com/<owner>/<repo>.git HEAD`) and a row to the table above.
 Only `README.md`, `clone.sh`, `SEARCH_LOG.md`, `check_arena_site.py` with its snapshot, `fetch_notion.py`, `algo_trade_arena_conversation.json` (the first conversation about the Arena, 2026-10-07, whose first message is the organisers' e-mail with the schedule; `ON_THE_DAY.md`, "Known so far") and `wiki/` are committed; the root `.gitignore` ignores everything else in `references/`.
 
-`check_arena_site.py` re-reads the Arena site and diffs it against `arena-site-snapshot.txt`. Run it every few days before the event, and `--save` after reading a change.
+`check_arena_site.py` re-reads the Arena site and diffs it against `arena-site-snapshot.txt`: the text (short labels such as "PnL" kept), the bundle's hash and Last-Modified, every route and API path, and the translation namespaces no code reads, so a new build shows even without new prose. Run it every few days before the event, on the morning of 7 Nov, and `--save` after reading a change.
 
 ### Prosperity wikis (Notion)
 

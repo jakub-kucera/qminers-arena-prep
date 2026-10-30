@@ -8,6 +8,7 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 
 ## Before the doors open (Sat 08:00)
 - `git pull && uv sync && uv run pytest` on every laptop; `references/` was cloned at home.
+- `python3 references/check_arena_site.py`: a new site build, path or text since the snapshot ["Known so far"].
 - Names for A (driver, recorder) and B (data, research) ["The day: timeline and roles"].
 - Every laptop on Europe/Prague time, and logged in to the portal during the playground: the e-mailed links are
   single-use ["Known so far"].
