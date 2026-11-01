@@ -83,7 +83,6 @@ Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a d
 ## From the 2026-10-30 rehearsal
 
 The engine-fit rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; logs in `python/experiments/mock_round/round3/results/`).
-- [ ] **The swap checklist's two missing shapes.** A level-indexed book feed (a level's price changes in place and the levels shift up when one empties), unlike `drill.py`'s price-keyed changes; and a function API returning dicts with the bot's own ids, for which the mock rounds' `results/*/qminers_format.py` and `template.py` were the closest models. Done when: step 1 names the first, step 3 and step 5 point at the mock rounds' results for the second.
 
 ## Rehearsal and setup
 
