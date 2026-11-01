@@ -439,6 +439,7 @@ It fails (exit code 1) on:
 - orders the engine cancels for possibly breaching a position limit
 - a tick slower than `--time-limit-ms`, timed without the garbage collections that run inside the call (the backtester's objects, not the bot's work; the line says when it left some out, and the bot's own garbage is left out with them)
 - a traded product with no `limit` in PARAMS (the template refuses it: DEFAULTS' is a placeholder)
+- errors or breaches when the first day is replayed with every order a step late (`--late 1`, the default while the run's own `--delay` is 0; `--late 0` where the rules say orders arrive at once): a bot that doesn't count what it sent and can't see listed yet re-posts it into the caps and its limits, as both 2026-10-30 rehearsal bots did after passing. The template passes once its `DELAY` (and `ORDERS_REST`) are set; race ticks are printed, not failed
 
 Over the cap, `arena.compact` writes a copy without comments or docstrings (the template's 49 KB become about 26 KB) and checks that it parses back to the same code; it trades exactly as the original (`python/tests/test_compact.py`). Validate and upload the copy, and keep editing the original. Delete the probe bot's RISKY PROBES block before compacting it, since its markers are comments.
 

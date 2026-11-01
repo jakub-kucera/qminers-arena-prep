@@ -52,8 +52,8 @@ be negative, a rebate: Ready Trader Go charged takers 2 bps and paid makers 1.
 Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
 exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there).
 Its limits are checked twice, as without a delay: against the position the bot saw when it decided
-(a breach), then against the position when it arrives, which the fills of its own earlier late
-orders have moved since (a race). Either rejects every new order for that product, as Prosperity
+(a breach; the orders it cancels count as gone, even one that filled before the cancel arrived), then
+against the position when it arrives, which the fills of its own earlier late orders have moved since (a race). Either rejects every new order for that product, as Prosperity
 does, so a bot that quotes all the room under its limit loses many ticks to races: one tick late,
 the template races on 3,248 of day 0's 10,000 ticks on P3 round 1. The bot is called before that
 tick's late orders are matched, so it never learns of a tick's trades before the next. For an
@@ -333,8 +333,11 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             if config.limit_penalty is None:
                 # Orders that don't fit the position the bot saw are its bug. Orders that did fit, but
                 # no longer do because another bot filled one of its orders since, lost a race.
-                # Both are rejected, as Prosperity does: every new order for that product.
-                breached = breaches(orders, seen_position, [o for o in seen if o.id not in cancelled], day.limits)
+                # Both are rejected, as Prosperity does: every new order for that product. What the bot
+                # cancels is gone from what it saw, even an order that filled before the cancel arrived:
+                # that fill moved the position since, a race.
+                asked = {action.order_id for action in sent if isinstance(action, Cancel)}
+                breached = breaches(orders, seen_position, [o for o in seen if o.id not in asked], day.limits)
                 raced = breaches(orders, player.position, kept, day.limits) - breached
                 player.result.limit_breaches.extend((tick.timestamp, product) for product in sorted(breached))
                 player.result.races.extend((tick.timestamp, product) for product in sorted(raced))

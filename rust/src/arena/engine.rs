@@ -339,8 +339,10 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
                 resting_cap(&mut s.orders, working.iter().filter(|o| o.owner == i).map(|o| o.product), cap, ts, &mut player.result, &day.products);
             }
             if config.limit_penalty.is_none() {
-                let cancelled = &s.cancelled;
-                let seen_left = player.decided_open.iter().filter(|o| !cancelled.contains(&o.id)).map(|o| (o.product, o.quantity));
+                // what the bot cancels is gone from what it saw, even an order that filled before the cancel arrived
+                let actions = &player.actions;
+                let asked = |id: u64| actions.iter().any(|a| matches!(a, Action::Cancel(c) if *c == id));
+                let seen_left = player.decided_open.iter().filter(|o| !asked(o.id)).map(|o| (o.product, o.quantity));
                 breaches(&s.orders, &player.decided_position, seen_left, &day.limits, &mut s.buys, &mut s.sells, &mut s.breached);
                 let kept = working.iter().filter(|o| o.owner == i).map(|o| (o.product, o.quantity));
                 breaches(&s.orders, &player.position, kept, &day.limits, &mut s.buys, &mut s.sells, &mut s.raced);

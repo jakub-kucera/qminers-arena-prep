@@ -148,7 +148,7 @@ between calls.
 
   The engine applies cancels before the limit check, which is why planning with the full room is safe. With nothing resting, it sends the whole plan, so one file works in both engine modes.
 
-  Where orders arrive late (`DELAY` steps, an ADAPTER constant; `ORDERS_REST` says whether they rest), `on_the_way` returns what the last `DELAY` calls sent (kept in the product's memory by `went`): those orders start the `Plan` as planned, the resting orders whose cancels are on their way hold their room, and `execute(..., sent=...)` lets the posts on their way cover the quotes at their price and take room under `max_resting`. With `DELAY` 0 nothing is kept and the bot trades as before. The Rust twin reads `DELAY`, `ORDERS_REST` and `MAX_RESTING` from the file's globals.
+  Where orders arrive late (`DELAY` steps, an ADAPTER constant; `ORDERS_REST` says whether they rest), `on_the_way` returns what the last `DELAY` calls sent (kept in the product's memory by `went`): those orders start the `Plan` as planned, the resting orders whose cancels are on their way hold their room, and `execute(..., sent=...)` lets the posts on their way cover the quotes at their price and take room under `max_resting`. With `DELAY` 0 nothing is kept and the bot trades as before. `arena.validate` replays the first day a step late (`--late`) and fails a bot that re-posts into the caps or its limits there. The Rust twin reads `DELAY`, `ORDERS_REST` and `MAX_RESTING` from the file's globals.
 - **ADAPTER:** the only Prosperity-specific code, including the resting extensions (`state.open_orders`, `Cancel`, `ioc`).
 - **`Trader.run`:** a try/except per product, swallowed unless `STRICT`. A product that errors cancels its resting orders.
 

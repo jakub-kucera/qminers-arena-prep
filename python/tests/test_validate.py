@@ -273,3 +273,24 @@ def test_a_garbage_collection_inside_a_call_is_left_out_of_the_slowest_tick(chec
     )
     line = next(l for l in out.splitlines() if "slowest tick" in l)
     assert "PASS" in line and "with the backtester's garbage collections, left out" in line, line
+
+
+def test_a_bot_that_reposts_what_it_cant_see_yet_fails_one_step_late(tmp_path, capsys):
+    # The 2026-10-30 rehearsal: the rules didn't say orders arrive a step late, validate passed both bots, and
+    # both uploads lost to their re-posts. The late replay fails them; DELAY passes it; --late 0 leaves it out.
+    from arena import sim
+
+    sim.write_day(sim.run(sim.preset_market(ticks=600), 7), tmp_path, 1, 0)
+    def run(*args):
+        code = validate.main([str(TEMPLATE), "1", "--data", str(tmp_path), "--resting", "--max-resting", "3", "--set", "MAX_RESTING=3", *args])
+        return code, capsys.readouterr().out
+
+    code, out = run()
+    assert code == 1 and "FAIL  r1d0 with orders 1 step late (--delay 1): " in out and "resting cap:" in out and "set the bot's DELAY" in out
+    assert "PASS  no errors in" in out  # on time it is fine
+    code, out = run("--set", "DELAY=1", "--set", "ORDERS_REST=True")
+    assert "PASS  r1d0 with orders 1 step late (--delay 1): no errors or breaches" in out
+    code, out = run("--late", "0")
+    assert code == 0 and "step late" not in out
+    code, out = run("--delay", "1")  # the run itself is late: nothing more to replay
+    assert "step late" not in out

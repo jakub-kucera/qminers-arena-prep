@@ -579,6 +579,17 @@ def test_a_delay_sends_orders_to_a_later_ticks_book():
     assert [len(own) for _, own, _ in later.seen] == [0, 0, 0]
 
 
+def test_an_order_that_fills_before_its_late_cancel_lands_makes_a_race_not_a_breach():
+    # A resting bid of the full room, cancelled at 200 and replaced lower; a trade fills it at the end of 200,
+    # before the cancel arrives at 300. The bot's orders fit what it saw (it cancelled the bid), so the
+    # rejection is a race: the fill moved its position since (the 2026-10-31 template's DELAY check).
+    d = day(*[tick(t, bids=[(97, 5)], asks=[(102, 5)], trades=[MarketTrade("X", 99, 10)] if t == 200 else ()) for t in range(0, 500, 100)])
+    script = {0: [Order("X", 99, 10)], 200: [Cancel(1), Order("X", 98, 10)]}
+    result = run_day(d, ScriptedBot(script), EngineConfig(resting=True, delay=1))
+    assert fills(result) == [(99, 10, "trade")]
+    assert result.limit_breaches == [] and result.races == [(300, "X")]
+
+
 def test_a_delayed_order_meets_that_ticks_market_trades():
     # A bid at 100 decided on tick 0, which has no trades; a sell prints at 100 on tick 1.
     d = day(tick(0, bids=[(99, 5)], asks=[(102, 5)]), tick(100, bids=[(99, 5)], asks=[(102, 5)], trades=[MarketTrade("X", 100, 3)]))

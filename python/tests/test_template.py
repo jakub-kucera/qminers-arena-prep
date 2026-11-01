@@ -659,4 +659,4 @@ def test_counting_what_is_on_its_way_keeps_a_late_exchange_from_refusing_orders(
     blind = run_day(day, prosperity.load_bot(TEMPLATE, {"MAX_RESTING": 3}, strict=True), config)
     counted = run_day(day, prosperity.load_bot(TEMPLATE, {"MAX_RESTING": 3, "DELAY": 1, "ORDERS_REST": True}, strict=True), config)
     assert any("resting cap" in error for _, error in blind.errors)
-    assert counted.errors == [] and len(counted.limit_breaches) < len(blind.limit_breaches) / 10
+    assert counted.errors == [] and counted.limit_breaches == [] and len(counted.races) < len(blind.races) / 3

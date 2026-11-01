@@ -18,8 +18,13 @@ largest traderData is longer than the exchange keeps. The first day is then
 replayed again: once to check the results repeat exactly, twice in other Python processes with
 other hash seeds (PYTHONHASHSEED), which catches a bot that iterates a set of strings, so that the
 organisers' rerun wouldn't reproduce it, once reloading the bot every tick, which shows whether it
-relies on state the real engine might not keep between calls, and once with STRICT off, as
-submitted, to check that no exception escapes its own error handling.
+relies on state the real engine might not keep between calls, once with STRICT off, as
+submitted, to check that no exception escapes its own error handling, and once with its orders a
+step late (--late, while the run's own delay is 0): rules that don't say when orders arrive may mean
+a step later (the 2026-10-30 rehearsal's did), and a bot that doesn't count what it sent and can't
+see listed yet re-posts it into the exchange's caps and its own limits. Refusals or breaches there
+FAIL; set the bot's DELAY (the template's ADAPTER), or pass --late 0 where the rules say orders
+arrive at once.
 
 Exits with 1 if any check fails.
 """
@@ -39,7 +44,7 @@ import subprocess
 import sys
 import textwrap
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from arena import report
@@ -199,8 +204,9 @@ class _Timed:
 
 
 def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | None = None,
-                  max_state: int | None = None) -> list[Check]:
-    """argv, this run's arguments, lets the first day be replayed in other processes (hash_seed_check)."""
+                  max_state: int | None = None, late: int | None = None) -> list[Check]:
+    """argv, this run's arguments, lets the first day be replayed in other processes (hash_seed_check).
+    late: the steps of the late replay (late_check); None for 1 while the run's delay is 0, 0 for none."""
     results, bots = [], []
     # The loaded days are long-lived: freeze them out of the collector, or its pauses land inside
     # the bot's timed calls (43-53 ms against the bot's own 0.3 ms in the 2026-10-26 dry run).
@@ -292,6 +298,10 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     else:
         checks.append(Check(PASS, f"no exception escapes the bot with STRICT off on {first.name}"))
 
+    late = (1 if s.config.delay == 0 else 0) if late is None else late
+    if late:
+        checks.append(late_check(path, s, late))
+
     pnl = " · ".join(f"{r.day} {(report.total_pnl(r) or [0])[-1]:,.0f}" for r in results)
     state = max((getattr(bot, "max_state_chars", 0) for bot in bots), default=0)
     output = max(r.max_output_chars for r in results)
@@ -305,6 +315,26 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
     if max_state is not None and state > max_state:  # Prosperity cut traderData at 50,000 and the bot read it back broken
         checks.append(Check(WARN, f"largest state {state:,} chars is over --max-state {max_state:,}: the exchange may cut it"))
     return checks
+
+
+def late_check(path: Path, s: Setup, steps: int) -> Check:
+    """The first day replayed with every order `steps` steps later than the run's: FAIL on any error (a cap's
+    refusal, an exception) or breach, as a bot that re-posts what it can't see listed yet gets them."""
+    config = replace(s.config, delay=s.config.delay + steps)
+    result = run_day(s.days[0], s.format.load_bot(path, s.overrides, strict=True), config)
+    where = f"{s.days[0].name} with orders {steps} step{'s' if steps > 1 else ''} late (--delay {config.delay})"
+    races = f"; {len(result.races):,} race ticks (a fill since the bot decided), not counted" if result.races else ""
+    problems = []
+    if result.errors:
+        timestamp, error = result.errors[0]
+        problems.append(f"{len(result.errors):,} errors, first at {timestamp}: {error.splitlines()[-1] if error.startswith('Traceback') else error}")
+    if result.limit_breaches:
+        timestamp, product = result.limit_breaches[0]
+        problems.append(f"{len(result.limit_breaches):,} breach ticks, first {product} at {timestamp}")
+    if problems:
+        return Check(FAIL, f"{where}: {'; '.join(problems)}{races}. If their rules don't say orders arrive at once, set the bot's "
+                           f"DELAY (and ORDERS_REST) so it counts what it sent and can't see yet; if they do, --late 0")
+    return Check(PASS, f"{where}: no errors or breaches{races}")
 
 
 def conflict_checks(path: Path, s: Setup) -> list[Check]:
@@ -431,6 +461,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--time-limit-ms", type=float, default=900, help="slowest allowed tick (default: 900, Prosperity's limit)")
     parser.add_argument("--max-size", type=max_size, help="the dashboard's file-size cap: bytes, or as shown (100KB, 1.5MB)")
     parser.add_argument("--max-state", type=int, metavar="CHARS", help="the largest traderData the exchange keeps (Prosperity: 50000): WARN above it")
+    parser.add_argument("--late", type=int, metavar="STEPS",
+                        help="replay the first day with orders this many steps late too, FAIL on refusals or breaches "
+                             "(default: 1 while the run's delay is 0; 0 for none, where the rules say orders arrive at once)")
     parser.add_argument("--fills-digest", action="store_true", help=argparse.SUPPRESS)  # hash_seed_check's other processes
     argv = sys.argv[1:] if argv is None else list(argv)
     args = parser.parse_args(argv)
@@ -453,7 +486,7 @@ def main(argv: list[str] | None = None) -> int:
     checks += found
     if replayable:
         try:
-            checks += replay_checks(args.bot, s, args.time_limit_ms, argv, args.max_state)
+            checks += replay_checks(args.bot, s, args.time_limit_ms, argv, args.max_state, args.late)
             checks += conflict_checks(args.bot, s)
         except OverrideError as error:
             parser.error(str(error))
