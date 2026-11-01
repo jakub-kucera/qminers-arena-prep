@@ -515,6 +515,33 @@ def test_execute_under_a_resting_cap_drops_the_posts_past_its_room_and_keeps_the
     assert bot.execute(plan, resting, max_resting=3) == ([], [(97, 1, True), (98, 2, False)])
     assert bot.execute(plan, resting, max_resting=2) == ([], [(97, 1, True)])
 
+def test_a_plan_counts_the_orders_on_their_way_and_holds_room_for_the_cancels_on_theirs(bot):
+    plan = bot.Plan(0, 10, sent=[(98, 4, False), (103, -2, True)], cancelling=[(1, 97, 3)])
+    assert (plan.net, plan.buy_room, plan.sell_room) == (2, 3, 8)
+
+
+def test_execute_lets_the_posts_on_their_way_cover_their_quotes_and_take_room_under_the_cap(bot):
+    plan = plan_with(bot, quotes=[(98, 6), (102, -10), (96, 3)])
+    sent = [(98, 4, False), (97, 1, True), (101, -20, False)]  # the take won't rest; the ask at 101 can't be cancelled yet
+    assert bot.execute(plan, [(1, 102, -10)], sent=sent) == ([], [(98, 2, False), (96, 3, False)])
+    assert bot.execute(plan, [(1, 102, -10)], max_resting=4, sent=sent) == ([], [(98, 2, False)])
+    assert bot.execute(plan_with(bot, quotes=[(98, 3)]), [], sent=sent) == ([], [])  # 4 on their way, 3 wanted
+
+
+def test_on_the_way_holds_the_last_delay_calls_and_nothing_without_a_delay(bot):
+    memory = {}
+    bot.went(memory, [], [(97, 2, True), (98, 4, False)], 1, rest=False)  # the quote is gone after it arrives
+    assert bot.on_the_way(memory, []) == ([(97, 2, True)], [], [])
+    memory = {}
+    bot.went(memory, [5], [(98, 4, False)], 0)
+    assert memory == {}
+    bot.went(memory, [5], [(98, 4, False)], 1)
+    assert bot.on_the_way(memory, [(5, 97, 3), (6, 99, 1)]) == ([(98, 4, False)], [(6, 99, 1)], [(5, 97, 3)])
+    json.loads(json.dumps(memory))  # it lives in traderData
+    bot.went(memory, [], [(99, -2, True)], 1)
+    assert bot.on_the_way(memory, [(5, 97, 3)]) == ([(99, -2, True)], [(5, 97, 3)], [])
+
+
 def test_execute_tells_a_bid_and_an_ask_at_one_price_apart(bot):
     cancels, orders = bot.execute(plan_with(bot, quotes=[(100, 3), (100, -3)]), [(1, 100, -3)])
     assert cancels == [] and orders == [(100, 3, False)]
@@ -619,3 +646,17 @@ def test_template_runs_cleanly_in_both_modes(data_dir, resting):
     for day in days:
         result = run_day(day, prosperity.load_bot(TEMPLATE, {}, strict=True), EngineConfig(resting=resting))
         assert result.errors == [] and result.limit_breaches == []
+
+
+def test_counting_what_is_on_its_way_keeps_a_late_exchange_from_refusing_orders(tmp_path):
+    # Orders one step late and 3 working a product (the 2026-10-30 rehearsal's exchange): without DELAY the
+    # template re-posts what it can't see yet and the cap refuses it; with it, nothing is refused.
+    from arena import sim
+
+    sim.write_day(sim.run(sim.preset_market(ticks=800), 7), tmp_path, 1, 0)
+    config = EngineConfig(resting=True, delay=1, max_resting=3)
+    day = prosperity.load_days(tmp_path, ["1"])[0]
+    blind = run_day(day, prosperity.load_bot(TEMPLATE, {"MAX_RESTING": 3}, strict=True), config)
+    counted = run_day(day, prosperity.load_bot(TEMPLATE, {"MAX_RESTING": 3, "DELAY": 1, "ORDERS_REST": True}, strict=True), config)
+    assert any("resting cap" in error for _, error in blind.errors)
+    assert counted.errors == [] and len(counted.limit_breaches) < len(blind.limit_breaches) / 10

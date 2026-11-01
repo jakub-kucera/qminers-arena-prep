@@ -467,3 +467,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 - `TODO_DONE.md` and `MANUAL_TODO.md` moved to `docs/`; every page's mention now says `docs/` (this log's older entries keep the old names).
 - `ON_THE_DAY.md` cut to the day's actions, its dated evidence replaced by pointers to the `IDEAS.md` rows; the Frankfurt Hedgehogs' relative hedge moved into `concepts/risk-and-protecting-a-lead`.
 - `python/experiments/` split into `day/` (run on the Arena's data) and `study/` (Prosperity one-offs), the tools left at the top; every page's `experiments.X` and `python/experiments/X.py` mention follows (lines unchanged: the files moved whole).
+
+## [2026-10-31] lint | the template's lines re-mapped after its orders on their way
+- `python/bots/template.py` gained `DELAY`, `ORDERS_REST` and `MAX_RESTING` at the top and `on_the_way`/`went` in EXECUTION, so its lines moved: every page's `python/bots/template.py:N` re-mapped to the same code (no page's text changed).

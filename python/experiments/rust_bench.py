@@ -185,6 +185,11 @@ def template_cases(variants=VARIANTS) -> list[tuple[str, EngineConfig, list]]:
         ("as committed against a requoted mm, resting", EngineConfig(resting=True), bots(committed, [("mm", BOT, mm({"KELP": (0, 1, False)}), True)])),
         ("as committed, delay 1", EngineConfig(delay=1), bots(committed)),
         ("as committed against a copy, resting, delay 2", EngineConfig(resting=True, delay=2), bots(committed, [copy])),
+        ("as committed, counting what is on its way, delay 1", EngineConfig(delay=1), bots({**committed, "DELAY": 1})),
+        ("as committed, counting what is on its way, resting, delay 1, at most 3 working",
+         EngineConfig(resting=True, delay=1, max_resting=3), bots({**committed, "DELAY": 1, "MAX_RESTING": 3, "ORDERS_REST": True})),
+        ("as committed against a copy, counting what is on its way, resting, delay 2", EngineConfig(resting=True, delay=2),
+         bots({**committed, "DELAY": 2, "ORDERS_REST": True}, [("template#2", TEMPLATE, {K + "make_edge": 1, "DELAY": 2, "ORDERS_REST": True}, False)])),
         ("as committed, fee 1 a lot and 2 bps", EngineConfig(fee=1.0, fee_bps=2.0), bots(committed)),
         ("as committed, deplete", EngineConfig(deplete=True), bots(committed)),
         ("as committed, at most 4 orders a tick", EngineConfig(max_orders=4), bots(committed)),
@@ -527,6 +532,8 @@ def sim_cases(ticks: int = 2000) -> list[tuple]:
         ("the template and every zoo twin, per tick", p3, 10, [template, *zoo], EngineConfig()),
         ("the template and every zoo twin requoted, resting", p3, 10, [template, *[(n, path, o, True) for n, path, o, _ in zoo]], resting),
         ("the drill template in the market (prices in its unit)", p3, 11, [("drill", DRILL, {"PARAMS.KELP": {"fair": "wall_mid", "make_edge": 1}}, False)], resting),
+        ("the drill template counting what is on its way, delay 1", p3, 12,
+         [("drill", DRILL, {"PARAMS.KELP": {"fair": "wall_mid", "make_edge": 1}, "DELAY": 1}, False)], EngineConfig(resting=True, delay=1)),
     ]
 
 

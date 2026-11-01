@@ -79,20 +79,26 @@
   "python/bots/template.py": {
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
-    "sha256": "15e9f1a016fb4ce39b3f445c76de455d6bfcd1ff057ef1f6d6765c22b3f0a36e",
+    "sha256": "ebf28f398ef2c41d467a5a18ff139242e27d00b3952a55006cd9b3859877da3b",
     "reads": [
       "DEFAULTS",
-      "PARAMS"
+      "PARAMS",
+      "DELAY",
+      "MAX_RESTING",
+      "ORDERS_REST"
     ]
   },
   "python/bots/drill/template.py": {
     "kind": "drill_template",
     "format": "drill",
     "rust": "rust/src/bots/drill/template.rs",
-    "sha256": "2658b1b8208dfdee0f90d27c5c460a854506f928226986c6a3289c2fb647f701",
+    "sha256": "f45d291154a9cf29ed96d441c44beb66cfc3375e872f8ae7c6f370dcd5005cd6",
     "reads": [
       "DEFAULTS",
-      "PARAMS"
+      "PARAMS",
+      "DELAY",
+      "MAX_RESTING",
+      "ORDERS_REST"
     ]
   },
   "python/bots/zoo/chatgpt/gpt-5-6-luna_baseline.py": {

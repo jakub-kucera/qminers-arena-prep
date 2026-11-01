@@ -22,6 +22,8 @@ the last trade, and orders reach the exchange one step after the call (`delay` 1
 - `results/before/` (the repo at 24a536a, before `ENGINE`, the caps and calibrate) and `results/after/` (at
   d586efd): each run's bot, format plug-in, `HANDOVER.md`, log and prompt; `claude -p`, the same tool allowlist,
   stopped once a validated bot was uploaded and the engine fitted to it.
+- `results/in_flight/template.py` (2026-10-31): the after-run's bot with EXECUTION's `on_the_way` and `went` and a
+  delay of 1, nothing else changed: hidden −389 against −489, public +142 against −283.
 
 Rebuild and score (from the repo root, a few seconds):
 

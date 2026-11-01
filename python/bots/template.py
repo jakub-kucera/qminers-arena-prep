@@ -29,6 +29,14 @@ from datamodel import Cancel, Order, OrderDepth, TradingState
 
 # The backtester sets this to True so bugs raise instead of being swallowed.
 STRICT = False
+# Steps an order takes to reach the exchange: what a call sends meets the book DELAY steps later
+# (the rules, probe 3, or calibrate's delay). 0 is Prosperity's: by the next call it is listed or done.
+DELAY = 0
+# With DELAY: whether an order that doesn't fill stays on the book between calls (the backtester's
+# --resting, or the rules'). False is Prosperity's: an order on its way is gone the step after it arrives.
+ORDERS_REST = False
+# The exchange's cap on the orders a product may have working, or None: execute keeps within it.
+MAX_RESTING = None
 
 DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
@@ -232,13 +240,20 @@ class Plan:
     Orders can all fill in the same tick, so the room to buy ignores planned sells and vice versa.
     The room is the full room under the limit: EXECUTION cancels any resting order the plan
     doesn't keep, and cancels free their room before new orders are checked.
+
+    Where orders reach the exchange a step or more late (EXECUTION's on_the_way), the orders sent
+    and not yet there start the plan as planned, since they may all fill and can't be cancelled
+    yet, and the resting orders whose cancels haven't arrived hold their room, not the net, as
+    they may fill first.
     """
 
-    def __init__(self, position: int, limit: int):
+    def __init__(self, position: int, limit: int, sent: list[tuple[int, int, bool]] = (), cancelling: list[tuple] = ()):
         self.position = position
         self.limit = limit
-        self.bought = 0
-        self.sold = 0
+        self.bought = sum(quantity for _, quantity, _ in sent if quantity > 0)
+        self.sold = -sum(quantity for _, quantity, _ in sent if quantity < 0)
+        self.held_buy = sum(quantity for _, _, quantity in cancelling if quantity > 0)
+        self.held_sell = -sum(quantity for _, _, quantity in cancelling if quantity < 0)
         self.takes: list[tuple[int, int]] = []  # (price, signed quantity) trading with the book now
         self.quotes: list[tuple[int, int]] = []  # (price, signed quantity) waiting to be hit
         # What the strategy decided, for the products traded after this one (see Market).
@@ -253,11 +268,11 @@ class Plan:
 
     @property
     def buy_room(self) -> int:
-        return self.limit - self.position - self.bought
+        return self.limit - self.position - self.bought - self.held_buy
 
     @property
     def sell_room(self) -> int:
-        return self.limit + self.position - self.sold
+        return self.limit + self.position - self.sold - self.held_sell
 
     def buy(self, price: int, quantity: int, quote: bool = False) -> int:
         quantity = min(quantity, self.buy_room)
@@ -294,9 +309,11 @@ class Market:
         self.plans: dict[str, Plan] = {}
 
 
-def trade_product(product: str, book: Book, position: int, p: dict, memory: dict, market: Market | None = None) -> Plan:
-    """Fair value -> take -> clear -> make, on a copy of the book: market.books stays untouched."""
-    plan = Plan(position, p["limit"])
+def trade_product(product: str, book: Book, position: int, p: dict, memory: dict, market: Market | None = None,
+                  sent: list[tuple[int, int, bool]] = (), cancelling: list[tuple] = ()) -> Plan:
+    """Fair value -> take -> clear -> make, on a copy of the book: market.books stays untouched. sent and
+    cancelling: what EXECUTION's on_the_way says hasn't reached the exchange yet (see Plan)."""
+    plan = Plan(position, p["limit"], sent, cancelling)
     market = market or Market({product: book})
     fair = smile_fair(book, p, memory, market) if p["smile"] is not None else fair_value(book, p, memory)
     if fair is None:  # no price seen yet
@@ -915,7 +932,7 @@ def param_conflicts(product: str) -> list[str]:
 # ------------------------------------------------------------------------------ EXECUTION
 
 
-def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | None = None) -> tuple[list[int], list[tuple[int, int, bool]]]:
+def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | None = None, sent: list[tuple[int, int, bool]] = ()) -> tuple[list[int], list[tuple[int, int, bool]]]:
     """Turns the plan into (order ids to cancel, new orders as (price, signed quantity, ioc)).
 
     resting holds the product's resting orders as (id, price, signed quantity left), oldest
@@ -926,6 +943,9 @@ def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | 
     max_resting, an exchange's cap on the orders a product may have working (ADAPTER passes it):
     the posts beyond the room the kept orders leave are not sent, and the kept ones keep their
     place (cancelling all and posting afresh cost the 2026-10-28 rehearsal's bot 775 of VANTA's PnL).
+    sent, the orders on their way (on_the_way): its posts will rest and can't be cancelled before
+    they do, so they cover the quotes at their price, after the resting orders, and take room
+    under max_resting.
     """
     wanted: dict[tuple[bool, int], int] = {}  # (buying, price) -> signed quantity still to send
     for price, quantity in plan.quotes:
@@ -938,11 +958,41 @@ def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | 
             wanted[key] -= quantity
         else:
             cancels.append(order_id)
+    flying = [(price, quantity) for price, quantity, ioc in sent if not ioc]
+    for price, quantity in flying:
+        key = (quantity > 0, price)
+        if key in wanted:
+            wanted[key] -= quantity if abs(quantity) <= abs(wanted[key]) else wanted[key]
     orders = [(price, quantity, True) for price, quantity in plan.takes]
     posts = [(price, quantity, False) for (_, price), quantity in wanted.items() if quantity]
     if max_resting is not None:
-        posts = posts[: max(0, max_resting - (len(resting) - len(cancels)))]
+        posts = posts[: max(0, max_resting - (len(resting) - len(cancels)) - len(flying))]
     return cancels, orders + posts
+
+
+def on_the_way(memory: dict, resting: list[tuple]) -> tuple[list[tuple[int, int, bool]], list[tuple], list[tuple]]:
+    """What a product's last calls sent that hasn't reached the exchange yet, where orders arrive late
+    (the 2026-10-30 rehearsal's exchange applied a step's orders one step later; the bot, seeing only
+    what the exchange listed, re-posted every step, the resting cap refused most of it and its limit
+    room was spent twice). Returns the orders on their way as (price, signed quantity, ioc), the
+    resting orders to manage, and those whose cancels are on their way: they go before the new orders
+    arrive, but may fill first. went() keeps each call's; with a delay of 0 nothing is kept.
+    """
+    batches = memory.get("flight", [])
+    sent = [(price, quantity, ioc) for batch in batches for price, quantity, ioc in batch[0]]
+    cancelled = {order_id for batch in batches for order_id in batch[1]}
+    return sent, [o for o in resting if o[0] not in cancelled], [o for o in resting if o[0] in cancelled]
+
+
+def went(memory: dict, cancels: list, new: list[tuple[int, int, bool]], delay: int, rest: bool = True) -> None:
+    """Keeps this call's cancels and new orders as on their way for the next `delay` calls: an order
+    sent now meets the exchange `delay` steps later, after that call, and is listed (or filled) by the one after.
+    Where orders don't rest (rest False), only the takes are kept: a quote on its way is gone the step after
+    it arrives, and holding its full size against the limit in case all of it fills left the bot quoting
+    every other step (P3 round 1 one tick late: 24,588 against 40,472 for not counting at all)."""
+    if delay:
+        batch = [[price, quantity, ioc] for price, quantity, ioc in new if ioc or rest]
+        memory["flight"] = (memory.get("flight", []) + [[batch, list(cancels)]])[-delay:]
 
 
 # ------------------------------------------------------------------------------ ADAPTER
@@ -1025,9 +1075,12 @@ class Trader:
                 if p is None:
                     continue
                 position = state.position.get(product, 0)
-                plan = trade_product(product, market.books[product], position, p, memory.setdefault(product, {}), market)
+                mine = memory.setdefault(product, {})
+                sent, resting, cancelling = on_the_way(mine, read_resting(state, product))
+                plan = trade_product(product, market.books[product], position, p, mine, market, sent, cancelling)
                 market.plans[product] = plan
-                cancels, new = execute(plan, read_resting(state, product))
+                cancels, new = execute(plan, resting, MAX_RESTING, sent)
+                went(mine, cancels, new, DELAY, ORDERS_REST)
                 # Built here, inside the try: an exchange's Order may reject what ours accepts.
                 orders[product] = [Cancel(order_id) for order_id in cancels] + [
                     Order(product, int(price), int(quantity), ioc=ioc) for price, quantity, ioc in new

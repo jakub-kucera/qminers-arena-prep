@@ -20,7 +20,7 @@ A market maker on KOSPI 200 index futures (61 days of full LOB data, `order-stac
 - A one-tick, crowded futures book with frequent cancels.
 
 ## In our notation
-- Stacking is quoting at several prices; the template quotes one price per side (`python/bots/template.py:823-828`), and `--resting` keeps each order's queue place (`python/arena/engine.py`).
+- Stacking is quoting at several prices; the template quotes one price per side (`python/bots/template.py:840-845`), and `--resting` keeps each order's queue place (`python/arena/engine.py`).
 - **For the `--queue prob` item in `TODO.md`:** their finding argues for sampling where a cancel falls, not subtracting its expected share, or at least for testing both *(inferred: the difference comes from fills being a threshold event on the queue ahead)*.
 
 ## Traps

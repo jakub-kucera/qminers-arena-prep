@@ -29,7 +29,7 @@ Avellaneda–Stoikov's market maker (Poisson fills `A·e^{−κδ}`, exponential
 |---|---|
 | `μ` | a fixed fair (`fair: "fixed"`, `fixed_fair`), or the template's `level` |
 | constant quotes `μ ± (1/γ)·log(1 + γ/κ)` | `fair: "fixed"` with `make_edge = (1/γ)·log(1 + γ/κ)` and `skew` 0 |
-| skew `γσ²/(2α)` per unit | `skew = γσ²/(2α) × limit` (`python/bots/template.py:57`) |
+| skew `γσ²/(2α)` per unit | `skew = γσ²/(2α) × limit` (`python/bots/template.py:65`) |
 | tracking quotes near the end | `fair: "wall_mid"` |
 
 ## Traps

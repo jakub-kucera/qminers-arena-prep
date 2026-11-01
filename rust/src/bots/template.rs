@@ -385,7 +385,11 @@ struct Memory {
     cost: Option<f64>,
     delta: Option<f64>,
     offset: Option<f64>,
+    flight: Vec<(Vec<Sent>, Vec<u64>)>, // EXECUTION's went: the last DELAY calls' new orders and cancels
 }
+
+/// An order on its way to the exchange: (price, signed quantity, ioc).
+type Sent = (Price, i64, bool);
 
 /// changepoint_level's run: [chance, mean, variance, first block].
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
@@ -411,6 +415,8 @@ struct Plan {
     limit: i64,
     bought: i64,
     sold: i64,
+    held_buy: i64,  // resting orders whose cancels are on their way: they hold room, not the net
+    held_sell: i64,
     takes: Vec<(Price, i64)>,
     quotes: Vec<(Price, i64)>,
     fair: Option<f64>,
@@ -419,8 +425,13 @@ struct Plan {
 }
 
 impl Plan {
-    fn new(position: i64, limit: i64) -> Plan {
-        Plan { position, limit, bought: 0, sold: 0, takes: Vec::new(), quotes: Vec::new(), fair: None, target: 0, legs: Vec::new() }
+    /// sent: the orders on their way, counted as planned; cancelling: the resting orders whose cancels are (Python's Plan).
+    fn new(position: i64, limit: i64, sent: &[Sent], cancelling: &[(u64, Price, i64)]) -> Plan {
+        let bought = sent.iter().map(|o| o.1).filter(|&q| q > 0).sum();
+        let sold = -sent.iter().map(|o| o.1).filter(|&q| q < 0).sum::<i64>();
+        let held_buy = cancelling.iter().map(|o| o.2).filter(|&q| q > 0).sum();
+        let held_sell = -cancelling.iter().map(|o| o.2).filter(|&q| q < 0).sum::<i64>();
+        Plan { position, limit, bought, sold, held_buy, held_sell, takes: Vec::new(), quotes: Vec::new(), fair: None, target: 0, legs: Vec::new() }
     }
 
     fn net(&self) -> i64 {
@@ -428,11 +439,11 @@ impl Plan {
     }
 
     fn buy_room(&self) -> i64 {
-        self.limit - self.position - self.bought
+        self.limit - self.position - self.bought - self.held_buy
     }
 
     fn sell_room(&self) -> i64 {
-        self.limit + self.position - self.sold
+        self.limit + self.position - self.sold - self.held_sell
     }
 
     fn buy(&mut self, price: Price, quantity: i64, quote: bool) -> i64 {
@@ -465,8 +476,8 @@ struct Market<'a> {
     weights: &'a [f64], // copy's weight per trader name, for this product
 }
 
-fn trade_product(product: usize, book: &Book, position: i64, p: &P, memory: &mut Memory, market: &Market) -> Plan {
-    let mut plan = Plan::new(position, p.limit);
+fn trade_product(product: usize, book: &Book, position: i64, p: &P, memory: &mut Memory, market: &Market, sent: &[Sent], cancelling: &[(u64, Price, i64)]) -> Plan {
+    let mut plan = Plan::new(position, p.limit, sent, cancelling);
     let fair = if p.smile.is_some() { smile_fair(book, p, memory, market) } else { fair_value(book, p, memory) };
     let Some(mut fair) = fair else { return plan };
     let spread = if !book.bids.is_empty() && !book.asks.is_empty() { book.asks[0].0 - book.bids[0].0 } else { 0 };
@@ -1038,8 +1049,9 @@ fn scaled(size: i64, factor: f64) -> i64 {
 
 // ------------------------------------------------------------------------------ EXECUTION
 
-/// Pushes the plan's cancels and new orders: resting holds (id, price, signed quantity left), oldest first.
-fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], max_resting: Option<usize>, out: &mut Vec<Action>) {
+/// Pushes the plan's cancels and new orders: resting holds (id, price, signed quantity left), oldest first;
+/// sent the orders on their way, whose posts cover the quotes at their price and take room under max_resting.
+fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], max_resting: Option<usize>, sent: &[Sent], out: &mut Vec<Action>) {
     let mut wanted: Vec<((bool, Price), i64)> = Vec::with_capacity(2);
     for &(price, quantity) in &plan.quotes {
         let key = (quantity > 0, price);
@@ -1059,11 +1071,18 @@ fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], max_resti
             }
         }
     }
+    let mut flying = 0;
+    for &(price, quantity, _) in sent.iter().filter(|o| !o.2) {
+        flying += 1;
+        if let Some((_, v)) = wanted.iter_mut().find(|(k, _)| *k == (quantity > 0, price)) {
+            *v -= if quantity.abs() <= v.abs() { quantity } else { *v };
+        }
+    }
     for &(price, quantity) in &plan.takes {
         out.push(Action::Order(Order { product, price, quantity, ioc: true }));
     }
-    // max_resting: the posts beyond the room the kept orders leave are not sent
-    let mut room = max_resting.map_or(usize::MAX, |cap| cap.saturating_sub(kept));
+    // max_resting: the posts beyond the room the kept orders and those on their way leave are not sent
+    let mut room = max_resting.map_or(usize::MAX, |cap| cap.saturating_sub(kept).saturating_sub(flying));
     for &((_, price), quantity) in &wanted {
         if quantity != 0 && room > 0 {
             out.push(Action::Order(Order { product, price, quantity, ioc: false }));
@@ -1138,6 +1157,9 @@ impl Adapter {
 
 pub struct Template {
     adapter: Adapter,
+    delay: usize,               // DELAY: steps an order takes to reach the exchange
+    orders_rest: bool,          // ORDERS_REST: with a delay, a quote on its way still stands when it arrives
+    max_resting: Option<usize>, // MAX_RESTING, where the adapter names none
     units: Drill, // with adapter.units: each product's tick and unit, and its book in ticks
     settings: Vec<(String, P, bool)>, // PARAMS: product, its merged settings, and whether it depends on another (_depends)
     // Per product of the day, set by begin_day.
@@ -1186,8 +1208,20 @@ impl Template {
             let depends = own.iter().any(|(k, v)| (k == "follow" && !v.is_null()) || (k == "hedge" && v.truthy()));
             settings.push((product.clone(), p, depends));
         }
+        let whole = |name: &str| match globals.get(name) {
+            None | Some(Value::Null) => Ok(None),
+            Some(Value::Int(n)) if *n >= 0 => Ok(Some(*n as usize)),
+            _ => Err(format!("the template's {name} must be a whole number or None")),
+        };
         Ok(Template {
             adapter: Adapter::PROSPERITY,
+            delay: whole("DELAY")?.unwrap_or(0),
+            orders_rest: match globals.get("ORDERS_REST") {
+                None => false,
+                Some(Value::Bool(b)) => *b,
+                _ => return Err("the template's ORDERS_REST must be True or False".to_string()),
+            },
+            max_resting: whole("MAX_RESTING")?,
             units: Drill::default(),
             settings,
             params: Vec::new(),
@@ -1338,7 +1372,6 @@ impl Bot for Template {
                 plan_order: &self.plan_order,
                 weights: &self.weights[product],
             };
-            let plan = trade_product(product, book, positions[product], p, &mut self.memory[product], &market);
             // read_resting: oldest first, by (timestamp, id), or as the engine lists them
             self.resting.clear();
             self.resting.extend(open_orders.iter().filter(|o| o.product == product).map(|o| {
@@ -1347,9 +1380,32 @@ impl Bot for Template {
             if a.sorted_resting {
                 self.resting.sort_unstable_by_key(|&(ts, id, _, _)| (ts, id));
             }
-            let resting: Vec<(u64, Price, i64)> = self.resting.iter().map(|&(_, id, price, q)| (id, price, q)).collect();
+            let listed: Vec<(u64, Price, i64)> = self.resting.iter().map(|&(_, id, price, q)| (id, price, q)).collect();
+            // on_the_way: the orders and cancels the last DELAY calls sent
+            let memory = &mut self.memory[product];
+            let sent: Vec<Sent> = memory.flight.iter().flat_map(|(orders, _)| orders.iter().copied()).collect();
+            let cancelled = |id: &u64| memory.flight.iter().any(|(_, cancels)| cancels.contains(id));
+            let (cancelling, resting): (Vec<_>, Vec<_>) = listed.into_iter().partition(|o| cancelled(&o.0));
+            let plan = trade_product(product, book, positions[product], p, memory, &market, &sent, &cancelling);
             let start = out.len();
-            execute(product, &plan, &resting, a.max_resting, out);
+            execute(product, &plan, &resting, a.max_resting.or(self.max_resting), &sent, out);
+            if self.delay > 0 {
+                // went: this call's, in ticks, kept for the next DELAY calls
+                let mut cancels = Vec::new();
+                let mut orders = Vec::new();
+                for action in &out[start..] {
+                    match action {
+                        Action::Cancel(id) => cancels.push(*id),
+                        Action::Order(o) if o.ioc || self.orders_rest => orders.push((o.price, o.quantity, o.ioc)),
+                        Action::Order(_) => {} // where orders don't rest, a quote on its way is gone after it arrives
+                    }
+                }
+                let memory = &mut self.memory[product];
+                memory.flight.push((orders, cancels));
+                if memory.flight.len() > self.delay {
+                    memory.flight.remove(0);
+                }
+            }
             if a.units {
                 for action in &mut out[start..] {
                     if let Action::Order(order) = action {

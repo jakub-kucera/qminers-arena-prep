@@ -48,10 +48,10 @@ The paper behind every "Avellaneda–Stoikov" market maker. A dealer quotes one 
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `s` | the fair value (`fair_value`, `python/bots/template.py:353`) |
+| `s` | the fair value (`fair_value`, `python/bots/template.py:370`) |
 | `q` | the position (`plan.net` in `make`) |
-| `r = s − qγσ²(T−t)` | `fair − shift`, where `shift = round(skew × q / limit)` (`python/bots/template.py:830`); equal when `skew = γσ²(T−t) × limit` |
-| `δ^a + δ^b = γσ²(T−t) + (2/γ)·ln(1 + γ/k)` | `2 × make_edge` (`python/bots/template.py:55`), which has no time term; as γ → 0 the half-spread tends to `1/k` |
+| `r = s − qγσ²(T−t)` | `fair − shift`, where `shift = round(skew × q / limit)` (`python/bots/template.py:847`); equal when `skew = γσ²(T−t) × limit` |
+| `δ^a + δ^b = γσ²(T−t) + (2/γ)·ln(1 + γ/k)` | `2 × make_edge` (`python/bots/template.py:63`), which has no time term; as γ → 0 the half-spread tends to `1/k` |
 | `σ` | per-tick standard deviation of the fair value, per product |
 | `A, k` | fill rate against quote distance from fair, measurable from `_fills.csv` and `_orders.csv` |
 | `T − t` | ticks to the end of the day (`timestamp` runs 0…999,900 in Prosperity) |
