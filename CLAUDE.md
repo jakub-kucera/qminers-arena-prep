@@ -22,7 +22,7 @@ editable, so commands run from the root), `rust/` (the Rust twins, laid out as `
 - `IDEAS.md`: every idea tested on Prosperity data, with results; priors for the day.
 - `README.md`: the user's guide to every tool. `ARCHITECTURE.md`: how the code fits together.
 - `TODO.md`: prep work left. `docs/TODO_DONE.md`: finished items, with their evidence and decisions.
-  `docs/MANUAL_TODO.md`: what only a person can obtain.
+  `docs/MANUAL_TODO.md`: what only a person can obtain. `docs/HANDOVER_TEMPLATE.md`: each round's note.
 
 ## Commands
 

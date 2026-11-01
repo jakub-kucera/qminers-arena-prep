@@ -49,7 +49,7 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 | T+1:30 | `uv run python -m arena.stress BOT DAYS --format qminers --data D`; set each `stop_loss` to about 3× its plain drawdown ["Stress the bot"]. If the market is shared: `--vs` copies, the round's zoo through `arena.compare`, and the rivals ["Is the market shared"]. |
 | T+2:00 | A validated bot at least as good as the last one, uploaded; its portal score against our backtest is the engine's error `T`. |
 | deadline − 0:30 | (T+4:30 if the deadline is the round's end; earlier if twice the first evaluation's time is longer.) Stop changing the strategy. Validate the final candidate and upload it. |
-| deadline − 0:10 | Check which submission is marked final. Write the handover note (`data/arena/round<N>/HANDOVER.md`, from round 1's template), then commit and push it. |
+| deadline − 0:10 | Check which submission is marked final. Write the handover note (`data/arena/round<N>/HANDOVER.md`, copied from `docs/HANDOVER_TEMPLATE.md`), then commit and push it. |
 | After | Once the private run is done: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.day.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
 
 ## Rules that hold all day
