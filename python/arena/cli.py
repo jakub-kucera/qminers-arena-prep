@@ -154,6 +154,14 @@ CONFIG_FLAGS = ("trade_matching", "queue", "queue_power", "fill_ratio", "seed", 
 _ENUMS = {"trade_matching": TradeMatching, "queue": QueueModel, "mark": Mark}
 
 
+def credits_per_unit(format_name: str, days) -> float:
+    """What one engine price unit is worth in the portal's credits a lot: the data's unit (Day.info's, where
+    every product has the same; else 1) times the format's CREDITS, the credits a lot one unit of its quoted
+    prices is worth (a contract multiplier: the 2026-10-30 rehearsal's points were worth 2; 1 if it sets none)."""
+    units = {(info or {}).get("unit") for day in days for info in day.info.values()} - {None}
+    return (units.pop() if len(units) == 1 else 1.0) * getattr(FORMATS[format_name], "CREDITS", 1.0)
+
+
 def format_config(format_name: str, **changes) -> EngineConfig:
     """The engine settings a format's rules fix (its RESTING and ENGINE), with `changes` on top: what every tool
     starts from, so a backtest of their data runs under their rules without a flag for each. Prosperity's: the

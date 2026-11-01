@@ -14,7 +14,8 @@ metrics response, pasted into a JSON file, or --portal-set): score, fills, trade
 markPrice, breachPenalty, pnlSe, absInventoryQ50/Q68/Q95/Q997. With --results, each product's fills and
 volume in the results ZIP too (read through experiments.day.fill_curve's column map, the swap's step 11).
 
-Our figures are converted to the portal's credits by the data's unit (Day.info; --scale to override). Where
+Our figures are converted to the portal's credits by the data's unit (Day.info) times the format's CREDITS
+(arena.cli.credits_per_unit; --scale to override). Where
 the portal's meaning is open, the nearest reading counts: the score as the days' sum or their mean, fills as
 fills or filled orders, pnlSe as the per-tick, block or per-day standard error (report.format_metrics), markPrice as the products' mean mark or any one's. The
 error per figure is |ours - theirs| / max(|theirs|, 1); a setting's error is their mean. The table ranks the
@@ -35,7 +36,7 @@ from dataclasses import fields, replace
 from pathlib import Path
 
 from arena import report
-from arena.cli import _ENUMS, add_dataset_arguments, add_engine_argument, backtest, dataset_from, format_config
+from arena.cli import _ENUMS, add_dataset_arguments, add_engine_argument, backtest, credits_per_unit, dataset_from, format_config
 from arena.engine import EngineConfig, Mark, QueueModel, TradeMatching
 from arena.formats import FORMATS
 
@@ -168,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--portal-set", action="append", default=[], metavar="FIELD=VALUE", help="a portal figure by hand, e.g. score=1234.5 (repeatable)")
     parser.add_argument("--results", type=Path, help="the submission's results ZIP (or folder): each product's fills and volume join the figures")
     parser.add_argument("--vary", action="append", default=[], metavar="FIELD=V1,V2", help="one more engine setting to try, e.g. fee=0,1 or delay=0,1 (repeatable)")
-    parser.add_argument("--scale", type=float, help="credits per engine price unit (default: the data's Day.info unit, else 1)")
+    parser.add_argument("--scale", type=float, help="credits per engine price unit (default: the data's Day.info unit times the format's CREDITS)")
     parser.add_argument("--top", type=int, default=12, help="settings to show (default: 12)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     args = parser.parse_args(argv)
@@ -208,8 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         except (KeyError, ValueError):
             print(f"note: {dataset.bot} has no Rust twin yet, so its backtests run on the Python engine", file=sys.stderr)
             engine = "python"
-    units = {(info or {}).get("unit") for day in days for info in day.info.values()} - {None}
-    scale = args.scale if args.scale is not None else (units.pop() if len(units) == 1 else 1.0)
+    scale = args.scale if args.scale is not None else credits_per_unit(dataset.format, days)
     configs = candidates(format_config(dataset.format), vary)
     job = {"days": days, "bot": dataset.bot, "engine": engine, "format": dataset.format, "scale": scale, "theirs": theirs}
     if args.jobs > 1:

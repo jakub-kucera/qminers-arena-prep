@@ -67,6 +67,23 @@ def test_backtest_prints_the_portal_metrics_on_request(capsys, tmp_path, data_di
     out = capsys.readouterr().out
     assert "portal metrics (--metrics):" in out
     assert "portal metrics over 2 days" in out
+    assert "in the portal's credits" not in out  # Prosperity's prices are credits
+
+
+def test_metrics_turn_into_credits_by_the_formats_multiplier(capsys, tmp_path, data_dir, monkeypatch):
+    # The 2026-10-30 rehearsal: prices in points worth 2 credits a lot, which only the rules said.
+    from arena import cli
+    from arena.formats import FORMATS
+
+    monkeypatch.setattr(FORMATS["prosperity"], "CREDITS", 2.0, raising=False)
+    path = tmp_path / "bot.py"
+    path.write_text(BOT)
+    assert backtest.main([str(path), "1", "--data", str(data_dir), "--metrics"]) == 0
+    out = capsys.readouterr().out
+    assert "days: 2 · sum -4.00 · mean -2.00" in out  # the tables stay in price units
+    assert "in the portal's credits (2 a price unit" in out and "pnl sum -8.00 · mean -4.00" in out
+    info = [type("D", (), {"info": {"A": {"tick": 0.5, "unit": 0.01}, "B": {"tick": 0.01, "unit": 0.01}}})()]
+    assert cli.credits_per_unit("prosperity", info) == 0.02 and cli.credits_per_unit("drill", info) == 0.01
 
 
 def test_a_late_reversal_is_flagged_and_steady_gains_are_not():

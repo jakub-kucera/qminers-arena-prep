@@ -83,7 +83,6 @@ Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a d
 ## From the 2026-10-30 rehearsal
 
 The engine-fit rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; logs in `python/experiments/mock_round/round3/results/`).
-- [ ] **calibrate's scale from the format.** `--scale` defaults to the data's price unit, which is wrong where a price unit is worth more than its face (round 3: a point worth 2 credits a lot); the after-run caught it only from the rules. Done when: a plug-in can state its credits per price unit (beside `ENGINE`), calibrate and `--metrics` read it, and the swap checklist's step 1 names it.
 - [ ] **Keep the handover template apart from round 1's note.** `data/arena/round1/HANDOVER.md` is both, so filling in round 1 loses the template. Done when: the template lives where `.gitignore` keeps it (e.g. a handover template under `docs/`) and the RUNBOOK and ON_THE_DAY copy it into each round's folder.
 - [ ] **The swap checklist's two missing shapes.** A level-indexed book feed (a level's price changes in place and the levels shift up when one empties), unlike `drill.py`'s price-keyed changes; and a function API returning dicts with the bot's own ids, for which the mock rounds' `results/*/qminers_format.py` and `template.py` were the closest models. Done when: step 1 names the first, step 3 and step 5 point at the mock rounds' results for the second.
 

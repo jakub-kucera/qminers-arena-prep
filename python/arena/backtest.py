@@ -17,7 +17,7 @@ from pathlib import Path
 
 from arena import report, rust
 from arena.botfile import OverrideError
-from arena.cli import add_common_arguments, add_engine_argument, add_rival_argument, participant_names, participants, run_with_rivals, setup
+from arena.cli import add_common_arguments, add_engine_argument, add_rival_argument, credits_per_unit, participant_names, participants, run_with_rivals, setup
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -74,6 +74,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.metrics and len(results) > 1:
         print(report.format_metrics_total(results, config.limit_penalty))
         print()
+    scale = credits_per_unit(args.format, s.days) if args.metrics else 1.0
+    if scale != 1.0:  # the tables are in the engine's price units
+        finals = [(report.total_pnl(result) or [0.0])[-1] for result in results]
+        print(f"  in the portal's credits ({scale:g} a price unit: the data's unit x the format's CREDITS): "
+              f"pnl sum {sum(finals) * scale:,.2f} · mean {sum(finals) * scale / len(finals):,.2f}; cash, mark and penalty scale alike\n")
     if len(results) > 1:
         print(report.format_overall(results))
         if s.rivals:
