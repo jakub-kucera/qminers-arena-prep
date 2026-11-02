@@ -500,3 +500,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | long gamma on P3's vouchers
 - `concepts/options-and-vouchers` records the test (`IDEAS.md`, "Options: long gamma where realised vol beats implied"): `experiments.day.p3_smile` prints realised against implied vol and runs long and short gamma as controls; the hedged at-the-money long makes 13.8k over five days, every day positive, against 528.8k for the smile takes.
+
+## [2026-11-02] query | other strategies for a drifting product
+- `concepts/drift-and-regime-change` records the test (`IDEAS.md`, "Other strategies for a drifting product"): on Pepper Root, `clear_edge` 4 and `make_edge_sell` 4 add about 2.5k a day to the template's long bias, held out; `PARAMS` unchanged.
