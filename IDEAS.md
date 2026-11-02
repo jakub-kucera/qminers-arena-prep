@@ -145,7 +145,7 @@ Every row below by line (`Read IDEAS.md` at that offset). 108 tested, 14 not yet
   - `measured`: a fact about the data, not a strategy;
   - `open`: tested, with no conclusion yet.
 - **`--resting` results before 2026-10-13's review fixes are a little high.** Until then a resting order crossed by the next snapshot could also fill from that tick's market trades at the same price, which used the same orders twice. The fix took 0.3–3.6% off the template alone (P3 round 1: 68,043 to 67,446) and 13–16% off its runs against copies of itself. The rows below that were re-run say so; older `--resting` numbers elsewhere were not re-run.
-- On the day, for each round, go down the "Re-test on the Arena" column and run the rows whose condition fits that round's products.
+- On the day, for each round, go down the "Re-test on the Arena" column and run the rows whose condition fits that round's products, again in every round: the rounds get harder, so an Arena result from an earlier round is a prior too.
 
 **What a market we didn't write said about these priors** (2026-10-27; ABIDES's RMSC04, 10 days, "An independent generator: ABIDES's RMSC04" and the rows after it; LOBSTER's real book is still to come, `docs/MANUAL_TODO.md`):
 - **Held:** the statistics and the tools. The grid's pick rule, the held-out checks and StepM named the settings that also won on held-out ABIDES days; `diagnose`'s notes read the market correctly (large-tick, trades move the wall mid, a thin margin); the fill-model spread (`all` against `worse` against resting) mattered as much as there.
