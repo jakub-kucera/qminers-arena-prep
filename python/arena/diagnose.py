@@ -52,6 +52,22 @@ first data download as soon as its format module exists. For each product, poole
   The fit takes each day's mean change out. An EMA lags a drift `mu` a tick by `mu s / (1 - s)`, so
   where the days drift the column is the `s` that minimises the EMA's steady-state squared error,
   `(mu s / (1 - s))^2 + (s^2 q + (1 - s)^2 r) / (1 - s^2)`, which is `1 - K` when `mu` is 0.
+- **Book changes,** from one two-sided tick to the next, per side:
+  - the wall (each side's largest level): the ticks its price stays (`wall_stay`), and the share of
+    ticks at an unchanged price where its size is unchanged too (`wall_size_kept`);
+  - the best level at an unchanged price: the share of ticks without a market trade at it where its
+    size is unchanged (`best_kept`), and the lots added, cancelled and traded a tick as shares of its
+    size (`best_added`, `best_cancelled`, `best_traded`; added and cancelled are their net, as in
+    Cont et al.'s order flow imbalance: a snapshot can't tell both apart). A book that is one set of
+    queues, like ABIDES's (0.90), keeps the best's size between trades; Prosperity's makers redraw
+    every level each tick (0.01-0.39 over all 165 P2-P4 product-rounds), so there is no queue place
+    to hold;
+  - after market trades empty the best and the next is worse: the median ticks until the best is
+    back at that price (`refill_ticks`, inf where most aren't within `LAG`), and the share back next
+    tick;
+  - the lead: the correlation of the wall mid's change with the mid's next one, less that of the
+    mid's change with the wall mid's next (`lead`). Positive: the wall moves first, a lead for the
+    fair; on P2-P4 and ABIDES it is within ±0.03.
 - **Slow reversion:** the wall mid's variance per tick at `LAG` ticks over that at `LONG_LAG`
   ticks. Well above 1: the price returns to a level over hundreds of ticks, which the lag-1
   numbers can't see.
@@ -130,6 +146,10 @@ PERSISTENT_SIGNS = 0.5  # C(1) from which trade signs persist
 INFORMED_SHARE = 0.25  # |R(LAG)| against the wall mid, as a share of the taker's cost, from which the move gets a note
 THIN_MARGIN_SHARE = 0.1  # slow margin against the wall mid, as a share of the spread, below which it is thin
 T_STAT = 2.0  # |mean / standard error| from which a mean counts as non-zero (rough: overlapping horizons)
+# Share of quiet ticks on which the best keeps its size, from which the queues persist: P2-P4's 165 product-rounds
+# give 0.01-0.39 (median 0.08), ABIDES's RMSC04 0.90.
+PERSISTENT_QUEUE = 0.6
+WALL_LEAD = 0.1  # |lead| from which the wall moves before the mid (or after it): P2-P4 and ABIDES stay within ±0.03
 PARTS = 10  # the time-of-day profile splits each day into this many parts
 PROFILE_RATIO = 1.5  # the first or last part, over the middle parts' median, from which (or below whose inverse) it gets a note
 
@@ -184,6 +204,14 @@ class _Acc:
     jump_sizes: list[float] = field(default_factory=list)  # |wall mid move| of every jump that snaps back or not
     jump_days: dict[str, tuple[list[float], list[float]]] = field(default_factory=dict)  # day with MIN_JUMPS: (|jumps|, wall mids)
     parts: list[_Parts] = field(default_factory=list)  # per day, for the time-of-day profile
+    # Per side, per pair of consecutive two-sided ticks: pairs, the wall's price changed, its price unchanged, and of
+    # those its size unchanged too.
+    wall_pairs: list[int] = field(default_factory=lambda: [0, 0, 0, 0])
+    # Per side, per pair at an unchanged best price: pairs, those with no market trade at it, of those its size
+    # unchanged; the best's size, lots added, cancelled and traded, summed.
+    best: list[float] = field(default_factory=lambda: [0, 0, 0, 0.0, 0.0, 0.0, 0.0])
+    refills: list[float] = field(default_factory=list)  # ticks until an emptied best is back (math.inf: not within LAG)
+    leads: dict[str, list[float]] = field(default_factory=lambda: {"wall": [0.0] * 6, "mid": [0.0] * 6})  # moments of (Δ, the other's next Δ)
 
 
 def diagnose(days: list[Day]) -> dict[str, dict[str, float | str | None]]:
@@ -281,6 +309,7 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         acc.drift_rates.append((known[-1] - known[0]) / len(known))
         acc.drift_ratios.append((known[-1] - known[0]) / noise if noise else 0.0)
 
+    _add_book_changes(acc, day, product)
     unit, mids = acc.tick_size or 1.0, series["mid"]
     for i, tick in enumerate(day.ticks[:-1]):  # Gao & Wang's rates, at a one-tick spread
         book = tick.books.get(product)
@@ -336,6 +365,56 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
                     acc.slow_gains[name].append(sign * (trade.price - ref[i + LAG]))
 
 
+def _add_book_changes(acc: _Acc, day: Day, product: str) -> None:
+    """The wall's and the best level's changes from one two-sided tick to the next (module docstring, "Book changes")."""
+    last, deltas, emptied = None, [], []  # emptied: (side, price, tick) of each best emptied by market trades
+    for i, tick in enumerate(day.ticks):
+        book = tick.books.get(product)
+        if book is None or not (book.bids and book.asks):
+            last = None
+            deltas.append(None)
+            continue
+        for event in list(emptied):
+            side, price, start = event
+            if side * ((book.bids if side > 0 else book.asks)[0][0] - price) >= 0 or i - start >= LAG:
+                acc.refills.append(i - start if side * ((book.bids if side > 0 else book.asks)[0][0] - price) >= 0 else math.inf)
+                emptied.remove(event)
+        if last is None:
+            deltas.append(None)
+        else:
+            deltas.append((book.wall_mid - last.wall_mid, book.mid - last.mid))
+            prints = day.ticks[i - 1].trades.get(product, [])  # a tick's trades come after its book, before the next
+            for side, before, now in ((1, last.bids, book.bids), (-1, last.asks, book.asks)):
+                wall_before, wall_now = max(before, key=lambda level: level[1]), max(now, key=lambda level: level[1])
+                acc.wall_pairs[0] += 1
+                acc.wall_pairs[1 if wall_now[0] != wall_before[0] else 2] += 1
+                acc.wall_pairs[3] += wall_now == wall_before
+                price, size = before[0]
+                traded = min(size, sum(t.quantity for t in prints if t.price == price))
+                if now[0][0] == price:
+                    net = now[0][1] - size + traded  # added less cancelled
+                    acc.best[0] += 1
+                    acc.best[1] += not traded
+                    acc.best[2] += not traded and now[0][1] == size
+                    acc.best[3:7] = [acc.best[3] + size, acc.best[4] + max(net, 0), acc.best[5] + max(-net, 0), acc.best[6] + traded]
+                elif traded >= size and side * (now[0][0] - price) < 0:
+                    emptied.append((side, price, i))
+        last = book
+    acc.refills += [math.inf] * len(emptied)
+    for a, b in zip(deltas, deltas[1:]):
+        if a is not None and b is not None:
+            for name, x, y in (("wall", a[0], b[1]), ("mid", a[1], b[0])):
+                m = acc.leads[name]
+                m[:] = [m[0] + 1, m[1] + x, m[2] + y, m[3] + x * x, m[4] + y * y, m[5] + x * y]
+
+
+def _correlation(m: list[float]) -> float | None:
+    """The correlation from the moments n, Σx, Σy, Σx², Σy², Σxy."""
+    n, sx, sy, sxx, syy, sxy = m
+    vx, vy = n * sxx - sx * sx, n * syy - sy * sy
+    return (n * sxy - sx * sy) / math.sqrt(vx * vy) if n > 2 and vx > 0 and vy > 0 else None
+
+
 def _summarise(acc: _Acc) -> dict[str, float | str | None]:
     tick = acc.tick_size or 1.0
     spread_ticks = [s / tick for s in acc.spreads]
@@ -361,6 +440,18 @@ def _summarise(acc: _Acc) -> dict[str, float | str | None]:
         "snap_jumps": sum(n for _, n, _, _ in acc.snaps),
         "snap_back": _share(sum(r for *_, r in acc.snaps), sum(p for _, _, p, _ in acc.snaps)) if sum(n for _, n, _, _ in acc.snaps) >= MIN_JUMPS else None,
         "jump_size": statistics.median(acc.jump_sizes) if acc.jump_sizes else None,
+        "wall_stay": acc.wall_pairs[0] / acc.wall_pairs[1] if acc.wall_pairs[1] else (math.inf if acc.wall_pairs[0] else None),
+        "wall_size_kept": _share(acc.wall_pairs[3], acc.wall_pairs[2]),
+        "wall_leads": _correlation(acc.leads["wall"]),
+        "mid_leads": _correlation(acc.leads["mid"]),
+        "lead": None if None in (_correlation(acc.leads["wall"]), _correlation(acc.leads["mid"])) else _correlation(acc.leads["wall"]) - _correlation(acc.leads["mid"]),
+        "best_kept": _share(acc.best[2], acc.best[1]),
+        "best_added": acc.best[4] / acc.best[3] if acc.best[3] else None,
+        "best_cancelled": acc.best[5] / acc.best[3] if acc.best[3] else None,
+        "best_traded": acc.best[6] / acc.best[3] if acc.best[3] else None,
+        "refills": len(acc.refills),
+        "refill_ticks": statistics.median(acc.refills) if acc.refills else None,
+        "refill_next": _share(sum(1 for r in acc.refills if r <= 1), len(acc.refills)),
         "one_tick_ticks": acc.one_tick[0],
         **dict(zip(("lambda", "lambda_buy", "lambda_sell"), (n / acc.one_tick[0] if acc.one_tick[0] >= MIN_ONE_TICK else None for n in acc.one_tick[1:]))),
         **_spoofability(acc),
@@ -456,6 +547,12 @@ def _notes(row: dict, acc: _Acc) -> list[str]:
     fixed = row["wall_sd"] is not None and row["wall_sd"] <= FIXED_SD_TICKS * (row["tick"] or 1.0)
     if fixed:
         notes.append(f"wall mid nearly fixed at {row['wall_median']:g} (sd {row['wall_sd']:.2f})")
+    if row["best_kept"] is not None and row["best_kept"] >= PERSISTENT_QUEUE:
+        notes.append(f"queues persist (the best keeps its size on {row['best_kept']:.0%} of ticks without a trade at it): "
+                     "if orders rest, queue place matters; calibrate --queue on the first upload")
+    if row["lead"] is not None and abs(row["lead"]) >= WALL_LEAD:
+        notes.append(f"the {'wall moves before the mid' if row['lead'] > 0 else 'mid moves before the wall'} (lead {row['lead']:+.2f}): "
+                     f"{'a lead for the fair' if row['lead'] > 0 else 'the wall mid lags; try the mid or sized_mid'}")
     if row["mid_lag1_autocorr"] is not None and row["mid_lag1_autocorr"] <= MEAN_REVERTING:
         notes.append("mid mean-reverts at one tick")
     mid_sig, wall_sig = row["mid_signature"], row["wall_signature"]
@@ -732,6 +829,10 @@ COLUMNS = (  # (key, header, format)
     ("lambda_sell", "λ-", "{:.3f}"),
     ("spoof_score", "spoof", "{:+.2f}"),
     ("snap_back", "snap", "{:.0%}"),
+    ("wall_stay", "stay", "{:,.0f}"),
+    ("best_kept", "kept", "{:.0%}"),
+    ("refill_ticks", "refill", "{:g}"),
+    ("lead", "lead", "{:+.2f}"),
     ("mid_lag1_autocorr", "mid AC1", "{:+.2f}"),
     ("mid_signature", "mid sig", "{:.1f}"),
     ("wall_signature", "wall sig", "{:.1f}"),
@@ -757,6 +858,9 @@ LEGEND = (
     f"spoof: Tao et al.'s spoofability, max over the best {SPOOF_LEVELS} levels k of 2 ρ µ+ (1 - ı) ı w_k - Q_k ρ - ν_k (above 0: a spoof could pay).\n"
     f"snap: share of the wall mid's jumps of {SNAP_SPREADS}+ median spreads that went the opposite way to the one before "
     f"(with {MIN_JUMPS} or more; a day at {SNAP_BACK:.0%} gets a note).\n"
+    "stay: ticks the wall's price stays. kept: share of ticks without a trade at an unchanged best where its size is unchanged\n"
+    f"  (high: the queues persist). refill: median ticks until a best emptied by trades is back (inf: mostly not in {LAG}).\n"
+    "lead: corr(wall mid change, next mid change) - corr(mid change, next wall mid change); positive: the wall moves first.\n"
     f"mid AC1: lag-1 autocorrelation of the mid's changes. sig: variance per tick at lag 1 over lag {LAG} (1 = random walk).\n"
     f"slow rev: the wall mid's variance per tick at lag {LAG} over lag {LONG_LAG:,} (above 1: it returns to a level).\n"
     f"smooth: the template's smoothing of the wall mid that a Kalman filter would use: a random walk (step variance q) in noise (r),\n"

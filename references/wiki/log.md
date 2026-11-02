@@ -470,3 +470,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-10-31] lint | the template's lines re-mapped after its orders on their way
 - `python/bots/template.py` gained `DELAY`, `ORDERS_REST` and `MAX_RESTING` at the top and `on_the_way`/`went` in EXECUTION, so its lines moved: every page's `python/bots/template.py:N` re-mapped to the same code (no page's text changed).
+
+## [2026-11-02] lint | book changes in arena.diagnose
+- `concepts/reading-the-data-on-day-one` gains two rows: `queues persist` (the `kept` column from 60%: P2–P4's 165 product-rounds 0.01–0.39, ABIDES 0.90) and the wall's `lead` (±0.1; every P2–P4 product-round and ABIDES within ±0.03). Its citations of the thresholds and of `suggest` moved with the module's longer docstring (`python/arena/diagnose.py:98-134` → `114-154`, `:655` → `:752`). 0 errors.

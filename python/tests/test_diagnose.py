@@ -1,3 +1,4 @@
+import math
 import random
 
 import pytest
@@ -364,3 +365,62 @@ def test_suggest_joins_the_best_on_a_large_tick_book():
     row = diagnose.diagnose([day])["LARGE_TICK"]
     params, why = diagnose.suggest(row)
     assert "large-tick" in row["notes"] and params["make_edge"] == 0.5 and "large-tick: join the best" in why
+
+
+def _queue_day(sizes, trades=None, bids=None):
+    """A day whose best bid (at `bids[i]`, default 99) has `sizes[i]` lots in front of a wall of 50 at 97; the
+    ask side is a fixed 101 of 5 in front of 103 of 50. `trades` maps a tick to (price, quantity) prints."""
+    ticks = []
+    for i, size in enumerate(sizes):
+        bid = (bids or [99] * len(sizes))[i]
+        book = Book(((bid, size), (97, 50)), ((101, 5), (103, 50)))
+        prints = [MarketTrade("X", p, q) for p, q in (trades or {}).get(i, [])]
+        ticks.append(Tick(i * 100, {"X": book}, {"X": prints} if prints else {}, {}))
+    return Day("d", ["X"], {"X": 10}, ticks)
+
+
+def test_a_queue_that_keeps_its_size_between_trades_persists():
+    row = diagnose.diagnose([_queue_day([5] * 200)])["X"]
+    assert row["best_kept"] == 1 and row["wall_size_kept"] == 1 and row["wall_stay"] == math.inf
+    assert "queues persist (the best keeps its size on 100%" in row["notes"]
+
+
+def test_a_book_redrawn_every_tick_has_no_queue_to_hold():
+    rng = random.Random(0)
+    row = diagnose.diagnose([_queue_day([rng.randint(1, 30) for _ in range(500)])])["X"]
+    # The bid is redrawn, the ask kept: pooled over the two sides, about half.
+    assert 0.5 <= row["best_kept"] < 0.55 < diagnose.PERSISTENT_QUEUE and "queues persist" not in row["notes"]
+
+
+def test_lots_added_cancelled_and_traded_at_an_unchanged_best():
+    # Bid 99: 10 lots, then 14 after 3 traded (7 added net), then 8 (6 cancelled net), then 8 again.
+    day = _queue_day([10, 14, 8, 8], trades={0: [(99, 3)]})
+    row = diagnose.diagnose([day])["X"]
+    assert row["best_traded"] == pytest.approx(3 / (10 + 14 + 8 + 15))  # the ask's best is 5 lots on each of 3 pairs
+    acc = diagnose._accumulate([day])["X"]
+    assert acc.best[3:7] == [10 + 14 + 8 + 15, 7, 6, 3]
+    assert acc.best[1:3] == [5, 4]  # quiet pairs on both sides; the bid's 14 -> 8 changed size
+
+
+def test_a_best_emptied_by_trades_refills():
+    # The bid at 99 is taken out at tick 1, the best falls to 98 for two ticks, then 99 is back.
+    day = _queue_day([5, 5, 6, 6, 5, 5], trades={1: [(99, 5)]}, bids=[99, 99, 98, 98, 99, 99])
+    row = diagnose.diagnose([day])["X"]
+    assert row["refills"] == 1 and row["refill_ticks"] == 2 and row["refill_next"] == 0
+
+
+def test_a_wall_that_moves_before_the_mid_leads():
+    # The walls step at tick t and the touch follows at t + 1.
+    rng = random.Random(1)
+    walls = [100]
+    for _ in range(999):
+        walls.append(walls[-1] + rng.choice((-2, 0, 0, 2)))
+    touch = [None] + [(w - 1, w + 1) for w in walls[:-1]]
+    ticks = []
+    for i, wall in enumerate(walls):
+        mid = walls[i - 1] if i else wall
+        bids, asks = ((mid - 1, 1), (wall - 3, 20)), ((mid + 1, 1), (wall + 3, 20))
+        ticks.append(Tick(i * 100, {"X": Book(tuple(sorted(bids, reverse=True)), tuple(sorted(asks)))}, {}, {}))
+    row = diagnose.diagnose([Day("d", ["X"], {"X": 10}, ticks)])["X"]
+    assert row["lead"] > 0.5 and "the wall moves before the mid" in row["notes"]
+    assert diagnose.diagnose([make_day(walls)])["X"]["lead"] == pytest.approx(0)
