@@ -173,6 +173,28 @@ def test_the_ou_bands_reproduce_cartea_et_als_table_and_the_fit_recovers_kappa()
     assert kappa == pytest.approx(0.01, rel=0.15) and sigma == pytest.approx(math.sqrt(2 * 0.01 / (1 - b * b)), rel=0.05)
 
 
+def test_quote_by_state_picks_a_distance_per_spread_and_the_variant_quotes_it(tmp_path):
+    from arena.botfile import BotFile
+    from arena.formats import prosperity_datamodel
+    from experiments.day.fill_curve import by_state
+    from experiments.study import quote_by_state
+
+    def row(spread, far):  # a tick whose prints reach `far` ticks on the bid side, none on the ask
+        return {"spread": spread, "rho": 0.0, "bid": [(far, 1)], "ask": [], "move": 0.0}
+
+    days = [[row(1, 0.5), row(4, 2)] * 50 for _ in range(3)]  # tight: prints at 0.5; wide: at 2
+    for _, choice, single, state, flat in by_state(days, (0.5, 2)):
+        assert choice == {"1": 0.5, "4": 2} and state > flat
+    path = tmp_path / "variant.py"
+    path.write_text(quote_by_state.variant())
+    bot = BotFile(path, {"datamodel": prosperity_datamodel}, strict=True).load()
+    assert bot.DEFAULTS["edge_by_spread"] is None and bot.spread_key(3) == "3" and bot.spread_key(7) == "5-8"
+    book, p = bot.Book([[96, 10]], [[104, 10]]), {**bot.DEFAULTS, "limit": 10, "make_inside": None}
+    plan = bot.Plan(0, 10)
+    bot.make(book, 100.0, {**p, "edge_by_spread": {"5-8": 3}}, plan)  # an 8-wide spread: 3 from fair
+    assert [price for price, _ in plan.quotes] == [97, 103]
+
+
 def test_basket_trades_are_signed_against_the_ticks_book():
     from arena.model import Book, MarketTrade
     from experiments.study.cross_product_timing import signed_volume

@@ -503,3 +503,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | other strategies for a drifting product
 - `concepts/drift-and-regime-change` records the test (`IDEAS.md`, "Other strategies for a drifting product"): on Pepper Root, `clear_edge` 4 and `make_edge_sell` 4 add about 2.5k a day to the template's long bias, held out; `PARAMS` unchanged.
+
+## [2026-11-02] query | choosing the quote by state
+- `sources/limit-and-market-orders` records the test (`IDEAS.md`, "Choosing the quote by state"): `experiments.day.fill_curve` part 3 and `experiments.study.quote_by_state`; the per-spread distance wins under `all` and loses under `worse` and resting, dropped here.

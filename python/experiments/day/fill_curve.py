@@ -37,6 +37,14 @@ would only restate the engine's fill rule, so it comes in two halves.
    gives 1 by construction (every print at or beyond the quote fills it), `worse` less, and the
    portal's ratio is what to set the backtest's `--fill-ratio`, `--match-trades` and queue to.
 
+3. **Choosing the quote by state** (Guilbaud & Pham: best, one tick inside or cross, by spread). From
+   half 1's offer, a one-lot quote at d is worth P(a print at or beyond d) × (d + the move) a side-tick.
+   Per held-out day: on the other days, the best d for each spread bin and the best single d; on the
+   held-out day, the value of each choice. An upper bound, as half 1: nobody ahead of the quote, so
+   it favours joining the best at a wide spread, which a queue denies. On P3 and P4 the per-spread
+   choice wins here on every held-out day yet loses under `worse` and `--resting` once traded
+   (`experiments.study.quote_by_state`): read it only with half 2's queue share from the day.
+
 Distances are in each product's ticks (Day.info, as arena.diagnose), from fair at the tick the quote
 was decided; a quote's distance is rounded to the nearest half tick. With --data the one dataset
 replaces DATASETS.
@@ -210,6 +218,36 @@ def curve(rows_by_day: list[list[dict]], distances=DISTANCES, horizon: int = HOR
     return out
 
 
+def quote_values(rows: list[dict], distances) -> dict[str, dict[float, list[float]]]:
+    """Spread bin -> d -> [summed value of a one-lot quote at d (d + move when a print reaches it), side-ticks]."""
+    out: dict = defaultdict(lambda: {d: [0.0, 0] for d in distances})
+    for r, s, prints, _, move in side_views(rows):
+        cell = out[spread_bin(r["spread"])]
+        far = max((dist for dist, _ in prints), default=None)
+        for d in distances:
+            cell[d][1] += 1
+            if far is not None and far >= d:
+                cell[d][0] += d + move
+    return out
+
+
+def by_state(rows_by_day: list[list[dict]], distances) -> list[tuple[str, dict, float, float, float]]:
+    """Per held-out day: (day index, the per-spread choice fitted on the others, the single d, the value a side-tick
+    on the held-out day of the per-spread choice and of the single d)."""
+    out = []
+    for k, test in enumerate(rows_by_day):
+        train = quote_values([r for j, day in enumerate(rows_by_day) if j != k for r in day], distances)
+        pooled = {d: sum(cell[d][0] for cell in train.values()) for d in distances}
+        single = max(distances, key=pooled.get)
+        choice = {key: max(distances, key=lambda d: cell[d][0]) for key, cell in train.items()}
+        held = quote_values(test, distances)
+        n = sum(cell[single][1] for cell in held.values())
+        state = sum(cell[choice.get(key, single)][0] for key, cell in held.items()) / n if n else 0.0
+        flat = sum(cell[single][0] for cell in held.values()) / n if n else 0.0
+        out.append((str(k), choice, single, state, flat))
+    return out
+
+
 # ---------------------------------------------------------------------------- half 2: our fills from the results ZIP
 
 
@@ -379,7 +417,7 @@ def main(argv: list[str] | None = None) -> None:
         datasets = [(dataset.name, dataset.data, dataset.format, list(dataset.days), list(dataset.products))]
     print(f"1. What a quote at distance d from the {args.fair.replace('_', ' ')} could fill: the market's prints at or beyond d, "
           "a side a tick, before any queue.")
-    loaded = {}
+    loaded, states = {}, {}
     for label, data, format_name, specs, products in datasets:
         fmt = FORMATS[format_name]
         days = fmt.load_days(fmt.resolve_data_dir(data), specs)
@@ -388,6 +426,16 @@ def main(argv: list[str] | None = None) -> None:
             rows = [ticks_of(day, product, args.fair, args.horizon) for day in days if product in day.products]
             if any(rows):
                 print_curve(label, product, curve(rows, distances, args.horizon), distances)
+                states[(label, product)] = rows
+    print("\n3. The quote's distance chosen per spread bin on the other days, against one distance for all, scored on the held-out day "
+          "(a one-lot quote's value a side-tick, in ticks)")
+    for (label, product), rows in states.items():
+        days = [day for day in rows if day]
+        if len(days) < 2:
+            continue
+        for k, choice, single, state, flat in by_state(days, distances):
+            table = ", ".join(f"{key}: {d:g}" for key, d in sorted(choice.items(), key=lambda kv: _spread_order(kv[0])))
+            print(f"   {label} {product} day {int(k) + 1}: per spread ({table}) {state:.4f} against {single:g} for all {flat:.4f} ({(state / flat - 1) if flat else 0:+.1%})")
     if args.results:
         results = read_results(args.results)
         (label, _, _, _, products), days = datasets[0], loaded[datasets[0][0]]

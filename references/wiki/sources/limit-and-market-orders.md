@@ -31,6 +31,9 @@ A market maker in a book with a **tick-valued spread**: the spread is a Markov c
 | market order past a threshold | `clear` (`python/bots/template.py:806`) and `take` |
 | `λ_i(q)` per (quote choice, spread) | computable from `_orders.csv` and `_fills.csv` with eqs. 10–11 |
 
+## Tested here
+- 2026-11-02 (`IDEAS.md`, "Choosing the quote by state"; `python/experiments/day/fill_curve.py` part 3, `python/experiments/study/quote_by_state.py`): a quote distance chosen per spread bin from the data's prints beats one distance on every held-out day while nobody is ahead of the quote, and loses once traded under `worse` fills or resting orders (Kelp +11.9k under `all`, −11.0k and −11.2k under the other two): the table favours joining the best, which a queue denies. The template's one-tick improvement stays.
+
 ## Traps
 - **OCR:** `Bb+` comes out as `Bb<sup>þ</sup>` and `Ba−` as `Ba` (`limit-and-market-orders.md:107` (p. 5)); Table 3's rows are merged into one cell (`limit-and-market-orders.md:524` (p. 14)): read it on the PDF.
 - The policy figure is "stylized", not a computed table.
