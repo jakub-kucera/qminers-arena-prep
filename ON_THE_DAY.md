@@ -1,6 +1,6 @@
 # On the day: what to find out
 
-The organisers won't answer questions. Everything here has to come from their docs, the
+The organisers answer e-mail and may answer at the workshop ("Questions for the organisers"); the rest has to come from their docs, the
 playground, or a probe bot (see [Probes](#probes)). Settle the **first hour** list before writing
 any strategy, because those answers change the code.
 

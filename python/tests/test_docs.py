@@ -10,10 +10,11 @@ import pytest
 ROOT = Path(__file__).parents[2]
 DAY_DOCS = ["CLAUDE.md", "RUNBOOK.md", "ON_THE_DAY.md", "KICKOFF_PROMPT.md", "README.md", "ARCHITECTURE.md", "IDEAS.md", "TODO.md"]
 DOCS = DAY_DOCS + sorted(str(p.relative_to(ROOT)) for p in (ROOT / "docs").glob("*.md"))
-SIZES = {"CLAUDE.md": 10_240, "RUNBOOK.md": 8_192, "ON_THE_DAY.md": 85_000}
-# ON_THE_DAY in two Reads: a Read stops at 25,000 tokens, and this prose runs about 2.2 bytes a token (measured
-# 2026-10-28: 57,116 bytes to the cut at line 263), so about 54 KB a read; 85 KB is about 39k tokens, leaving
-# about 11k for the day's answers.
+SIZES = {"CLAUDE.md": 10_240, "RUNBOOK.md": 8_192, "ON_THE_DAY.md": 105_000}
+# ON_THE_DAY is read by section (RUNBOOK names them; the kickoff says so), but stays within two Reads: a Read stops at
+# 25,000 tokens and this prose runs about 2.2 bytes a token (measured 2026-10-28: 57,116 bytes to the cut at line 263),
+# so about 110 KB in two. It is 80 KB before the day; the cap leaves about 25 KB for the answers written in under its
+# items over four rounds (the audit's round 8, R6), longer reasoning going to the round's HANDOVER.md.
 
 
 def text(name: str) -> str:

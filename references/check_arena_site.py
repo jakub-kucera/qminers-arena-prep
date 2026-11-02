@@ -7,7 +7,7 @@ downloads the bundle and pulls out the readable string literals.
 
 Usage: references/check_arena_site.py           diff the live site against arena-site-snapshot.txt
        references/check_arena_site.py --save    overwrite the snapshot with the live site
-Exit code 1 if anything changed. Standard library only.
+Exit code 1 if anything changed, 2 if the site can't be reached (the snapshot then stands). Standard library only.
 
 Besides the text it records what a new build could add without new prose (2026-10-30): the bundle's
 SHA-256 and Last-Modified on the first line, every path the app names (its routes and its API calls,
@@ -130,7 +130,12 @@ def snapshot_text() -> str:
 
 
 def main() -> int:
-    live = snapshot_text()
+    try:
+        live = snapshot_text()
+    except OSError as error:  # no network (urllib's URLError is an OSError): the snapshot is all there is
+        saved = SNAPSHOT.read_text().splitlines()[0] if SNAPSHOT.exists() else "no snapshot"
+        print(f"arena.qminers.com unreachable ({error}): the snapshot stands ({saved}); check again once online")
+        return 2
     if "--save" in sys.argv:
         SNAPSHOT.write_text(live)
         print(f"saved {SNAPSHOT.name}: {live.count(chr(10))} lines")
@@ -139,6 +144,9 @@ def main() -> int:
     keep = lambda text: [re.sub(r"^# saved \S+ ", "# ", line) for line in text.splitlines()]  # the date apart; a new build shows
     diff = list(difflib.unified_diff(keep(old), keep(live), "snapshot", "live", lineterm="", n=0))
     print("\n".join(diff) if diff else "arena.qminers.com: no change since the snapshot")
+    if diff:
+        print("\nThe site changed: write what the new lines say about rules, scoring or the portal into ON_THE_DAY.md, "
+              "\"Known so far\" (and the items they answer), then --save the snapshot")
     return 1 if diff else 0
 
 
