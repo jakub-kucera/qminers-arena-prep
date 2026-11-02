@@ -59,8 +59,8 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 - Never choose between two variants by portal score when they are within `T` of each other.
 - One evaluation at a time, and an upload that completes becomes final: time the first evaluation, and mark the
   chosen one final again after any exploratory upload ["How do submissions work?"].
-- Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00; while A sleeps, B uploads
-  only from the written list ["The day: timeline and roles"].
+- Naps only in rounds 2 and 3, in a round that looks like the last, T+0:30 to T+4:00, and off site (no sleeping in
+  the building; tell an organiser); while A sleeps, B uploads only from the written list ["The day: timeline and roles"].
 - Before round 4: decide in writing how much risk to keep, and any relative hedge, from
   `uv run python -m experiments.day.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team <ours> --ours <round 4's grid CSV> --growth-from data/arena/round3:<days> data/arena/round4:<days> --proxy-bots <the round's zoo> --format qminers`
   (our rank under each way the rounds may combine; the 10/20/30/40% are unconfirmed); if rounds 2–3's private runs

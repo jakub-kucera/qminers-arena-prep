@@ -29,8 +29,10 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
     cite the file as their source.
   - **Done in part (2026-10-23):** the e-mail of 7 Oct (the schedule, the playground, the on-site and
     sleeping rules) is the first message of `references/algo_trade_arena_conversation.json`, which is
-    committed, and its facts are in `ON_THE_DAY.md`, "Known so far". Left: the last e-mail, due about
-    a week before the event (around 31 Oct), with travel, parking and the final instructions.
+    committed, and its facts are in `ON_THE_DAY.md`, "Known so far". The last e-mail came on
+    2 Nov: `references/arena-docs/2026-11-02_final_email.txt` (local only), its facts in "Known so far" (the
+    on-site rule dropped, no sleeping in the building, no elimination, AI tools unrestricted, travel). Left:
+    whatever else arrives before the event.
 - [ ] **Anything the portal shows before the event, and on each submission**: a playground or practice round,
   an example bot, the "Download public backtest data" button, the result-file format, error messages. Save
   pages as PDF, data and result files unchanged, in `references/arena-docs/portal/`.
