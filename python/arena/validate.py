@@ -26,6 +26,11 @@ see listed yet re-posts it into the exchange's caps and its own limits. Refusals
 FAIL; set the bot's DELAY (the template's ADAPTER), or pass --late 0 where the rules say orders
 arrive at once.
 
+A bot that games the exchange or other teams rather than trading well (spoofing, moving the mark,
+an exchange bug) declares it with a module-level GRAY_AREA = "<what it does>": it may be built and
+backtested, but validate FAILs it with that reason in capitals, so it can't be uploaded by
+accident. Only --allow-gray-area, after an organiser has said it is allowed, turns that into a WARN.
+
 Exits with 1 if any check fails.
 """
 
@@ -103,6 +108,25 @@ def file_checks(path: Path, size: int, limit: int | None) -> list[Check]:
     else:
         checks.append(Check(PASS, f"file size {size:,} bytes, within the cap of {limit:,}"))
     return checks
+
+
+def gray_area(tree: ast.Module) -> str | None:
+    """The bot's module-level GRAY_AREA string, if it sets one."""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "GRAY_AREA" for t in node.targets):
+            value = node.value.value if isinstance(node.value, ast.Constant) else None
+            return str(value) if value else "(no reason given)"
+    return None
+
+
+def gray_area_check(tree: ast.Module, allowed: bool) -> list[Check]:
+    reason = gray_area(tree)
+    if reason is None:
+        return []
+    if allowed:
+        return [Check(WARN, f"GRAY AREA, ALLOWED BY --allow-gray-area: {reason}. Upload only if an organiser said yes, in writing in ON_THE_DAY.md")]
+    return [Check(FAIL, f"GRAY AREA: {reason}. THIS BOT GAMES THE EXCHANGE OR OTHER TEAMS: DON'T UPLOAD IT. Only with an organiser's "
+                        "yes, written in ON_THE_DAY.md, validate it with --allow-gray-area")]
 
 
 def static_checks(source: str, fmt, allow: set[str]) -> tuple[list[Check], bool]:
@@ -464,6 +488,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--late", type=int, metavar="STEPS",
                         help="replay the first day with orders this many steps late too, FAIL on refusals or breaches "
                              "(default: 1 while the run's delay is 0; 0 for none, where the rules say orders arrive at once)")
+    parser.add_argument("--allow-gray-area", action="store_true",
+                        help="a GRAY_AREA bot WARNs instead of FAILing: only after an organiser has said it is allowed")
     parser.add_argument("--fills-digest", action="store_true", help=argparse.SUPPRESS)  # hash_seed_check's other processes
     argv = sys.argv[1:] if argv is None else list(argv)
     args = parser.parse_args(argv)
@@ -484,6 +510,12 @@ def main(argv: list[str] | None = None) -> int:
     checks = file_checks(args.bot, size, args.max_size)
     found, replayable = static_checks(source, s.format, allow)
     checks += found
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:  # static_checks has failed it already
+        tree = None
+    if tree is not None:
+        checks += gray_area_check(tree, args.allow_gray_area)
     if replayable:
         try:
             checks += replay_checks(args.bot, s, args.time_limit_ms, argv, args.max_state, args.late)
@@ -496,6 +528,9 @@ def main(argv: list[str] | None = None) -> int:
     for check in checks:
         print(f"  {check.status}  {check.message}")
     failed = any(check.status == FAIL for check in checks)
+    marked = gray_area(tree) if tree is not None else None
+    if marked is not None:
+        print(f"!!! GRAY AREA BOT: {marked} !!!")
     print("Result: FAILED" if failed else "Result: OK")
     return 1 if failed else 0
 

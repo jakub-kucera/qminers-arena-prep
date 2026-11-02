@@ -53,7 +53,8 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 | After | Once the private run is done: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.day.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
 
 ## Rules that hold all day
-- Never upload code `arena.validate` hasn't passed, and never spend a submission on untested code.
+- Never upload code `arena.validate` hasn't passed, and never spend a submission on untested code. A `GRAY_AREA`
+  bot (gaming, not trading) fails it on purpose: tested, never uploaded without an organiser's yes ["Gray-area variants"].
 - A round's first upload is a bot that has already run in the playground (round 1) or the last round's final bot:
   `arena.validate` checks only against our copy of their API ["How do submissions work?"].
 - Never choose between two variants by portal score when they are within `T` of each other.

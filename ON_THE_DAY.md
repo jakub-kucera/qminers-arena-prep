@@ -289,6 +289,7 @@ From the organisers' last e-mail, 2 Nov (saved locally as `references/arena-docs
   - Spoofed walls: large levels that vanish without trading, a one-sided imbalance just before trades; `diagnose`'s `spoof` column says whether a spoof could pay (`references/wiki/sources/detecting-spoofing-strategies.md`). The close: watch an averaging window for one-sided runs (`references/wiki/sources/benchmark-manipulation.md`).
   - Our own bot must not look like a spoofer (`references/wiki/sources/learning-not-to-spoof.md`): read the Technical Rules for a market-abuse clause and write its wording here; if they allow it, `IDEAS.md`, "Manipulating other bots".
   - **An exchange bug that pays** (a probe finds orders that dodge the limit, a self-trade that sets the mark, fills at prices nobody showed): ask an organiser before a bot uses it, and write their answer here. Using a quirk the rules allow is play; using a bug they'd call one can cost the event.
+  - **Gray-area variants are tested, never uploaded by accident** (the user, 2026-11-02): spoofing, moving the mark, an exchange bug, anything that games the exchange or other teams rather than trading. Build and backtest them freely, but every such file sets `GRAY_AREA = "<what it does>"` at module level: `arena.validate` then FAILs it with that reason in capitals, and `arena.compact` warns. Tell the user each time one exists and what it would gain. It goes up only after an organiser's yes, written here, validated with `--allow-gray-area`.
 
 ## Probes
 

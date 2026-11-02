@@ -53,6 +53,11 @@ def main(argv: list[str] | None = None) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(out, encoding="utf-8")
     print(f"{args.out}: {len(out.encode()):,} bytes, from {len(source.encode()):,} ({args.bot}); the same code, checked")
+    from arena.validate import gray_area
+
+    marked = gray_area(ast.parse(source))
+    if marked is not None:
+        print(f"!!! GRAY AREA BOT: {marked}. Don't upload it without an organiser's yes (arena.validate FAILs it) !!!")
     return 0
 
 

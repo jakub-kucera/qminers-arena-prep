@@ -294,3 +294,17 @@ def test_a_bot_that_reposts_what_it_cant_see_yet_fails_one_step_late(tmp_path, c
     assert code == 0 and "step late" not in out
     code, out = run("--delay", "1")  # the run itself is late: nothing more to replay
     assert "step late" not in out
+
+
+def test_a_gray_area_bot_fails_unless_allowed_and_compact_warns(check, tmp_path, capsys):
+    from arena import compact
+
+    gray = TEMPLATE.read_text() + '\nGRAY_AREA = "spoofs Kelp\'s book"\n'
+    code, out = check(gray)
+    assert code == 1 and "FAIL  GRAY AREA: spoofs Kelp's book. THIS BOT GAMES" in out and "!!! GRAY AREA BOT" in out
+    code, out = check(gray, "--allow-gray-area")
+    assert code == 0 and "WARN  GRAY AREA, ALLOWED" in out
+    path = tmp_path / "gray.py"
+    path.write_text(gray)
+    assert compact.main([str(path), str(tmp_path / "out.py")]) == 0
+    assert "!!! GRAY AREA BOT: spoofs Kelp's book" in capsys.readouterr().out
