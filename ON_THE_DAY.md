@@ -144,7 +144,7 @@ From the organisers' e-mail of 7 Oct (saved as the first message of `references/
 - A last e-mail comes about a week before the event, with travel, parking and the final instructions (`docs/MANUAL_TODO.md`, A: save it).
 
 From the organisers' last e-mail, 2 Nov (saved locally as `references/arena-docs/2026-11-02_final_email.txt`, which git ignores):
-- **Nobody may sleep in the building** (sleeping bags and mats still banned), and **the rule that one member stays on site is dropped:** the whole team may leave to rest at once (they still suggest taking turns); tell an organiser on site before leaving for long. "Sleep" above is planned around this.
+- **Nobody may sleep in the building** (sleeping bags and mats still banned), and **the rule that one member stays on site is dropped:** the whole team may leave to rest at once (they still suggest taking turns); tell an organiser on site before leaving for long. Leaving is for rest: 7 Oct's "no way to participate off-site" still stands, and they "expect you to stay for the whole competition", so nobody works on a round from home unless the organisers say so (`docs/MANUAL_TODO.md`, "Ask the organisers how the four rounds combine"). "Sleep" above is planned around this.
 - **No elimination:** every team plays all four rounds. The schedule is unchanged from 7 Oct's, closing 13:00–14:00.
 - **Registration 08:00–09:00, as a whole team** (all members present, no ID); be there at 08:00.
 - **AI tools:** any model, any assistant, no conditions, for research and development. Help from anyone outside the team is off-limits, and so is posting questions about the task on forums or discussion groups.
