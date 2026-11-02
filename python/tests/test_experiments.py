@@ -152,6 +152,19 @@ def test_options_and_baskets_say_what_they_need(capsys, monkeypatch, drill_data)
     assert "2. nested leave-one-day-out" in out
 
 
+def test_an_option_named_without_a_strike_takes_one_and_a_single_strike_fits_flat():
+    from types import SimpleNamespace
+
+    from experiments.day import p3_smile, p4_vouchers
+
+    day = SimpleNamespace(products=["COCONUT", "COCONUT_COUPON", "VEV_5000"])
+    assert p4_vouchers.strikes(day, "COCONUT_COUPON") == []
+    assert p4_vouchers.strikes(day, "COCONUT_COUPON", 10_000) == [("COCONUT_COUPON", 10_000)]
+    assert p4_vouchers.strikes(day, "VEV_") == [("VEV_5000", 5000)]
+    rows = [{"K": 10_000, "m": m, "v": v} for m, v in ((-0.01, 0.19), (0.0, 0.2), (0.02, 0.21))]
+    assert p3_smile.fit_parabola(rows) == (0.0, 0.0, pytest.approx(0.2))  # one strike: no parabola across strikes
+
+
 def test_the_rival_field_runs_on_prosperity_format_days(capsys, monkeypatch, drill_data):
     """The archetypes are Prosperity bots: the field runs on the fixture's days before their drill conversion."""
     data = str(Path(drill_data).parent / "prosperity")

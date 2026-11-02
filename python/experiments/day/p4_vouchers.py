@@ -9,6 +9,8 @@ day 0, one fewer per day, so round 4 day 3 starts at 4. For other data, name the
 options' common prefix (the strike is the number at the end of each name) and the days to expiry
 at the open of each day, e.g. P3's volcanic vouchers:
     3 --data p3 --underlying VOLCANIC_ROCK --prefix VOLCANIC_ROCK_VOUCHER_ --expiry r3d0=8,r3d1=7,r3d2=6
+An option whose name carries no strike is named whole by --prefix and given --strike, e.g. P2's coupon:
+    4 --data p2 --underlying COCONUT --prefix COCONUT_COUPON --strike 10000 --expiry r4d1=250,r4d2=249,r4d3=248
 Prices are wall mids, in the data's unit; --format reads the data through another format plug-in.
 
 Per strike and day it prints the median implied volatility, how much it moves within the day, and
@@ -62,8 +64,10 @@ def implied_vol(price: float, s: float, k: float, t: float) -> float | None:
     return (lo + hi) / 2
 
 
-def strikes(day, prefix: str = "VEV_") -> list[tuple[str, int]]:
-    return sorted((p, int(p.rsplit("_", 1)[1])) for p in day.products if p.startswith(prefix))
+def strikes(day, prefix: str = "VEV_", strike: int | None = None) -> list[tuple[str, int]]:
+    """(product, strike) for the options named prefix plus a strike, and the one named prefix itself when strike is given."""
+    out = [(p, int(p.rsplit("_", 1)[1])) for p in day.products if p.startswith(prefix) and p.rsplit("_", 1)[1].isdigit()]
+    return sorted(out + ([(prefix, strike)] if strike is not None and prefix in day.products else []))
 
 
 def series(day, product):
@@ -78,11 +82,12 @@ def series(day, product):
     return out
 
 
-def day_vols(day, underlying: str = UNDERLYING, prefix: str = "VEV_", expiry: dict[str, float] = DAYS_TO_EXPIRY) -> dict[str, dict]:
+def day_vols(day, underlying: str = UNDERLYING, prefix: str = "VEV_", expiry: dict[str, float] = DAYS_TO_EXPIRY,
+             strike: int | None = None) -> dict[str, dict]:
     """Per strike: the median implied volatility and the statistics printed by `main`."""
     spot = series(day, underlying)
     out = {}
-    for product, k in strikes(day, prefix):
+    for product, k in strikes(day, prefix, strike):
         rows = series(day, product)
         vols, spreads, pairs = [], [], []
         for (ts, s, _), (_, v, spread) in zip(spot, rows):
@@ -136,20 +141,21 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--underlying", default=UNDERLYING)
     parser.add_argument("--prefix", default="VEV_")
     parser.add_argument("--expiry", help="days to expiry at each day's open, e.g. r3d0=8,r3d1=7 (default: P4's)")
+    parser.add_argument("--strike", type=int, help="the strike of an option named exactly --prefix, with no strike in its name")
     parser.add_argument("--format", default="prosperity", choices=sorted(FORMATS), help="the data's format (default: prosperity)")
     args = parser.parse_args(argv)
     expiry = {k: float(v) for k, v in (pair.split("=") for pair in args.expiry.split(","))} if args.expiry else DAYS_TO_EXPIRY
     fmt = FORMATS[args.format]
     days = fmt.load_days(fmt.resolve_data_dir(args.data), args.days)
-    if not any(strikes(day, args.prefix) for day in days):
-        sys.exit(f"no options named {args.prefix}<strike> in the data")
+    if not any(strikes(day, args.prefix, args.strike) for day in days):
+        sys.exit(f"no options named {args.prefix}<strike> (or {args.prefix} with --strike) in the data")
     print("strike: spread (median), time value (mean), share of ticks with an implied vol; median vol, its IQR within the day,")
     print("first / last tenth of the day, corr(vol, spot); residual sd and mean against BS at the day's median vol; median delta;")
     print("half the spread per unit of delta, the cost of a round trip in the underlying's terms (P4 Velvetfruit's own: 2.5)")
-    width = max(len(p) for day in days for p, _ in strikes(day, args.prefix))
+    width = max(len(p) for day in days for p, _ in strikes(day, args.prefix, args.strike))
     for day in days:
         print(f"\n{day.name} ({expiry[day.name]:g} days to expiry at the open)")
-        for product, r in day_vols(day, args.underlying, args.prefix, expiry).items():
+        for product, r in day_vols(day, args.underlying, args.prefix, expiry, args.strike).items():
             head = f"  {product:<{width}} spread {r['spread']:>4} time value {r['time_value']:>6.1f} inverted {r['share_inverted']:>4.0%}"
             if r["sigma"] is None:
                 why = "quoted 0 / 1" if r["pinned"] else "priced at intrinsic, no time value to invert"

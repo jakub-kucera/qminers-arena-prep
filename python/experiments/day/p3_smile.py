@@ -30,7 +30,10 @@ With --data (the day's download), the options are the products named --prefix pl
 --underlying, with --expiry the days to expiry at each day's open (by day name, as the tables show
 it). The variants cover every strike found, and the trading part sets each product's whole PARAMS
 entry (limits from the data), since the bot's own PARAMS may not list them. The fit needs at least
-two days (it leaves one out).
+two days (it leaves one out). An option whose name carries no strike is named whole by --prefix and
+given --strike (P2's coupon: --data p2 --days 4 --underlying COCONUT --prefix COCONUT_COUPON --strike 10000
+--expiry r4d1=250,r4d2=249,r4d3=248). With fewer than three strikes a parabola in m isn't identified
+across strikes, so the fit is flat: one volatility, the mean of the others' implied vols.
 """
 
 from __future__ import annotations
@@ -71,6 +74,7 @@ VARIANTS = {
 
 
 DATA, FORMAT, EXPIRY, LIMITS, CUSTOM = "p3", "prosperity", {}, {}, False  # --data sets them (_settings)
+STRIKE_OF = {f"{PREFIX}{k}": k for k in STRIKES}  # each option's strike, by product
 
 
 def days_to_expiry(day_name: str) -> int:
@@ -81,14 +85,17 @@ def load():
     return FMT.load_days(FMT.resolve_data_dir(DATA), DAYS)
 
 
-def _settings(dataset, underlying: str, prefix: str, expiry: str) -> dict:
+def _settings(dataset, underlying: str, prefix: str, expiry: str, strike: int | None = None) -> dict:
     """The module's settings for the day's data: its options (found by prefix), expiry and limits, and
     variants over every strike."""
     fmt = FORMATS[dataset.format]
     days = fmt.load_days(fmt.resolve_data_dir(dataset.data), list(dataset.days))
-    strikes = tuple(sorted({int(p.removeprefix(prefix)) for day in days for p in day.products if p.startswith(prefix) and p.removeprefix(prefix).isdigit()}))
+    strike_of = {p: int(p.removeprefix(prefix)) for day in days for p in day.products if p.startswith(prefix) and p.removeprefix(prefix).isdigit()}
+    if strike is not None and any(prefix in day.products for day in days):
+        strike_of[prefix] = strike
+    strikes = tuple(sorted(set(strike_of.values())))
     if underlying not in {p for day in days for p in day.products} or not strikes:
-        raise ValueError(f"no {underlying} or no options named {prefix}<strike> in the data")
+        raise ValueError(f"no {underlying} or no options named {prefix}<strike> (or {prefix} with --strike) in the data")
     try:
         table = {name: int(n) for name, n in (part.split("=") for part in expiry.split(","))}
     except ValueError:
@@ -102,7 +109,7 @@ def _settings(dataset, underlying: str, prefix: str, expiry: str) -> dict:
     } | {f"control: all strikes, take 0.5, make 1, {model} model": (strikes, 0.5, 1, 0, model) for model in ("flat", "none")}
     return {"DATA": dataset.data, "DAYS": list(dataset.days), "FORMAT": dataset.format, "FMT": fmt, "TEMPLATE": dataset.bot,
             "UNDERLYING": underlying, "PREFIX": prefix, "STRIKES": strikes, "EXPIRY": table, "VARIANTS": variants, "CUSTOM": True,
-            "KEEP": [underlying, *(f"{prefix}{k}" for k in strikes)], "LIMITS": {p: v for day in days for p, v in day.limits.items()}}
+            "STRIKE_OF": strike_of, "KEEP": [underlying, *strike_of], "LIMITS": {p: v for day in days for p, v in day.limits.items()}}
 
 
 def points(day) -> list[dict]:
@@ -115,9 +122,9 @@ def points(day) -> list[dict]:
             continue
         t = (days_to_expiry(day.name) - tick.timestamp / 1_000_000) / 365
         for product, book in tick.books.items():
-            if not product.startswith(PREFIX) or book.wall_mid is None or not (book.bids and book.asks):
+            if product not in STRIKE_OF or book.wall_mid is None or not (book.bids and book.asks):
                 continue
-            k = int(product.removeprefix(PREFIX))
+            k = STRIKE_OF[product]
             rows.append({"t": tick.timestamp, "product": product, "S": s, "K": k, "T": t, "price": book.wall_mid,
                          "half_spread": (book.asks[0][0] - book.bids[0][0]) / 2, "m": math.log(k / s) / math.sqrt(t),
                          "v": implied_vol(book.wall_mid, s, k, t)})
@@ -125,8 +132,11 @@ def points(day) -> list[dict]:
 
 
 def fit_parabola(rows: list[dict]) -> tuple[float, float, float]:
-    """Least squares v = a m^2 + b m + c over the rows with an implied vol (normal equations, 3x3)."""
+    """Least squares v = a m^2 + b m + c over the rows with an implied vol (normal equations, 3x3); flat
+    (a = b = 0, c their mean) with fewer than three strikes."""
     xs = [(r["m"], r["v"]) for r in rows if r["v"] is not None]
+    if len({r["K"] for r in rows if r["v"] is not None}) < 3:
+        return 0.0, 0.0, st.fmean(v for _, v in xs)
     sums = [sum(m**p for m, _ in xs) for p in range(5)]
     rhs = [sum(v * m**p for m, v in xs) for p in range(3)]
     a = [[sums[i + j] for j in range(3)] for i in range(3)]  # rows for the powers 0, 1, 2
@@ -152,7 +162,7 @@ def smile(coef: tuple[float, float, float], m: float) -> float:
     return a * m * m + b * m + c
 
 
-KEEP = [UNDERLYING, *(f"{PREFIX}{k}" for k in STRIKES)]  # the products the trading part keeps
+KEEP = [UNDERLYING, *STRIKE_OF]  # the products the trading part keeps
 
 
 def _only_options(day):
@@ -171,8 +181,7 @@ def overrides(variant: str | None, coef: tuple[float, float, float], expiry: int
         coef = (0.0, 0.0, coef[2])
     if CUSTOM:  # whole entries: the bot's PARAMS needn't list these products
         out = {f"PARAMS.{UNDERLYING}": {"limit": LIMITS[UNDERLYING], "fair": "wall_mid", "hedge": True, "take_edge": 10**6, "make_size": 0, "clear_edge": 1}}
-        for k in STRIKES:
-            product = f"{PREFIX}{k}"
+        for product, k in sorted(STRIKE_OF.items(), key=lambda item: item[1]):
             entry = {"limit": LIMITS[product], "fair": "wall_mid", "strike": k}
             if k in strikes and model == "none":
                 entry |= {"take_edge": take, "make_size": None, "make_edge": make, "clear_edge": 0}
@@ -242,7 +251,7 @@ def trade(held: dict, engine: str = "python", settings: dict | None = None) -> N
         print(f"| {v or 'committed (follow the rock)'}{flag} | " + " | ".join(f"{per_day[d] / 1000:.1f}" for d in names)
               + f" | {sum(per_day.values()) / 1000:.1f} ({rock / 1000:.1f} / {(sum(per_day.values()) - rock) / 1000:.1f}) | "
               f"{min(per_day.values()) / 1000:.1f} | {worse / 1000:.1f} | {resting / 1000:.1f} |")
-    print("\nHeld out: per day, the smile variant with the best total under all on the other four days")
+    print("\nHeld out: per day, the smile variant with the best total under all on the other days")
     total = 0.0
     for d in names:
         pick = max((v for v in VARIANTS if not v.startswith("control")), key=lambda v: sum(rows[v][o] for o in names if o != d))
@@ -259,12 +268,13 @@ def main() -> None:
     parser.add_argument("--underlying", help="with --data: the options' underlying")
     parser.add_argument("--prefix", help="with --data: the options' common name; the strike is the number after it")
     parser.add_argument("--expiry", help="with --data: days to expiry at each day's open, e.g. r3d0=8,r3d1=7")
+    parser.add_argument("--strike", type=int, help="with --data: the strike of an option named exactly --prefix, with no strike in its name")
     args = parser.parse_args()
     try:
         dataset = dataset_from(args)
         if dataset and not (args.underlying and args.prefix and args.expiry):
             raise ValueError("--data needs --underlying, --prefix and --expiry")
-        settings = _settings(dataset, args.underlying, args.prefix, args.expiry) if dataset else {}
+        settings = _settings(dataset, args.underlying, args.prefix, args.expiry, args.strike) if dataset else {}
     except ValueError as error:
         parser.error(str(error))
     if args.engine == "rust":
@@ -273,7 +283,7 @@ def main() -> None:
     by_day = {day.name: points(day) for day in load()}
     alpha = 2 / (args.window + 1)
 
-    print("1. The smile v(m), fitted on the other four days, and the day's own fit (a m^2 + b m + c)\n")
+    print("1. The smile v(m), fitted on the other days, and the day's own fit (a m^2 + b m + c)\n")
     print("| Day | Days to expiry | Fit on the others | Fit on the day | v's sd about the others' fit |")
     print("|---|---|---|---|---|")
     held = {}
@@ -289,7 +299,7 @@ def main() -> None:
     print("| Day | Strike | Ticks with time value | Mean | Sd | Fast part's sd | Its lag-1 autocorrelation | Half spread |")
     print("|---|---|---|---|---|---|---|---|")
     for name, rows in by_day.items():
-        for product in sorted({r["product"] for r in rows}, key=lambda p: int(p.removeprefix(PREFIX))):
+        for product in sorted({r["product"] for r in rows}, key=STRIKE_OF.get):
             series = [r for r in rows if r["product"] == product]
             residual = [r["price"] - bs_call(r["S"], r["K"], r["T"], smile(held[name], r["m"])) for r in series]
             ema, fast = residual[0], []
@@ -298,7 +308,7 @@ def main() -> None:
                 ema += alpha * (x - ema)
             lag1 = st.correlation(fast[:-1], fast[1:]) if len(fast) > 2 and st.pstdev(fast) > 0 else float("nan")
             alive = sum(1 for r in series if r["v"] is not None)
-            print(f"| {name} | {product.removeprefix(PREFIX)} | {alive:,} | {st.fmean(residual):+.2f} | {st.pstdev(residual):.2f} | "
+            print(f"| {name} | {STRIKE_OF[product]} | {alive:,} | {st.fmean(residual):+.2f} | {st.pstdev(residual):.2f} | "
                   f"{st.pstdev(fast):.2f} | {lag1:.2f} | {st.fmean(r['half_spread'] for r in series):.2f} |")
     trade(held, args.engine, settings)
 
