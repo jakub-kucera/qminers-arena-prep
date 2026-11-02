@@ -36,8 +36,8 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 
 ## Lunch (12:00–13:00)
 - After the first upload: its metrics (JSON) and results ZIP into `uv run python -m experiments.day.calibrate --data D
-  --days DAYS --format qminers --bot <that file> --portal metrics.json --results <zip>`; its best setting's `RESTING` and
-  `ENGINE` go into the plug-in for every later run ["Which backtest settings match the playground?", "How is PnL scored?"].
+  --days DAYS --format qminers --bot <that file> --portal metrics.json --results <zip>` (its names mapped, swap step 11);
+  the `RESTING` and `ENGINE` it prints go into the plug-in; if it refuses (no fit within 5%), keep them and widen `--modes` ["Which backtest settings match the playground?", "How is PnL scored?"].
 - Write round 1's candidates down in order, with the local result of each ["Spend the round's submissions"].
 
 ## Each round (T = its start; rounds at 13:00, 19:00, 01:00, 07:00)

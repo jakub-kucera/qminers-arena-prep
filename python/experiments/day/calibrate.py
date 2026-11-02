@@ -8,19 +8,26 @@ The first upload is the calibration pack (ON_THE_DAY.md, "How is PnL scored?"): 
 over every plausible engine setting at once. BOT is the file uploaded, D the data its public run used.
 Each candidate is a matching mode (all, worse, none), per tick or resting with a queue model (back, prob,
 front), a mark (mid, touch, last) and depletion (off, on), on top of the format's ENGINE, times any
-`--vary FIELD=V1,V2` (an EngineConfig field: fee, maker_fee, delay, limit_penalty, ...): 72 settings and up.
+`--vary FIELD=V1,V2` (an EngineConfig field: fee, maker_fee, delay, limit_penalty, ...). Orders a step late are
+tried by default (delay 0 and 1, unless --vary names delay): 144 settings and up.
 Each is scored against the portal's figures, given as the portal's own field names (the submission page's
 metrics response, pasted into a JSON file, or --portal-set): score, fills, tradedVolume, inventory, cash,
 markPrice, breachPenalty, pnlSe, absInventoryQ50/Q68/Q95/Q997. With --results, each product's fills and
-volume in the results ZIP too (read through experiments.day.fill_curve's column map, the swap's step 11).
+volume in the results ZIP too (its fills file found by experiments.day.fill_curve's RESULT_FILES and read by
+its RESULT_COLUMNS, only product, quantity and side: the swap's step 11); a ZIP that yields no fills says so.
 
 Our figures are converted to the portal's credits by the data's unit (Day.info) times the format's CREDITS
 (arena.cli.credits_per_unit; --scale to override). Where
 the portal's meaning is open, the nearest reading counts: the score as the days' sum or their mean, fills as
 fills or filled orders, pnlSe as the per-tick, block or per-day standard error (report.format_metrics), markPrice as the products' mean mark or any one's. The
-error per figure is |ours - theirs| / max(|theirs|, 1); a setting's error is their mean. The table ranks the
-settings, and the best one's ENGINE dict is printed to paste into the format plug-in. Settings within a few
-per cent of each other can't be told apart by this upload: the probes decide between them (ON_THE_DAY.md).
+error per figure is |ours - theirs| / max(|theirs|, 1). Settings are ranked by their worst figure, then the
+mean, and the best one's per-figure errors are printed. Its ENGINE dict is printed to paste into the format
+plug-in only if its worst figure is within --accept (5%): above it, no setting reproduces the portal, and the
+cause is usually outside the settings (the audit's round 8, R1): our wrapper or ADAPTER handles something
+their exchange doesn't (a cancel of an order not yet listed, a reject, a cap), or the money is off by a
+common factor (the unit or CREDITS; the factor is printed when every money figure agrees on it, for
+--scale). Then keep the plug-in's ENGINE and widen the grid's --modes. Settings whose every figure is within
+half a per cent of the best's can't be told apart by this upload: the probes decide between them.
 """
 
 from __future__ import annotations
@@ -43,7 +50,10 @@ from arena.formats import FORMATS
 PORTAL = ("score", "fills", "tradedVolume", "inventory", "cash", "markPrice", "breachPenalty", "pnlSe",
           "absInventoryQ50", "absInventoryQ68", "absInventoryQ95", "absInventoryQ997")
 QUANTILES = dict(zip(("absInventoryQ50", "absInventoryQ68", "absInventoryQ95", "absInventoryQ997"), report.QUANTILES))
-CLOSE = 0.02  # settings within this of the best's error can't be told apart by the upload
+TIE = 0.005  # a setting whose every figure's error is within this of the best's can't be told apart by the upload
+ACCEPT = 0.05  # the worst figure's error above which no ENGINE is offered to paste (--accept)
+MONEY = ("score", "cash", "breachPenalty", "pnlSe")  # figures a wrong unit or CREDITS scales together, the factor read off them
+SCALED = MONEY + ("markPrice",)  # scaled too, but its reading may be another product's: left out of the factor
 
 
 def candidates(base: EngineConfig, vary: dict[str, list]) -> list[EngineConfig]:
@@ -110,27 +120,57 @@ def figures(results, scale: float, penalty: float | None) -> dict[str, list[floa
     return out
 
 
-def error(ours: dict[str, list[float]], theirs: dict[str, float]) -> tuple[float, dict[str, float]]:
-    """The mean relative error over the portal's figures we have, and the nearest reading of each."""
-    errors, nearest = [], {}
+def error(ours: dict[str, list[float]], theirs: dict[str, float]) -> tuple[float, dict[str, float], dict[str, float]]:
+    """The mean relative error over the portal's figures we have, the nearest reading of each, and each one's error."""
+    per, nearest = {}, {}
     for name, target in theirs.items():
         options = ours.get(name, [0.0])
         best = min(options, key=lambda v: abs(v - target))
         nearest[name] = best
-        errors.append(abs(best - target) / max(abs(target), 1.0))
-    return (statistics.fmean(errors) if errors else 0.0), nearest
+        per[name] = abs(best - target) / max(abs(target), 1.0)
+    return (statistics.fmean(per.values()) if per else 0.0), nearest, per
 
 
-def from_results(source: Path) -> dict[str, float]:
-    """Each product's fills and volume in a results ZIP (or folder), through fill_curve's column map."""
+def common_factor(nearest: dict[str, float], theirs: dict[str, float]) -> tuple[float, float] | None:
+    """(theirs / ours, the ratios' largest relative spread) where every money figure (MONEY, two at least) agrees on
+    it within 3% and it isn't 1."""
+    ratios = [theirs[n] / nearest[n] for n in MONEY if n in theirs and abs(nearest.get(n, 0.0)) > 1e-9 and abs(theirs[n]) > 1e-9]
+    if len(ratios) < 2:
+        return None
+    middle = statistics.median(ratios)
+    spread = max(abs(r / middle - 1) for r in ratios) if middle > 0 else 1.0
+    if middle <= 0 or abs(middle - 1) < 0.03 or spread > 0.03:
+        return None
+    return middle, spread
+
+
+def from_results(source: Path) -> tuple[dict[str, float], list[str]]:
+    """Each product's fills and volume in a results ZIP (or folder), and the file names in it. Its fills file is
+    found by fill_curve's RESULT_FILES and read by its RESULT_COLUMNS, but only product, quantity and side, so a
+    clock timestamp or a price in another unit doesn't stop it."""
+    import csv
+    import io
+    import zipfile
+
     from experiments.day import fill_curve
 
+    if source.is_dir():
+        files = {str(p.relative_to(source)): p.read_text for p in source.rglob("*") if p.is_file()}
+    else:
+        archive = zipfile.ZipFile(source)
+        files = {name: (lambda name=name: archive.read(name).decode("utf-8-sig")) for name in archive.namelist() if not name.endswith("/")}
+    pattern, columns = fill_curve._pattern(fill_curve.RESULT_FILES["fills"]), fill_curve.RESULT_COLUMNS["fills"]
     out: dict[str, float] = {}
-    for tables in fill_curve.read_results(source).values():
-        for row in tables["fills"]:
-            out[f"fills {row['product']}"] = out.get(f"fills {row['product']}", 0.0) + 1
-            out[f"volume {row['product']}"] = out.get(f"volume {row['product']}", 0.0) + abs(row["quantity"])
-    return out
+    for name, read in sorted(files.items()):
+        if not pattern.match(name):
+            continue
+        for raw in csv.DictReader(io.StringIO(read()), delimiter=fill_curve.RESULT_DELIMITER):
+            product, quantity = raw.get(columns["product"], ""), raw.get(columns["quantity"], "")
+            if not product or quantity in ("", None):
+                continue
+            out[f"fills {product}"] = out.get(f"fills {product}", 0.0) + 1
+            out[f"volume {product}"] = out.get(f"volume {product}", 0.0) + abs(float(quantity))
+    return out, sorted(files)
 
 
 _JOB: dict = {}
@@ -144,8 +184,8 @@ def _score(config: EngineConfig) -> tuple[EngineConfig, float, dict, dict]:
     days, bot, engine, fmt, scale, theirs = (_JOB[k] for k in ("days", "bot", "engine", "format", "scale", "theirs"))
     results = [backtest(day, [("you", bot, {}, False)], config, engine, False, None, fmt, rules=False)[0] for day in days]
     ours = figures(results, scale, config.limit_penalty)
-    err, nearest = error(ours, theirs)
-    return config, err, nearest, ours
+    err, nearest, per = error(ours, theirs)
+    return config, err, nearest, per
 
 
 def parse_value(name: str, text: str):
@@ -170,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--results", type=Path, help="the submission's results ZIP (or folder): each product's fills and volume join the figures")
     parser.add_argument("--vary", action="append", default=[], metavar="FIELD=V1,V2", help="one more engine setting to try, e.g. fee=0,1 or delay=0,1 (repeatable)")
     parser.add_argument("--scale", type=float, help="credits per engine price unit (default: the data's Day.info unit times the format's CREDITS)")
+    parser.add_argument("--accept", type=float, default=ACCEPT * 100, metavar="PCT",
+                        help=f"the worst figure's error, in per cent, above which no ENGINE is offered (default: {ACCEPT:.0%})")
     parser.add_argument("--top", type=int, default=12, help="settings to show (default: 12)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     args = parser.parse_args(argv)
@@ -178,23 +220,31 @@ def main(argv: list[str] | None = None) -> int:
         if dataset is None:
             raise ValueError("give the uploaded file's data: --data D --days ... (and --format, --bot)")
         theirs: dict[str, float] = {}
+        ignored: list[str] = []
         if args.portal:
             loaded = json.loads(args.portal.read_text())
             loaded = {**loaded, **loaded.get("metrics", {})} if isinstance(loaded.get("metrics"), dict) else loaded
             theirs.update({k: float(v) for k, v in loaded.items() if k in PORTAL and v is not None})
+            ignored = sorted(k for k in loaded if k not in PORTAL and k != "metrics")
         for text in args.portal_set:
             key, _, value = text.partition("=")
             if key not in PORTAL:
                 raise ValueError(f"--portal-set: {key!r} is not a portal figure ({', '.join(PORTAL)})")
             theirs[key] = float(value)
+        zip_note = ""
         if args.results:
-            theirs.update(from_results(args.results))
+            found, names = from_results(args.results)
+            theirs.update(found)
+            if not found:
+                zip_note = (f"WARNING: --results gave no fills (its files: {', '.join(names[:6]) or 'none'}): set fill_curve's RESULT_FILES "
+                            "and RESULT_COLUMNS to them (the swap's step 11); this fit rests on the portal's figures only")
         if not theirs:
             raise ValueError("nothing to fit to: give --portal, --portal-set or --results")
         vary = {}
         for text in args.vary:
             name, _, values = text.partition("=")
             vary[name] = [parse_value(name, v) for v in values.split(",")]
+        vary.setdefault("delay", [0, 1])  # orders a step late: the third rehearsal lost both uploads to it
     except (ValueError, OSError, json.JSONDecodeError) as e:
         parser.error(str(e))
 
@@ -218,23 +268,45 @@ def main(argv: list[str] | None = None) -> int:
     else:
         _init(job)
         scored = [_score(c) for c in configs]
-    scored.sort(key=lambda s: s[1])
+    scored.sort(key=lambda s: (max(s[3].values(), default=0.0), s[1]))  # the worst figure first, then the mean
 
-    print(f"{dataset.bot} on {dataset.name}: {len(configs)} engine settings against the portal's {len(theirs)} figures "
-          f"(ours in credits at {scale:g} a unit; error = mean |ours - theirs| / |theirs|)\n")
+    from_zip = sum(1 for n in theirs if " " in n)
+    print(f"{dataset.bot} on {dataset.name}: {len(configs)} engine settings against {len(theirs)} figures "
+          f"({len(theirs) - from_zip} the portal's, {from_zip} from the results ZIP; ours in credits at {scale:g} a unit; "
+          "worst = the largest |ours - theirs| / |theirs|, mean = their mean)\n")
+    if zip_note:
+        print(zip_note + "\n")
+    if ignored:
+        print(f"portal fields not fitted: {', '.join(ignored)}\n")
     names = list(theirs)
-    print("| setting | error | " + " | ".join(names) + " |")
-    print("|---|---|" + "---|" * len(names))
-    print("| **the portal** | | " + " | ".join(f"{theirs[n]:,.2f}" for n in names) + " |")
-    for config, err, nearest, _ in scored[: args.top]:
-        print(f"| {describe(config)} | {err:.1%} | " + " | ".join(f"{nearest[n]:,.2f}" for n in names) + " |")
-    best, err, _, _ = scored[0]
-    close = [describe(c) for c, e, _, _ in scored[1:] if e - err <= CLOSE]
-    print(f"\nBest: {describe(best)} ({err:.1%} off). Into the format plug-in (python/arena/formats/qminers.py):")
+    print("| setting | worst | mean | " + " | ".join(names) + " |")
+    print("|---|---|---|" + "---|" * len(names))
+    print("| **the portal** | | | " + " | ".join(f"{theirs[n]:,.2f}" for n in names) + " |")
+    for config, err, nearest, per in scored[: args.top]:
+        print(f"| {describe(config)} | {max(per.values()):.1%} | {err:.1%} | " + " | ".join(f"{nearest[n]:,.2f}" for n in names) + " |")
+    best, err, nearest, per = scored[0]
+    worst_name = max(per, key=per.get)
+    print(f"\nBest: {describe(best)} (worst {per[worst_name]:.1%} off, on {worst_name}; mean {err:.1%}). Per figure: "
+          + ", ".join(f"{n} {e:.1%}" for n, e in per.items()))
+    ties = [describe(c) for c, _, _, p in scored[1:] if all(abs(p[n] - per[n]) <= TIE for n in per)]
+    if per[worst_name] > args.accept / 100:
+        print(f"\nNO SETTING REPRODUCES THE PORTAL within {args.accept:g}%: don't paste an ENGINE. Keep the plug-in's and widen "
+              "the grid's --modes (ON_THE_DAY.md, \"How is PnL scored?\"). The usual causes, outside these settings:")
+        scaled = [(found, config) for config, _, near, p in scored if (found := common_factor(near, theirs))
+                  and all(e <= args.accept / 100 for n, e in p.items() if n not in SCALED)]  # the money off by one factor, the rest fitting
+        if scaled:
+            (factor, _), config = min(scaled, key=lambda item: item[0][1])
+            print(f"  - the money: under {describe(config)} every money figure is {factor:.4g} times ours and the rest fit,\n"
+                  f"    so the unit or CREDITS is off: re-run with --scale {scale * factor:g}")
+        print("  - the wrapper: our ADAPTER or format wrapper does something their exchange doesn't (a cancel of an order\n"
+              "    not listed yet, a reject, a cap): compare the results ZIP's orders with arena.backtest --out of the same file")
+        return 0
+    print("Into the format plug-in (python/arena/formats/qminers.py):")
     print(f"  RESTING = {best.resting}")
     print(f"  ENGINE = {json.dumps(engine_dict(best))}")
-    if close:
-        print(f"\n{len(close)} more within {CLOSE:.0%} of it, which this upload can't tell apart (the probes decide): " + "; ".join(close[:6]))
+    if ties:
+        print(f"\n{len(ties)} more with every figure within {TIE:.1%} of it, which this upload can't tell apart (the probes decide): "
+              + "; ".join(ties[:6]))
     return 0
 
 

@@ -831,5 +831,28 @@ def test_calibrate_finds_the_engine_setting_a_portal_showed(capsys, monkeypatch,
                                               "cash": f["cash"][0], "absInventoryQ95": f["absInventoryQ95"][0]}}))
     out = run(capsys, monkeypatch, "calibrate", "--data", drill_data, "--days", "all", "--format", "drill", "--portal", str(portal), "--jobs", "2")
     best = out.split("Best: ")[1].split("\n")[0]
-    assert best.startswith("worse, resting,") and "touch" in best and "(0.0% off)" in best
+    assert best.startswith("worse, resting,") and "touch" in best and "(worst 0.0% off" in best
     assert 'ENGINE = {"trade_matching": "worse", "mark": "touch"}' in out and "RESTING = True" in out
+    assert "against 5 figures (5 the portal's, 0 from the results ZIP" in out and "288 engine settings" not in out
+
+    # Money off by a common factor (a wrong unit or CREDITS): no setting fits, no ENGINE, and the factor is named.
+    doubled = {"score": 2 * f["score"][0], "cash": 2 * f["cash"][0], "fills": f["fills"][1], "tradedVolume": f["tradedVolume"][0]}
+    portal.write_text(json.dumps(doubled))
+    out = run(capsys, monkeypatch, "calibrate", "--data", drill_data, "--days", "all", "--format", "drill", "--portal", str(portal), "--jobs", "2")
+    assert "NO SETTING REPRODUCES THE PORTAL within 5%" in out and "ENGINE =" not in out
+    assert "every money figure is 2 times ours" in out and "--scale 0.02" in out
+
+    # A results ZIP: fills read by product and quantity only (a clock timestamp doesn't matter); none found says so.
+    import zipfile
+
+    archive = tmp_path / "results.zip"
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr("d1_fills.csv", "timestamp,product,price,quantity\n10:00:08.250,ALPHA,100,3\n10:00:09.000,ALPHA,101,-2\n")
+    found, names = calibrate.from_results(archive)
+    assert found == {"fills ALPHA": 2.0, "volume ALPHA": 5.0} and names == ["d1_fills.csv"]
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr("executions_2026-11-07.csv", "time,symbol,qty\n")
+    portal.write_text(json.dumps({"score": f["score"][0]}))
+    out = run(capsys, monkeypatch, "calibrate", "--data", drill_data, "--days", "all", "--format", "drill", "--portal", str(portal),
+              "--results", str(archive), "--jobs", "2")
+    assert "WARNING: --results gave no fills (its files: executions_2026-11-07.csv)" in out
