@@ -10,12 +10,22 @@ usage (from the repo root): uv run python -m experiments.study.cross_product_tim
    simultaneous arrivals.) Per product on P4 and P3 round 1: the share of ticks with a market
    trade at or above the best ask, at or below the best bid, and both, against that tick's book,
    next to the product of the one-sided shares (what independence would give).
+3. Are basket trades that coincide with trades in its legs a different flow from isolated ones?
+   (Petit et al. 2025: a trade described by what traded around it.) On P3 round 2's baskets and P2
+   round 3's gift basket, all days: each tick's basket market trades, signed against that tick's
+   book (at or through the ask a buy, the bid a sell, else by the side of the mid), are
+   "with legs" when a leg traded within a tick of it, else "alone"; per class, the basket's mid
+   move over the next h ticks in the trade's direction (mean, its standard error, and per day),
+   against half the basket's spread, what a taker following it pays.
 
-The numbers are in IDEAS.md ("Legs leading the basket") and on the wiki pages
-references/wiki/sources/cross-asset-order-flow.md and stochastic-liquidity-demand.md.
+The numbers are in IDEAS.md ("Legs leading the basket", "Classifying market trades by
+co-occurrence across a basket and its legs") and on the wiki pages
+references/wiki/sources/cross-asset-order-flow.md, stochastic-liquidity-demand.md and
+etf-trade-flow-decomposition.md.
 """
 
-from statistics import correlation
+import math
+from statistics import correlation, fmean, median, stdev
 
 from arena.formats import prosperity
 
@@ -24,6 +34,7 @@ BASKETS = {
     "PICNIC_BASKET2": {"CROISSANTS": 4, "JAMS": 2},
 }
 HORIZONS = (1, 5, 20)
+FAMILIES = {("p3", "2"): BASKETS, ("p2", "3"): {"GIFT_BASKET": {"CHOCOLATE": 4, "STRAWBERRIES": 6, "ROSES": 1}}}
 
 
 def mid(book):
@@ -79,6 +90,52 @@ def simultaneous_trades() -> None:
                   f"both {both / n:.5f}  if independent {buys / n * sells / n:.5f}")
 
 
+def signed_volume(trades, book) -> int:
+    """Market trades signed against the tick's book: at or through the ask +, the bid -, else by the side of the mid."""
+    m, q = mid(book), 0
+    for t in trades:
+        if book.asks and t.price >= book.asks[0][0]:
+            q += t.quantity
+        elif book.bids and t.price <= book.bids[0][0]:
+            q -= t.quantity
+        elif m is not None and t.price != m:
+            q += t.quantity if t.price > m else -t.quantity
+    return q
+
+
+def co_occurrence() -> None:
+    print("3. Basket trades with and without trades in the legs (within a tick): the basket's mid move in the trade's direction")
+    for (data, rnd), baskets in FAMILIES.items():
+        days = prosperity.load_days(prosperity.resolve_data_dir(data), [rnd])
+        for basket, legs in baskets.items():
+            moves = {(c, h): {} for c in ("with legs", "alone") for h in HORIZONS}  # -> day -> moves
+            spreads = []
+            for day in days:
+                mids = [mid(t.books.get(basket)) for t in day.ticks]
+                leg_ticks = {i for i, t in enumerate(day.ticks) if any(t.trades.get(leg) for leg in legs)}
+                for i, tick in enumerate(day.ticks):
+                    book = tick.books.get(basket)
+                    if not tick.trades.get(basket) or mids[i] is None:
+                        continue
+                    spreads.append(book.asks[0][0] - book.bids[0][0])
+                    q = signed_volume(tick.trades[basket], book)
+                    if q == 0:
+                        continue
+                    kind = "with legs" if leg_ticks & {i - 1, i, i + 1} else "alone"
+                    for h in HORIZONS:
+                        if i + h < len(mids) and mids[i + h] is not None:
+                            moves[(kind, h)].setdefault(day.name, []).append(math.copysign(1, q) * (mids[i + h] - mids[i]))
+            print(f"   {data} round {rnd} {basket} (half its spread {median(spreads) / 2:g})")
+            for kind in ("with legs", "alone"):
+                cells = []
+                for h in HORIZONS:
+                    xs = [x for day in moves[(kind, h)].values() for x in day]
+                    per_day = " / ".join(f"{fmean(day):+.2f}" for day in moves[(kind, h)].values())
+                    cells.append(f"h={h}: {fmean(xs):+.2f} ± {stdev(xs) / math.sqrt(len(xs)):.2f} ({per_day})")
+                print(f"     {kind:9} {len([x for day in moves[(kind, 1)].values() for x in day]):4} trade ticks  " + "  ".join(cells))
+
+
 if __name__ == "__main__":
     lead_lag()
     simultaneous_trades()
+    co_occurrence()

@@ -494,3 +494,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | optimal OU bands for a basket's spread
 - `concepts/baskets-and-fixed-sums` records the test (`IDEAS.md`, "Optimal entry and exit bands for a basket's spread"): `experiments.day.baskets` part 4 fits κ and σ on the other days and solves Cartea et al.'s (11.2) and (11.4); held out 86k against the k grid's 71k on P3 round 2, 171k against 294k on P2 round 3; the urgency sets the band and nothing fixes it, so the k grid stays.
+
+## [2026-11-02] query | basket trades with and without the legs
+- `sources/etf-trade-flow-decomposition` records the test (`IDEAS.md`, "Classifying market trades by co-occurrence across a basket and its legs"): `experiments.study.cross_product_timing` section 3; the two classes move the basket alike and below half its spread.

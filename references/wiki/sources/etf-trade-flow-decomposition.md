@@ -24,6 +24,9 @@ A daily cross-sectional study on SPY and its constituents, 2018–2021 (`etf-tra
 | co-occurrence within ±τ | the same or neighbouring ticks of `Tick.trades` across the basket's products |
 | conditional order imbalance | signed volume of one class of market trades, per product |
 
+## Tested here
+- 2026-11-02 (`IDEAS.md`, "Classifying market trades by co-occurrence across a basket and its legs"; `python/experiments/study/cross_product_timing.py`, section 3): on P3 round 2's baskets and P2 round 3's gift basket, basket trades with a leg trade within a tick and those without move the basket alike (+0.5 to +1.8 ticks over 1–20 ticks, the gaps within one standard error, the days disagreeing), and every move is below half the basket's spread. No flow class to trade there.
+
 ## Traps
 - None found in what was read.
 

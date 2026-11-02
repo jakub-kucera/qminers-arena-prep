@@ -173,6 +173,15 @@ def test_the_ou_bands_reproduce_cartea_et_als_table_and_the_fit_recovers_kappa()
     assert kappa == pytest.approx(0.01, rel=0.15) and sigma == pytest.approx(math.sqrt(2 * 0.01 / (1 - b * b)), rel=0.05)
 
 
+def test_basket_trades_are_signed_against_the_ticks_book():
+    from arena.model import Book, MarketTrade
+    from experiments.study.cross_product_timing import signed_volume
+
+    book = Book(((99, 5),), ((103, 5),))
+    trades = [MarketTrade("B", 103, 2), MarketTrade("B", 98, 3), MarketTrade("B", 102, 1), MarketTrade("B", 101, 7)]
+    assert signed_volume(trades, book) == 2 - 3 + 1  # at the ask, through the bid, above the mid; at the mid unsigned
+
+
 def test_an_option_named_without_a_strike_takes_one_and_a_single_strike_fits_flat():
     from types import SimpleNamespace
 
