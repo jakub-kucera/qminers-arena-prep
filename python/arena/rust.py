@@ -765,7 +765,7 @@ def snooping(d: list[list[float]], q: float, boot: int, alpha: float | None = No
     """arena.stats.snooping in rust/src/arena/stats.rs."""
     from arena import stats
 
-    found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "studentize": studentize,
+    found = _stats({"snooping": {"d": d, "q": q, "boot": boot, "alpha": stats.TEST_ALPHA if alpha is None else alpha, "seed": seed, "studentize": studentize,
                                  "matrices": ["d"]}})
     return found["spa"], found["stepm"]
 
@@ -779,7 +779,7 @@ def stepm(d: list[list[float]], q: float, boot: int, alpha: float | None = None,
     """arena.stats.stepm (its own studentization and resamples) in rust/src/arena/stats.rs."""
     from arena import stats
 
-    return _stats({"stepm": {"d": d, "q": q, "boot": boot, "alpha": stats.ALPHA if alpha is None else alpha, "seed": seed, "studentize": studentize,
+    return _stats({"stepm": {"d": d, "q": q, "boot": boot, "alpha": stats.TEST_ALPHA if alpha is None else alpha, "seed": seed, "studentize": studentize,
                              "matrices": ["d"]}})
 
 

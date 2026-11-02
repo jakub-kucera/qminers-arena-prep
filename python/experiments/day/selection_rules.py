@@ -227,7 +227,7 @@ def pick_scenarios(base: dict, results: list[dict], names: list[str]) -> dict[st
             columns.append(g)
             owners.append(k)
     winners = []
-    if columns and _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] < grid.ALPHA:
+    if columns and _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] < grid.TEST_ALPHA:
         winners = [owners[j] for j in _stat().stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
     holding = [k for k in winners if all(g > 0 for g in gain[k].values())]
     out["pick"] = max(holding, key=lambda k: pnl[k][first]) if holding else None
@@ -296,7 +296,7 @@ def pick(axes: dict, base: dict, results: list[dict]) -> dict[str, int | None]:
     winners = []
     if columns:
         p = _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)
-        if p["c"] < grid.ALPHA:
+        if p["c"] < grid.TEST_ALPHA:
             winners = [owners[j] for j in _stat().stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
     out["SPA gate"] = max(winners, key=pnl[all_].__getitem__) if winners else None
     holding = [k for k in winners if gain[worse][k] > 0]
@@ -317,7 +317,7 @@ def holdout_pick(base: dict, results: list[dict]) -> int | None:
         if any(g):
             columns.append(g)
             owners.append(k)
-    if not columns or _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] >= grid.ALPHA:
+    if not columns or _stat().spa(columns, grid.SPA_Q, grid.BOOTSTRAP)["c"] >= grid.TEST_ALPHA:
         return None
     winners = [owners[j] for j in _stat().stepm(columns, grid.SPA_Q, grid.BOOTSTRAP)]
     if not winners:

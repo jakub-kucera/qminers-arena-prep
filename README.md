@@ -312,9 +312,11 @@ Then two bootstrap tests, on each cell's gain over the bot as is per block of 10
   those days had. From the committed settings, though, it moved in none of the eight studies.
 
 Both studentize each bootstrap resample by its own standard error, as Romano and Wolf do. On null
-grids (no cell with an edge) they then name a cell in 6–8% of grids at a nominal 5%; with the
+grids (no cell with an edge) they then named a cell in 6–8% of grids at a nominal 5%; with the
 data's standard error in every resample, as before 2026-10-26, it was about 10%, and 20% when the
-gains are strongly autocorrelated (`python/experiments/study/snooping_null_rates.py`). That costs Python
+gains are strongly autocorrelated (`python/experiments/study/snooping_null_rates.py`). So both are
+read at 4% (`stats.TEST_ALPHA`, since 2026-11-02), where null grids name a cell in 4.5–5.2% (7% when
+strongly autocorrelated); longer bootstrap blocks made it worse. That costs Python
 about 0.8 s a cell at 300 blocks, so a grid takes its statistics from Rust whenever the binary
 builds and `stats.py`'s twin is current, even with the backtests in Python (`rust.stats_engine`;
 the same numbers to the bit; 4,096 cells in about 10 s). Two options change the pick:
@@ -336,7 +338,7 @@ overfitting: 64 cells × 2 modes = 128 trials on 3 days
 ! the best cell's gain over the bot as is is not clearly more than the best of that many cells with no gain (DSR < 0.95)
   SPA on pnl(all) gains over the bot as is, 300 blocks of 100 ticks, 12 distinct cells, bootstrap blocks of 1,000 ticks on average, 1,000 resamples:
   p 0.000 that no cell beats the bot as is (bounds 0.000 to 0.000; the upper is the Reality Check)
-  StepM at 5%: 3 cells beat the bot as is: KELP.make_edge=1, KELP.take_edge=1 | ...
+  StepM at 4%: 3 cells beat the bot as is: KELP.make_edge=1, KELP.take_edge=1 | ...
 ! SPA finds a gain the DSR doesn't: the DSR's bar rises with the spread of all cells, poor ones included, and SPA discounts those (references/wiki/contradictions.md, row 18)
   under worse: 0 of StepM's 8 cells beat the bot as is (best by -5,537)
 ! StepM's cells only beat the bot as is under all: the gain depends on the fill model

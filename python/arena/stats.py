@@ -20,7 +20,11 @@ from operator import itemgetter, mul
 
 MAX_SPLITS = 4000  # halvings of the blocks to score; sampled (seeded) when there are more
 EULER_GAMMA = 0.5772156649015329
-ALPHA = 0.05  # StepM's familywise error
+ALPHA = 0.05  # StepM's familywise error, and SPA's size, that the tests aim at
+# The level SPA and StepM are read at. At ALPHA itself they named a noise cell in 5.9-8.3% of 1,000 null grids a row
+# (each resample studentized by its own omega); at 0.04 in 4.5-5.2%, and 7.0% where the gains are AR(1) 0.8, for
+# 47.7% power against 51.1% (experiments.study.snooping_null_rates; IDEAS.md, "Bootstrap tests of the best cell").
+TEST_ALPHA = 0.04
 STUDENTIZE = ("resample", "fixed")  # how SPA and StepM studentize each resample: by its own omega (default), or the original's
 
 
@@ -230,15 +234,15 @@ def spa(d: list[list[float]], q: float, boot: int, seed: int = 0, *, studentize:
     return out
 
 
-def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 1, *, studentize: str = "resample", omegas=None,
+def stepm(d: list[list[float]], q: float, boot: int, alpha: float = TEST_ALPHA, seed: int = 1, *, studentize: str = "resample", omegas=None,
           draws=None, scales=None) -> list[int]:
     """Romano and Wolf's studentized step-down (Algorithms 4.1-4.2, p. 14-15): the columns whose
     mean gain is significantly positive, the familywise error held at alpha. z_k = sqrt(n) mean_k /
     omega_k; each resample's sqrt(n) (mean*_k - mean_k) / omega*_k, omega*_k its own (studentize
     "resample", the paper's, default) or the original's in every resample ("fixed", what this
     module did before 2026-10-26). On experiments/study/snooping_null_rates.py's null grids, at 5%, the
-    original's named a noise cell in 9-22% of them, each its own in 6-8% (IDEAS.md, "Bootstrap
-    tests of the best cell")."""
+    original's named a noise cell in 9-22% of them, each its own in 6-8%; at TEST_ALPHA, the default
+    since 2026-11-02, in 4.5-7% (IDEAS.md, "Bootstrap tests of the best cell")."""
     n = len(d[0])
     means = [statistics.fmean(c) for c in d]
     omegas, draws, scales = _draws(d, q, boot, seed, studentize, omegas, draws, scales)
@@ -256,7 +260,7 @@ def stepm(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed:
     return sorted(rejected)
 
 
-def snooping(d: list[list[float]], q: float, boot: int, alpha: float = ALPHA, seed: int = 0, studentize: str = "resample") -> tuple[dict[str, float], list[int]]:
+def snooping(d: list[list[float]], q: float, boot: int, alpha: float = TEST_ALPHA, seed: int = 0, studentize: str = "resample") -> tuple[dict[str, float], list[int]]:
     """SPA's p-values and StepM's columns on the same studentization and resamples, as arena.grid
     reports them."""
     omegas, draws, scales = _draws(d, q, boot, seed, studentize, None, None, None)

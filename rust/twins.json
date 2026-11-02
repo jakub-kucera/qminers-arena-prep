@@ -13,7 +13,7 @@
   },
   "python/arena/stats.py": {
     "rust": "rust/src/arena/stats.rs",
-    "sha256": "2ee7545b96a82e67de2f1d58b86650f3ad74f25292ad15bdf4b844e205d8579f"
+    "sha256": "e2a22befc9b8dfb24dc34edfff7c33ff68fd320b271ad8d48fb633854d774d8d"
   },
   "python/arena/stress.py": {
     "rust": "rust/src/arena/stress.rs",

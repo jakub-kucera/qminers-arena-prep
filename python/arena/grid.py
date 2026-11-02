@@ -53,9 +53,10 @@ once:
             the DSR it discounts cells that are clearly worse, so a wide grid's poor corners don't
             hide a real gain.
   StepM     Romano and Wolf's step-down test on the same resamples: every cell that beats the bot as
-            is, with the chance of naming even one false cell held at ALPHA. Both studentize each
+            is, with the chance of naming even one false cell held at ALPHA (5%). Both studentize each
             resample by its own omega (arena.stats.bootstrap), as Romano and Wolf do; with the
-            original's in every resample they named a noise cell in 8-22% of null grids.
+            original's in every resample they named a noise cell in 8-22% of null grids. Both are
+            read at TEST_ALPHA (4%), where null grids name a noise cell about 5% of the time.
   pick      StepM's best cell that also beats the bot as is under every other --modes entry, else
             the bot as is. Of ten ways of choosing, scored on unseen Prosperity days and on fresh
             simulated ones, it lost least often among those that gained (python/experiments/
@@ -112,7 +113,7 @@ from pathlib import Path
 
 from arena import report, rust, search, stress
 from arena.stats import (  # the statistics live in python/arena/stats.py (twinned in rust/src/arena/stats.rs); these names stay importable from here
-    ALPHA, EULER_GAMMA, MAX_SPLITS, Cscv, _scales, bootstrap_means, cscv, deflated_sharpe, expected_max_sharpe, independent_trials,
+    ALPHA, EULER_GAMMA, TEST_ALPHA, MAX_SPLITS, Cscv, _scales, bootstrap_means, cscv, deflated_sharpe, expected_max_sharpe, independent_trials,
     STUDENTIZE, bootstrap, mean_correlation, omega2, resamples, snooping, spa, standardized, stepm,
 )
 from arena.botfile import OverrideError, parse_value
@@ -1250,10 +1251,10 @@ def snooping_pick(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int,
         ranked = sorted(winners, key=lambda k: -statistics.fmean(d[k]))
         named = ["; ".join(", ".join(f"{a.label}={v}" for a, v in zip(axes, o.values)) for o in groups[k][1]) for k in ranked]
         shown = " | ".join(named[:5]) + (f" | ... {len(named) - 5} more" if len(named) > 5 else "")
-        lines.append(f"  StepM at {ALPHA:.0%}: {len(winners)} cells beat the bot as is: {shown}")
+        lines.append(f"  StepM at {TEST_ALPHA:.0%}: {len(winners)} cells beat the bot as is: {shown}")
     else:
-        lines.append(f"  StepM at {ALPHA:.0%}: no cell beats the bot as is")
-    if p["c"] < ALPHA and dsr is not None and dsr < 0.95:
+        lines.append(f"  StepM at {TEST_ALPHA:.0%}: no cell beats the bot as is")
+    if p["c"] < TEST_ALPHA and dsr is not None and dsr < 0.95:
         lines.append("! SPA finds a gain the DSR doesn't: the DSR's bar rises with the spread of all cells, poor ones included, "
                      "and SPA discounts those (references/wiki/contradictions.md, row 18)")
     failing = []
@@ -1270,7 +1271,7 @@ def snooping_pick(axes: list[Axis], baseline: Outcome, outcomes: dict[tuple[int,
         lines.append(f"! StepM's cells only beat the bot as is under {mode}: the gain depends on the fill model")
     elif failing:
         lines.append(f"! none of StepM's cells beats the bot as is under {', '.join(failing)}: the gain depends on the fill model")
-    if p["c"] < ALPHA and len(modes) == 1:
+    if p["c"] < TEST_ALPHA and len(modes) == 1:
         lines.append("  a gain under one matching mode still has to hold under the others: rerun with --modes all,worse")
     found = [o for k in winners for o in groups[k][1]]
     gating = modes[1:] if gate == "every" else []

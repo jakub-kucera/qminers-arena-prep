@@ -1,6 +1,7 @@
 """How often do arena.grid's SPA, StepM and pick name a cell when no cell has an edge?
 
 usage (from the repo root): uv run python -m experiments.study.snooping_null_rates [--trials N] [--engine rust]
+       uv run python -m experiments.study.snooping_null_rates --ways resample --q 0.05 --alpha 0.04 --engine rust
 
 From the second audit (2026-10-26, A4; its script null_stats.py, adapted): each trial draws CELLS
 cells' gains over the bot as is per block (BLOCKS blocks, as a grid's 100-tick blocks over three
@@ -19,6 +20,11 @@ each twice: first with every resample studentized by the original's omega ("fixe
 before 2026-10-26), then (*) by its own ("resample", Romano and Wolf's Algorithm 4.2, arena.grid's
 default). The last row plants a gain of EDGE per block in one cell, so it reports power: how often
 SPA rejects, and how often StepM and each pick name that cell (a noise cell named isn't counted).
+
+`--q` sets the stationary bootstrap's block probability (mean block 1/q blocks; arena.grid's SPA_Q
+by default) and `--alpha` the level SPA and StepM are read at (arena.stats.TEST_ALPHA, 0.04, by default; 0.05
+before 2026-11-02): the two candidates for the 1-3 points the rates still sit over 5% (TODO.md, "SPA and StepM still name a
+noise cell"). `--ways` keeps one of the two studentizations.
 
 The tests are the repo's own (arena.stats.snooping, or its Rust twin with --engine rust, the same to
 the bit). Results: IDEAS.md, "Bootstrap tests of the best cell".
@@ -68,10 +74,11 @@ def draw(rng: random.Random, phi: float, df: int | None) -> list[list[float]]:
     return [[CROSS_CELL ** 0.5 * c + (1 - CROSS_CELL) ** 0.5 * o for c, o in zip(common, series())] for _ in range(CELLS)]
 
 
-def row(trials: int, phi: float, df: int | None, rho: float, edge: float, snooping, seed: int = 1) -> dict[tuple[str, str], float]:
+def row(trials: int, phi: float, df: int | None, rho: float, edge: float, snooping, seed: int = 1,
+        q: float = SPA_Q, alpha: float = stats.TEST_ALPHA, ways: tuple[str, ...] = WAYS) -> dict[tuple[str, str], float]:
     """Each way's rates. With an edge (planted in cell 0) StepM and the picks count only that cell."""
     rng = random.Random(seed)
-    counts = dict.fromkeys(((way, name) for way in WAYS for name in NAMES), 0)
+    counts = dict.fromkeys(((way, name) for way in ways for name in NAMES), 0)
     cut = BLOCKS - round(HOLDOUT * BLOCKS)
     counted = (lambda k: k == 0) if edge else (lambda k: True)
     for _ in range(trials):
@@ -79,14 +86,14 @@ def row(trials: int, phi: float, df: int | None, rho: float, edge: float, snoopi
         first[0] = [x + edge for x in first[0]]
         noise = draw(rng, phi, df)
         second = [[rho * a + (1 - rho * rho) ** 0.5 * b for a, b in zip(ca, cb)] for ca, cb in zip(first, noise)]
-        for way in WAYS:
-            p, winners = snooping(first, SPA_Q, BOOTSTRAP, studentize=way)
-            counts[way, "SPA"] += p["c"] < stats.ALPHA
+        for way in ways:
+            p, winners = snooping(first, q, BOOTSTRAP, alpha, studentize=way)
+            counts[way, "SPA"] += p["c"] < alpha
             counts[way, "StepM"] += any(map(counted, winners))
             if winners:
                 best = max(winners, key=lambda k: statistics.fmean(first[k]))
                 counts[way, "+ worse"] += counted(best) and sum(second[best]) > 0
-            _, kept = snooping([c[:cut] for c in first], SPA_Q, BOOTSTRAP, studentize=way)
+            _, kept = snooping([c[:cut] for c in first], q, BOOTSTRAP, alpha, studentize=way)
             if kept:
                 best = max(kept, key=lambda k: statistics.fmean(first[k][:cut]))
                 counts[way, "+ holdout"] += counted(best) and sum(first[best][cut:]) > 0
@@ -96,20 +103,24 @@ def row(trials: int, phi: float, df: int | None, rho: float, edge: float, snoopi
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.study.snooping_null_rates")
     parser.add_argument("--trials", type=int, default=300, help="trials per row (default: 300; the standard error of a 5%% rate is then 1.3 points)")
+    parser.add_argument("--q", type=float, default=SPA_Q, help=f"the stationary bootstrap's block probability (default: arena.grid's {SPA_Q})")
+    parser.add_argument("--alpha", type=float, default=stats.TEST_ALPHA, help=f"the level SPA and StepM are read at (default: {stats.TEST_ALPHA})")
+    parser.add_argument("--ways", nargs="+", choices=WAYS, default=list(WAYS), help="the studentizations to run (default: both)")
     add_engine_argument(parser, "run the bootstrap tests in rust/ (the same results; Python would take days)")
     args = parser.parse_args()
+    ways = tuple(way for way in WAYS if way in args.ways)
     if args.engine == "rust":
         rust.require(args.allow_stale)
     snooping = rust.snooping if args.engine == "rust" else stats.snooping
-    print(f"{CELLS} cells, {BLOCKS} blocks, cross-cell correlation {CROSS_CELL}, {args.trials} trials a row, nominal 5%; "
-          "* each resample studentized by its own omega (arena.grid's default), else by the original's:\n")
-    heads = [name + ("*" if way == "resample" else "") for way in WAYS for name in NAMES]
+    print(f"{CELLS} cells, {BLOCKS} blocks, cross-cell correlation {CROSS_CELL}, {args.trials} trials a row, read at {args.alpha:g}, "
+          f"mean bootstrap block {1 / args.q:g} blocks; * each resample studentized by its own omega (arena.grid's default), else by the original's:\n")
+    heads = [name + ("*" if way == "resample" else "") for way in ways for name in NAMES]
     print("| Null | " + " | ".join(heads) + " |")
     print("|---" * (len(heads) + 1) + "|")
     for label, phi, df, rho, edge in ROWS:
         start = time.perf_counter()
-        rates = row(args.trials, phi, df, rho, edge, snooping)
-        print(f"| {label} | " + " | ".join(f"{rates[way, n]:.1%}" for way in WAYS for n in NAMES) + f" |  ({time.perf_counter() - start:.0f} s)")
+        rates = row(args.trials, phi, df, rho, edge, snooping, q=args.q, alpha=args.alpha, ways=ways)
+        print(f"| {label} | " + " | ".join(f"{rates[way, n]:.1%}" for way in ways for n in NAMES) + f" |  ({time.perf_counter() - start:.0f} s)")
 
 
 if __name__ == "__main__":

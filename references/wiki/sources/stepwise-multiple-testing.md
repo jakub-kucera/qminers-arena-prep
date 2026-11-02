@@ -25,7 +25,7 @@ A 36-page working paper (Universitat Pompeu Fabra, paper 712) that extends White
 ## Assumptions against the Arena
 - **Many strategies, one data set,** which is a grid. Each cell is a hypothesis "beats the bot as is".
 - **Time-series dependence.** Our block gains are autocorrelated within a day; per the paper, only the studentized version is safe there.
-- **Each resample studentized by its own `σ̂*`, as Algorithm 4.2 step 3 does** (since 2026-10-26): `python/arena/stats.py`'s `stepm` reruns Hansen's kernel `ω̂` on each resample's column (`bootstrap`, `python/arena/stats.py:165-187`). For time series the paper says `σ̂*` "can be obtained by applying the same algorithm to the bootstrap data matrix" (`stepwise-multiple-testing.md:311` (p. 15, checked)). It names Götze and Künsch's "natural" block estimator for the moving and circular block bootstraps; ours draws blocks of geometric length, so the kernel is run on the resample as on any series *(ours)*.
+- **Each resample studentized by its own `σ̂*`, as Algorithm 4.2 step 3 does** (since 2026-10-26): `python/arena/stats.py`'s `stepm` reruns Hansen's kernel `ω̂` on each resample's column (`bootstrap`, `python/arena/stats.py:169-191`). For time series the paper says `σ̂*` "can be obtained by applying the same algorithm to the bootstrap data matrix" (`stepwise-multiple-testing.md:311` (p. 15, checked)). It names Götze and Künsch's "natural" block estimator for the moving and circular block bootstraps; ours draws blocks of geometric length, so the kernel is run on the resample as on any series *(ours)*.
 - **The fixed scale it replaced** *(ours, not the paper's)*: until 2026-10-26 `stepm` held the original's `ω̂_k` fixed across resamples. On the null grids of `python/experiments/study/snooping_null_rates.py` (24 cells, 300 blocks, 300 grids a row, nominal 5%) that named a noise cell in 8.7–22.3% of grids, the most when the gains are strongly autocorrelated (AR(1) 0.8); each resample's own scale names one in 6.0–8.0% (5.9–8.3% over 1,000 grids a row) *(checked; `IDEAS.md`, "Bootstrap tests of the best cell")*. The ten null controls of `python/experiments/study/snooping_tests.py`, which had found no false rejection, were too few to see it.
 
 ## In our notation
@@ -33,9 +33,9 @@ A 36-page working paper (Universitat Pompeu Fabra, paper 712) that extends White
 |---|---|
 | strategy k, K | a distinct grid cell |
 | `w_{T,k}` | mean gain of the cell over the bot as is, per block |
-| `σ̂_{T,k}` | `√(ω̂²_k / n)` from Hansen's kernel (`python/arena/stats.py:124-143`) |
-| `σ̂*_{T,k}` | the same kernel on resample j's column (`bootstrap`, `python/arena/stats.py:165-187`) |
-| `d_{K_i+1}(1−α)` | the `c` in `stepm()` (`python/arena/stats.py:233-256`) |
+| `σ̂_{T,k}` | `√(ω̂²_k / n)` from Hansen's kernel (`python/arena/stats.py:128-147`) |
+| `σ̂*_{T,k}` | the same kernel on resample j's column (`bootstrap`, `python/arena/stats.py:169-191`) |
+| `d_{K_i+1}(1−α)` | the `c` in `stepm()` (`python/arena/stats.py:237-260`) |
 | J | `--boot` (2,000) |
 
 ## Traps

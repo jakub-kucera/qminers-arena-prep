@@ -278,7 +278,9 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
     - **Done 2026-10-19:** the permutation test of a whole search, `arena.grid --permute N` (`IDEAS.md`, "A permutation test of the whole search"); Hydrogel's level grid is its positive control, and Kelp's edge gain needs no price order.
     - **Left:** the book chapters in `MANUAL_TODO.md` (G), above all Masters' permutation chapters, to check our adaptation against his.
   - **Closed 2026-10-26:** what is left needs a person: the book chapters and papers in `MANUAL_TODO.md`, section G. Ingest them when they arrive; a check of `arena.grid --permute` against Masters' chapters would be its own `TODO.md` item.
-
+- [x] **SPA and StepM still name a noise cell in 6–8% of null grids, not 5%.** Each bootstrap resample studentized by its own `omega2` (2026-10-26, the second audit's A4) took most of the excess away, not all (`python/experiments/study/snooping_null_rates.py --trials 1000`: 5.6–8.4%). Candidates: a longer mean bootstrap block than 10 (`SPA_Q`), Romano and Wolf's block-size calibration (their Algorithm 6.1), or a size-corrected `ALPHA` read off the null test.
+  - Done when: one is measured on the null test and the grids of `experiments.study.snooping_tests`, and the result is in `IDEAS.md` ("Bootstrap tests of the best cell"), kept or not.
+  - Done 2026-11-02: measured both cheap candidates over 1,000 null grids a row. Longer bootstrap blocks made it worse (blocks of 20: 6.4–7.4%; 30: 7.2–8.9%); a size-corrected level brought it to 4.5–5.2% (7.0% at AR(1) 0.8) at 4%, for 47.7% power against 51.1%. Kept: `arena.stats.TEST_ALPHA` 0.04, the level SPA and StepM are read at; the real grids of `snooping_tests` and `selection_rules --part 1`'s picks are unchanged (`IDEAS.md`, "Bootstrap tests of the best cell").
 
 ## The edge plan (2026-10-27)
 

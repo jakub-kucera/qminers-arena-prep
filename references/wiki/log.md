@@ -476,3 +476,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | the book exhaustion rate tested
 - `sources/mm-adverse-selection-rl` records the test (`IDEAS.md`, "A book-exhaustion gate"): `experiments.day.quote_markouts` gains an exhaustion state, and `experiments.study.exhaustion_gate` grids a gate that is not kept. 0 errors.
+
+## [2026-11-02] query | SPA and StepM read at 4%
+- `concepts/validation-and-overfitting` records the size correction (`arena.stats.TEST_ALPHA` 0.04: null grids name a noise cell in 4.5–5.2%, 7.0% with AR(1) 0.8) and that longer bootstrap blocks made it worse. 0 errors.

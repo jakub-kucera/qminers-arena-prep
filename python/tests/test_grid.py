@@ -301,7 +301,7 @@ def test_snooping_names_the_cells_and_checks_them_under_the_other_modes():
     outcomes = {(k,): _outcome((k,), columns[k], {all_: sum(columns[k]), worse: -1.0}) for k in range(3)}
     text = grid.format_snooping(axes, baseline, outcomes, [all_, worse], dsr=0.5)
     assert "100 blocks of 100 ticks, 3 distinct cells" in text
-    assert "StepM at 5%: 1 cells beat the bot as is: edge=1" in text
+    assert "StepM at 4%: 1 cells beat the bot as is: edge=1" in text
     assert "SPA finds a gain the DSR doesn't" in text
     assert "under worse: 0 of StepM's 1 cells beat the bot as is" in text
     assert "only beat the bot as is under all" in text
@@ -352,7 +352,7 @@ def test_the_pick_must_also_win_on_the_held_out_data():
     for tail, kept in ((1.0, True), (-1.0, False)):
         outcomes = {(k,): _outcome((k,), columns[k] + [tail if k == 1 else 0.0] * 20, {all_: 0.0}) for k in range(3)}
         text = grid.format_holdout(axes, baseline, outcomes, [all_], [], ("the last 20 blocks", 20 / 120))
-        assert "StepM at 5%: 1 cells beat the bot as is: edge=1" in text
+        assert "StepM at 4%: 1 cells beat the bot as is: edge=1" in text
         assert ("pick, held out: edge=1: it also beats" in text) is kept
         assert ("pick, held out: the bot as is: edge=1 doesn't beat it" in text) is not kept
 

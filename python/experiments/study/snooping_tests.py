@@ -2,6 +2,7 @@
 arena.grid's deflated Sharpe ratio, on the same grids.
 
 usage (from the repo root): uv run python -m experiments.study.snooping_tests [--jobs N] [--boot B] [--engine rust]
+       uv run python -m experiments.study.snooping_tests --q 0.05 --alpha 0.04 --engine rust   # StepM's block and level
 
 Hansen (literature_md/superior-predictive-ability/) argues that White's Reality Check, which takes
 its critical value as if every alternative were exactly as good as the benchmark, loses power when
@@ -132,6 +133,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m experiments.study.snooping_tests")
     parser.add_argument("--jobs", type=int, default=None, help="worker processes (default: one per CPU)")
     parser.add_argument("--boot", type=int, default=2000, help="bootstrap resamples (default: 2000)")
+    parser.add_argument("--q", type=float, default=QS[1], help=f"StepM's stationary bootstrap block probability (default: {QS[1]}); SPA runs at every QS")
+    parser.add_argument("--alpha", type=float, default=grid.TEST_ALPHA, help=f"the level StepM is read at (default: {grid.TEST_ALPHA})")
     add_engine_argument(parser, "run the backtests in rust/ (the same results)")
     args = parser.parse_args()
     if args.engine == "rust":
@@ -143,7 +146,7 @@ def main() -> None:
     def fmt(x):
         return "-" if x is None else f"{x:.2f}"
 
-    print(f"Gains over the bot as is per block of {TICKS_PER_BLOCK} ticks; SPA p-values l / c / u; StepM at {grid.ALPHA:.0%}; "
+    print(f"Gains over the bot as is per block of {TICKS_PER_BLOCK} ticks; SPA p-values l / c / u; StepM at {args.alpha:g} with q {args.q:g}; "
           f"{args.boot} bootstrap resamples; q = {' / '.join(map(str, QS))} (mean blocks of {' / '.join(str(round(1 / q)) for q in QS)}).\n")
     print("| Grid | Cells | Blocks | Best cell (gain) | PBO | DSR, all cells | DSR, top 9 only | SPA p (l / c / u) per q | StepM: cells that beat the bot as is | BHY |")
     print("|---|---|---|---|---|---|---|---|---|---|")
@@ -164,7 +167,7 @@ def main() -> None:
         stat = rust if args.engine == "rust" else grid  # the bootstraps in rust/src/arena/stats.rs, the same to the bit
         spas = [stat.spa(distinct, q, args.boot) for q in QS]
         spa_text = "; ".join(f"{s['l']:.2f} / {s['c']:.2f} / {s['u']:.2f}" for s in spas)
-        steps = stat.stepm(distinct, QS[1], args.boot)
+        steps = stat.stepm(distinct, args.q, args.boot, args.alpha)
         n, normal = len(distinct[0]), statistics.NormalDist()
         pvalues = [1 - normal.cdf(n**0.5 * statistics.fmean(g) / w) for g, w in zip(distinct, (rust.scales if args.engine == "rust" else grid._scales)(distinct, QS[1]))]
         columns = unique(range(len(cells)))
