@@ -26,7 +26,14 @@ States, each signed so that positive favours the fill:
   - autocov: the sign of the lag-1 autocovariance of the wall mid's one-tick changes over the last
     AUTOCOV ticks (added 2026-10-27; Albers et al. §7, references/wiki/sources/market-makers-dilemma.md):
     negative while the price oscillates, where posting against the imbalance paid there, positive
-    while it trends; zero when the wall mid didn't move (unsigned: it is a state of the market).
+    while it trends; zero when the wall mid didn't move (unsigned: it is a state of the market);
+  - exhaustion: the book exhaustion rate on the fill's side (added 2026-11-02; Zhao & Linetsky,
+    references/wiki/sources/mm-adverse-selection-rl.md): over the EXHAUSTION ticks before the
+    quote, the market orders that hit that side (sells at or below the bid for our buy, buys at or
+    above the ask for our sell) over the mean size at that side's best, per tick. "none" when nothing
+    hit it, else "high" from the day's EXHAUSTION_HIGH quantile of the product's non-zero readings,
+    "low" below it. Their claim: a high reading means informed flow, so fills there are adversely
+    selected.
 
 Datasets: P2 round 1, P3 round 1, P4 rounds 1-2 (the template's tuned products), each in three
 engine modes: per tick under --match-trades all and worse, and --resting. A bin counts as a
@@ -62,6 +69,8 @@ MODES = {
 HORIZONS = (1, 5, 20, 100)
 MOMENTUM = 20
 AUTOCOV = 15  # ticks in the autocovariance window
+EXHAUSTION = 20  # ticks in the book exhaustion window
+EXHAUSTION_HIGH = 2 / 3  # the quantile of a day's non-zero readings from which a reading is "high"
 MIN_FILLS = 200  # a bin with fewer fills in a dataset and mode isn't shown
 
 
@@ -73,8 +82,36 @@ def autocov(wall: list[float], i: int, n: int = None) -> float:
     return sum((a - mean) * (b - mean) for a, b in zip(changes, changes[1:])) / (len(changes) - 1)
 
 
-def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bool, cov: float) -> dict[str, str]:
+def exhaustion(hits: list[int], sizes: list[int], i: int, n: int = None) -> float:
+    """One side's book exhaustion rate at tick i: the market volume that hit it on the n ticks before i
+    (n = EXHAUSTION) over the mean size at its best on ticks i - n + 1 .. i, both per tick."""
+    n = n or EXHAUSTION
+    size = sum(sizes[i - n + 1:i + 1])
+    return sum(hits[i - n:i]) / size if size else 0.0
+
+
+def exhaustion_series(day, product: str) -> dict[int, tuple[list[float], float]]:
+    """Per side (1 the bid, -1 the ask): each tick's exhaustion rate, and the day's EXHAUSTION_HIGH quantile
+    of the product's non-zero readings over both sides."""
+    hits, sizes = {1: [], -1: []}, {1: [], -1: []}
+    for tick in day.ticks:
+        book = tick.books.get(product)
+        bid = book.bids[0] if book is not None and book.bids else None
+        ask = book.asks[0] if book is not None and book.asks else None
+        prints = tick.trades.get(product, [])
+        sizes[1].append(bid[1] if bid else 0)
+        sizes[-1].append(ask[1] if ask else 0)
+        hits[1].append(sum(t.quantity for t in prints if bid and t.price <= bid[0]))
+        hits[-1].append(sum(t.quantity for t in prints if ask and t.price >= ask[0]))
+    rates = {side: [exhaustion(hits[side], sizes[side], i) if i >= EXHAUSTION else 0.0 for i in range(len(day.ticks))] for side in (1, -1)}
+    readings = sorted(r for side in rates.values() for r in side if r > 0)
+    high = readings[min(int(EXHAUSTION_HIGH * len(readings)), len(readings) - 1)] if readings else 0.0
+    return {side: (rates[side], high) for side in rates}
+
+
+def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bool, cov: float, rate: float = 0.0, high: float = 0.0) -> dict[str, str]:
     return {
+        "exhaustion": "none" if rate <= 0 else "high" if rate >= high else "low",
         "autocov": "negative" if cov < -1e-12 else "positive" if cov > 1e-12 else "zero",
         "spread": f"{spread:g}" if spread <= 8 else ">8",
         "place": place,
@@ -115,6 +152,7 @@ def run(job: tuple[str, str, str]) -> list[dict]:
             book = tick.books.get(p)
             wall = book.wall_mid if book is not None else None
             walls[p].append(wall if wall is not None else (walls[p][-1] if walls[p] else None))
+    rates = {p: exhaustion_series(day, p) for p in day.products}
     position = defaultdict(int)
     rows = []
     for fill in result.fills:
@@ -134,7 +172,8 @@ def run(job: tuple[str, str, str]) -> list[dict]:
             "dataset": dataset, "mode": mode, "day": day_name, "product": fill.product, "units": abs(fill.quantity),
             "edge": sign * (wall[i] - fill.price),
             **_bins((ask[0] - bid[0]) / _tick(day, fill.product), place, sign * (bid[1] - ask[1]) / (bid[1] + ask[1]),
-                    sign * (wall[i] - wall[i - MOMENTUM]), sign * before >= 0, autocov(wall, i)),
+                    sign * (wall[i] - wall[i - MOMENTUM]), sign * before >= 0, autocov(wall, i),
+                    rates[fill.product][sign][0][i], rates[fill.product][sign][1]),
         }
         for h in HORIZONS:
             j = min(i + h, len(wall) - 1)
@@ -202,7 +241,7 @@ def main() -> None:
     header = (f"  {'data':<8} {'mode':<8} {'product':<22} {'state':<9} {'fills':>7} {'units':>8}  {'edge':>6}  "
               + "  ".join(f"{'move' + str(h):>6}" for h in HORIZONS) + f"  {'total':>6}  sign of the total per day")
     print(f"Passive fills of the template, per unit against the wall mid; total = edge + move{args.horizon}.\n")
-    for feature in ("spread", "place", "imbalance", "momentum", "inventory", "autocov"):
+    for feature in ("spread", "place", "imbalance", "momentum", "inventory", "autocov", "exhaustion"):
         print(f"by {feature}:")
         print(header)
         print("\n".join(table(rows, feature, args.horizon)))

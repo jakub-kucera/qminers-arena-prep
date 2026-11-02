@@ -18,6 +18,7 @@ A market-making feature, the **book exhaustion rate (BER)**, argued to measure a
 
 ## Assumptions against the Arena
 - One-tick futures books with real informed flow. Computable here from data alone *(inferred)*: market trades at or above the ask in `Tick.trades` over the size at the best ask in `Book`, per tick window.
+- **Tested here 2026-11-02** (`IDEAS.md`, "A book-exhaustion gate"; `python/experiments/day/quote_markouts.py`'s exhaustion state, `python/experiments/study/exhaustion_gate.py`): over 20 ticks, our fills after a high reading are no worse on Prosperity, and lose every day on ABIDES's RMSC04 while the rest earn, beyond what the last move says. Pulling that side recovers most of what `gate_move` does there, but adds nothing on top of it, and costs up to 2.4% on Prosperity; not in the template *(checked: ran it, 2026-11-02)*.
 
 ## In our notation
 BER per side, over the last w ticks, as a gate on `make` (pull or widen the side being eaten); `IDEAS.md` has the test.

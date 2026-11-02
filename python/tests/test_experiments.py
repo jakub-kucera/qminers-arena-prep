@@ -453,6 +453,31 @@ def test_quote_markouts_autocov_is_negative_for_a_bounce_and_positive_for_runs()
     assert autocov(runs, len(runs) - 1) > 0
 
 
+
+def test_quote_markouts_exhaustion_is_hits_before_over_the_size_at_the_best():
+    from experiments.day.quote_markouts import exhaustion
+
+    hits, sizes = [0, 4, 0, 6, 9], [10, 10, 10, 10, 10]
+    assert exhaustion(hits, sizes, 4, 3) == pytest.approx((4 + 0 + 6) / 30)  # tick 4's own hits come after its book
+    assert exhaustion([0] * 5, sizes, 4, 3) == 0 and exhaustion(hits, [0] * 5, 4, 3) == 0
+
+
+def test_the_exhaustion_gate_variant_patches_the_template_and_pulls_the_side_being_hit(tmp_path):
+    from arena.botfile import BotFile
+    from arena.formats import prosperity_datamodel
+    from experiments.study import exhaustion_gate
+
+    path = tmp_path / "variant.py"
+    path.write_text(exhaustion_gate.variant())
+    bot = BotFile(path, {"datamodel": prosperity_datamodel}, strict=True).load()
+    assert bot.DEFAULTS["gate_ber"] is None
+    gate, book = bot.exhaustion_gate, bot.Book([[99, 10]], [[101, 10]])
+    p, memory = {"gate_ber": 0.5, "ber_window": 2}, {}
+    assert gate([], book, p, memory) == 0  # no book before it yet
+    assert gate([("", "", 8, 99)], book, p, memory) == 0  # one call of the window
+    assert gate([("", "", 4, 99), ("", "", 1, 101)], book, p, memory) == -1  # 12 sold into 20 at the bid: pull it
+    assert gate([("", "", 12, 101)], book, p, memory) == 1
+
 def test_family_fills_counts_clustered_ticks_against_independence(capsys, monkeypatch, drill_data):
     from experiments.day import family_fills
 

@@ -473,3 +473,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] lint | book changes in arena.diagnose
 - `concepts/reading-the-data-on-day-one` gains two rows: `queues persist` (the `kept` column from 60%: P2–P4's 165 product-rounds 0.01–0.39, ABIDES 0.90) and the wall's `lead` (±0.1; every P2–P4 product-round and ABIDES within ±0.03). Its citations of the thresholds and of `suggest` moved with the module's longer docstring (`python/arena/diagnose.py:98-134` → `114-154`, `:655` → `:752`). 0 errors.
+
+## [2026-11-02] query | the book exhaustion rate tested
+- `sources/mm-adverse-selection-rl` records the test (`IDEAS.md`, "A book-exhaustion gate"): `experiments.day.quote_markouts` gains an exhaustion state, and `experiments.study.exhaustion_gate` grids a gate that is not kept. 0 errors.
