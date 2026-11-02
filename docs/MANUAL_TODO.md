@@ -34,7 +34,8 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
     on-site rule dropped, no sleeping in the building, no elimination, AI tools unrestricted, travel). Left:
     whatever else arrives before the event.
 - [ ] **Ask the organisers how the four rounds combine** (their last e-mail invites replies, 2026-11-02): is the total a
-  weighted sum (10/20/30/40%?) of each round's raw PnL, of a normalised score, or of ranks? And is the market shared with
+  weighted sum (10/20/30/40%?) of each round's raw PnL, of a normalised score, or of ranks? Does a round's PnL carry over
+  into the next, to the score or to the capital or position limits (as the 2024 and 2025 hackathons' bankroll did)? Is the market shared with
   the other teams? And, since the on-site rule is gone, may a member keep working on the round from off site (7 Oct:
   "no way to participate off-site"), or is leaving for rest only? The first decides how hard round 1 is pushed for PnL (`ON_THE_DAY.md`, "How is PnL scored?";
   `IDEAS.md`, "Round 1 as the prepared team's largest PnL lead").
