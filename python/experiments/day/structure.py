@@ -34,7 +34,9 @@ without a two-sided book; moves are counted in the product's ticks (Day.info). S
                 mid (fixed offsets are a generator's lattice); shared noise streams (pairs of products
                 whose inner (side, volume) multisets are identical on the same tick, against one
                 product a tick later); and hidden depth (market trades at a price with no displayed
-                level, or larger than the volume shown there).
+                level, or larger than the volume shown there, and trades outside every level the
+                book showed that tick and the tick before: what a quote far from the book could
+                catch, and the only trades a replay can fill such a quote from).
 
 The built-in datasets carry known answers: P4 round 5 (Pebbles sum to 50,000 exactly; chocolate and
 vanilla mirror; Alpha Search's UV visor sum, checked as --weights, holds on no day), P3 round 1 (no
@@ -661,13 +663,22 @@ def clusters(pairs: list[tuple[str, str, float, float, int]]) -> list[tuple[list
 
 def hidden_depth(days: list[Day], product: str) -> dict:
     """Market trades at a price with no displayed level (and of those, inside the spread), and trades
-    larger than the volume displayed at their price, against the same tick's book."""
-    total = missing = inside = larger = 0
+    larger than the volume displayed at their price, against the same tick's book. And trades outside
+    every price this tick's book and the last showed (below the lowest level, above the highest), with
+    how far beyond the furthest went, in the data's price units."""
+    total = missing = inside = larger = outside = 0
+    furthest = 0.0
     for day in days:
+        last = None
         for t in day.ticks:
             book = t.books.get(product)
+            shown_prices = [price for b in (last, book) if b is not None for price, _ in (*b.bids, *b.asks)]
             for trade in t.trades.get(product, ()):
                 total += 1
+                if shown_prices:
+                    beyond = max(min(shown_prices) - trade.price, trade.price - max(shown_prices), 0)
+                    outside += beyond > 0
+                    furthest = max(furthest, beyond)
                 if book is None:
                     missing += 1
                     continue
@@ -677,8 +688,10 @@ def hidden_depth(days: list[Day], product: str) -> dict:
                     inside += bool(book.bids and book.asks and book.bids[0][0] < trade.price < book.asks[0][0])
                 elif abs(trade.quantity) > shown[trade.price]:
                     larger += 1
+            if book is not None and (book.bids or book.asks):
+                last = book
     return {"trades": total, "missing": missing / total if total else None, "inside": inside / total if total else None,
-            "larger": larger / total if total else None}
+            "larger": larger / total if total else None, "outside": outside / total if total else None, "furthest": furthest}
 
 
 # ---------------------------------------------------------------------------- report
@@ -810,14 +823,15 @@ def report(name: str, days: list[Day], products: list[str], sections: list[str],
             lines += [_sum_row(m, b) for m, b in r["checks"]] + [""]
     if "fingerprints" in sections:
         lines += ["", "### Fingerprints: inner orders' offsets from the wall mid (ticks), and hidden depth", "",
-                  "| product | inner levels | top offsets (share) | on those four | inner volumes: min–max (distinct) | trades | at no shown price (inside the spread) | larger than shown |",
-                  "|---|---|---|---|---|---|---|---|"]
+                  "| product | inner levels | top offsets (share) | on those four | inner volumes: min–max (distinct) | trades | at no shown price (inside the spread) | larger than shown | outside the book (furthest beyond it) |",
+                  "|---|---|---|---|---|---|---|---|---|"]
         for p in products:
             o, h = offsets(days, p), hidden_depth(days, p)
             top = ", ".join(f"{x:+g} ({c:.0%})" for x, c in o["top"]) or "-"
             vols = f"{o['volumes'][0]}–{o['volumes'][1]} ({o['volumes'][2]})" if o["volumes"] else "-"
             lines.append(f"| {p} | {o['n']:,} | {top} | {sum(c for _, c in o['top']):.0%} | {vols} | {h['trades']:,} | "
-                         f"{_num(h['missing'], '.1%')} ({_num(h['inside'], '.1%')}) | {_num(h['larger'], '.1%')} |")
+                         f"{_num(h['missing'], '.1%')} ({_num(h['inside'], '.1%')}) | {_num(h['larger'], '.1%')} | "
+                         f"{_num(h['outside'], '.2%')} ({h['furthest']:g}) |")
         pairs = streams(days, products)
         lines += ["", f"Shared noise streams: pairs whose inner (side, volume) multisets match on at least {STREAM_SHARE:.0%} of ticks "
                   f"and {STREAM_LIFT:g}× the share with the second a tick later, joined into clusters:", ""]

@@ -485,3 +485,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | a family skew (Guéant's Γ) tested
 - `concepts/many-products-architecture` records the test (`IDEAS.md`, "Skewing on correlated products' inventory too (Guéant's `Γ`)"): `experiments.study.family_skew` moves each product's target against its family's other positions; on P4 round 5 it costs at every weight and skew, dropped here.
+
+## [2026-11-02] query | far quotes on an empty side
+- `concepts/hidden-takers-and-empty-sides` records the test (`IDEAS.md`, "Quoting far away when one side of the book is empty"): `experiments.day.structure`'s fingerprints count trades outside the book; no Prosperity day has one (P3's vouchers 0.3–0.7%, 1–2 ticks out; ABIDES 0.46%, up to 35), so no replay can value a far quote and probe 14 is the only test.

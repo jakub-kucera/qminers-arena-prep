@@ -49,6 +49,7 @@ Each idea has an untested row in `IDEAS.md`.
 - **A Kalman fair mode** (a filter with gaps, a trend and an error bar): if the ABIDES days show the smoothed fair set by the Kalman formula falls short.
 - **Fitting `arena.sim` to the download** (method of moments over a preset's parameters): last, if time is left; worthless if the download is unlike our presets.
 - **Tao's spoof detector made exact (R6's second half):** if probe 22 shows other teams' orders in the feed.
+- **A far quote on an empty side** (a template rule: quote a few lots far from the last fair while a side is empty): if probe 14 fills one, or `experiments.day.structure`'s fingerprints show trades outside the book on the download. No Prosperity replay can value it (`IDEAS.md`, "Quoting far away when one side of the book is empty").
 - **Cross-product terms (R17a–c):** an informed signal on a leg moving the basket's level, a signal traded through the baskets' limits, two baskets' premium difference: if a round has baskets or named traders.
 - **Reading the field (R18):** a taker-mix classifier, rival archetypes from visible orders, how cheaply the closing mark moves: if the market is shared and orders rest.
 - **Options (R20):** realised against implied vol, strikes switched on by a running markout: if a round announces options.

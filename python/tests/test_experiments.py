@@ -423,6 +423,19 @@ def test_structure_finds_a_planted_sum_repeat_stream_grid_and_cycle():
     assert structure.starts(days, "X_A")["reading"] != "each day continues the last"  # each day starts at 10,000 again
 
 
+def test_hidden_depth_counts_trades_outside_every_level_shown():
+    from arena.model import Book, Day, MarketTrade, Tick
+    from experiments.day import structure
+
+    book = Book(((99, 5), (97, 20)), ((101, 5), (103, 20)))
+    empty_bid = Book((), ((101, 5), (103, 20)))
+    trades = [{}, {"X": [MarketTrade("X", 98, 2)]}, {"X": [MarketTrade("X", 90, 1), MarketTrade("X", 103, 1)]}, {"X": [MarketTrade("X", 110, 1)]}]
+    ticks = [Tick(i * 100, {"X": b}, trades[i], {}) for i, b in enumerate((book, book, empty_bid, empty_bid))]
+    h = structure.hidden_depth([Day("d", ["X"], {"X": 10}, ticks)], "X")
+    # 98 sits between shown levels; 90 is below the last tick's lowest bid (97) by 7; 103 is shown; 110 is 7 above 103
+    assert h["trades"] == 4 and h["outside"] == pytest.approx(2 / 4) and h["furthest"] == 7
+
+
 def test_repeats_runs_on_the_days_data(capsys, monkeypatch, drill_data):
     out = run(capsys, monkeypatch, "repeats", "--data", drill_data, "--days", "all", "--format", "drill")
     assert "## drill all" in out and "| ALPHA |" in out
