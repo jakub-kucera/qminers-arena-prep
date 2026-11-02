@@ -315,6 +315,27 @@ def test_tao_et_als_spoofability():
     assert "spoofable" not in calm["notes"]
 
 
+def test_tao_et_als_detector_sees_a_book_that_leans_before_trades_and_snaps_back():
+    def day(timed: bool, seed=0) -> Day:
+        """A buy every third tick; the bid side holds 30 a level against 10 on 'leaning' ticks, else both 10.
+        Timed: the lean comes exactly on the ticks with a buy. Untimed: on a random third of ticks."""
+        rng, ticks = random.Random(seed), []
+        for i in range(3000):
+            buy = i % 3 == 0
+            lean = buy if timed else rng.random() < 1 / 3
+            b = 30 if lean else 10
+            book = Book(tuple((100 - k, b) for k in range(3)), tuple((101 + k, 10) for k in range(3)))
+            ticks.append(Tick(i * 100, {"X": book}, {"X": [MarketTrade("X", 101, 2)]} if buy else {}, {}))
+        return Day("d", ["X"], {"X": 10}, ticks)
+
+    spoofed = diagnose.diagnose([day(True)])["X"]
+    # Before each buy the bid holds 3/4; on all ticks 3/4 on a third of them and 1/2 on the rest.
+    assert spoofed["spoof_before"] == pytest.approx(0.25 * 2 / 3, abs=0.01)
+    assert spoofed["spoof_snap"] == pytest.approx(0.25, abs=0.01)  # the next tick is balanced again
+    calm = diagnose.diagnose([day(False)])["X"]
+    assert calm["spoof_before"] < 0.05 and calm["spoof_snap"] < 0.05
+
+
 def test_suggest_reads_the_notes_into_params():
     # Pegged, with uninformed trades around it: fair fixed at the peg, a tick of make_edge, the data's limit.
     trades = {i: [101 if i % 4 == 0 else 99] for i in range(0, 300, 2)}

@@ -18,7 +18,7 @@ The Arena's first data download should decide the strategy for each product befo
 - **The Kalman-implied smoothing** (the `smooth` column, and in the noise notes): a local-level model, a random walk of step variance `q` seen through noise of variance `r`, has `E[(p[t+h] − p[t])²] = h·q + 2r`. A least-squares line through the squared changes at lags 1, 2, 5, 10, 20 and 50 (each day's mean change taken out) gives `q` and `r`. The steady-state Kalman filter of that model is an EMA with gain `K = P/(P + r)`, `P = (q + √(q² + 4qr))/2`, so the template's `smoothing` that matches it is `1 − K` (`python/bots/template.py:393`: `fair = s·previous + (1 − s)·price`). Where the days drift, the column is the `s` that minimises the EMA's steady-state error `(μs/(1−s))² + (s²q + (1−s)²r)/(1−s²)`, since an EMA lags a drift `μ` by `μs/(1−s)`; with no drift that minimum is `1 − K`. Our derivation, the standard local-level result; the filter's steps are on [Wang & Wellman](../sources/spoofing-abm.md).
 - **The signature ratio** is the variance per tick of one-tick changes over that of 50-tick changes. It is flat (1) for a random walk and above 1 for noise that reverts (eq. 2.9 and 2.13, `literature_md/trades-quotes-prices/trades-quotes-prices.md:685` (p. 44, checked)). The `slow rev` column is the same ratio for the wall mid at 50 against 1,000 ticks.
 
-**The decision table.** Examples are `arena.diagnose` output on the Prosperity data *(checked: ran it, 2026-10-13)*. The thresholds are module constants (`python/arena/diagnose.py:114-154`).
+**The decision table.** Examples are `arena.diagnose` output on the Prosperity data *(checked: ran it, 2026-10-13)*. The thresholds are module constants (`python/arena/diagnose.py:121-161`).
 
 | Note | Reading | What to do | Prosperity example | Grounds |
 |---|---|---|---|---|
@@ -73,7 +73,7 @@ The Arena's first data download should decide the strategy for each product befo
 - **Does quoting at the touch lose?** Cartea et al. say yes on NASDAQ. The margin column measures it here ([contradictions](../contradictions.md), row 12).
 
 ## What it means for our code
-- **`python/arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `python/arena/diagnose.py:114-154`, so if the Arena's data needs other cut-offs, change them there and in this table together.
+- **`python/arena/diagnose.py`** implements the measurements. Its thresholds are the module constants at `python/arena/diagnose.py:121-161`, so if the Arena's data needs other cut-offs, change them there and in this table together.
 - **The table maps to the template's parameters:**
   - `fair` (fixed / `mid` / `wall_mid`, `python/bots/template.py:43`);
   - `smoothing`, from the `smooth` column (`--suggest` leaves out a value below 0.1 and caps one above 0.95: at 1.0, noise around a fixed value, the template's fair never moves; 2026-10-28, the fourth audit's R4);
@@ -82,7 +82,7 @@ The Arena's first data download should decide the strategy for each product befo
 
   Two rows have no template support yet: a quote far from fair on an empty side, and one-sided quoting. Both are untested in `IDEAS.md`.
   Fading a level is the template's `level` mode: a level from history (`level: <price>`) or the day's own running mean (`level: "day"`, for a level that drifts across days).
-- **`--suggest`** reads this table into a PARAMS entry per product (`python/arena/diagnose.py:752`), a starting point for the first backtest and grid. On P2–P4's held-out days it matched the hand-tuned market makers (250.9k against 249.9k) and got 56% of the level products (97.4k against 173.9k: the band, the exit and a slow-reversion note that missed on two days), and on ABIDES came out about level with the template as is (a clear win on the days written before 2026-10-28, which the regenerated days don't repeat; `IDEAS.md`, "`arena.diagnose --suggest`").
+- **`--suggest`** reads this table into a PARAMS entry per product (`python/arena/diagnose.py:778`), a starting point for the first backtest and grid. On P2–P4's held-out days it matched the hand-tuned market makers (250.9k against 249.9k) and got 56% of the level products (97.4k against 173.9k: the band, the exit and a slow-reversion note that missed on two days), and on ABIDES came out about level with the template as is (a clear win on the days written before 2026-10-28, which the regenerated days don't repeat; `IDEAS.md`, "`arena.diagnose --suggest`").
 - **On the day,** run it on each new download before the first backtest (`ON_THE_DAY.md`, "First hour"). Run it again on the first days of a shared market, because a margin that shrinks toward zero is the sign of competing teams (`literature_md/trades-quotes-prices/trades-quotes-prices.md:6358` (p. 332)) *(inferred)*.
 
 ## How to test it here

@@ -37,7 +37,14 @@ first data download as soon as its format module exists. For each product, poole
   `Q_k` and `ν_k` the share of orders with `y > k` and the mean of `(y - k)+`; `ρ` is the orders'
   mean size over the mean depth on the side they hit, and `ı̄` the mean imbalance after them (the
   sells' mirrored). The score is `max_k 2ρµ+(1 - ı̄)ı̄w_k - Q_kρ - ν_k`: above 0, a spoof at some
-  depth k pays in their model; at or below 0, nowhere.
+  depth k pays in their model; at or below 0, nowhere. Their detector's inputs, in the CSV only: the
+  Wasserstein distance between `ı` just before market buys and `ı` on every tick (the same for sells
+  with the ask's share), weighted by their counts, `spoof_before`; and between the share before them
+  and after, `spoof_snap`. A spoof shows as both large: a
+  book that leans before the trades and snaps back after. Read them against the product's own
+  baseline, not 0: with no spoofer, Prosperity's books give 0.00-0.02 on the market-making products,
+  0.01-0.08 on baskets and most options and 0.18-0.27 on P3's volcanic vouchers (IDEAS.md, "A spoof
+  tell from the data").
 - **Noise:** the lag-1 autocorrelation of one-tick changes of the mid, and the signature ratio of
   the mid and of the wall mid (the midpoint of the largest level on each side): the variance per
   tick of one-tick changes over that of `LAG`-tick changes. Near 1 is a random walk; well above 1
@@ -200,6 +207,8 @@ class _Acc:
     one_tick: list[int] = field(default_factory=lambda: [0, 0, 0, 0])  # ticks at a one-tick spread: all, mid moved, buy hits, sell hits
     spoof_moves: list[tuple[float, float]] = field(default_factory=list)  # (2ı - 1, next mid move in ticks), ticks without trades
     spoof_orders: list[tuple[float, float, int, float]] = field(default_factory=list)  # (H, depth hit, levels emptied, ı after), per order
+    spoof_shares: list[float] = field(default_factory=list)  # ı on every tick with a book
+    spoof_before: list[tuple[int, float]] = field(default_factory=list)  # (side, ı before each order on its side; the after is spoof_orders')
     snaps: list[tuple[str, int, int, int]] = field(default_factory=list)  # (day, jumps, pairs, pairs reversed) per day
     jump_sizes: list[float] = field(default_factory=list)  # |wall mid move| of every jump that snaps back or not
     jump_days: dict[str, tuple[list[float], list[float]]] = field(default_factory=dict)  # day with MIN_JUMPS: (|jumps|, wall mids)
@@ -328,8 +337,10 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
         if mids[i] is None or mids[i + 1] is None:
             continue
         prints = tick.trades.get(product, [])
+        before = _depth_share(book)
+        acc.spoof_shares.append(before)
         if not prints:
-            acc.spoof_moves.append((2 * _depth_share(book) - 1, (mids[i + 1] - mids[i]) / unit))
+            acc.spoof_moves.append((2 * before - 1, (mids[i + 1] - mids[i]) / unit))
             continue
         for side, levels, hits in ((1, book.asks, [t.quantity for t in prints if t.price >= book.asks[0][0]]),
                                    (-1, book.bids, [t.quantity for t in prints if t.price <= book.bids[0][0]])):
@@ -338,6 +349,7 @@ def _add_day(acc: _Acc, day: Day, product: str) -> None:
                 emptied = sum(1 for k in range(len(depth)) if sum(depth[:k + 1]) < size)
                 share = _depth_share(after)
                 acc.spoof_orders.append((size, sum(depth), emptied, share if side > 0 else 1 - share))
+                acc.spoof_before.append((side, before if side > 0 else 1 - before))
 
     last_sign = None
     for i, tick in enumerate(day.ticks):
@@ -618,7 +630,11 @@ def _depth_share(book) -> float:
 def _spoofability(acc: _Acc) -> dict[str, float | None]:
     """Tao et al.'s inputs and score (module docstring); None where there are too few orders or quiet ticks."""
     keys = ["spoof_mu", "spoof_size", "spoof_imbalance"] + [f"spoof_q{k}" for k in range(SPOOF_LEVELS)] + [f"spoof_nu{k}" for k in range(SPOOF_LEVELS)] + ["spoof_score"]
-    out: dict[str, float | None] = dict.fromkeys(keys)
+    out: dict[str, float | None] = dict.fromkeys(keys + ["spoof_before", "spoof_snap"])
+    if len(acc.spoof_orders) >= MIN_TRADES:
+        parts = [([x for s, x in acc.spoof_before if s == side], [x if side > 0 else 1 - x for x in acc.spoof_shares]) for side in (1, -1)]
+        out["spoof_before"] = sum(len(xs) * _wasserstein(xs, usual) for xs, usual in parts if xs) / len(acc.spoof_before)
+        out["spoof_snap"] = _wasserstein([x for _, x in acc.spoof_before], [o[3] for o in acc.spoof_orders])
     xs = [x for x, _ in acc.spoof_moves]
     if len(acc.spoof_orders) < MIN_TRADES or len(xs) < MIN_TRADES or len(set(xs)) < 2:
         return out
@@ -629,7 +645,17 @@ def _spoofability(acc: _Acc) -> dict[str, float | None]:
     q = [_share(sum(1 for o in acc.spoof_orders if o[2] > k), len(acc.spoof_orders)) for k in range(SPOOF_LEVELS)]
     nu = [statistics.fmean(max(o[2] - k, 0) for o in acc.spoof_orders) for k in range(SPOOF_LEVELS)]
     score = max(2 * size * mu * (1 - imbalance) * imbalance / SPOOF_LEVELS - q[k] * size - nu[k] for k in range(SPOOF_LEVELS))
-    return dict(zip(keys, [mu, size, imbalance, *q, *nu, score]))
+    return out | dict(zip(keys, [mu, size, imbalance, *q, *nu, score]))
+
+
+def _wasserstein(xs: list[float], ys: list[float], points: int = 200) -> float:
+    """The 1-Wasserstein distance between two samples: the mean gap between their quantiles at `points` levels."""
+    xs, ys = sorted(xs), sorted(ys)
+
+    def at(sample: list[float], u: float) -> float:
+        return sample[min(int(u * len(sample)), len(sample) - 1)]
+
+    return statistics.fmean(abs(at(xs, (k + 0.5) / points) - at(ys, (k + 0.5) / points)) for k in range(points))
 
 
 def _jump_moves(walls: list[float], spread: float) -> list[float]:

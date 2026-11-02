@@ -488,3 +488,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | far quotes on an empty side
 - `concepts/hidden-takers-and-empty-sides` records the test (`IDEAS.md`, "Quoting far away when one side of the book is empty"): `experiments.day.structure`'s fingerprints count trades outside the book; no Prosperity day has one (P3's vouchers 0.3–0.7%, 1–2 ticks out; ABIDES 0.46%, up to 35), so no replay can value a far quote and probe 14 is the only test.
+
+## [2026-11-02] query | the spoof detector's baseline
+- `sources/detecting-spoofing-strategies` records the detector's two distances (`arena.diagnose`'s `spoof_before`, `spoof_snap`) and their baseline with no spoofer: up to 0.019 on the market-making products, up to 0.27 on P3's volcanic vouchers (`IDEAS.md`, "A spoof tell from the data").
