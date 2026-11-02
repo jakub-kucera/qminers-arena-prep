@@ -156,10 +156,13 @@ _ENUMS = {"trade_matching": TradeMatching, "queue": QueueModel, "mark": Mark}
 
 def credits_per_unit(format_name: str, days) -> float:
     """What one engine price unit is worth in the portal's credits a lot: the data's unit (Day.info's, where
-    every product has the same; else 1) times the format's CREDITS, the credits a lot one unit of its quoted
+    every product has the same, an error if they differ; 1 if none says) times the format's CREDITS, the credits a lot one unit of its quoted
     prices is worth (a contract multiplier: the 2026-10-30 rehearsal's points were worth 2; 1 if it sets none)."""
     units = {(info or {}).get("unit") for day in days for info in day.info.values()} - {None}
-    return (units.pop() if len(units) == 1 else 1.0) * getattr(FORMATS[format_name], "CREDITS", 1.0)
+    if len(units) > 1:  # one CREDITS can't convert them all (the audit's round 8, R18j)
+        raise ValueError(f"the products carry different price units ({', '.join(map(str, sorted(units)))}): give every product "
+                         "the same unit in the loader (ON_THE_DAY.md, \"The format swap, step by step\", step 1)")
+    return (units.pop() if units else 1.0) * getattr(FORMATS[format_name], "CREDITS", 1.0)
 
 
 def format_config(format_name: str, **changes) -> EngineConfig:

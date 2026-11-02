@@ -10,7 +10,8 @@ session. Two checks of the suggestion (join the best, make_edge 0.5) against tak
     take-only and off, scored by the round's portal on its public and hidden sessions;
   - part 2: arena.sim's LARGE_TICK preset, 10 days, with no regime change, a trend up, a trend down and a
     shift, per tick and resting, the suggestion read off such days by --suggest. On the Rust engine.
-Results: IDEAS.md, "`arena.diagnose --suggest`".
+SUGGESTED is what --suggest read off trending days on 2026-10-28 (smoothing 0.54; 0.56 on 2026-11-03), hard-coded so
+the run repeats. Results: IDEAS.md, "`arena.diagnose --suggest`" (read every column: under replay worse the trends lose).
 """
 
 from __future__ import annotations

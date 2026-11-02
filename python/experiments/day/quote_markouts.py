@@ -33,7 +33,8 @@ States, each signed so that positive favours the fill:
     above the ask for our sell) over the mean size at that side's best, per tick. "none" when nothing
     hit it, else "high" from the day's EXHAUSTION_HIGH quantile of the product's non-zero readings,
     "low" below it. Their claim: a high reading means informed flow, so fills there are adversely
-    selected.
+    selected. "exhaustion by momentum" splits it by momentum, to see whether a high reading tells
+    anything the last move doesn't.
 
 Datasets: P2 round 1, P3 round 1, P4 rounds 1-2 (the template's tuned products), each in three
 engine modes: per tick under --match-trades all and worse, and --resting. A bin counts as a
@@ -110,13 +111,16 @@ def exhaustion_series(day, product: str) -> dict[int, tuple[list[float], float]]
 
 
 def _bins(spread: float, place: str, imbalance: float, momentum: float, adds: bool, cov: float, rate: float = 0.0, high: float = 0.0) -> dict[str, str]:
+    exhaustion = "none" if rate <= 0 else "high" if rate >= high else "low"
+    move = "favours" if momentum > 0 else "against" if momentum < 0 else "flat"
     return {
-        "exhaustion": "none" if rate <= 0 else "high" if rate >= high else "low",
+        "exhaustion": exhaustion,
+        "exhaustion by momentum": f"{exhaustion}, {move}",  # whether a high reading adds to the last move's information
         "autocov": "negative" if cov < -1e-12 else "positive" if cov > 1e-12 else "zero",
         "spread": f"{spread:g}" if spread <= 8 else ">8",
         "place": place,
         "imbalance": "favours" if imbalance > 0.2 else "against" if imbalance < -0.2 else "even",
-        "momentum": "favours" if momentum > 0 else "against" if momentum < 0 else "flat",
+        "momentum": move,
         "inventory": "adds" if adds else "reduces",
     }
 
@@ -241,7 +245,7 @@ def main() -> None:
     header = (f"  {'data':<8} {'mode':<8} {'product':<22} {'state':<9} {'fills':>7} {'units':>8}  {'edge':>6}  "
               + "  ".join(f"{'move' + str(h):>6}" for h in HORIZONS) + f"  {'total':>6}  sign of the total per day")
     print(f"Passive fills of the template, per unit against the wall mid; total = edge + move{args.horizon}.\n")
-    for feature in ("spread", "place", "imbalance", "momentum", "inventory", "autocov", "exhaustion"):
+    for feature in ("spread", "place", "imbalance", "momentum", "inventory", "autocov", "exhaustion", "exhaustion by momentum"):
         print(f"by {feature}:")
         print(header)
         print("\n".join(table(rows, feature, args.horizon)))

@@ -1,5 +1,7 @@
 import statistics
 
+import pytest
+
 from arena import backtest, grid, report
 from arena.engine import DayResult, EngineConfig, run_day
 from arena.model import Order
@@ -84,6 +86,9 @@ def test_metrics_turn_into_credits_by_the_formats_multiplier(capsys, tmp_path, d
     assert "in the portal's credits (2 a price unit" in out and "pnl sum -8.00 · mean -4.00" in out
     info = [type("D", (), {"info": {"A": {"tick": 0.5, "unit": 0.01}, "B": {"tick": 0.01, "unit": 0.01}}})()]
     assert cli.credits_per_unit("prosperity", info) == 0.02 and cli.credits_per_unit("drill", info) == 0.01
+    mixed = [type("D", (), {"info": {"A": {"unit": 0.01}, "B": {"unit": 1}}})()]
+    with pytest.raises(ValueError, match="different price units"):  # one CREDITS can't convert both
+        cli.credits_per_unit("drill", mixed)
 
 
 def test_a_late_reversal_is_flagged_and_steady_gains_are_not():

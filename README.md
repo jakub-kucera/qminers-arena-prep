@@ -303,7 +303,7 @@ Then two bootstrap tests, on each cell's gain over the bot as is per block of 10
   don't hide a real gain. Kelp's 64-cell `make_edge` × `take_edge` grid gets DSR 0.76 but SPA p 0.000,
   and on the days the grid never saw the gain held (`references/wiki/contradictions.md`, row 18).
 - **StepM** (Romano and Wolf's step-down test): every cell that beats the bot as is, with the
-  chance of naming even one false cell held at 5%. Each is then checked under the other `--modes`.
+  chance of naming even one false cell held at 5% (the tests are read at 4%, `arena.stats.TEST_ALPHA`, which keeps it near 5% on null grids). Each is then checked under the other `--modes`.
 - **pick**: StepM's best cell that beats the bot as is under every mode, else the bot as is. Ten
   ways of choosing a cell were scored on unseen days. On Prosperity's (`python/experiments/day/selection_rules.py`)
   it was the only one that never lost money under either fill mode. On fresh simulated days
