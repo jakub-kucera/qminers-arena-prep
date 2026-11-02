@@ -152,6 +152,13 @@ From the organisers' last e-mail, 2 Nov (saved locally as `references/arena-docs
 - Meals throughout (vegan, gluten-free and lactose-free options), coffee, tea and water all the time, a microwave. Photos and video during the event, and an OrderBook magazine reporter: say at registration if you'd rather not appear.
 - Still unknown: whether all teams share one market or each team trades alone (the leaderboard calls itself a market simulation, and one of the four skills listed is "game theory... anticipate competitors"), the bot interface, the data format, and the runtime limits.
 
+## Questions for the organisers
+
+Pointers only: each answer goes under its item, with its source. Ask only what the Technical Rules leave open.
+- **By e-mail, before the event** (`docs/MANUAL_TODO.md`, "Ask the organisers how the four rounds combine"): how the rounds combine and whether PnL carries over ("How is PnL scored?"); whether the market is shared ("Is the market shared with the other teams?"); whether a member may work off site ("Known so far", 2 Nov).
+- **At the opening or workshop, if the rules don't say:** the bot's interface and call ("How is the bot called?"); whether orders rest, queue and see themselves ("Do unfilled orders rest between ticks?", "Where does a new order join the queue?", "Does the book you see include your own orders?"); limits and their penalty ("How are position limits enforced?"); state between calls and the runtime ("Where does state live between calls?", "What does the runtime allow?"); submissions, caps and what's scored ("How do submissions work?", "Can you submit several times during a round, and see each score before the deadline?"); the mark, the close and fees ("How is PnL scored?", "Are there fees, rate limits or caps?"); fresh or given data ("Evaluation data"); price units ("What are the price units?").
+- **Before using anything that games the exchange or other teams:** a market-abuse clause, and any exchange bug a probe finds ("Gray-area variants", "An exchange bug that pays").
+
 ## First hour: answers that change the code
 
 - [ ] **How is the bot called?**

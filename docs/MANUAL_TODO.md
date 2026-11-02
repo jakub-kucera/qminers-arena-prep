@@ -39,6 +39,7 @@ Event: 7–8 Nov 2026. Section A is worth doing as soon as anything arrives; the
   the other teams? And, since the on-site rule is gone, may a member keep working on the round from off site (7 Oct:
   "no way to participate off-site"), or is leaving for rest only? The first decides how hard round 1 is pushed for PnL (`ON_THE_DAY.md`, "How is PnL scored?";
   `IDEAS.md`, "Round 1 as the prepared team's largest PnL lead").
+  - The day's other questions: `ON_THE_DAY.md`, "Questions for the organisers".
   - Done when: the answer (or that they won't say before the event) is under "How is PnL scored?" with the reply
     saved in `references/arena-docs/`.
 - [ ] **Anything the portal shows before the event, and on each submission**: a playground or practice round,

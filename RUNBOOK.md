@@ -14,7 +14,8 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
   single-use ["Known so far"].
 
 ## Opening and workshop (09:00–10:30)
-1. One person reads the Technical Rules in full and writes each answer into "First hour", with its source.
+1. One person reads the Technical Rules in full and writes each answer into "First hour", with its source;
+   what they leave open, ask at the workshop ["Questions for the organisers"].
 2. Settle first: the entry point, the data format, whether orders rest, the limits, the Python version and
    allowed imports, the time limit, the submission cap and whether scores come back ["First hour"].
 3. If they hand out a module or SDK file, it goes into the plug-in unchanged, never retyped ["The format swap, step by step", step 4].
