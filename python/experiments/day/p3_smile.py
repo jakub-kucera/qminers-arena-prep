@@ -24,6 +24,8 @@ mids; the rock's is the spot S.
    variant in VARIANTS, per day, on the rock and the vouchers alone, under --match-trades all and
    worse and with --resting, with or without a delta hedge in the rock (`hedge_ratio` 1: the rock holds minus the
    vouchers' delta). Then the variant chosen by PnL on the other four days, scored on the fifth.
+   The controls include long and short gamma: the strike at the money (or three) held at the full
+   limit, long or short, with or without the rock holding minus their delta at the smile's vol.
 Results go into IDEAS.md ("Options: trading implied-volatility deviations from a fitted smile").
 
 With --data (the day's download), the options are the products named --prefix plus a strike, on
@@ -70,7 +72,11 @@ VARIANTS = {
 } | {
     f"control: 9750 and 10000, take 0.5, make 1, {model} model": ((9750, 10000), 0.5, 1, 0, model)
     for model in ("flat", "none")
+} | {
+    f"control: {side} gamma, {label}{', hedged' if hedge else ''}": (strikes, None, None, hedge, side)
+    for side in ("long", "short") for label, strikes in (("10000", (10000,)), ("9750 to 10250", (9750, 10000, 10250))) for hedge in (0, 1)
 }
+GAMMA_CLEAR = 2  # how far beyond fair a gamma control crosses to reach its full position (about a voucher's spread)
 
 
 DATA, FORMAT, EXPIRY, LIMITS, CUSTOM = "p3", "prosperity", {}, {}, False  # --data sets them (_settings)
@@ -106,7 +112,10 @@ def _settings(dataset, underlying: str, prefix: str, expiry: str, strike: int | 
     variants = {
         f"all strikes, take {take}{', make ' + str(make) if make is not None else ''}{', hedged' if hedge else ''}": (strikes, take, make, hedge, "smile")
         for take in (0.5, 1, 1.5, 2) for make in (None, 1) for hedge in (0, 1)
-    } | {f"control: all strikes, take 0.5, make 1, {model} model": (strikes, 0.5, 1, 0, model) for model in ("flat", "none")}
+    } | {f"control: all strikes, take 0.5, make 1, {model} model": (strikes, 0.5, 1, 0, model) for model in ("flat", "none")} | {
+        f"control: {side} gamma, all strikes{', hedged' if hedge else ''}": (strikes, None, None, hedge, side)
+        for side in ("long", "short") for hedge in (0, 1)
+    }
     return {"DATA": dataset.data, "DAYS": list(dataset.days), "FORMAT": dataset.format, "FMT": fmt, "TEMPLATE": dataset.bot,
             "UNDERLYING": underlying, "PREFIX": prefix, "STRIKES": strikes, "EXPIRY": table, "VARIANTS": variants, "CUSTOM": True,
             "STRIKE_OF": strike_of, "KEEP": [underlying, *strike_of], "LIMITS": {p: v for day in days for p, v in day.limits.items()}}
@@ -129,6 +138,12 @@ def points(day) -> list[dict]:
                          "half_spread": (book.asks[0][0] - book.bids[0][0]) / 2, "m": math.log(k / s) / math.sqrt(t),
                          "v": implied_vol(book.wall_mid, s, k, t)})
     return rows
+
+
+def realised_vol(day, every: int) -> float:
+    """The underlying's realised vol over the day: its wall mid sampled every `every` ticks, the squared log returns summed, × 365."""
+    prices = [b.wall_mid for t in day.ticks[::every] for b in [t.books.get(UNDERLYING)] if b is not None and b.bids and b.asks]
+    return math.sqrt(365 * sum(math.log(b / a) ** 2 for a, b in zip(prices, prices[1:])))
 
 
 def fit_parabola(rows: list[dict]) -> tuple[float, float, float]:
@@ -183,7 +198,9 @@ def overrides(variant: str | None, coef: tuple[float, float, float], expiry: int
         out = {f"PARAMS.{UNDERLYING}": {"limit": LIMITS[UNDERLYING], "fair": "wall_mid", "hedge": True, "take_edge": 10**6, "make_size": 0, "clear_edge": 1}}
         for product, k in sorted(STRIKE_OF.items(), key=lambda item: item[1]):
             entry = {"limit": LIMITS[product], "fair": "wall_mid", "strike": k}
-            if k in strikes and model == "none":
+            if k in strikes and model in ("long", "short"):
+                entry |= _gamma(coef, expiry, LIMITS[product] * (1 if model == "long" else -1), hedge)
+            elif k in strikes and model == "none":
                 entry |= {"take_edge": take, "make_size": None, "make_edge": make, "clear_edge": 0}
             elif k in strikes:
                 entry |= {"smile": coef, "underlying": UNDERLYING, "expiry": expiry, "take_edge": take, "make_size": None if make is not None else 0,
@@ -197,7 +214,10 @@ def overrides(variant: str | None, coef: tuple[float, float, float], expiry: int
     for k in STRIKES:
         key = f"PARAMS.{PREFIX}{k}"
         out[f"{key}.follow"] = None
-        if k in strikes and model == "none":
+        if k in strikes and model in ("long", "short"):
+            limit = 200  # the vouchers' limit in PARAMS
+            out |= {f"{key}.{name}": value for name, value in _gamma(coef, expiry, limit * (1 if model == "long" else -1), hedge).items()}
+        elif k in strikes and model == "none":
             out |= {f"{key}.take_edge": take, f"{key}.make_size": None, f"{key}.make_edge": make, f"{key}.clear_edge": 0}
         elif k in strikes:
             out |= {f"{key}.smile": coef, f"{key}.underlying": UNDERLYING, f"{key}.expiry": expiry, f"{key}.take_edge": take,
@@ -206,6 +226,12 @@ def overrides(variant: str | None, coef: tuple[float, float, float], expiry: int
         else:
             out[f"{key}.make_size"] = 0  # not traded: no quotes, and take_edge is already out of reach
     return out
+
+
+def _gamma(coef: tuple[float, float, float], expiry: int, target: int, hedge: float) -> dict:
+    """A gamma control's settings for one option: held at target, no takes or quotes of its own, delta from the smile."""
+    return {"smile": coef, "underlying": UNDERLYING, "expiry": expiry, "target": target, "take_edge": 10**6, "make_size": 0,
+            "clear_edge": GAMMA_CLEAR, "hedge_ratio": hedge}
 
 
 ENGINE = ["python"]  # set in each worker by _init (--engine)
@@ -294,6 +320,12 @@ def main() -> None:
         gaps = [r["v"] - smile(held[name], r["m"]) for r in rows if r["v"] is not None]
         print(f"| {name} | {days_to_expiry(name)} | {', '.join(f'{x:.4f}' for x in held[name])} | "
               f"{', '.join(f'{x:.4f}' for x in own)} | {st.pstdev(gaps):.4f} |")
+
+    print("\nThe underlying's realised vol (its wall mid's log returns sampled every 1 / 100 / 1,000 ticks, a day as 1/365 of a year), "
+          "against the at-the-money implied (the day's own fit at m = 0): long gamma pays where realised beats implied")
+    for day in load():
+        print(f"  {day.name}: realised " + " / ".join(f"{realised_vol(day, k):.3f}" for k in (1, 100, 1000))
+              + f", implied {smile(fit_parabola(by_day[day.name]), 0.0):.3f}")
 
     print(f"\n2. The residual (wall mid less Black-Scholes at the others' smile), and its fast part (less its {args.window}-tick EMA)\n")
     print("| Day | Strike | Ticks with time value | Mean | Sd | Fast part's sd | Its lag-1 autocorrelation | Half spread |")

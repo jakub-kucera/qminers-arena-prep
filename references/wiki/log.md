@@ -497,3 +497,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | basket trades with and without the legs
 - `sources/etf-trade-flow-decomposition` records the test (`IDEAS.md`, "Classifying market trades by co-occurrence across a basket and its legs"): `experiments.study.cross_product_timing` section 3; the two classes move the basket alike and below half its spread.
+
+## [2026-11-02] query | long gamma on P3's vouchers
+- `concepts/options-and-vouchers` records the test (`IDEAS.md`, "Options: long gamma where realised vol beats implied"): `experiments.day.p3_smile` prints realised against implied vol and runs long and short gamma as controls; the hedged at-the-money long makes 13.8k over five days, every day positive, against 528.8k for the smile takes.
