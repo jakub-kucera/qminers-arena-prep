@@ -12,13 +12,16 @@ that shares the download's book and flow (IDEAS.md, "Fitting arena.sim to the do
 Per product:
 1. Moments, per data day and pooled, from arena.diagnose (MOMENTS: the spread, its share at one
    tick, the wall's size, the wall mid's reversion and jumps, the mid's lag-1 autocorrelation, the
-   trades' rate, buy share and share inside the spread) and two of our own: the sd of the wall mid's
-   one-tick change and the mean trade size. Prices are in the product's ticks; the simulator works
+   trades' buy share and share inside the spread) and our own: the sd of the wall mid's one-tick
+   change, the trades' rate and mean size, the walls' distance apart (which pins the maker's
+   half-spread; the touch spread mixes it with the limit traders') and the share of trades 2+ ticks
+   from the wall mid (what a wide quote can catch). Prices are in the product's ticks; the simulator works
    in ticks of 1, so a download with another tick is fitted, and generated, in its ticks.
 2. The start: each preset in STARTS, renamed to the product, given the data's limit, its opening
    wall mid and day mean, scored by the distance below; the nearest (or --preset) is the start.
-3. Nelder-Mead over FITTED (positive parameters in logs, shares in logits, size ranges by a common
-   factor) on the distance: the sum over moments of ((simulated - data) / scale)², the scale the
+3. Nelder-Mead over FITTED (positive parameters in logs, shares in logits, ranges by a common
+   factor), restarted from its best with smaller first steps (RESTARTS: the walls round to ticks, so
+   the surface is flat in steps), on the distance: the sum over moments of ((simulated - data) / scale)², the scale the
    moment's sd across the data's days or 5% of its value, whichever is larger (and at least a floor),
    each evaluation on the same --sim-days seeds (common random numbers, so the surface is smooth).
 4. The fitted spec as arena.sim --spec overrides, and the moments: data, start, fitted.
@@ -27,6 +30,11 @@ product under its own name: `arena.grid BOT 1 --data OUT` tunes on them.
 
 --check makes three days from KELP with four parameters moved, fits from KELP, and prints the true
 and the recovered values: the fit is worth trusting only where it recovers a known spec.
+
+--compare REAL.csv FITTED.csv --products P: two `arena.grid --out` CSVs of the same grid, on the real days
+and on the fitted ones, compared on P's own PnL in each mode (the totals mix in other products): the
+rank correlation of the cells (Spearman), and where each grid's best cell ranks in the other. The fitted
+days are a tuning ground only where the ranking carries over.
 """
 
 from __future__ import annotations
@@ -57,6 +65,8 @@ MOMENTS = {  # name: (arena.diagnose's key or our own, floor of its scale)
     "trade size": ("trade_size", 0.1),
     "buys": ("buy_share", 0.01),
     "inside": ("inside_share", 0.01),
+    "wall gap": ("wall_gap", 0.1),  # the walls' distance apart: pins the maker's half-spread, which the touch mixes with the limit traders'
+    "far trades": ("far_share", 0.01),  # trades 2+ ticks from the wall mid: what a wide quote can catch
 }
 # (path in the ProductSpec, transform): "log" a positive number, "logit" a share, "scale" a (low, high) range
 FITTED = [("fundamental.sd", "log"), ("fundamental.reversion", "log"), ("maker.half_spread", "log"), ("maker.size", "scale"),
@@ -64,6 +74,7 @@ FITTED = [("fundamental.sd", "log"), ("fundamental.reversion", "log"), ("maker.h
           ("value.rate", "log"), ("noise.buy_share", "logit")]
 FLOORS = {"fundamental.sd": 0.01, "fundamental.reversion": 1e-4, "maker.half_spread": 0.5, "limit_traders.rate": 0.01,
           "noise.rate": 0.005, "value.rate": 0.002}
+RESTARTS = (0.6, 0.3, 0.15)  # Nelder-Mead's first steps, one run each from the last one's best
 CHECK_TRUTH = {"fundamental.sd": 0.25, "maker.half_spread": 2.5, "noise.rate": 0.15, "limit_traders.rate": 1.6}
 
 
@@ -71,15 +82,20 @@ def moments(day, product: str) -> dict[str, float]:
     """One day's moments for one product (MOMENTS' keys)."""
     row = diagnose.diagnose([day])[product]
     tick = row["tick"] or 1
-    walls = []
+    walls, gaps, far, sizes = [], [], 0, []
     for t in day.ticks:
         book = t.books.get(product)
         if book is not None and book.bids and book.asks:
             walls.append(book.wall_mid)
+            bid, ask = max(book.bids, key=lambda level: level[1])[0], max(book.asks, key=lambda level: level[1])[0]
+            gaps.append((ask - bid) / tick)
+            for x in t.trades.get(product, []):
+                far += abs(x.price - book.wall_mid) / tick >= 2
+        sizes += [abs(x.quantity) for x in t.trades.get(product, [])]
     changes = [(b - a) / tick for a, b in zip(walls, walls[1:])]
-    sizes = [abs(x.quantity) for t in day.ticks for x in t.trades.get(product, [])]
     own = {"tick_vol": st.pstdev(changes) if len(changes) > 1 else 0.0, "trade_size": st.fmean(sizes) if sizes else 0.0,
-           "trade_rate": len(sizes) / max(len(day.ticks), 1)}
+           "trade_rate": len(sizes) / max(len(day.ticks), 1), "wall_gap": st.fmean(gaps) if gaps else 0.0,
+           "far_share": far / len(sizes) if sizes else 0.0}
     return {name: float(own.get(key, row.get(key)) or 0.0) for name, (key, _) in MOMENTS.items()}
 
 
@@ -198,7 +214,13 @@ def fit(per_day: list[dict[str, float]], product: str, limit: int, open_: float,
     scored = {name: distance(simulate(spec, seeds, ticks), mean, scale) for name, spec in starts.items()}
     chosen = min(scored, key=scored.get)
     base = starts[chosen]
-    x, value, used = nelder_mead(lambda x: distance(simulate(decode(base, x), seeds, ticks), mean, scale), encode(base), evals=evals)
+    def objective(x: list[float]) -> float:
+        return distance(simulate(decode(base, x), seeds, ticks), mean, scale)
+
+    x, value, used = encode(base), math.inf, 0
+    for step in RESTARTS:  # the walls round to ticks, so the surface is flat in steps: restart from the best with a fresh simplex
+        x, value, n = nelder_mead(objective, x, step=step, evals=evals // len(RESTARTS))
+        used += n
     spec = decode(base, x)
     return {"data": mean, "scale": scale, "starts": scored, "preset": chosen, "base": base, "spec": spec, "distance": value, "evals": used,
             "start_moments": simulate(base, seeds, ticks), "fitted_moments": simulate(spec, seeds, ticks)}
@@ -246,6 +268,35 @@ def check(sim_days: int, evals: int) -> dict:
     return r
 
 
+def _ranks(xs: list[float]) -> list[float]:
+    order = sorted(range(len(xs)), key=xs.__getitem__)
+    out = [0.0] * len(xs)
+    for k, i in enumerate(order):
+        out[i] = float(k)
+    return out
+
+
+def compare(real: Path, fitted: Path, product: str) -> list[tuple[str, float, int, int]]:
+    """Per mode: (column, Spearman of the cells on product's PnL, the fitted best's rank on the real days, the real best's on the fitted)."""
+    import csv
+
+    def load(path: Path) -> dict[tuple, dict]:
+        rows = list(csv.DictReader(path.open()))
+        axes = [k for k in rows[0] if k.startswith("PARAMS.") or k.startswith("DEFAULTS.")]
+        return {tuple(r[a] for a in axes): r for r in rows}
+
+    a, b = load(real), load(fitted)
+    keys = sorted(set(a) & set(b))
+    out = []
+    for column in sorted(c for c in next(iter(a.values())) if c.startswith("pnl_") and c.endswith(f"_{product}")):
+        x, y = [float(a[k][column]) for k in keys], [float(b[k][column]) for k in keys]
+        rho = st.correlation(_ranks(x), _ranks(y)) if len(keys) > 2 else float("nan")
+        order_a = sorted(keys, key=lambda k: -float(a[k][column]))
+        order_b = sorted(keys, key=lambda k: -float(b[k][column]))
+        out.append((column, rho, order_a.index(order_b[0]) + 1, order_b.index(order_a[0]) + 1))
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m experiments.day.sim_fit")
     add_dataset_arguments(parser, bot=False)
@@ -255,7 +306,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, help="write --generate days of each fitted product here (Prosperity layout, round 1)")
     parser.add_argument("--generate", type=int, default=20)
     parser.add_argument("--check", action="store_true", help="recover a known spec from KELP days instead")
+    parser.add_argument("--compare", nargs=2, type=Path, metavar=("REAL", "FITTED"), help="two arena.grid --out CSVs; with --products P")
     args = parser.parse_args(argv)
+    if args.compare:
+        if not args.products:
+            parser.error("--compare needs --products P: the product whose PnL the two grids are compared on")
+        for product in args.products.split(","):
+            for column, rho, fitted_best, real_best in compare(*args.compare, product):
+                print(f"{column}: Spearman {rho:+.2f} over the cells; the fitted days' best is {fitted_best} on the real days, "
+                      f"the real days' best {real_best} on the fitted")
+        return 0
     if args.check:
         r = check(args.sim_days, args.evals)
         report("KELP, moved", r)

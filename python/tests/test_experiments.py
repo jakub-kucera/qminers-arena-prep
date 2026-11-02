@@ -213,7 +213,17 @@ def test_sim_fit_minimises_moves_parameters_and_reads_moments():
     m = sim_fit.moments(sim.run(sim.MarketSpec((base,), ticks=2000), 1).day, "KELP")
     assert set(m) == set(sim_fit.MOMENTS) and 2 < m["spread"] < 4 and 0.1 < m["trades/tick"] < 0.5
     mean, scale = sim_fit.target([m, m])
-    assert sim_fit.distance(m, mean, scale) == 0 and scale["one tick"] >= 0.01
+    assert sim_fit.distance(m, mean, scale) == 0 and scale["one tick"] >= 0.01 and m["wall gap"] >= 2
+
+
+def test_sim_fit_compares_two_grids_on_one_products_pnl(tmp_path):
+    from experiments.day import sim_fit
+
+    head = "PARAMS.X.make_edge,pnl_all,pnl_all_X,pnl_all_Y\n"
+    (tmp_path / "real.csv").write_text(head + "1,90,10,80\n2,70,30,40\n3,60,20,40\n")
+    (tmp_path / "fit.csv").write_text(head + "1,15,1,14\n2,25,5,20\n3,4,3,1\n")  # X ranks alike; the totals don't
+    ((column, rho, fitted_best, real_best),) = sim_fit.compare(tmp_path / "real.csv", tmp_path / "fit.csv", "X")
+    assert column == "pnl_all_X" and rho == pytest.approx(1.0) and fitted_best == real_best == 1
 
 
 def test_basket_trades_are_signed_against_the_ticks_book():

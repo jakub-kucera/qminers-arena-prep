@@ -509,3 +509,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | arena.sim fitted to data
 - `concepts/harder-rounds` records `experiments.day.sim_fit` (`IDEAS.md`, "Fitting `arena.sim` to the download"): simulated method of moments over a preset; Kelp fits and its tuning carries over, Osmium doesn't.
+
+## [2026-11-03] lint | sim_fit corrected after the audit's round 8
+- `concepts/harder-rounds`: Kelp's transfer is now measured by the whole ranking (Spearman 0.97, Osmium 0.16), after `experiments.day.sim_fit` gained the walls' distance and the far trades as moments, restarts and `--compare` (`IDEAS.md`, "Fitting `arena.sim` to the download").
