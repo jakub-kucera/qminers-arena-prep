@@ -66,7 +66,7 @@ Each idea has an untested row in `IDEAS.md`.
 ## Tooling
 
 - [ ] **Refresh the sources and the wiki just before the event.** Run `references/clone.sh --update` (it rewrites the pins and prints each repo it moved), `python3 references/check_arena_site.py`, `python3 references/wiki/lint.py` and `uv run pytest`; read what changed, including the citations into each moved repo (the lint only checks that a cited line exists); commit `clone.sh`; ingest any new source (schema: `references/wiki/SCHEMA.md`).
-  - **First** (5 Nov, finished before 18:00, when the user's weekly Claude limit resets into the event's week): "Make `check_arena_site.py` keep short UI strings" below, so this re-check sees the short strings and the unused translation namespaces too.
+  - **When:** 5 Nov, finished before 18:00, when the user's weekly Claude limit resets into the event's week. The checker already keeps short UI strings and lists the unused translation namespaces and the bundle's hash (both done 2026-10-30: `docs/TODO_DONE.md`, "Tooling"), so this re-check sees them with nothing to do first.
   - Done when: the lint reports no errors, the Arena site diff has been read and the answers written into `ON_THE_DAY.md`, and `references/wiki/log.md` has a `lint` entry dated that day.
 - [ ] **A sampled queue model, only if needed.** `--queue prob` subtracts each cancel's expected share; Chung et al. found that "highly optimistic" against drawing where each cancel fell (binomially, seeded). Only worth building if the playground shows a product where our quotes join a level, since the template's own quote is usually alone at its price.
   - Done when: the playground has shown no such product (close it), or `--queue sample` exists with a test and its row in the README's queue table.
