@@ -482,3 +482,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | the P2 coconut coupon with the options modes
 - `concepts/options-and-vouchers` records the test (`IDEAS.md`, "Prosperity 2 round 4's coconut coupons with the template's options modes"): one strike and a flat vol, but a residual that drifts (lag-1 0.89), so `smile` loses at a 20-tick offset window and makes 442k over three days at 5,000; `experiments.day.p4_vouchers` and `p3_smile` gain `--strike` for an option named without one.
+
+## [2026-11-02] query | a family skew (Guéant's Γ) tested
+- `concepts/many-products-architecture` records the test (`IDEAS.md`, "Skewing on correlated products' inventory too (Guéant's `Γ`)"): `experiments.study.family_skew` moves each product's target against its family's other positions; on P4 round 5 it costs at every weight and skew, dropped here.

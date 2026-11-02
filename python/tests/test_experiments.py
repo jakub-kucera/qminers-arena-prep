@@ -491,6 +491,26 @@ def test_the_exhaustion_gate_variant_patches_the_template_and_pulls_the_side_bei
     assert gate([("", "", 4, 99), ("", "", 1, 101)], book, p, memory) == -1  # 12 sold into 20 at the bid: pull it
     assert gate([("", "", 12, 101)], book, p, memory) == 1
 
+def test_the_family_skew_variant_moves_a_target_against_the_rest_of_the_family(tmp_path):
+    from arena.botfile import BotFile
+    from arena.formats import prosperity_datamodel
+    from experiments.study import family_skew
+
+    path = tmp_path / "variant.py"
+    path.write_text(family_skew.variant({"A_X": 10, "A_Y": 20, "B_Z": 5}))
+    bot = BotFile(path, {"datamodel": prosperity_datamodel}, strict=True).load()
+    assert bot.DEFAULTS["family_weight"] == 0.0
+    assert bot.PARAMS["A_X"]["family"] == ["A_Y"] and bot.PARAMS["B_Z"] == {"limit": 5, "family": []}
+    book = bot.Book([[99, 10]], [[101, 10]])
+    market = bot.Market({"A_X": book, "A_Y": book})
+    market.positions = {"A_Y": 10}  # half A_Y's limit
+    p = {**bot.params_for("A_X"), "family_weight": 1.0}
+    assert bot.trade_product("A_X", book, 0, p, {}, market).target == -5  # half of A_X's limit, against it
+    market.positions = {"A_Y": 40}
+    assert bot.trade_product("A_X", book, 0, p, {}, market).target == -10  # clamped to the limit
+    assert bot.trade_product("A_X", book, 0, {**p, "family_weight": 0.0}, {}, market).target == 0
+
+
 def test_family_fills_counts_clustered_ticks_against_independence(capsys, monkeypatch, drill_data):
     from experiments.day import family_fills
 
