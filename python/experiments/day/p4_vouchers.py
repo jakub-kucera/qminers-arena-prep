@@ -66,7 +66,8 @@ def implied_vol(price: float, s: float, k: float, t: float) -> float | None:
 
 def strikes(day, prefix: str = "VEV_", strike: int | None = None) -> list[tuple[str, int]]:
     """(product, strike) for the options named prefix plus a strike, and the one named prefix itself when strike is given."""
-    out = [(p, int(p.rsplit("_", 1)[1])) for p in day.products if p.startswith(prefix) and p.rsplit("_", 1)[1].isdigit()]
+    tails = {p: p.removeprefix(prefix).lstrip("_") for p in day.products if p.startswith(prefix)}  # VEV_5000, or CALL9500 with --prefix CALL
+    out = [(p, int(tail)) for p, tail in tails.items() if tail.isdigit()]
     return sorted(out + ([(prefix, strike)] if strike is not None and prefix in day.products else []))
 
 

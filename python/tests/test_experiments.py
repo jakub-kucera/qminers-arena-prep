@@ -230,7 +230,8 @@ def test_an_option_named_without_a_strike_takes_one_and_a_single_strike_fits_fla
 
     from experiments.day import p3_smile, p4_vouchers
 
-    day = SimpleNamespace(products=["COCONUT", "COCONUT_COUPON", "VEV_5000"])
+    day = SimpleNamespace(products=["COCONUT", "COCONUT_COUPON", "VEV_5000", "CALL9500"])
+    assert p4_vouchers.strikes(day, "CALL") == [("CALL9500", 9500)]  # no underscore (the audit's round 8, R12)
     assert p4_vouchers.strikes(day, "COCONUT_COUPON") == []
     assert p4_vouchers.strikes(day, "COCONUT_COUPON", 10_000) == [("COCONUT_COUPON", 10_000)]
     assert p4_vouchers.strikes(day, "VEV_") == [("VEV_5000", 5000)]

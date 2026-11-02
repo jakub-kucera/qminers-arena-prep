@@ -113,7 +113,8 @@ def file_checks(path: Path, size: int, limit: int | None) -> list[Check]:
 def gray_area(tree: ast.Module) -> str | None:
     """The bot's module-level GRAY_AREA string, if it sets one."""
     for node in tree.body:
-        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "GRAY_AREA" for t in node.targets):
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        if any(isinstance(t, ast.Name) and t.id == "GRAY_AREA" for t in targets):
             value = node.value.value if isinstance(node.value, ast.Constant) else None
             return str(value) if value else "(no reason given)"
     return None
@@ -285,6 +286,9 @@ def replay_checks(path: Path, s: Setup, time_limit_ms: float, argv: list[str] | 
             f"slowest tick {slowest:.1f} ms (limit {time_limit_ms:g} ms), 99th percentile {p99:.2f} ms, mean {statistics.fmean(step_ms or [0]):.2f} ms{pauses}",
         )
     )
+    if slowest <= time_limit_ms < raw:  # their clock may count the collections the bot's own allocations set off
+        checks.append(Check(WARN, f"a tick took {raw:.1f} ms with garbage collections, over the {time_limit_ms:g} ms limit: "
+                                  "their clock may count them; allocate less per tick"))
 
     first, baseline = s.days[0], results[0].fills
     repeat = run_day(first, s.format.load_bot(path, s.overrides, strict=True), s.config)

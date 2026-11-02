@@ -273,6 +273,7 @@ def test_a_garbage_collection_inside_a_call_is_left_out_of_the_slowest_tick(chec
     )
     line = next(l for l in out.splitlines() if "slowest tick" in l)
     assert "PASS" in line and "with the backtester's garbage collections, left out" in line, line
+    assert "WARN  a tick took" in out and "their clock may count them" in out  # the raw figure is still over the limit
 
 
 def test_a_bot_that_reposts_what_it_cant_see_yet_fails_one_step_late(tmp_path, capsys):
@@ -302,6 +303,8 @@ def test_a_gray_area_bot_fails_unless_allowed_and_compact_warns(check, tmp_path,
     gray = TEMPLATE.read_text() + '\nGRAY_AREA = "spoofs Kelp\'s book"\n'
     code, out = check(gray)
     assert code == 1 and "FAIL  GRAY AREA: spoofs Kelp's book. THIS BOT GAMES" in out and "!!! GRAY AREA BOT" in out
+    code, out = check(gray.replace('GRAY_AREA = "', 'GRAY_AREA: str = "'))  # annotated, as the audit's round 8 found (R7)
+    assert code == 1 and "FAIL  GRAY AREA: spoofs Kelp's book" in out
     code, out = check(gray, "--allow-gray-area")
     assert code == 0 and "WARN  GRAY AREA, ALLOWED" in out
     path = tmp_path / "gray.py"
