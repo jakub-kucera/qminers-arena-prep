@@ -20,6 +20,16 @@ per basket held. clear_edge is about half of each product's spread.
 3. For comparison, on the same days: plain market making on the baskets and legs (the template
    with fair wall_mid, make_edge 1), the best setting chosen on all three days (in-sample), and
    the held-out settings with the level from the day so far ("day").
+4. Cartea et al.'s optimal bands for an Ornstein-Uhlenbeck spread (Algorithmic and High-Frequency
+   Trading, section 11.3; literature_md/algorithmic-and-hft/algorithmic-and-hft.md:6381-6566), in
+   place of k sds: per held-out day, kappa and sigma from an AR(1) of the other days' spreads less
+   each day's mean, c the basket's clear_edge (about half its spread), and an urgency rho of one
+   over the ticks in a day (and a tenth and ten times it). Double-sided, the long entry is the short
+   exit (11.4) and the short entry the long exit (11.2), so the template's flip between two bands is
+   that strategy. The model discounts the spread's whole value, so a level far from 0 would skew
+   the bands; a premium's level is arbitrary, so they are solved for the spread less its level
+   (theta 0), which makes them symmetric: level as in part 2, level_band the long exit, level_exit
+   None, no hedge.
 
 With --data (the day's download) the baskets come from --basket (NAME=LEG:WEIGHT,...; a family
 that sums to a constant is a basket with legs of weight -1), each product's limit from the data,
@@ -28,6 +38,7 @@ and each clear_edge about half its median spread.
 
 import argparse
 import itertools
+import math
 import statistics as st
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -59,6 +70,7 @@ DATASETS = {
     },
 }
 GRID = {"k": [0.5, 0.75, 1.0, 1.5, 2.0], "level_exit": [None, 0], "hedge_ratio": [0.0, 0.5, 1.0]}
+URGENCY = (0.1, 1.0, 10.0)  # rho in units of one over the ticks in a day
 _DAYS: dict = {}
 ENGINE = ["python"]  # set in each worker by _init (--engine)
 FORMAT = "prosperity"  # --data sets it, with FMT, TEMPLATE and DATASETS
@@ -116,6 +128,65 @@ def spreads(day, basket, legs) -> list[float]:
         if None not in prices:
             out.append(prices[0] - sum(w * x for w, x in zip(legs.values(), prices[1:])))
     return out
+
+
+def ou_fit(series: list[list[float]]) -> tuple[float, float]:
+    """kappa and sigma per tick of an Ornstein-Uhlenbeck process from an AR(1) of each day's series less its own mean."""
+    pairs = []
+    for s in series:
+        m = st.fmean(s)
+        pairs += [(a - m, b - m) for a, b in zip(s, s[1:])]
+    xy, xx = sum(a * b for a, b in pairs), sum(a * a for a, _ in pairs)
+    b = xy / xx
+    residual = st.fmean((y - b * x) ** 2 for x, y in pairs)
+    kappa = -math.log(b)
+    return kappa, math.sqrt(residual * 2 * kappa / (1 - b * b))
+
+
+def _integral(r: float, z: float, n: int = 4000) -> float:
+    """∫_0^∞ u^(r-1) exp(z u - u²/2) du for r > 0, by Simpson's rule; the u^(r-1) pole is taken out
+    for r < 1 (its part ∫_0^1 u^(r-1) du = 1/r)."""
+    top = max(z, 0.0) + 12.0
+
+    def simpson(f, a: float, b: float) -> float:
+        h = (b - a) / n
+        return h / 3 * (f(a) + f(b) + sum((4 if k % 2 else 2) * f(a + k * h) for k in range(1, n)))
+
+    def g(u: float) -> float:
+        return math.exp(z * u - u * u / 2)
+
+    if r >= 1:
+        return simpson(lambda u: u ** (r - 1) * g(u), 0.0, top)
+    near = simpson(lambda u: u ** (r - 1) * (g(u) - 1) if u > 0 else 0.0, 0.0, 1.0) + 1 / r
+    return near + simpson(lambda u: u ** (r - 1) * g(u), 1.0, max(top, 1.0))
+
+
+def ou_bands(kappa: float, sigma: float, theta: float, c: float, rho: float) -> tuple[float, float]:
+    """Cartea et al.'s double-sided triggers for an OU spread: (long entry, short entry), the short exit
+    from (11.4) and the long exit from (11.2), which the book's table shows equal them."""
+    a, r = math.sqrt(2 * kappa) / sigma, rho / kappa
+
+    def long_exit(e: float) -> float:  # (e - c) F+'(e) - F+(e), F+(e) = I(r, a(e - theta))
+        z = a * (e - theta)
+        return (e - c) * a * _integral(r + 1, z) - _integral(r, z)
+
+    def short_exit(e: float) -> float:  # (e + c) F-'(e) - F-(e), F-(e) = I(r, -a(e - theta))
+        z = -a * (e - theta)
+        return -(e + c) * a * _integral(r + 1, z) - _integral(r, z)
+
+    def root(f, lo: float, hi: float) -> float:
+        flo = f(lo)
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            if (f(mid) > 0) == (flo > 0):
+                lo, flo = mid, f(mid)
+            else:
+                hi = mid
+        return (lo + hi) / 2
+
+    spread = sigma / math.sqrt(2 * kappa)  # the stationary sd
+    long_from, short_from = max(c, theta), min(-c, theta)
+    return root(short_exit, short_from - 12 * spread, short_from), root(long_exit, long_from, long_from + 12 * spread)
 
 
 def premium_stats(days, d) -> dict:
@@ -193,7 +264,7 @@ def main(argv):
     if args.engine == "rust":
         rust.require(args.allow_stale)
     _init(settings=settings)
-    stats, jobs, folds = {}, [], {}
+    stats, jobs, folds, ou = {}, [], {}, {}
     for name, d in DATASETS.items():
         names = list(_DAYS[name])
         stats[name] = premium_stats(_DAYS[name].values(), d)
@@ -205,6 +276,17 @@ def main(argv):
 
         folds[name] = {test: fit([n for n in names if n != test]) for test in names}
         folds[name]["all"] = fit(names)
+        for test in names:
+            train = [_DAYS[name][n] for n in names if n != test]
+            levels = folds[name][test][0]
+            for m in URGENCY:
+                fitted, bands = {}, {}
+                for basket, (legs, _, clear_edge) in d["baskets"].items():
+                    kappa, sigma = ou_fit([spreads(day, basket, legs) for day in train])
+                    bands[basket] = ou_bands(kappa, sigma, 0.0, clear_edge, m / len(train[0].ticks))[1]
+                    fitted[basket] = (kappa, sigma)
+                ou[(name, test, m)] = (fitted, bands)
+                jobs.append((name, _freeze((levels, bands, 1.0, None, 0.0)), test))
         for fold, (levels, sds) in folds[name].items():
             for values in itertools.product(*GRID.values()):
                 setting = _freeze((levels, sds, *values))
@@ -253,6 +335,18 @@ def main(argv):
             legs = sum(pnl[(name, _freeze((*folds[name]["all"], *best)), n)][1] for n in names)
             print(f"     in-sample best with hedge_ratio {ratio} ({', '.join(f'{k} {v}' for k, v in zip(GRID, best))}): "
                   f"{total(folds[name]['all'], best, names) / 1000:.1f}, of which legs {legs / 1000:.1f}")
+        print("  4. Cartea et al.'s OU bands, fitted on the other days (in thousands; the band also in the other days' sds)")
+        for m in URGENCY:
+            held = 0.0
+            for test in names:
+                fitted, bands = ou[(name, test, m)]
+                levels, sds = folds[name][test]
+                baskets, legs, issues = pnl[(name, _freeze((levels, bands, 1.0, None, 0.0)), test)]
+                held += baskets + legs
+                read = "; ".join(f"{b} half-life {math.log(2) / k:.0f} ticks, sd {s / math.sqrt(2 * k):.1f}, band {bands[b]:.1f} ({bands[b] / sds[b]:.2f} sd)"
+                                 for b, (k, s) in fitted.items())
+                print(f"     rho {m:g}/day, {test}: {read}: {(baskets + legs) / 1000:.1f}" + (f"  ! {issues} errors or breaches" if issues else ""))
+            print(f"     rho {m:g}/day: total over the held-out days {held / 1000:.1f}")
     return 0
 
 

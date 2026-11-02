@@ -152,6 +152,27 @@ def test_options_and_baskets_say_what_they_need(capsys, monkeypatch, drill_data)
     assert "2. nested leave-one-day-out" in out
 
 
+def test_the_ou_bands_reproduce_cartea_et_als_table_and_the_fit_recovers_kappa():
+    import math
+    import random
+
+    from experiments.day import baskets
+
+    # Algorithmic and High-Frequency Trading, section 11.3.3's table: rho 0.01, sigma 0.5, theta 1, c 0.01.
+    for kappa, (long_entry, short_entry) in ((1.0, (-0.1815, 1.7460)), (4.0, (-0.0410, 1.4367))):
+        assert baskets.ou_bands(kappa, 0.5, 1.0, 0.01, 0.01) == (pytest.approx(long_entry, abs=2e-4), pytest.approx(short_entry, abs=2e-4))
+    rng, b = random.Random(3), math.exp(-0.01)
+    days = []
+    for _ in range(3):
+        x, path = 0.0, []
+        for _ in range(10_000):
+            x = b * x + rng.gauss(0, 1)
+            path.append(50 + x)
+        days.append(path)
+    kappa, sigma = baskets.ou_fit(days)
+    assert kappa == pytest.approx(0.01, rel=0.15) and sigma == pytest.approx(math.sqrt(2 * 0.01 / (1 - b * b)), rel=0.05)
+
+
 def test_an_option_named_without_a_strike_takes_one_and_a_single_strike_fits_flat():
     from types import SimpleNamespace
 

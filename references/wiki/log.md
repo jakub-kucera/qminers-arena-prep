@@ -491,3 +491,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | the spoof detector's baseline
 - `sources/detecting-spoofing-strategies` records the detector's two distances (`arena.diagnose`'s `spoof_before`, `spoof_snap`) and their baseline with no spoofer: up to 0.019 on the market-making products, up to 0.27 on P3's volcanic vouchers (`IDEAS.md`, "A spoof tell from the data").
+
+## [2026-11-02] query | optimal OU bands for a basket's spread
+- `concepts/baskets-and-fixed-sums` records the test (`IDEAS.md`, "Optimal entry and exit bands for a basket's spread"): `experiments.day.baskets` part 4 fits κ and σ on the other days and solves Cartea et al.'s (11.2) and (11.4); held out 86k against the k grid's 71k on P3 round 2, 171k against 294k on P2 round 3; the urgency sets the band and nothing fixes it, so the k grid stays.
