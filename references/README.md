@@ -12,7 +12,7 @@ sizing), see the papers converted to markdown in [../literature_md/](../literatu
 
 This is third-party code, so read it before installing or running anything.
 jmerle's backtesters and visualizer, the Prosperity 4 backtester, `hftbacktest`, DTU Quant Lab and the Qminers 2025 solution are MIT
-(checked against their `LICENSE` files), and ABIDES is BSD 3-clause. The other team repos have no licence file, so use them
+(checked against their `LICENSE` files), ABIDES is BSD 3-clause, and Kronos is MIT. The other team repos have no licence file, so use them
 as reading material and write your own versions instead of pasting their code into a submission.
 Every rank below is the team's own claim from its README. None is checked against the leaderboard.
 
@@ -40,6 +40,7 @@ Every rank below is the team's own claim from its README. None is checked agains
 | `qminers-hackathon-2024/` | [AdamBobocky/qminers-24](https://github.com/AdamBobocky/qminers-24) | The **1st-place team's post-mortem** of Qminers' Quant Hackathon 2024 (NBA betting), with the organisers' files: `COMPETITION_README.md`, `problem_info.md`, `src/submit_model/environment.py`. Shows the format (online qualification, then a reset 3-round final) and how the winner chose risk for the final. Weak prior on the task. | 90 MB | 2026-10-13 |
 | `hftbacktest/` | [nkaz001/hftbacktest](https://github.com/nkaz001/hftbacktest) | The reference open-source backtester for market making with queue position and latency models. We read it for its queue models and its tutorial notebooks (GLFT, order-book-imbalance alpha, queue-based quoting). | 131 MB | 2025-12-23 |
 | `abides-jpmc/` | [jpmorganchase/abides-jpmc-public](https://github.com/jpmorganchase/abides-jpmc-public) | JP Morgan's public ABIDES: an agent-based market simulator. Its RMSC04 config (noise, value, momentum agents and two adaptive makers around a hidden mean-reverting fundamental) is our independent generator: run, never imported, by `experiments.abides_days` (below). | 5 MB | 2023-12-13 |
+| `kronos/` | [shiyu-coder/Kronos](https://github.com/shiyu-coder/Kronos) | Kronos (Shi et al., AAAI 2026, arXiv 2508.02739): a decoder-only transformer pretrained on 1-minute to weekly OHLCV bars from about 40 exchanges, in three open sizes (4.1M, 24.7M, 102M parameters; weights on Hugging Face). Not for a bot (torch, 31 MB of weights or more, no book); run, never imported, by `experiments.study.kronos_zeroshot` (below) as a detector beside the day's data. | 25 MB | 2026-04-13 |
 
 ## How these relate to the Arena
 
@@ -195,6 +196,11 @@ Read `README.md` (the post-mortem, 10 minutes) and `COMPETITION_README.md` (the 
 - **Its own pins don't install on Apple silicon** (pomegranate 0.14, pandas 1.2, gym, ray): the environment takes current wheels instead, and `abides_export/pomegranate.py` stands in for the one class RMSC04 uses, its order-size mixture (same weights and components, different draws).
 - **The template inside the market:** `experiments.study.abides_market` runs it as an ABIDES agent (`python/experiments/abides_export/template_agent.py`: the template's STRATEGY and EXECUTION once a second, with a stub `datamodel`), so the agents see its orders, and compares that with the same day replayed. ABIDES enforces no position limit and a cancel is only a message, so the agent sends its new orders once its cancels are back and sizes them on its position plus the orders still live; and the L2 book ABIDES returns includes our own orders, which the agent takes out (2026-10-28, the fourth audit's R14 and R15). `--options` (also `abides_days generate`'s) passes `rmsc04.build_config`'s arguments: RMSC03 itself doesn't import at this pin (`POVExecutionAgent`), so an RMSC03-like market is RMSC04 with 5,000 noise agents, 25 momentum agents and `fund_vol` 0.001; with 25 or more momentum agents against the default 102 value agents the price can run away, even below zero (ABIDES discards those orders with a warning), and such a day is broken, not a test: more momentum needs more value agents (50 with 250 holds), and `abides_market` flags a broken day and leaves it out of its total.
 - **What a converted day is:** a recording, one tick a second (23,400 a day), the book's top three levels in cents and the trades of the next second. It tests the book's shape and the agents' information, not a market that reacts to our orders.
+
+### `kronos/`
+- **Run, never imported.** `uv run python -m experiments.study.kronos_zeroshot setup` makes its own environment (`data/kronos/env`, Python 3.12, torch, numpy, pandas) and downloads the pinned models from Hugging Face into `data/kronos/hf` (about 1.3 GB together); the study then runs `python/experiments/kronos_export/forecast.py` under it with this folder on `PYTHONPATH`. The repo's code and tests never import it.
+- **What it reads:** bars (open, high, low, close, volume, amount) and a calendar stamp a bar (minute, hour, weekday, day, month), normalised by the window's mean and sd and clipped at 5 sd, then quantised to 20-bit tokens (`model/kronos.py`, `KronosPredictor.predict`). No book, no trades by name, one product at a time. Forecasts are sampled (temperature, top-p) and averaged over paths, so a run is only repeatable with a fixed seed.
+- **What the paper claims:** RankIC 0.025–0.027 and IC 0.043–0.044 on price forecasts at 5-minute to daily bars, against 0.014 for the best other pretrained model (the abstract's "+93%"); no limitations section and no latency figures. Prosperity's numbers are in `IDEAS.md`, "A pretrained bar forecaster (Kronos) as a detector".
 
 ### Read online, not cloned
 

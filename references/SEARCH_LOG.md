@@ -78,6 +78,12 @@ Verdicts: **Cloned** (in `clone.sh`), **Online** (listed under "Read online" in 
 | Quant Hackathon 2020, 2022, 2024, 2025 (CTU news pages, team repos BrystofKlazek, malek-luky, vitktor) | Task is sports betting. The layout of what they hand out is in the README. |
 | `gh api orgs/qminers` | 404: no public GitHub org found. |
 
+### Pretrained models
+
+| Source | Verdict | Why |
+|---|---|---|
+| shiyu-coder/Kronos (Shi et al., *Kronos: a foundation model for the language of financial markets*, AAAI 2026, arXiv 2508.02739; MIT; the user's lead, 2026-11-02) | **Cloned**, run as a study, not for a bot | A transformer pretrained on OHLCV bars of real exchanges (1-minute to weekly), sizes 4.1M/24.7M/102M open. Can't go in a stdlib bot (torch, 31 MB of weights or more, sampled forecasts, no book). As a detector beside the data it never beat a reversion to the wall mid on Prosperity's round-1 products and forecast against Pepper Root's drift (`IDEAS.md`, "A pretrained bar forecaster (Kronos) as a detector"). Other time-series foundation models (Chronos, TimesFM, Moirai, Time-MoE) share the limits; not searched further |
+
 ### Papers (titles and IDs checked against the arXiv API; PDFs checked with `pdfinfo` and `pdftotext`)
 
 **Added to `literature_raw/` and `literature_md/` on 2026-10-10** (all free; the papers' first pages and one theorem were checked, the rest is **unread**):
