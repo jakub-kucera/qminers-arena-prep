@@ -47,7 +47,6 @@ day tools in parallel, and a summary last. Each new feature carries its result o
 
 Each idea has an untested row in `IDEAS.md`.
 - **A Kalman fair mode** (a filter with gaps, a trend and an error bar): if the ABIDES days show the smoothed fair set by the Kalman formula falls short.
-- **Fitting `arena.sim` to the download** (method of moments over a preset's parameters): last, if time is left; worthless if the download is unlike our presets.
 - **Tao's spoof detector made exact (R6's second half):** if probe 22 shows other teams' orders in the feed. Its inputs and the download's baseline are `arena.diagnose`'s `spoof_before` and `spoof_snap` (2026-11-02; `IDEAS.md`, "A spoof tell from the data").
 - **A far quote on an empty side** (a template rule: quote a few lots far from the last fair while a side is empty): if probe 14 fills one, or `experiments.day.structure`'s fingerprints show trades outside the book on the download. No Prosperity replay can value it (`IDEAS.md`, "Quoting far away when one side of the book is empty").
 - **Cross-product terms (R17a–c):** an informed signal on a leg moving the basket's level, a signal traded through the baskets' limits, two baskets' premium difference: if a round has baskets or named traders.

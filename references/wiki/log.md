@@ -506,3 +506,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-02] query | choosing the quote by state
 - `sources/limit-and-market-orders` records the test (`IDEAS.md`, "Choosing the quote by state"): `experiments.day.fill_curve` part 3 and `experiments.study.quote_by_state`; the per-spread distance wins under `all` and loses under `worse` and resting, dropped here.
+
+## [2026-11-02] query | arena.sim fitted to data
+- `concepts/harder-rounds` records `experiments.day.sim_fit` (`IDEAS.md`, "Fitting `arena.sim` to the download"): simulated method of moments over a preset; Kelp fits and its tuning carries over, Osmium doesn't.

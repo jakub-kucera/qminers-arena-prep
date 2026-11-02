@@ -195,6 +195,27 @@ def test_quote_by_state_picks_a_distance_per_spread_and_the_variant_quotes_it(tm
     assert [price for price, _ in plan.quotes] == [97, 103]
 
 
+def test_sim_fit_minimises_moves_parameters_and_reads_moments():
+    import math
+
+    from arena import sim
+    from experiments.day import sim_fit
+
+    x, value, used = sim_fit.nelder_mead(lambda v: (v[0] - 1) ** 2 + (v[1] + 2) ** 2, [0.0, 0.0], evals=300)
+    assert x == [pytest.approx(1, abs=1e-2), pytest.approx(-2, abs=1e-2)] and value < 1e-3 and used <= 310
+    base = sim.PRESETS["KELP"]
+    x = sim_fit.encode(base)
+    x[0] += math.log(2)  # fundamental.sd doubled
+    x[3] = math.log(2)  # maker.size scaled by 2
+    spec = sim_fit.decode(base, x)
+    assert spec.fundamental.sd == pytest.approx(2 * base.fundamental.sd) and spec.maker.size == (40, 60)
+    assert sim_fit.decode(base, sim_fit.encode(base)).noise.buy_share == pytest.approx(base.noise.buy_share)
+    m = sim_fit.moments(sim.run(sim.MarketSpec((base,), ticks=2000), 1).day, "KELP")
+    assert set(m) == set(sim_fit.MOMENTS) and 2 < m["spread"] < 4 and 0.1 < m["trades/tick"] < 0.5
+    mean, scale = sim_fit.target([m, m])
+    assert sim_fit.distance(m, mean, scale) == 0 and scale["one tick"] >= 0.01
+
+
 def test_basket_trades_are_signed_against_the_ticks_book():
     from arena.model import Book, MarketTrade
     from experiments.study.cross_product_timing import signed_volume

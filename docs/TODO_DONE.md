@@ -284,6 +284,9 @@ Chosen 2026-10-14 from `references/wiki/concepts/harder-rounds.md` ("Proposals")
 
 ## The edge plan (2026-10-27)
 
+- [x] **Fitting `arena.sim` to the download** (deferred in the edge plan: method of moments over a preset's parameters; "last, if time is left; worthless if the download is unlike our presets"). Brought back 2026-11-02 at the user's request.
+  - **Done 2026-11-02:** `experiments.day.sim_fit` (`IDEAS.md`, "Fitting `arena.sim` to the download, then tuning on many generated days"): it recovers a known spec; P3's Kelp fits and a grid on 20 fitted days ranks its settings as the real days do; P4's Osmium doesn't fit (its flickering inner orders), and there the picks don't carry over. `ON_THE_DAY.md`'s "Choose the approach again each round" uses it where the fit is close.
+
 - [x] **Our bot as an agent inside ABIDES** (deferred in the edge plan; brought back 2026-10-27 when the linear fair's +1.3M came from a recording, where its takes meet no impact).
   - **Done 2026-10-27:** `experiments.study.abides_market` and `python/experiments/abides_export/template_agent.py`; in the market the committed template loses 617k over 10 seeds and the linear fair makes 1.07M, 87% of its replay (`IDEAS.md`, "The template inside ABIDES's market").
   - **Corrected 2026-10-28** (the fourth audit's R14): the agent went up to three times its limit and read its own quotes as the book; fixed, the committed template loses 230k and the linear fair makes 1.27M, 104% of its replay (the same row).
