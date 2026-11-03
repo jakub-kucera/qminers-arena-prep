@@ -83,6 +83,14 @@ Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a d
 
 The engine-fit rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; logs in `python/experiments/mock_round/round3/results/`).
 
+## From the 2026-11-03 rehearsal
+
+The Varde Exchange, a portal that isn't our engine (`IDEAS.md`, "The kickoff prompts on a disguised round"; `python/experiments/mock_round/round4/`). Fixed in the same commit: calibrate's `--help`, its `markPrice` reading (every product's mean too), the fills-only line and the `fill_ratio` hint, the qminers ADAPTER's limit comment, the suggest-units note, RUNBOOK's `premise --engine rust` before a twin exists.
+- [ ] **A fee for each order placed.** The rules charged 0.5 cents an order; `EngineConfig` has only per-lot and bps fees, so every backtest, grid and calibrate overstated PnL by 28% of the gross (€143 of €511) and favoured bots that re-post. Done when: an `order_fee` field in both engines (parity recorded), charged per accepted order, settable in a plug-in's `ENGINE` and by `calibrate --vary`, or the Arena's rules show no such fee (close it).
+- [ ] **A share of each print for resting orders.** The portal gave resting orders half of each print (rounded down); `--fill-ratio 0.5` comes nearest (fills within 2.6%, volume within 10.5%) but draws on all liquidity at random. Done when: the Arena's first upload fits within 5% with `fill_ratio` (close it), or a prints-only deterministic share exists in both engines and calibrate tries it.
+- [ ] **The ZIP's clock in fill_curve.** The ZIP's `step` was the session's step, the engine's timestamps step × 200, and `RESULT_COLUMNS` has no scale, so fill_curve's book lookups miss. Done when: a `RESULT_TIME_SCALE` (or the format's own step → timestamp map) applies when reading the ZIP.
+- [ ] **EXECUTION's top-ups multiply orders.** A partly filled quote is kept and the difference posted as a new order, so up to 22 orders worked one product: each costs an order fee where there is one, and an action against a cap. Done when: a variant that cancels and re-posts the whole size past N orders is gridded net of the order fee on the Varde data, and kept or dropped.
+
 ## Rehearsal and setup
 
 - [ ] **Run a mock round before the event.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.

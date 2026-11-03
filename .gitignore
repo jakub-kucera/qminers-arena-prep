@@ -51,6 +51,11 @@ python/experiments/mock_round/round3/private/verification_uploads/
 python/experiments/mock_round/round3/private/state.json
 python/experiments/mock_round/round3/private/.evaluation.lock
 python/experiments/mock_round/round3/uploads/
+python/experiments/mock_round/round4/public/data/
+python/experiments/mock_round/round4/private/raw/
+python/experiments/mock_round/round4/private/hidden/
+python/experiments/mock_round/round4/private/state.json
+python/experiments/mock_round/round4/uploads/
 
 # Agent worktrees (Claude Code)
 .claude/worktrees/
@@ -59,4 +64,5 @@ python/experiments/mock_round/round3/uploads/
 !python/experiments/mock_round/results/
 !python/experiments/mock_round/round2/results/
 !python/experiments/mock_round/round3/results/
+!python/experiments/mock_round/round4/results/
 .env

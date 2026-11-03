@@ -841,6 +841,10 @@ def test_calibrate_finds_the_engine_setting_a_portal_showed(capsys, monkeypatch,
     out = run(capsys, monkeypatch, "calibrate", "--data", drill_data, "--days", "all", "--format", "drill", "--portal", str(portal), "--jobs", "2")
     assert "NO SETTING REPRODUCES THE PORTAL within 5%" in out and "ENGINE =" not in out
     assert "every money figure is 2 times ours" in out and "--scale 0.02" in out
+    assert "Closest on the fills alone (fills, tradedVolume)" in out and "a cost the engine doesn't charge" in out
+    with pytest.raises(SystemExit) as stop:  # its help text once held a bare % (the 2026-11-03 rehearsal)
+        calibrate.main(["--help"])
+    assert stop.value.code == 0
 
     # A results ZIP: fills read by product and quantity only (a clock timestamp doesn't matter); none found says so.
     import zipfile

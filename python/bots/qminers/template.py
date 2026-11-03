@@ -962,7 +962,8 @@ def params_for(api, product: str) -> dict | None:
     above it is rejected orders)."""
     # drill: if product not in PARAMS: return None; reject unknown keys;
     #        return {**DEFAULTS, **PARAMS[product], "limit": api.max_position(product)}
-    # here:  "limit": min(PARAMS[product].get("limit", DEFAULTS["limit"]), <the exchange's limit>)
+    # here:  "limit": min(PARAMS[product].get("limit", <the exchange's limit>), <the exchange's limit>)
+    #        (not DEFAULTS["limit"]: a placeholder of 50 would cap a larger limit, the 2026-11-03 rehearsal's QUILL at 60)
     raise NotImplementedError("TODO(day): params_for for the Arena's API")
 
 

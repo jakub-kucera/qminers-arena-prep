@@ -27,4 +27,4 @@ uv run python python/experiments/mock_round/private/evaluate.py python/experimen
 
 Results: `IDEAS.md`, "The kickoff prompts on a disguised round".
 
-A second round, the Halden Exchange, ran the restructure's before/after rehearsal on 2026-10-28: `round2/README.md`. A third, the Kestrel Bourse, tested the engine fit on 2026-10-30: `round3/README.md`.
+A second round, the Halden Exchange, ran the restructure's before/after rehearsal on 2026-10-28: `round2/README.md`. A third, the Kestrel Bourse, tested the engine fit on 2026-10-30: `round3/README.md`. A fourth, the Varde Exchange, tested calibrate against a portal that isn't our engine on 2026-11-03: `round4/README.md`.

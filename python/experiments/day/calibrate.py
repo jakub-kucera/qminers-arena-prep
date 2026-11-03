@@ -24,9 +24,12 @@ error per figure is |ours - theirs| / max(|theirs|, 1). Settings are ranked by t
 mean, and the best one's per-figure errors are printed. Its ENGINE dict is printed to paste into the format
 plug-in only if its worst figure is within --accept (5%): above it, no setting reproduces the portal, and the
 cause is usually outside the settings (the audit's round 8, R1): our wrapper or ADAPTER handles something
-their exchange doesn't (a cancel of an order not yet listed, a reject, a cap), or the money is off by a
-common factor (the unit or CREDITS; the factor is printed when every money figure agrees on it, for
---scale). Then keep the plug-in's ENGINE and widen the grid's --modes. Settings whose every figure is within
+their exchange doesn't (a cancel of an order not yet listed, a reject, a cap), a cost the engine doesn't
+charge (a fee per order), or the money is off by a common factor (the unit or CREDITS; the factor is
+printed when every money figure agrees on it, for --scale). It also prints the setting closest on the
+fills and volume alone, and where ours trade more than theirs under most settings, suggests
+--vary fill_ratio (an exchange that gives resting orders only part of each print: the 2026-11-03
+rehearsal's). Then keep the plug-in's ENGINE and widen the grid's --modes. Settings whose every figure is within
 half a per cent of the best's can't be told apart by this upload: the probes decide between them.
 """
 
@@ -54,6 +57,7 @@ TIE = 0.005  # a setting whose every figure's error is within this of the best's
 ACCEPT = 0.05  # the worst figure's error above which no ENGINE is offered to paste (--accept)
 MONEY = ("score", "cash", "breachPenalty", "pnlSe")  # figures a wrong unit or CREDITS scales together, the factor read off them
 SCALED = MONEY + ("markPrice",)  # scaled too, but its reading may be another product's: left out of the factor
+PATH = ("fills", "tradedVolume")  # what the fill model alone decides (with the ZIP's per-product fills and volume)
 
 
 def candidates(base: EngineConfig, vary: dict[str, list]) -> list[EngineConfig]:
@@ -111,8 +115,9 @@ def figures(results, scale: float, penalty: float | None) -> dict[str, list[floa
         "pnlSe": [se_ticks * scale, se_blocks * scale, se_days * scale],
         **{name: [q] for name, q in zip(QUANTILES, quantiles)},
     }
-    if marks:  # one product: its mark; several: their mean, or any one of them (the portal shows one markPrice)
-        out["markPrice"] = [statistics.fmean(marks.values()) * scale, *(m * scale for m in marks.values())]
+    every = [last.marks[p][-1] for p in last.products if last.marks.get(p)]
+    if marks:  # one product: its mark; several: their mean (the traded ones', or every product's), or any one of them
+        out["markPrice"] = [statistics.fmean(marks.values()) * scale, statistics.fmean(every) * scale, *(m * scale for m in marks.values())]
     for r in results:
         for f in r.fills:
             out.setdefault(f"fills {f.product}", [0.0])[0] += 1
@@ -211,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--vary", action="append", default=[], metavar="FIELD=V1,V2", help="one more engine setting to try, e.g. fee=0,1 or delay=0,1 (repeatable)")
     parser.add_argument("--scale", type=float, help="credits per engine price unit (default: the data's Day.info unit times the format's CREDITS)")
     parser.add_argument("--accept", type=float, default=ACCEPT * 100, metavar="PCT",
-                        help=f"the worst figure's error, in per cent, above which no ENGINE is offered (default: {ACCEPT:.0%})")
+                        help=f"the worst figure's error, in per cent, above which no ENGINE is offered (default: {ACCEPT * 100:g})")
     parser.add_argument("--top", type=int, default=12, help="settings to show (default: 12)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="worker processes (default: CPU count)")
     args = parser.parse_args(argv)
@@ -298,8 +303,17 @@ def main(argv: list[str] | None = None) -> int:
             (factor, _), config = min(scaled, key=lambda item: item[0][1])
             print(f"  - the money: under {describe(config)} every money figure is {factor:.4g} times ours and the rest fit,\n"
                   f"    so the unit or CREDITS is off: re-run with --scale {scale * factor:g}")
+        print("  - a cost the engine doesn't charge (a fee per order or message, the 2026-11-03 rehearsal's 28% of the gross):\n"
+              "    rebuild the score from the results ZIP's fills and orders, and net it out of every backtest")
         print("  - the wrapper: our ADAPTER or format wrapper does something their exchange doesn't (a cancel of an order\n"
               "    not listed yet, a reject, a cap): compare the results ZIP's orders with arena.backtest --out of the same file")
+        path = [n for n in theirs if n in PATH or n.startswith(("fills ", "volume "))]
+        if path:
+            config, _, near, p = min(scored, key=lambda s: max(s[3][n] for n in path))
+            over = sum(s[2]["tradedVolume"] > theirs["tradedVolume"] for s in scored) >= 2 / 3 * len(scored) if "tradedVolume" in theirs else False
+            print(f"\nClosest on the fills alone ({', '.join(path)}): {describe(config)}, worst {max(p[n] for n in path):.1%} off"
+                  + ("; ours trade more than theirs under most settings: try --vary fill_ratio=0.25,0.5,0.75 (their exchange may"
+                     "\n  give resting orders only part of each print)" if over and max(p[n] for n in path) > args.accept / 100 else ""))
         return 0
     print("Into the format plug-in (python/arena/formats/qminers.py):")
     print(f"  RESTING = {best.resting}")
