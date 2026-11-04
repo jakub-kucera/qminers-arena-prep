@@ -82,13 +82,20 @@ installed only when the voice step runs, and `say` stays the fallback. Charts ru
 **Order:** HTML and the audio text first, then PDF and EPUB, the voice last.
 
 - `quarto render` in `field_guide/`: HTML, PDF (TinyTeX), EPUB (MathML).
-- **Audio text:** `field_guide/scripts/audio.lua`, run through `quarto pandoc` on each chapter, writes `_audio/<chapter>.txt`:
+- **Audio text:** `field_guide/scripts/audio.sh` runs `scripts/audio.lua` through pandoc on each chapter, in
+  `_quarto.yml`'s order, and writes `_audio/<nn>-<chapter>.txt`:
   - math becomes its `speak` sentence (a formula without one is reported, and the build fails);
   - tables are dropped, with any `.content-visible when-format="audio"` summary kept (so the glossary is a definition
     list, set in two columns in print, not a table);
   - code becomes "the command is in the printed edition";
   - a figure becomes "Figure: <its alt text>".
-- **Voice:** `field_guide/scripts/voice.sh`. It uses Kokoro (local, open weights) where installed, else macOS `say`, renders one audio file per chapter, and joins them with ffmpeg into one `.m4b` with chapter marks.
+  - a source citation written as `[(...)]{.src}` is printed, not read; the "In the repo" box is read as one sentence
+    pointing at the printed edition;
+  - signs and units are read as words ("plus 2,415", "1,477 thousand").
+- **Voice:** `field_guide/scripts/voice.sh`. It uses Kokoro (local, open weights; `scripts/kokoro_say.py`, voice
+  `bf_emma`, the model in `~/.cache/kokoro`) where installed, else macOS `say`, renders one audio file per chapter, and
+  joins them with ffmpeg into one `.m4b` with chapter marks. About 175 words a minute: the sample chapter is 8.5
+  minutes, the whole guide about 80.
 - Outputs go in `field_guide/_book/` and `field_guide/_audio/`, both gitignored. The sources, data, scripts and figures are committed.
 
 ## Checklist for the auditor

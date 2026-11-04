@@ -1,0 +1,6 @@
+_book/
+_audio/
+.quarto/
+
+/.quarto/
+**/*.quarto_ipynb

@@ -1,0 +1,32 @@
+project:
+  type: book
+  output-dir: _book
+
+book:
+  title: "The Field Guide"
+  subtitle: "Market making, backtests and this repo, before the Qminers Algo Trade Arena"
+  date: "2026-11-04"
+  chapters:
+    - index.qmd
+    - 06-backtest.qmd
+
+lang: en-GB
+number-sections: false
+fig-cap-location: bottom
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    html-math-method: mathjax
+    fig-align: center
+  pdf:
+    documentclass: scrreprt
+    papersize: a4
+    fontsize: 11pt
+    geometry: [margin=25mm]
+    toc: true
+    fig-align: center
+  epub:
+    html-math-method: mathml
+    toc: true
