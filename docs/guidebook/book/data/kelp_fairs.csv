@@ -1,0 +1,12 @@
+# uv run python -m arena.grid python/bots/template.py 1 --data p3 --grid 'PARAMS.KELP.fair="wall_mid","sized_mid","weighted_mid","mid"' | --grid PARAMS.KELP.smoothing=0,0.2,0.43,0.6,0.8,0.9 --modes all,worse --engine rust
+axis,setting,pnl_all,pnl_worse
+fair,wall_mid,72708.0,63296.0
+fair,sized_mid,72674.0,63302.0
+fair,weighted_mid,67630.0,56824.0
+fair,mid,65054.0,56729.0
+smoothing,0.6,76806.0,60554.0
+smoothing,0.43,76802.0,60751.0
+smoothing,0.8,76702.0,60283.0
+smoothing,0.9,76610.0,59480.0
+smoothing,0.2,76478.0,60940.0
+smoothing,0,72674.0,63302.0

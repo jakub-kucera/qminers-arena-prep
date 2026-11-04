@@ -63,7 +63,8 @@ has a test for it before anything else is tuned.
 
 Adverse selection has a mirror image. If one trader is reliably informed, their trades are a signal. On Prosperity 3,
 one trader, named Olivia once round 5 showed names, bought at or near each day's low and sold at or near its high: in
-round 5 all 19 of her trades were followed by a move her way at 100, 1,000 and 5,000 ticks. Frankfurt Hedgehogs had
+round 5 every one of her trades that the day left time to measure was followed by a move her way at 100, 1,000 and
+5,000 ticks. Frankfurt Hedgehogs had
 spotted her from trade sizes before names were shown, and traded on her signal
 [(`IDEAS.md`, "Following informed counterparties"; `references/prosperity3-frankfurt-hedgehogs/README.md:270-319`)]{.src}.
 Copying her on top of plain market making took our Croissants from about 2 thousand credits a day to 13 to 26 thousand.

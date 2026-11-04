@@ -1,0 +1,9 @@
+# arena.formats.prosperity.load_days(p3, ['5']): SQUID_INK's market trades with Olivia as buyer or seller; move her way from the wall mid a tick after, at 100, 1,000 and 5,000 ticks (clipped at the day's end)
+day,tick,side,price,lots,counterparty,day_low,day_high,move_100,move_1000,move_5000
+r5d2,1152,buy,1772,15,Charlie,1770.5,1926.0,12.0,86.5,34.0
+r5d2,5802,sell,1926,1,Paris,1770.5,1926.0,68.0,85.0,69.0
+r5d2,5802,sell,1924,14,Charlie,1770.5,1926.0,68.0,85.0,69.0
+r5d3,15153,buy,1762,15,Charlie,1760.5,1987.5,11.0,67.0,170.0
+r5d3,19280,sell,1986,15,Charlie,1760.5,1987.5,5.0,52.5,52.5
+r5d4,20511,sell,2047,15,Charlie,1894.5,2049.0,44.5,26.5,115.5
+r5d4,29575,buy,1896,15,Charlie,1894.5,2049.0,1.5,4.5,4.5

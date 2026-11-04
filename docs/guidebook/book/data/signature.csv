@@ -1,0 +1,90 @@
+# arena.formats.prosperity.load_days(p3 | data/abides, ['1']): mean squared h-tick change of the mid and the wall mid over h, pooled over the days
+market,product,reference,lag,variance_per_tick
+"Prosperity 3, round 1",KELP,mid,1,0.61071
+"Prosperity 3, round 1",KELP,mid,2,0.31891
+"Prosperity 3, round 1",KELP,mid,3,0.22515
+"Prosperity 3, round 1",KELP,mid,5,0.14437
+"Prosperity 3, round 1",KELP,mid,10,0.08494
+"Prosperity 3, round 1",KELP,mid,20,0.05679
+"Prosperity 3, round 1",KELP,mid,50,0.03528
+"Prosperity 3, round 1",KELP,mid,100,0.02622
+"Prosperity 3, round 1",KELP,mid,200,0.02237
+"Prosperity 3, round 1",KELP,mid,500,0.02193
+"Prosperity 3, round 1",KELP,mid,1000,0.02265
+"Prosperity 3, round 1",KELP,wall mid,1,0.06405
+"Prosperity 3, round 1",KELP,wall mid,2,0.04702
+"Prosperity 3, round 1",KELP,wall mid,3,0.04026
+"Prosperity 3, round 1",KELP,wall mid,5,0.0338
+"Prosperity 3, round 1",KELP,wall mid,10,0.03031
+"Prosperity 3, round 1",KELP,wall mid,20,0.02897
+"Prosperity 3, round 1",KELP,wall mid,50,0.02405
+"Prosperity 3, round 1",KELP,wall mid,100,0.0207
+"Prosperity 3, round 1",KELP,wall mid,200,0.01956
+"Prosperity 3, round 1",KELP,wall mid,500,0.02088
+"Prosperity 3, round 1",KELP,wall mid,1000,0.0221
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,1,4.46109
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,2,2.2489
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,3,1.48573
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,5,0.89302
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,10,0.44773
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,20,0.22307
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,50,0.08927
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,100,0.04477
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,200,0.02237
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,500,0.0091
+"Prosperity 3, round 1",RAINFOREST_RESIN,mid,1000,0.0045
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,1,0.24696
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,2,0.1202
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,3,0.08252
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,5,0.04931
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,10,0.02466
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,20,0.0124
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,50,0.00497
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,100,0.0025
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,200,0.00125
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,500,0.00049
+"Prosperity 3, round 1",RAINFOREST_RESIN,wall mid,1000,0.00025
+"Prosperity 3, round 1",SQUID_INK,mid,1,3.23945
+"Prosperity 3, round 1",SQUID_INK,mid,2,2.68567
+"Prosperity 3, round 1",SQUID_INK,mid,3,2.44248
+"Prosperity 3, round 1",SQUID_INK,mid,5,2.31124
+"Prosperity 3, round 1",SQUID_INK,mid,10,2.19448
+"Prosperity 3, round 1",SQUID_INK,mid,20,2.21635
+"Prosperity 3, round 1",SQUID_INK,mid,50,2.21352
+"Prosperity 3, round 1",SQUID_INK,mid,100,1.9234
+"Prosperity 3, round 1",SQUID_INK,mid,200,1.65501
+"Prosperity 3, round 1",SQUID_INK,mid,500,1.39009
+"Prosperity 3, round 1",SQUID_INK,mid,1000,1.34255
+"Prosperity 3, round 1",SQUID_INK,wall mid,1,2.72174
+"Prosperity 3, round 1",SQUID_INK,wall mid,2,2.44244
+"Prosperity 3, round 1",SQUID_INK,wall mid,3,2.27016
+"Prosperity 3, round 1",SQUID_INK,wall mid,5,2.2113
+"Prosperity 3, round 1",SQUID_INK,wall mid,10,2.14328
+"Prosperity 3, round 1",SQUID_INK,wall mid,20,2.19162
+"Prosperity 3, round 1",SQUID_INK,wall mid,50,2.20393
+"Prosperity 3, round 1",SQUID_INK,wall mid,100,1.91939
+"Prosperity 3, round 1",SQUID_INK,wall mid,200,1.65329
+"Prosperity 3, round 1",SQUID_INK,wall mid,500,1.38995
+"Prosperity 3, round 1",SQUID_INK,wall mid,1000,1.34292
+"ABIDES, 10 days",ABM,mid,1,1.56486
+"ABIDES, 10 days",ABM,mid,2,1.5143
+"ABIDES, 10 days",ABM,mid,3,1.4716
+"ABIDES, 10 days",ABM,mid,5,1.39303
+"ABIDES, 10 days",ABM,mid,10,1.34598
+"ABIDES, 10 days",ABM,mid,20,1.37927
+"ABIDES, 10 days",ABM,mid,50,1.62214
+"ABIDES, 10 days",ABM,mid,100,2.00597
+"ABIDES, 10 days",ABM,mid,200,2.63932
+"ABIDES, 10 days",ABM,mid,500,3.87802
+"ABIDES, 10 days",ABM,mid,1000,4.91914
+"ABIDES, 10 days",ABM,wall mid,1,1.90104
+"ABIDES, 10 days",ABM,wall mid,2,1.72685
+"ABIDES, 10 days",ABM,wall mid,3,1.61449
+"ABIDES, 10 days",ABM,wall mid,5,1.4811
+"ABIDES, 10 days",ABM,wall mid,10,1.38672
+"ABIDES, 10 days",ABM,wall mid,20,1.39858
+"ABIDES, 10 days",ABM,wall mid,50,1.61164
+"ABIDES, 10 days",ABM,wall mid,100,1.98706
+"ABIDES, 10 days",ABM,wall mid,200,2.61788
+"ABIDES, 10 days",ABM,wall mid,500,3.84877
+"ABIDES, 10 days",ABM,wall mid,1000,4.88304

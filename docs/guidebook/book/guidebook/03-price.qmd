@@ -1,0 +1,209 @@
+# What is the price?
+
+*You'll need the order book, the touch, the spread, the mid and the walls (chapter 2), and the market maker and the
+backtest as chapter 1 introduced them. Options appear once and are chapter 8's.*
+
+## The story
+
+In a backtest of Prosperity 4's round 1, our template traded Osmium in one market with three other teams' published
+bots, all with resting orders. It lost 371 thousand credits. The cause, traced on one day against one of those bots,
+was one number.
+
+The template priced Osmium at its *wall mid*, the midpoint of the largest order on each side of the book. At tick
+2,400 of day 0 the real wall on the bid side was 23 lots at 9,991. But a rival bot had a 40-lot bid resting at 9,906,
+far below the touch, and 40 is more than 23. So the template took the rival's order for the wall, put its fair value
+at 9,957 against the recorded wall mid of 10,001.5, 44.5 below it, and spent the session selling into bids that were
+worth more than it thought. Its fair was 5 or more off on 36% of ticks
+[(`IDEAS.md`, "The template against the teams' P4 traders in one market")]{.src}.
+
+The fix was a different definition of "the wall": the first level from the top with at least 15 lots, which a large
+order far from the touch can't capture. With it, the same market made +34 thousand credits instead of −371 thousand
+[(`data/rival_fair.csv`; `IDEAS.md`, "Wall-mid definitions")]{.src}. That pair comes from the template as it then
+stood for Osmium, with no smoothing and no stop loss. Today the 15-lot rule is the template's default and Kelp's, while
+Osmium still uses the largest level, but its fair is slowed (`smoothing` 0.9) and a stop loss ends a bad day early
+(`python/bots/template.py`, `PARAMS`). With both, the largest-level rule loses only 3,168 credits in the same market and
+the 15-lot rule makes 70,348 [(`data/rival_fair.csv`)]{.src}. Each layer of caution caught part of the same error.
+
+A Prosperity 4 team, Ryan Challman's, met the opposite problem. Their fair value for the round's vouchers, a kind of
+option, was a running mean that lagged behind the live price. They took the lag for a defect, and early in round 3
+tested a textbook option price that tracked the market closely instead. On their training days it lost about 64,000
+credits per strike (*their claim*). Every fair that followed the live price more tightly, including a micro-price and
+a moving average on its own, "collapsed the deep-ITM fills", those of the vouchers deep in the money, whose prices move
+almost one for one with the underlying's: the lag was the edge
+[(`references/prosperity4-ryan-challman/README.md:266`)]{.src}. In round 4 they found what that kind of edge depends
+on. While the price rises, a lagging running mean sits below it, so resting sells fill on the rise. On a day that
+drifted down 65 ticks, the same lag left resting buys above the market: the deepest voucher, the one that tracks the
+underlying most mechanically, turned to a loss, and the others that track it lost smaller amounts
+[(`references/prosperity4-ryan-challman/README.md:79-87`)]{.src}.
+
+One fair value was wrong because a single order could move it; the other was right because it was slow. Neither is
+about finding the true price. Both are about what the number is for.
+
+## The idea
+
+A market maker quotes around a *fair value*, its estimate of what the product is worth right now. It buys below that
+number and sells above it, and everything it earns is measured from it. So the first question on any market is how to
+estimate it from the book, and the second is how much history to let into the estimate.
+
+### The mid is noisy
+
+The mid, halfway between the best bid and the best ask, is the obvious estimate, and on many books it is a poor one.
+The touch is often made of small orders that come and go: a 2-lot bid appears one tick above the rest, and the mid
+jumps half a tick without anything having changed. Prosperity's Kelp shows it over 300 ticks (@fig-mid).
+
+![The mid and the wall mid over 300 ticks of Prosperity 3's Kelp. Data: `data/mid_and_wall.csv`, from the engine's
+loader.](../figures/f04_mid_and_wall.png){#fig-mid
+fig-alt="Two step lines over 300 ticks: the mid flickers by half a tick constantly; the wall mid moves in fewer, larger steps."}
+
+### The walls know more
+
+On Prosperity, Frankfurt Hedgehogs found that each product's large orders, the walls, came from market-making bots
+that "appeared to know the true price and simply quoted rounded versions of it" (*their claim*, inferred from the
+website's PnL) [(`references/prosperity3-frankfurt-hedgehogs/README.md:882-884`)]{.src}. Small orders from other bots
+sit inside them. So the midpoint of the walls tracks the value far better than the mid does:
+
+::: {.eq speak="the wall mid is the midpoint of the largest order on each side of the book"}
+$$\text{wall mid} = \frac{\text{bid wall} + \text{ask wall}}{2}$$
+:::
+
+Take the Kelp tick of chapter 2's order book: 2 lots bid at 2,029 and 23 at 2,028, 6 lots offered at 2,030 and 25 at
+2,032. The mid is 2,029.5. The walls are the 23 and the 25, so the wall mid is 2,030, and the template's rule, the
+first level from the top with at least 15 lots, picks the same two [(`data/order_book.csv`)]{.src}. That is a fact
+about Prosperity's generator, not a law of markets, and the next sections are about how to check it on new data.
+
+### Noise against signal: the signature plot
+
+A price series mixes two things: moves that last, which a fair value should follow, and noise that comes back, which it
+should ignore. One plot tells them apart without any model. Take the price's change over h ticks, square it, average
+it, and divide by h. For a random walk, whose moves all last, the variance grows in step with h, so the ratio is flat.
+Noise that reverts adds the same amount to every change however long, so it inflates the short horizons most and the
+ratio falls with h. Moves that continue, trends, make it rise. This is the *signature plot*
+[(Bouchaud et al., ch. 2 §2.1.2–2.1.3, eq. 2.8 and Fig. 2.1, PDF pp. 43–46)]{.src}. The book plots its square root,
+a volatility; this chapter plots the variance itself, so a ratio of 17.3 here is about 4.2 on the book's scale.
+
+![The signature plot for Prosperity 3's Kelp, Resin and Squid Ink (round 1, three days) and ABIDES's one stock (ten
+days), for the mid and the wall mid, each scaled to its value at 50 ticks. Data: `data/signature.csv`, from the
+engine's loader.](../figures/g03_signature.png){#fig-signature
+fig-alt="Two log-log panels. For the mid, the one-tick value is 50 times the fifty-tick value on Resin, 17.3 on Kelp, 1.5 on Squid Ink and 1.0 on ABIDES. For the wall mid, Resin is still 49.7, Kelp falls to 2.7, Squid Ink and ABIDES are 1.2. ABIDES's line rises to about 3 at a thousand ticks; Resin's falls to 0.05."}
+
+The plot reads like a diagnosis (@fig-signature). Kelp's mid has 17.3 times the one-tick variance its 50-tick changes imply: most
+of what moves it each tick is the small-order flicker. Its wall mid has 2.7: most of the noise is gone, though not all.
+Resin's mid and wall mid are both about 50, because Resin's value is fixed at 10,000 and every move comes back. Squid
+Ink is close to flat, a random walk that jumps, and so is ABIDES at short horizons; ABIDES then rises to about three
+times its 50-tick value at 1,000 ticks, because its moves continue (and two of its ten days drift)
+[(`data/signature.csv`; `IDEAS.md`, "An independent generator: ABIDES's RMSC04"; `arena.diagnose 1 --data
+data/abides`, its note "drifts on 2 of 10 days")]{.src}. The value at one tick is the diagnose tool's `sig` column, which computes the same ratio day by day and averages it (17.9 for Kelp's mid).
+
+The plot says which estimate to trust and at what timescale. A product whose wall mid is flat needs no smoothing: its
+moves are real. A product whose line falls needs a fair that ignores the falling part.
+
+### The micro-price
+
+There is a third kind of estimate, from the sizes at the touch rather than their prices. If the bid holds 2 lots and the
+ask 6, the next trade is more likely to empty the bid, so the price is more likely to tick down than up. Stoikov writes
+the imbalance as [$I$]{speak="I"}, the bid's size over the bid's and the ask's sizes together, the bid's share of the
+size at the touch, and the *weighted mid*, which leans the mid toward the side with less size:
+
+::: {.eq speak="the weighted mid is the mid plus the spread times the bid's share of the touch's size less a half: it leans toward the thinner side, by up to half the spread"}
+$$W = I\,P^a + (1 - I)\,P^b = \text{mid} + S\left(I - \tfrac{1}{2}\right)$$
+:::
+
+with [$S$]{speak="S"} the spread [(Stoikov, *The micro-price*, eqs. 2–3, PDF p. 3)]{.src}. On the Kelp tick above,
+I is 2 over 8, a quarter, and the weighted mid is 2,029.25, a quarter tick below the mid. This is what most teams call
+the micro-price, and the template has it as `fair: weighted_mid`. Stoikov's own micro-price is different: the mid plus
+an adjustment learned from data, the expected mid far in the future given today's imbalance and spread (eq. 4, PDF
+pp. 3–4). It equals the weighted mid only in a special case (appendix 2, PDF p. 9), and on his two stocks it sat between
+the mid and the weighted mid (PDF p. 6).
+
+On Prosperity's books it doesn't help, and the reason is the walls. The imbalance predicts the plain mid's next move
+well (a ROC area of 0.83 on Kelp), but what it predicts is the mid's own flicker, which the wall mid has already
+removed. As a forecast of the wall mid 1 to 50 ticks ahead, adding the imbalance improves on the wall mid by under 1%
+[(`IDEAS.md`, "Book imbalance `ρ` and the micro-price")]{.src}. As Kelp's fair value, the weighted mid loses: the
+template's total on Prosperity 3's round 1, Resin's 53,976 credits included, is 67,630 against 72,708 with the wall mid
+under the default fill rule, and 56,824 against 63,296 under the strict one; with the plain mid it is 65,054 and 56,729 [(`data/kelp_fairs.csv`; `IDEAS.md`, "The weighted mid as fair
+value")]{.src}. The literature's regime is a book whose touch *is* the market maker's quote, often with a one-tick
+spread. Prosperity's touch is small orders inside the walls.
+
+### Smoothing, and what a filter would choose
+
+The second choice is how much history the estimate uses. The template's `smoothing` is an exponential moving average:
+each tick's fair is `smoothing` times the last one plus the rest times the new price, so 0 uses each tick as it is and
+values near 1 move slowly.
+
+There is a principled starting value. Model the price as a random walk seen through noise, and the best estimate of it
+is a Kalman filter, which in steady state is exactly such an average, with a gain set by the ratio of the noise to the
+walk. Both can be read off the same squared changes as the signature plot. The diagnose tool fits them and prints the
+`smoothing` that matches, its `smooth` column: 0.43 for Kelp's wall mid, 0.97 for Resin's, 0.03 for Squid Ink's
+[(`arena.diagnose 1 --data p3`; `IDEAS.md`, "The Kalman-implied smoothing")]{.src}.
+
+The backtest agrees, with a caveat chapter 10 explains. Smoothing Kelp's fair at 0.43 lifts the template's round total,
+Resin included, from 72,674 credits to 76,802 under the default fill rule, and 0.6 is the best at 76,806, almost the
+same. Under the strict rule no smoothing is best, 63,302 against 60,751 at 0.43 [(`data/kelp_fairs.csv`)]{.src}. Under
+the default rule the formula lands in the flat part of the PnL curve on every Prosperity product, within 0.1% of the
+best; on a simulated noisy Kelp and on ABIDES it
+lands below the best, so it is a place to start a grid, not an answer [(`IDEAS.md`, "The Kalman-implied
+smoothing")]{.src}.
+
+### Robust beats clever
+
+The story's lesson is about robustness. "The largest level" is an argmax, and one outlier captures it: anyone who can
+place a large order far from the touch moves your fair value. "The first level from the top with at least 15 lots",
+the template's `sized_mid`, ignores anything behind the real wall. On products tested without rivals it stayed within
+2.3% of the old rule, and with rivals it saved everything [(`IDEAS.md`, "Wall-mid definitions")]{.src}. When other
+teams' bots share the book, or anyone has a reason to mislead you, prefer the estimate a single order can't move.
+Chapter 9 meets the deliberate version, a spoofer.
+
+### What the fair is for
+
+Ryan Challman's lag shows the last point. A fair value isn't graded on how close it is to some true price. It is graded
+on the fills it produces: which quotes rest where, and which trades take them. A fair that lags a rising price leaves
+its asks low, so they fill on every rise; that is a bet on the drift, and it pays until the drift turns. A fair that
+follows every tick has no such bet and, on their vouchers, no edge.
+
+So the right timescale is the one over which deviations from the fair *come back*, at the horizon you trade them.
+Chapter 7 makes this a parameter, the smile window, which turned a loss of 267 thousand credits into a gain of 442
+thousand on one option [(`IDEAS.md`, "Prosperity 2 round 4's coconut coupons with the template's options modes")]{.src}. Before trading against any deviation, check that it reverts there: the signature plot, its
+autocorrelation, or whether fading it made money on each day separately.
+
+::: {.callout-note title="What would differ on another market"}
+On ABIDES, where value agents hold private views of a hidden price, every estimate we tried, the mid, the wall mid, the
+sized mid and the weighted mid, was about 35 ticks from that price on average, and smoothing made each one worse; its
+signature plot is flat at short horizons, so there is no noise to remove there [(`IDEAS.md`, "An independent generator: ABIDES's
+RMSC04")]{.src}. Inside `arena.sim`, with a maker quoting a tick of noise around the value, the Kalman smoothing was
+0.885 and the best was 0.97: the more noise a book carries, the more smoothing pays, and the further the formula falls
+short [(`IDEAS.md`, "The Kalman-implied smoothing")]{.src}. Prosperity's walls are the easy case.
+:::
+
+::: {.callout-note title="If you know ML"}
+A fair value is an estimator of a latent variable from noisy observations, and the usual lessons hold. Prefer a robust
+statistic when outliers can appear: a trimmed rule over an argmax. Match the smoothing to the signal's timescale, as
+you would a filter's bandwidth; the signature plot is the variogram you would draw for it. Where it breaks: the
+outliers here can be adversarial, placed by someone who profits from your error; the estimator's loss isn't squared
+error but the PnL of the fills it causes, so a biased estimator can win; and the latent "true value" may not exist on
+a market where informed traders, not a generator, set the price.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `fair_value` and `price` in `python/bots/template.py`, chosen per product by `PARAMS[...]["fair"]` (`mid`,
+  `wall_mid`, `outer_mid`, `sized_mid`, `weighted_mid`, `hysteresis_mid`, `fixed`), with `wall_size`, `smoothing` and
+  `imbalance` (the linear micro-price, 0 by default).
+- `uv run python -m arena.diagnose DAYS --data D`: the `mid sig` and `wall sig` columns (the signature at one tick),
+  `smooth` (the Kalman smoothing), and `--suggest` for a PARAMS entry.
+- `uv run python -m experiments.day.imbalance --data D --days DAYS` ranks candidate fairs by how they track the wall
+  mid ahead.
+- The rows: "Wall-mid definitions", "The template against the teams' P4 traders in one market", "Book imbalance `ρ`
+  and the micro-price", "The weighted mid as fair value", "The Kalman-implied smoothing".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* which fair value each Arena product used and why, what its
+signature plot and the diagnose tool's notes showed on the first download, whether its walls were an exchange bot's quotes or
+other teams' orders, and whether `smoothing` was set from the Kalman column or a grid.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Stoikov, *The micro-price* (9 pp.): the weighted mid's flaws (PDF p. 3), the micro-price as a limit of expected mids,
+  and how it compares on two stocks (PDF p. 6).
+- Bouchaud et al., *Trades, Quotes and Prices*, ch. 2 §2.1.2–2.1.4 (PDF pp. 43–47): the signature plot, microstructure
+  noise and the bid–ask bounce; ch. 7 §7.1–7.3 (PDF pp. 137–145): what the book's volumes say about the next move.
+:::

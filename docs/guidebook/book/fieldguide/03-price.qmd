@@ -5,8 +5,8 @@ chapter 1 introduced them.*
 
 ## The story
 
-In a backtest of Prosperity 4's round 1, our template traded Osmium in one market with three other teams' published
-bots, all with resting orders. It lost 371 thousand credits. The cause, traced on one day against one of those bots,
+In a backtest of Prosperity 4's round 1 in October, our template traded Osmium in one market with three other teams'
+published bots, all with resting orders. It lost 371 thousand credits. The cause, traced on one day against one of those bots,
 was one number.
 
 The template prices a product at its *wall mid*, the midpoint of the largest order on each side of the book. At tick
@@ -18,7 +18,9 @@ worth more than it thought. Its fair was 5 or more off on 36% of ticks
 
 The fix was a different definition of "the wall": the first level from the top with at least 15 lots, which a large
 order far from the touch can't capture. With it, the same market made +34 thousand credits instead of −371 thousand, and
-on the products tested without rivals (Starfruit, Kelp, Osmium and Pepper Root) it stayed within 2.3% of the old rule [(`IDEAS.md`, "Wall-mid definitions")]{.src}.
+on the products tested without rivals (Starfruit, Kelp, Osmium and Pepper Root) it stayed within 2.3% of the old rule [(`IDEAS.md`, "Wall-mid definitions")]{.src}. The template has changed since:
+it now smooths Osmium's fair and stops its losses, and the same market gives −3 thousand credits with the old rule and
++70 thousand with the new one [(`data/rival_fair.csv`)]{.src}. The lesson holds either way.
 
 ## The idea
 

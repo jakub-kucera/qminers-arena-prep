@@ -1,0 +1,7 @@
+# uv run --with jsonpickle python -m arena.backtest python/bots/template.py 1 --data p4 [--vs <DU round2.py | Baguette Fromage Phase1.py | DTU round_2 trader.py>]: the template's Osmium PnL over round 1 (credits)
+field,osmium_pnl
+alone,55902.0
+against DU,27658.0
+against Baguette Fromage,30106.0
+against DTU,32492.0
+against all three,15632.0

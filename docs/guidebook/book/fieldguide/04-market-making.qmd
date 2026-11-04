@@ -100,7 +100,7 @@ everyone gets more of the informed flow too.
 :::
 
 ::: {.callout-note title="Go deeper" appearance="simple"}
-- Harris, *Trading and Exchanges*, ch. 14 "Bid/Ask Spreads", to the end of §14.4 (PDF p. 322): why spreads are as wide as
+- Harris, *Trading and Exchanges*, ch. 14 "Bid/Ask Spreads", to the end of §14.4 (PDF p. 323): why spreads are as wide as
   they are.
 - Bouchaud et al., *Trades, Quotes and Prices*, ch. 16 §16.1–16.2 and ch. 17 (PDF pp. 317–330, 338–350): the theory
   of the spread, and the profitability of market making.

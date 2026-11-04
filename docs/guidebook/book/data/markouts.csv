@@ -1,0 +1,42 @@
+# uv run python -m arena.backtest python/bots/template.py 1 --data p3 | data/abides --engine rust --out DIR: the passive fills' side x (reference h ticks later - price), volume-weighted over the days
+market,reference,horizon,markout,lots
+Prosperity 3 Kelp,mid,0,0.444,21382
+Prosperity 3 Kelp,mid,1,0.673,21382
+Prosperity 3 Kelp,mid,2,0.671,21382
+Prosperity 3 Kelp,mid,5,0.673,21382
+Prosperity 3 Kelp,mid,10,0.674,21360
+Prosperity 3 Kelp,mid,20,0.679,21341
+Prosperity 3 Kelp,mid,50,0.647,21279
+Prosperity 3 Kelp,mid,100,0.665,21158
+Prosperity 3 Kelp,mid,200,0.687,20980
+Prosperity 3 Kelp,mid,500,0.718,20468
+Prosperity 3 Kelp,wall mid,0,0.693,21382
+Prosperity 3 Kelp,wall mid,1,0.678,21382
+Prosperity 3 Kelp,wall mid,2,0.67,21382
+Prosperity 3 Kelp,wall mid,5,0.673,21382
+Prosperity 3 Kelp,wall mid,10,0.677,21360
+Prosperity 3 Kelp,wall mid,20,0.685,21341
+Prosperity 3 Kelp,wall mid,50,0.653,21279
+Prosperity 3 Kelp,wall mid,100,0.67,21158
+Prosperity 3 Kelp,wall mid,200,0.703,20980
+Prosperity 3 Kelp,wall mid,500,0.716,20468
+ABIDES,mid,0,2.388,474676
+ABIDES,mid,1,-0.323,474676
+ABIDES,mid,2,-0.175,474676
+ABIDES,mid,5,0.024,474676
+ABIDES,mid,10,0.034,474384
+ABIDES,mid,20,0.117,474374
+ABIDES,mid,50,-0.088,473641
+ABIDES,mid,100,-0.321,472501
+ABIDES,mid,200,-0.618,470192
+ABIDES,mid,500,-0.667,462604
+ABIDES,wall mid,0,2.35,474377
+ABIDES,wall mid,1,0.207,474354
+ABIDES,wall mid,2,0.165,474474
+ABIDES,wall mid,5,0.141,474510
+ABIDES,wall mid,10,0.12,474103
+ABIDES,wall mid,20,0.13,474351
+ABIDES,wall mid,50,-0.078,473398
+ABIDES,wall mid,100,-0.328,472246
+ABIDES,wall mid,200,-0.607,470192
+ABIDES,wall mid,500,-0.624,462604

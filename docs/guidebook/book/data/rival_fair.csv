@@ -1,0 +1,6 @@
+# uv run --with jsonpickle python -m arena.backtest python/bots/template.py 1 --data p4 --resting --requote --vs <DU round2.py, Baguette Fromage Phase1.py, DTU round_2 trader.py> --set PARAMS.ASH_COATED_OSMIUM.fair=wall_mid|sized_mid [--set PARAMS.ASH_COATED_OSMIUM.smoothing=0 --set PARAMS.ASH_COATED_OSMIUM.stop_loss=None]: Osmium's PnL over round 1
+template,fair,osmium_pnl
+"no smoothing, no stop loss (the IDEAS row's run)",wall_mid,-371138.0
+"no smoothing, no stop loss (the IDEAS row's run)",sized_mid,34151.0
+"as committed: smoothing 0.9, stop loss 5,500",wall_mid,-3168.0
+"as committed: smoothing 0.9, stop loss 5,500",sized_mid,70348.0

@@ -1,0 +1,204 @@
+# Why does a market maker earn anything?
+
+*You'll need the book, the spread, taking and making, and fills (chapter 2), and the fair value and the wall mid
+(chapter 3). Fill models are chapter 10's; here it is enough that a backtest has to assume which quotes fill.*
+
+## The story
+
+Put our template alone into Prosperity 3's round 1 and it makes 72,674 credits over three days. Put a second copy of
+the same bot into the same market, quoting the same prices, and each copy makes about 41 thousand: 41,352 and 41,848.
+With two copies beside it, each makes 27 to 30 thousand (@fig-copies). Nothing about the market changed except that
+someone else was offering the same thing at the same price
+[(`data/copies.csv`; the method in `IDEAS.md`, "The template against copies of itself")]{.src}.
+
+![The same bot alone, against one copy of itself and against two, on Prosperity 3's round 1. Data: `data/copies.csv`,
+from `arena.backtest ... --vs python/bots/template.py`.](../figures/f06_copies.png){#fig-copies
+fig-alt="Bar chart: alone 73 thousand; with one copy 41 and 42 thousand; with two copies 27, 29 and 30 thousand."}
+
+Other teams' bots do the same. On Prosperity 4's Osmium, alone and with orders that live one tick (the default mode),
+the template makes 55,902 credits in round 1. Against
+one of three published teams' bots it keeps 27,658 to 32,492, about half; against all three at once, 15,632, under a
+third [(`data/osmium_rivals.csv`)]{.src}. Measured on 13 October, the spread on Osmium was a pie of 55 to 62
+thousand credits a round, and the bots in the market split it [(`IDEAS.md`, "The template against the teams' P4
+traders in one market")]{.src}.
+
+In round 2 of the same competition, the organisers offered "extra market access" to every team whose bid was above
+the median bid: about 20% more quotes in their feed, but not 20% more trades. Baguette Fromage, a team whose round 1
+income came from market making and from quoting on empty sides of the book, read it as a trap. More market makers'
+quotes in the book could only tighten the spread, and fill the empty sides they were earning on. "Why would a rational
+team want to PAY for more market maker competition, let alone have more market maker competition at all (even if for
+free)?" They bid zero. The median bid, the organisers announced later, was
+50, so at least half the field bid 50 or more for the right to face more competition
+[(`references/prosperity4-baguette-fromage/README.md:500-519`)]{.src}. We never tested their reasoning; it follows
+from this chapter's idea.
+
+A market maker's income is a rent, and rents are shared.
+
+## The idea
+
+### The spread is a fee for immediacy
+
+Someone who wants to trade *now* crosses the book and pays the spread: they buy at the ask, above the mid, or sell at
+the bid, below it. Someone willing to wait posts an order and lets the hurried come to them. The market maker is the
+one who waits on both sides at once. Each time a taker buys from its ask and another sells to its bid, it has bought
+low and sold high by the width of its quotes, without needing any view of where the price is going.
+
+The Varde rehearsal shows this at small scale (@fig-round-trip): the template's first 400 steps on one product of a
+mock round we ran with its own exchange, which quotes in cents and scores in euros; the figure shows euros. Most of its fills are passive, sells above the mid and
+buys below it, with some takes among them; its position swings between short 9 and long 6 and keeps coming back to
+zero; and its profit climbs in small steps, about €4 over 400 steps, while the price itself drifts down.
+
+![A market maker's first 400 steps: LUMEN, the Varde rehearsal's session 1. Top, the mid and our fills; middle, our
+position; bottom, PnL valued at the mid. Data: `data/round_trip.csv`, from the rehearsal portal's fills.](../figures/f05_round_trip.png){#fig-round-trip
+fig-alt="Three panels over 400 steps: the price drifts down from 101.5 to 101.2 euros with our buys below and sells above it; our position swings between minus 9 and plus 6 lots; our profit rises steadily to about 4 euros."}
+
+The position matters as much as the fills. A market maker that bought and never sold isn't earning a spread; it is
+holding a bet on the price. The income exists only because buys and sells alternate closely enough that the position
+keeps returning to zero. Chapter 6 is about what happens when it doesn't.
+
+### One tick of the template's quotes
+
+The template does this with three steps each tick, in `trade_product`: *take* any book order priced at least
+`take_edge` better than the fair, *clear* some of the position at prices near the fair, then *make*: quote both sides
+around the fair. Take the Kelp tick from chapter 2 again, with no position: 2 lots bid at 2,029 and 23 at 2,028, 6
+offered at 2,030 and 25 at 2,032. Kelp's settings are `fair: sized_mid` and `make_edge` 0.5, the rest the defaults
+(`python/bots/template.py`, `PARAMS["KELP"]`).
+
+The fair is the sized mid, 2,030. Nothing is a take: the best ask, 2,030, is not a credit below the fair, and the
+default `take_edge` is 1. Nothing to clear with no position. The make step puts the bid at the fair less half a tick,
+rounded down to 2,029, and the ask at the fair plus half a tick, rounded up to 2,031; neither is more than one tick
+inside the best quote on its side (`make_inside` 1), so they stay. With `make_size` unset each quote is the full room
+under the limit, 50 lots a side. Run through the template's own functions, the plan for that tick is exactly that: a
+bid of 50 at 2,029 and an ask of 50 at 2,031, no takes.
+
+So the bot joins the best bid and sits one tick behind the best ask. If a seller hits 2,029, the bot has bought a credit
+below its fair; if a buyer lifts 2,031, it has sold a credit above. Either way the fill is worth one credit a unit at
+once, against the fair. Whether it is still worth that later is the next question.
+
+### What can go wrong: the price moves after you trade
+
+If that were the whole story, every market maker would be rich. The catch is what happens after a fill. When a taker
+buys from you, you are now short. If the taker knew something, the price rises, and the short loses more than the
+spread earned. So the question is not "how wide is the spread" but "how wide is the spread compared with how far the
+price moves, on average, in the direction of the trades".
+
+*Trades, Quotes and Prices* (eq. 17.13, PDF p. 345) gives the gain of a patient market maker, per unit traded:
+
+::: {.eq speak="a market maker's gain per unit traded is half the average spread, less how far the price eventually moves in the direction of the trades"}
+$$\frac{\mathbb{E}[\mathcal{G}]}{\nu_0 T} = \frac{\mathbb{E}[s]}{2} - \mathcal{R}_\infty$$
+:::
+
+In it, [$s$]{speak="s"} is the spread and [$\mathcal{R}_\infty$]{speak="R infinity"} is the long-run *impact*: after a
+buy, how far the mid ends up above where it was, on average, and the same for sells with the sign flipped (the book's
+eq. 1.9, PDF p. 35). Half the spread is what each fill earns at once; the impact is what the market takes back later.
+On the large stock markets the book studies, the two nearly cancel, and without the exchange's rebates the plain
+strategy loses (§17.2.2): making markets is a competitive business with thin margins.
+
+### Measuring the margin before writing a bot
+
+Both sides of the formula can be measured from the recorded trades alone, with no bot at all. The diagnose tool,
+`arena.diagnose`, does it per product. For every market trade it notes the taker's side, +1 for a trade at or above
+the best ask and −1 at or below the best bid, then two numbers against the wall mid: what the taker paid, the side
+times the price less the wall mid (the tool prints its negative as the taker's `edge`), and how far the wall mid moved their way 50 ticks later, standing in for the long run. The market maker who
+took the other side of every trade earns the first and gives back the second
+[(`python/arena/diagnose.py`, its docstring's "Market trades")]{.src}.
+
+![The two parts of the margin per unit, for Prosperity 3's round 1 products (credits) and ABIDES's stock (cents),
+against the wall mid. Data: `data/margins.csv`, from `arena.diagnose 1 --data p3` and
+`--data data/abides`.](../figures/g04_margins.png){#fig-margins
+fig-alt="Horizontal bars per product. Kelp: takers pay 0.93 a unit, the price moves 0.01 against them after, margin plus 0.94. Resin: 1.49 paid, 0.07 taken back, margin plus 1.41. Squid Ink: 0.93 paid, margin plus 0.95. ABIDES: 0.99 cents paid, 1.31 taken back, margin minus 0.32."}
+
+The two cases look like this (@fig-margins). On Prosperity 3's Kelp a taker pays 0.93 credits a unit, and 50 ticks later the
+price has moved 0.01 *against* them: the market maker keeps 0.94 a unit. Resin keeps 1.41, Squid Ink 0.95. On ABIDES a
+taker pays 0.99 cents a unit and the price then moves 1.31 their way: the market maker loses 0.32 a unit
+[(`data/margins.csv`)]{.src}. On Prosperity 4's round 1 the margins are larger in credits because the spreads are wider,
+7.93 on Osmium and 3.78 on Pepper Root, but as a share of the spread they are the same kind of number: 0.49 and 0.37,
+against Kelp's 0.41 and ABIDES's −0.21 [(`data/margins.csv`)]{.src}.
+
+That one measurement says whether plain market making can work on a market at all. Prosperity is the easy case, the
+textbook's "zero-intelligence" market where takers know nothing: trades barely move the price. A second sign agrees.
+On Prosperity a trade's side says almost nothing about the next trade's: the correlation of consecutive signs is 0.09
+to 0.13, against 0.37 to 0.93 on NASDAQ stocks [(`IDEAS.md`, "Does market making pay here, by the textbook's
+test?")]{.src}. On ABIDES it is 0.36: trades come in runs, as they do when someone large is working an order
+[(`data/margins.csv`)]{.src}. Chapter 5 is about the market on the other side of that number.
+
+The margin is an upper bound for one bot, not a forecast. It is what the *average* taker leaves on the table against
+the wall mid, before anyone competes for it and before any fill rule. The template's own passive fills on Kelp earn
+0.69 credits a unit and keep it for 500 ticks (chapter 5's markout figure), less than 0.94; we haven't measured why.
+
+### So where does the income come from?
+
+Three things decide it, and you control only some of them:
+
+- **How much uninformed flow there is,** traders who cross the spread for reasons that don't predict the price. They
+  are the market maker's customers. You can't create them.
+- **How many others compete for them.** The story: a second bot at your price takes a little under half. Quoting a
+  little better than the others wins the trades, but each step inside the spread gives away margin.
+- **How well you avoid the informed.** Quoting further from the fair, pulling quotes when the book looks dangerous,
+  or skewing them against your position (moving both quotes so the side that adds to it is the less attractive)
+  all trade a little income for safety. Chapter 5 is about the informed, chapter 6 about the position.
+
+### Competition is the spread's other side
+
+Baguette Fromage's reasoning is the textbook's, in reverse. If market makers earn more than their risk, others join,
+undercut each other's quotes and narrow the spread until the margin is thin. The large stock markets are at the end
+of that process; Prosperity's bots aren't, which is why its margins are a third or more of the spread. In a contest
+every team is a potential market maker in the same book, if the book is shared. Each one that quotes at your price
+splits the flow, and each one that quotes inside you takes it.
+
+The mechanism is the matching rule of chapter 2. An incoming order trades with the best price first, so a bid one
+credit higher than yours is hit before yours is. Quoting a tick inside the others, *pennying*, wins the next trades and
+gives up a tick of margin on each; the others can do the same, and the margin goes down a tick at a time until one of
+them would rather wait. That is why the template's make step has two limits, a distance from the fair it won't come
+inside (`make_edge`) and a number of ticks inside the best quote it won't go beyond (`make_inside`): it competes for
+the trades, but not past the point where they stop paying. On the Kelp tick above, the bot joined the best bid rather
+than bidding 2,030, which would have bought from the 2,030 ask at its own fair and earned nothing.
+
+Osmium shows the rest of the arithmetic. Against one team's bot the template kept 49 to 58% of what it made alone, and
+against three, 28% [(`data/osmium_rivals.csv`)]{.src}. Three rivals didn't leave it a quarter each: they quote at
+different distances, take differently and hold different positions, so the pie isn't cut evenly, and a replay can't
+say how the takers themselves would have reacted to four market makers instead of one.
+
+One caution about @fig-copies: between them the copies make a little more than one bot alone (83 and 86 thousand
+against 73). Don't read anything into that: a replay can't let the market react to two bots instead of one, so the
+total isn't something a real market would pay. Read each copy's share, which is what would be scored. And a share
+depends on how the exchange breaks ties between two orders at the same price, which a replay also has to assume.
+
+::: {.callout-note title="What would differ on another market"}
+On ABIDES the margin is negative, −0.32 cents a unit, because value and momentum agents move the price after their
+trades; the template as committed loses there under every fill model (chapter 5). On the Varde rehearsal's exchange a fee on
+every order placed, not just every lot traded, took 28% of the gross: a cost the margin in this chapter doesn't see
+(chapter 12). Prosperity 4's Osmium has a margin eight times Kelp's in credits and a
+similar share of its spread. The formula is the same everywhere; the measurement is per market and per product.
+:::
+
+::: {.callout-note title="If you know ML"}
+Measuring [$\mathbb{E}[s]/2 - \mathcal{R}_\infty$]{speak="half the spread less the impact"} from the data is
+estimating a baseline's expected reward before you train anything: if it is negative, no amount of tuning a plain
+market maker will fix it. The copies are a multi-agent effect: the reward is shared, so a policy that looks good alone
+is worth less in a population of similar policies. Where it breaks: the margin is measured on other traders' trades,
+and your quotes change who trades with you. A bot that quotes tighter than everyone gets more of the informed flow too.
+:::
+
+::: {.callout-tip title="In the repo"}
+- The margin, per product: `uv run python -m arena.diagnose 1 --data p3` (the `edge`, `R(1)`, `R(50)`, `slow` and
+  `fast` columns; its notes say "market making pays" or "thin or negative market-making margin", as a share of the
+  spread; `--csv` writes the same against the mid as well).
+- Copies and rivals in one market: `arena.backtest BOT DAYS --vs OTHER_BOT` (repeatable; `--requote` for bots written to
+  cancel every tick).
+- The rows: "Does market making pay here, by the textbook's test?", "The template against copies of itself", "The
+  template against the teams' P4 traders in one market".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* each product's margin from `arena.diagnose` on the first
+download, whether the market was shared with the other teams, and what the copies and rivals test said about how much
+of the spread our bot could keep.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Harris, *Trading and Exchanges*, ch. 14 "Bid/Ask Spreads", to the end of §14.4 (PDF p. 323): why spreads are as wide
+  as they are.
+- Bouchaud et al., *Trades, Quotes and Prices*, ch. 16 §16.1–16.2 and ch. 17 (PDF pp. 317–330, 338–350): the theory
+  of the spread, and the profitability of market making.
+:::
