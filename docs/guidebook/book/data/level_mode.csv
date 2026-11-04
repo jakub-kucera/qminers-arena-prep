@@ -1,0 +1,10 @@
+# uv run python -m experiments.day.p4_level_template --engine rust: P4 rounds 3-4's four distinct days, thousands of credits over the four
+product,setting,pnl_k
+HYDROGEL_PACK,held out (nested leave-one-day-out),149.9
+HYDROGEL_PACK,in-sample (all four days),179.6
+HYDROGEL_PACK,level from the other days,170.8
+HYDROGEL_PACK,level from the day so far,113.7
+VELVETFRUIT_EXTRACT,held out (nested leave-one-day-out),98.9
+VELVETFRUIT_EXTRACT,in-sample (all four days),120.7
+VELVETFRUIT_EXTRACT,level from the other days,109.4
+VELVETFRUIT_EXTRACT,level from the day so far,71.2

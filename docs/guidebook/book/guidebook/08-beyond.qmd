@@ -1,0 +1,225 @@
+# What else can a bot trade?
+
+*You'll need the fair value (chapter 3), why making earns (chapter 4), informed traders (chapter 5), what a position
+costs (chapter 6), levels and jumps (chapter 7), fill models (chapter 10), and held-out days (chapter 11).*
+
+## The story
+
+In Prosperity 2, a team called Linear Utility went into round 4 in second place. The round added a coconut coupon, a
+call option on coconuts with a strike of 10,000 and 250 days to expiry. They priced it with Black–Scholes, saw its
+implied volatility swing around 16%, and traded the swings, as they had traded a basket the round before. To bet on the
+volatility alone they needed to hedge the coupon's exposure to coconuts. They couldn't fully: the coupon's delta was
+about 0.53, so 600 coupons, their limit, moved like about 318 coconuts, and they were allowed 300. About 18 deltas were
+left over, and they chose to hold them: "holding delta with vega was still positive ev (but higher var)"
+[(`references/prosperity2-linear-utility/README.md:162-166`)]{.src}.
+
+The variance came. They "got unlucky and lost money from our delta exposure", made only 145 thousand in the round, in that
+edition's seashells, and fell to 26th. Their verdict: "we were already second place and thus should've went for lower var to try and keep the lead"
+[(`references/prosperity2-linear-utility/README.md:168-170`)]{.src}.
+
+What failed was a piece of exposure they knew about and kept. Market making earns a little on every trade and holds
+as little as it can; every strategy in this chapter decides to hold a position, because something it measures says the
+price will come to it. The question each time is what the bot is really betting on.
+
+## The idea
+
+### A target instead of a quote
+
+The template's market maker (chapter 4) has no view: it wants a position of zero and leans on its quotes to get back
+there. Each of the template's *target modes* replaces that zero with a number. Some rule outside the book says "hold +60 now", and the bot's execution moves toward it, normally at once, crossing
+the spread up to `clear_edge` from fair. With `cross_excess` set, it crosses only for the part of the gap beyond that
+many lots and works the rest passively (only Hydrogel sets it, at 25)
+[(`python/bots/template.py`, `clear`; `IDEAS.md`, "Passive-first execution toward a target")]{.src}. Market making can
+carry on around the target with whatever room is left.
+
+The table lists the modes, what each bets on, and what Prosperity data said.
+
+| Mode | Bets that | Measured on | Verdict |
+|---|---|---|---|
+| `level` | a price returns to a known level | P4 Hydrogel, Velvetfruit | kept |
+| `basket` | a basket's spread against its legs returns to its usual value | P3 and P2 baskets | kept, taking only; hedging dropped here |
+| `smile` | an option is mispriced against its underlying | P3 and P2 options | kept, take-only; the hedge dropped here |
+| `follow` | an option carries its underlying's level bet, with more room | P4 options | kept |
+| `copy` | one named trader knows where the price is going | P3's Olivia, P4's Marks | kept for Olivia; the Marks dropped here |
+| `jump` | a jump in the price snaps straight back | P4 round 5 | kept, off by default |
+
+::: {.content-visible when-format="audio"}
+Six modes. Level bets that a price returns to a known level, and is kept. Basket bets that a basket's spread against
+its legs returns to its usual value, and is kept for taking only. Smile bets that an option is mispriced against its underlying, and is kept for taking only, without the hedge. Follow
+lets an option carry its underlying's level bet, and is kept. Copy follows one named trader who knows where the price is going, kept for
+Olivia only. Jump bets that a jump snaps straight back, kept but off by default.
+:::
+
+Every row is a Prosperity result, so every verdict is a prior to re-test on the Arena's data, and "dropped here" means
+dropped on Prosperity's days, nothing more [(`IDEAS.md`, rows by mode, below)]{.src}.
+
+### Levels
+
+Chapter 7 introduced the level. In brief: on Prosperity 4's Hydrogel and Velvetfruit each day's mean sat close to
+the others': Hydrogel's between 9,989 and 10,003 credits, against standard deviations of 25 to 38 within a day
+[(`IDEAS.md`, "Trading toward a known level")]{.src}. So the template holds its full limit short once the price is more
+than `level_band` above `level`, and long once it is as far below. Choosing the level and settings on three days and
+scoring the fourth made 149.9 thousand credits on Hydrogel and 98.9 thousand on Velvetfruit over the four held-out
+days. Taking the level from the day so far instead of from the other days cost about a third: 184.9 thousand against
+280.2 with the same settings [(`data/level_mode.csv`, from `experiments.day.p4_level_template`)]{.src}. A level bet is only as good as the level.
+
+### Baskets and their spread
+
+A *basket* is a product whose value is a fixed bundle of others. Prosperity 3's `PICNIC_BASKET1` contained 6 Croissants,
+3 Jams and 1 Djembes; it traded on its own book, next to the books of its three legs. The quantity to watch is the
+*spread*, the template's `basket` mode's signal:
+
+::: {.eq speak="the basket's spread is the basket's price less the weighted sum of its legs' prices"}
+$$\text{spread} = \text{basket} - \sum_i w_i \times \text{leg}_i$$
+:::
+
+with each [$w_i$]{speak="w i"} the number of units of leg i in the basket and every price a wall mid (`python/bots/template.py`,
+`basket_target`). The template then treats the spread as a level: short the basket when the spread is far above its
+usual value, long when far below.
+
+The figure below (@fig-basket) shows why that works on Prosperity 3. Over a day the basket and its legs wander together by hundreds of
+credits, while their difference swings around a premium and keeps returning to it within the day. But the premium moves between days: a mean of 70, then 44, then 32, against
+swings of 79 to 89 [(`data/basket_days.csv`)]{.src}.
+
+![Top: Prosperity 3's `PICNIC_BASKET1` and its six Croissants, three Jams and one Djembes over day 0 of round 2. Bottom:
+their difference over the round's three days, each day's mean in black, and the template's bands at its level 49 plus
+and minus 84, dashed. Data: `data/basket_spread.csv`, from the days themselves.](../figures/g11_basket_spread.png){#fig-basket
+fig-alt="Top: the basket and the weighted legs both fall from about 59,300 to 58,700 credits over one day, close together. Bottom: the spread swings between minus 185 and plus 237, around daily means of 70, 44 and 32 credits, crossing the template's bands at 133 and minus 35 a few times a day."}
+
+With each day's level and band taken from the other
+two days, the baskets made 70.7 thousand credits over Prosperity 3's round 2, against 20.2 thousand for plain market
+making on the same products; chosen on all three days, 139.2. On Prosperity 2's gift basket, 294.3 thousand held out
+against 20.3 [(`IDEAS.md`, "Trading a basket's spread"; re-run with `experiments.day.baskets`)]{.src}.
+
+First, *hedging with the legs never won*. The spread closed mostly by the basket moving, so the legs only
+added costs: 122.2 and 122.4
+thousand with half and with a full hedge, against 139.2 without. Second, the baskets only take. Their prices jump several
+ticks at once, so resting quotes on them were picked off: −321 thousand credits on Prosperity 3 under `--resting`
+[(`IDEAS.md`, "Trading a basket's spread")]{.src}. Baskets nobody announced, found by search on Prosperity 4's round 5, didn't hold on held-out days
+[(`IDEAS.md`, "Residual baskets beyond an identity")]{.src}.
+
+### Options in a page
+
+A *call option* is the right, not the obligation, to buy an underlying at a fixed *strike* price on a fixed day. If
+the underlying ends above the strike, the call pays the difference; otherwise nothing. So its value today depends on
+how likely the underlying is to end above the strike, and by how much, which depends on how much the underlying moves:
+its *volatility*.
+
+Black–Scholes turns that into a price. It assumes the underlying's log price wanders like a random walk with a fixed
+volatility, [$\sigma$]{speak="sigma"}, and asks what a portfolio that copies the option's payoff would cost. The answer is the underlying's
+price times one normal probability less the strike times another: no forecast of direction enters it, only the price,
+the strike, the time left and the volatility. Run it backwards and a market price gives an *implied volatility*: the volatility at which Black–Scholes reproduces the price. It is the market's price restated in units that compare across strikes.
+
+If the model were exactly right, every strike would show the same implied volatility. In Prosperity 3 they don't: plotted against *moneyness*, the log of the strike over the price scaled by the square root of the time left, the
+implied vols trace a curve, the *smile*. The figure below (@fig-voucher-smile) shows Prosperity 3's volcanic rock vouchers on all five of their distinct days. One parabola fits them all; fitted on four days, it misses the fifth by
+under one point of volatility [(`data/voucher_smile_fit.csv`; `IDEAS.md`, "Options: trading implied-volatility deviations from a fitted smile, delta hedging")]{.src}.
+
+![Implied volatility of Prosperity 3's five volcanic rock vouchers against moneyness, on the five distinct days with
+vouchers, and the parabola fitted to all of them. Data: `data/voucher_smile.csv`, from `experiments.day.p3_smile`'s
+points.](../figures/g12_voucher_smile.png){#fig-voucher-smile
+fig-alt="Points for five strikes lie along one U-shaped curve, from about 28 percent volatility for strikes far below the rock's price, down to about 15 percent at the money, and up to about 27 percent for strikes far above it."}
+
+The last idea is *delta*: how many units of the underlying the option moves like. Under Black–Scholes, with no
+interest,
+
+::: {.eq speak="an option's delta is the normal curve's area up to d one, where d one is the log of the price over the strike, plus half the variance to expiry, all over the volatility times the square root of the time left"}
+$$\Delta = N(d_1), \qquad d_1 = \frac{\ln(S/K) + \sigma^2 T / 2}{\sigma\sqrt{T}}$$
+:::
+
+with S the underlying's price, K the strike, T the time to expiry in years and N the normal distribution's cumulative
+probability [(`python/bots/template.py`, `call_delta`; DTU's helpers, `references/prosperity4-dtu-quant-lab/round_3/algorithmic/trader.py:426-430`)]{.src}. Delta runs from near 0 far out of the
+money to near 1 deep in it, as Harris describes in words (*Trading and Exchanges*, §17.3.1.3, PDF p. 368). A trader
+who wants to bet on volatility alone holds minus delta units of the underlying per option: that is the hedge Linear
+Utility couldn't complete.
+
+### What paid on Prosperity's options
+
+The template's `smile` mode prices each voucher at Black–Scholes on the fitted smile, plus the voucher's usual offset
+from it, and takes any book order that strays from that fair. On the two strikes near the money it made 528.8 thousand
+credits over the five days, every day positive, the same under every fill model. The controls took that apart. One flat volatility for every strike did as well (567.0 thousand with quotes, against 559.4 with the smile), and
+no option model at all lost 76.4 thousand. The controls suggest the edge was pricing each voucher off the rock's latest price, and that the smile's shape added
+nothing. The delta hedge cost 49.9 to 256.4 thousand in every variant, and quotes left resting on the vouchers lost 0.6 to 2.6 million (0.6 to 1.5 million unhedged) [(`IDEAS.md`, "Options: trading implied-volatility deviations from a fitted smile, delta hedging"; re-run with `experiments.day.p3_smile --engine rust`)]{.src}.
+
+Prosperity 4's vouchers had a flat volatility within each day, so each was the underlying at a fixed delta; the
+template's `follow` mode lets them carry the underlying's level bet with more room: 768 thousand credits held out over four days, Velvetfruit and its vouchers together (the vouchers
+alone 661 thousand) [(`IDEAS.md`, "What the P4 vouchers are")]{.src}. On
+Prosperity 2's coupon, Linear Utility's own product, the residual drifted instead of reverting, and `smile` paid only
+with an offset averaged over 5,000 ticks (chapter 7). And CMU Physics' fitted smile stopped fitting on the day they were scored; a short rolling window of implied vol took
+their backtest from about 80 thousand to 200 thousand a day, *their claim* [(`references/online-snapshots/chrispyroberts_imc-prosperity-3.README.md:236`)]{.src}. On three
+markets, the smile was the least useful part of the textbook.
+
+### Copying the informed, and fading jumps
+
+Two modes read something other than prices. The `copy` mode follows named traders (chapter 5's Olivia): each of her trades sets
+the target to the limit her way. On top of plain market making it took Prosperity 3's Croissants from 1.4 to 2.1
+thousand credits a day to 13.5 to 25.9 thousand. Choosing whom to follow is the hard part. Picking names by their mean
+move on two days and trading them on the third lost 399.5 thousand; picking only names that were right on 80% of
+trades on each training day chose Olivia alone, and made 54.1 thousand held out, over Prosperity 3's round 5. The hit-rate rule was written after the mean rule
+failed, so it is not a clean test [(`IDEAS.md`, "Following informed counterparties")]{.src}.
+
+The `jump` mode fades jumps. On one product-day of Prosperity 4, `ROBOT_DISHES`' wall mid sat on multiples of 100 and stepped by
+100, and 87% of its 741 jumps were followed by a move the other way. Holding the limit against each jump made 958.8 thousand
+credits over round 5's three days against 457.8 for plain market making, 429.1 thousand of it on that one product-day.
+A gate makes it safe to switch on everywhere: it trades only once most of the day's jumps have reversed; without it,
+fading every jump lost 184.1 thousand on one day. All of these settings were chosen on these three
+days [(`IDEAS.md`, "Fading jumps that snap back")]{.src}.
+
+### Edges a replay can't value, and edges that aren't allowed
+
+Some edges a replay can't test. In Prosperity 4's round 1, one side of the book was empty on about 7.6%
+of ticks, and Baguette Fromage found that a hidden taker would sometimes lift a quote about 100 from fair on that
+side: an expected 18.6 thousand credits a day on Osmium, *their claim*
+[(`references/prosperity4-baguette-fromage/README.md:352-365`)]{.src}. DU reports an admin saying the generator removed 20% of the bots' orders at random
+[(`references/prosperity4-du-trading/README.md:77`)]{.src}. Our engine can't value it at
+all: no recorded trade ever printed outside the visible book, so a far quote fills nothing in any mode
+[(`IDEAS.md`, "Quoting far away when one side of the book is empty")]{.src}.
+
+And some edges are leaks. Hunting for how another team made 1.2 million in one round, Linear Utility regressed that
+year's prices on the *previous* year's public data: last year's diving gear, times about 3, predicted this year's
+roses with an R-squared of 0.99, and last year's coconuts predicted this year's with a beta of 1.25. They called it "fair
+game", since the data was public, and spent the last round trading on known future prices
+[(`references/prosperity2-linear-utility/README.md:176-182`)]{.src}. A year later the bots behaved like the previous
+year's to over 95%, so teams hard-coded trades at known timestamps. Frankfurt Hedgehogs reported it after round 2;
+IMC fixed the bots, banned hard-coding and re-ran the first two rounds
+[(`references/prosperity3-frankfurt-hedgehogs/README.md:967-976`)]{.src}. CMU Physics, 771st when round 1 was first ranked (other teams had hard-coded the live day from the website's sample
+data, and a Squid Ink spike went against them), were 9th once it was re-run, where the spike went their way: "We got
+lucky" [(`references/online-snapshots/chrispyroberts_imc-prosperity-3.README.md:70-72`)]{.src}.
+
+A leak is the purest edge, and the one most likely to be taken away or to count as cheating; chapter 9 says how the
+repo keeps such a bot from being uploaded by accident.
+
+::: {.callout-note title="If you know ML"}
+A target mode is a forecaster whose output is a position rather than a price. The basket's spread is the residual of a linear model whose weights are given, and trading it is trading the
+residual's mean reversion, as with cointegration. Implied volatility is a reparametrisation, like logits for
+probabilities: a monotone transform that makes prices across strikes comparable, so a smile is a calibration curve.
+Where the analogy breaks: in ML a better-fitting model is usually the better one. Here the better fit (the smile)
+added nothing over a flat volatility, and the "complete" model, with the hedge, lost money.
+:::
+
+::: {.callout-tip title="In the repo"}
+- The modes and their parameters: `python/bots/template.py` DEFAULTS (`level`, `level_band`, `level_exit`; `basket`,
+  `hedge`, `hedge_ratio`; `smile`, `underlying`, `strike`, `expiry`, `smile_window`, `follow`; `copy`, `copy_sizes`;
+  `jump_min`, `jump_share`, `jump_seen`; `clear_edge`, `cross_excess`, `cross_max`), and `basket_target`, `call_delta`, `smile_fair`.
+- One experiment for each: `experiments.day.baskets`, `experiments.day.p3_smile` (and `p4_vouchers`),
+  `experiments.day.counterparties` and `experiments.day.informed`, `experiments.day.p4_jumps`,
+  `experiments.day.p4_level_template`; each takes `--data D` and the days for the day's download (`--days ...`, or
+positional days for `p4_vouchers`).
+- The rows: "Trading toward a known level", "Trading a basket's spread", "Residual baskets beyond an identity",
+  "What the P4 vouchers are", "Options: trading implied-volatility deviations from a fitted smile, delta hedging",
+  "Prosperity 2 round 4's coconut coupons with the template's options modes", "Following informed counterparties",
+  "Fading jumps that snap back", "Quoting far away when one side of the book is empty".
+- On the day: `RUNBOOK.md`, "Each round", T+0:30 points at the experiment for each (`python/experiments/README.md`).
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* which of these mechanisms the Arena's rounds had (levels,
+baskets, options, named traders, jumps, empty sides), what each experiment measured on their data, which modes went
+into the submitted bots, and whether the Prosperity verdicts held.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Harris, *Trading and Exchanges*, ch. 17 §17.1–17.4 (PDF pp. 360–385): arbitrage of every kind, pure and
+  speculative, with options and their delta (p. 368), pairs trading and the risks that sink arbitrageurs.
+- Cartea, Jaimungal and Penalva, *Algorithmic and High-Frequency Trading*, ch. 11 (PDF pp. 290–300): pairs trading and
+  the optimal bands for a mean-reverting spread, which `experiments.day.baskets` tests against the template's.
+:::

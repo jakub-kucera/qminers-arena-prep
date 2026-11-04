@@ -1,0 +1,5 @@
+# arena.formats.prosperity.load_days(p3, ['2']): PICNIC_BASKET1's wall mid less 6 CROISSANTS + 3 JAMS + 1 DJEMBES (wall mids); every tick; the template's PARAMS level 49, level_band 84
+day,mean,sd,open,ticks,level,level_band
+r2d-1,70.04,78.64,0.5,10000,49,84
+r2d0,43.91,82.72,-90.0,10000,49,84
+r2d1,32.3,89.18,24.5,10000,49,84

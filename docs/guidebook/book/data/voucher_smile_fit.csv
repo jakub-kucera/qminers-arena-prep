@@ -1,0 +1,8 @@
+# experiments.day.p3_smile.fit_parabola over every tick: v = a m^2 + b m + c
+fit,a,b,c
+all five days,0.2601,0.0139,0.1494
+without r3d0,0.2648,0.0138,0.1486
+without r3d1,0.2617,0.0137,0.1493
+without r3d2,0.2603,0.0152,0.1501
+without r4d3,0.2602,0.0152,0.1498
+without r5d4,0.2476,0.0083,0.1491

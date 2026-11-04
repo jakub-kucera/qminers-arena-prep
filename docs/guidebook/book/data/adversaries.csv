@@ -1,0 +1,20 @@
+# uv run python -m experiments.day.adversaries --data p3 --days 1 --engine rust: --resting, all, thousands of credits
+variant,rival,total,kelp,resin,change,rival_pnl,units_with_rival,their_value_50
+committed,alone,66.6,16.8,49.7,0.0,,,
+committed,template copy,26.9,4.1,22.8,-39.7,25.3,1285,-0.3
+committed,trapper,50.2,16.4,33.8,-16.3,-34.3,25498,9.5
+committed,"spoofer, 1 behind",66.0,15.5,50.5,-0.5,-27.2,41000,14.2
+committed,"spoofer, 10 behind",56.4,16.8,39.6,-10.2,5.0,18744,1.5
+committed,sniper,56.2,16.6,39.7,-10.3,11.2,579,0.0
+every product sized_mid,alone,62.6,16.8,45.8,0.0,,,
+every product sized_mid,template copy,24.3,4.1,20.2,-38.3,26.1,1522,-0.4
+every product sized_mid,trapper,37.3,16.4,20.9,-25.3,-27.6,33269,-4.2
+every product sized_mid,"spoofer, 1 behind",28.1,15.5,12.6,-34.5,-2.7,42930,-8.9
+every product sized_mid,"spoofer, 10 behind",41.8,16.8,25.0,-20.8,13.6,27927,-5.7
+every product sized_mid,sniper,52.2,16.6,35.6,-10.4,13.7,1941,-1.1
+every product wall_mid,alone,63.7,16.8,46.9,0.0,,,
+every product wall_mid,template copy,17.0,3.9,13.1,-46.8,33.9,2180,0.6
+every product wall_mid,trapper,43.6,16.4,27.2,-20.1,-33.3,26251,2.0
+every product wall_mid,"spoofer, 1 behind",36.1,15.6,20.5,-27.7,-9.2,38057,-2.1
+every product wall_mid,"spoofer, 10 behind",-4.6,-2.1,-2.5,-68.4,24.3,1644,-0.9
+every product wall_mid,sniper,54.0,16.5,37.5,-9.7,12.5,1073,-0.2

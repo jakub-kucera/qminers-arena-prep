@@ -1,0 +1,194 @@
+# uv run python -m experiments.day.rival_field --engine rust: P3 round 1, all, thousands of credits
+mode,kelp_make_edge,resin_make_edge,field,pnl_k
+per tick,0.5,1.0,none,70.1
+per tick,0.5,1.0,mm 0.5,54.5
+per tick,0.5,1.0,mm 1,48.1
+per tick,0.5,1.0,mm 2,51.8
+per tick,0.5,1.0,taker,88.4
+per tick,0.5,1.0,sniper,59.3
+per tick,0.5,1.0,spoofer,58.6
+per tick,0.5,1.0,trapper,57.2
+per tick,0.5,1.0,copy,41.3
+per tick,0.5,1.0,three makers,42.6
+per tick,0.5,1.0,adversaries,45.3
+per tick,0.5,1.0,flow,41.7
+per tick,0.5,1.0,crowd,40.2
+per tick,0.5,1.0,six,37.3
+per tick,0.5,1.0,worst,37.3
+per tick,0.5,1.0,mean,51.3
+per tick,0.5,2.0,none,72.7
+per tick,0.5,2.0,mm 0.5,53.4
+per tick,0.5,2.0,mm 1,47.0
+per tick,0.5,2.0,mm 2,51.8
+per tick,0.5,2.0,taker,90.4
+per tick,0.5,2.0,sniper,61.8
+per tick,0.5,2.0,spoofer,61.0
+per tick,0.5,2.0,trapper,56.2
+per tick,0.5,2.0,copy,41.4
+per tick,0.5,2.0,three makers,41.7
+per tick,0.5,2.0,adversaries,45.5
+per tick,0.5,2.0,flow,40.1
+per tick,0.5,2.0,crowd,38.9
+per tick,0.5,2.0,six,35.8
+per tick,0.5,2.0,worst,35.8
+per tick,0.5,2.0,mean,51.2
+per tick,1.0,1.0,none,78.8
+per tick,1.0,1.0,mm 0.5,53.5
+per tick,1.0,1.0,mm 1,50.6
+per tick,1.0,1.0,mm 2,60.6
+per tick,1.0,1.0,taker,95.0
+per tick,1.0,1.0,sniper,68.1
+per tick,1.0,1.0,spoofer,66.8
+per tick,1.0,1.0,trapper,61.6
+per tick,1.0,1.0,copy,39.3
+per tick,1.0,1.0,three makers,41.0
+per tick,1.0,1.0,adversaries,48.7
+per tick,1.0,1.0,flow,38.0
+per tick,1.0,1.0,crowd,37.3
+per tick,1.0,1.0,six,34.8
+per tick,1.0,1.0,worst,34.8
+per tick,1.0,1.0,mean,53.5
+per tick,1.0,2.0,none,81.4
+per tick,1.0,2.0,mm 0.5,52.3
+per tick,1.0,2.0,mm 1,49.5
+per tick,1.0,2.0,mm 2,60.6
+per tick,1.0,2.0,taker,97.0
+per tick,1.0,2.0,sniper,70.6
+per tick,1.0,2.0,spoofer,69.2
+per tick,1.0,2.0,trapper,60.6
+per tick,1.0,2.0,copy,39.4
+per tick,1.0,2.0,three makers,40.1
+per tick,1.0,2.0,adversaries,48.8
+per tick,1.0,2.0,flow,36.4
+per tick,1.0,2.0,crowd,36.0
+per tick,1.0,2.0,six,33.3
+per tick,1.0,2.0,worst,33.3
+per tick,1.0,2.0,mean,53.4
+per tick,1.5,1.0,none,82.0
+per tick,1.5,1.0,mm 0.5,51.3
+per tick,1.5,1.0,mm 1,48.5
+per tick,1.5,1.0,mm 2,60.6
+per tick,1.5,1.0,taker,95.6
+per tick,1.5,1.0,sniper,71.2
+per tick,1.5,1.0,spoofer,70.0
+per tick,1.5,1.0,trapper,63.5
+per tick,1.5,1.0,copy,36.9
+per tick,1.5,1.0,three makers,39.7
+per tick,1.5,1.0,adversaries,50.3
+per tick,1.5,1.0,flow,35.3
+per tick,1.5,1.0,crowd,35.3
+per tick,1.5,1.0,six,32.5
+per tick,1.5,1.0,worst,32.5
+per tick,1.5,1.0,mean,53.1
+per tick,1.5,2.0,none,84.5
+per tick,1.5,2.0,mm 0.5,50.1
+per tick,1.5,2.0,mm 1,47.4
+per tick,1.5,2.0,mm 2,60.6
+per tick,1.5,2.0,taker,97.6
+per tick,1.5,2.0,sniper,73.7
+per tick,1.5,2.0,spoofer,72.5
+per tick,1.5,2.0,trapper,62.4
+per tick,1.5,2.0,copy,37.0
+per tick,1.5,2.0,three makers,38.8
+per tick,1.5,2.0,adversaries,50.5
+per tick,1.5,2.0,flow,33.6
+per tick,1.5,2.0,crowd,34.0
+per tick,1.5,2.0,six,31.0
+per tick,1.5,2.0,worst,31.0
+per tick,1.5,2.0,mean,53.0
+resting,0.5,1.0,none,66.0
+resting,0.5,1.0,mm 0.5,24.3
+resting,0.5,1.0,mm 1,37.7
+resting,0.5,1.0,mm 2,45.2
+resting,0.5,1.0,taker,105.4
+resting,0.5,1.0,sniper,55.6
+resting,0.5,1.0,spoofer,57.5
+resting,0.5,1.0,trapper,54.2
+resting,0.5,1.0,copy,26.8
+resting,0.5,1.0,three makers,24.7
+resting,0.5,1.0,adversaries,50.5
+resting,0.5,1.0,flow,40.0
+resting,0.5,1.0,crowd,28.5
+resting,0.5,1.0,six,40.4
+resting,0.5,1.0,worst,24.3
+resting,0.5,1.0,mean,45.4
+resting,0.5,2.0,none,66.6
+resting,0.5,2.0,mm 0.5,5.4
+resting,0.5,2.0,mm 1,18.8
+resting,0.5,2.0,mm 2,54.8
+resting,0.5,2.0,taker,105.1
+resting,0.5,2.0,sniper,56.2
+resting,0.5,2.0,spoofer,66.0
+resting,0.5,2.0,trapper,50.2
+resting,0.5,2.0,copy,26.9
+resting,0.5,2.0,three makers,9.9
+resting,0.5,2.0,adversaries,47.8
+resting,0.5,2.0,flow,4.8
+resting,0.5,2.0,crowd,0.9
+resting,0.5,2.0,six,8.5
+resting,0.5,2.0,worst,0.9
+resting,0.5,2.0,mean,35.0
+resting,1.0,1.0,none,66.9
+resting,1.0,1.0,mm 0.5,27.7
+resting,1.0,1.0,mm 1,36.4
+resting,1.0,1.0,mm 2,46.8
+resting,1.0,1.0,taker,103.1
+resting,1.0,1.0,sniper,56.2
+resting,1.0,1.0,spoofer,56.4
+resting,1.0,1.0,trapper,51.0
+resting,1.0,1.0,copy,27.3
+resting,1.0,1.0,three makers,17.7
+resting,1.0,1.0,adversaries,48.4
+resting,1.0,1.0,flow,49.0
+resting,1.0,1.0,crowd,38.4
+resting,1.0,1.0,six,44.0
+resting,1.0,1.0,worst,17.7
+resting,1.0,1.0,mean,46.4
+resting,1.0,2.0,none,67.5
+resting,1.0,2.0,mm 0.5,8.9
+resting,1.0,2.0,mm 1,17.5
+resting,1.0,2.0,mm 2,56.5
+resting,1.0,2.0,taker,102.8
+resting,1.0,2.0,sniper,56.9
+resting,1.0,2.0,spoofer,64.9
+resting,1.0,2.0,trapper,47.1
+resting,1.0,2.0,copy,27.4
+resting,1.0,2.0,three makers,2.9
+resting,1.0,2.0,adversaries,45.7
+resting,1.0,2.0,flow,13.8
+resting,1.0,2.0,crowd,10.9
+resting,1.0,2.0,six,12.0
+resting,1.0,2.0,worst,2.9
+resting,1.0,2.0,mean,35.9
+resting,1.5,1.0,none,55.3
+resting,1.5,1.0,mm 0.5,23.6
+resting,1.5,1.0,mm 1,27.0
+resting,1.5,1.0,mm 2,34.8
+resting,1.5,1.0,taker,86.8
+resting,1.5,1.0,sniper,43.6
+resting,1.5,1.0,spoofer,46.6
+resting,1.5,1.0,trapper,42.0
+resting,1.5,1.0,copy,23.4
+resting,1.5,1.0,three makers,17.1
+resting,1.5,1.0,adversaries,38.0
+resting,1.5,1.0,flow,38.5
+resting,1.5,1.0,crowd,28.2
+resting,1.5,1.0,six,35.5
+resting,1.5,1.0,worst,17.1
+resting,1.5,1.0,mean,37.3
+resting,1.5,2.0,none,55.8
+resting,1.5,2.0,mm 0.5,4.7
+resting,1.5,2.0,mm 1,8.1
+resting,1.5,2.0,mm 2,44.4
+resting,1.5,2.0,taker,86.5
+resting,1.5,2.0,sniper,44.2
+resting,1.5,2.0,spoofer,55.1
+resting,1.5,2.0,trapper,38.0
+resting,1.5,2.0,copy,23.5
+resting,1.5,2.0,three makers,2.3
+resting,1.5,2.0,adversaries,35.3
+resting,1.5,2.0,flow,3.4
+resting,1.5,2.0,crowd,0.6
+resting,1.5,2.0,six,3.6
+resting,1.5,2.0,worst,0.6
+resting,1.5,2.0,mean,26.9

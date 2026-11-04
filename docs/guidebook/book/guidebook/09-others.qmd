@@ -1,0 +1,198 @@
+# Who else is in the market?
+
+*You'll need the book and resting orders (chapter 2), the wall mid and `sized_mid` (chapter 3), why making earns and
+what a copy takes (chapter 4), adverse selection (chapter 5) and fill models (chapter 10).*
+
+## The story
+
+Prosperity's market holds only the exchange's own bots, so nothing in its data shows what another team could do to
+us. Our engine can put a rival into the same book (the `--vs` option), so we built some. One is a spoofer: each tick it rests a
+40-lot order 10 ticks behind the best price on one side, where it rarely trades, switches side every 200 ticks, and
+takes any order that crosses its own idea of fair [(`python/bots/rivals/spoofer.py`)]{.src}. It wants nothing from the
+40 lots except to be seen.
+
+Against the template with every product's fair value read from the wall mid, the largest level on each side, the
+spoofer won. On Prosperity 3's round 1, with orders resting, Kelp went from 16.8 thousand credits alone to −2.1
+thousand with the spoofer in the market, and the spoofer made 24.3 thousand across both products, while our bot traded
+only 1,644 units with it. Kelp didn't lose by trading with the spoofer; it lost by trading with everyone else at the
+wrong price, because the 40 lots were the
+largest level and dragged its fair value toward them [(`data/adversaries.csv`; `IDEAS.md`, "Adversarial rivals")]{.src}.
+
+For Kelp the cure cost nothing. On `sized_mid`, the first level from the top with at least 15 lots, which the
+template now uses for Kelp, it made 16.8 thousand with the spoofer there as without it: the far spoof never moved a
+fair that no longer asked which level was biggest. The committed bot still loses 10.2 thousand to the far spoofer,
+all of it on Resin [(`data/adversaries.csv`)]{.src}.
+
+That is what this chapter is about. Everything earlier treated the market as weather, something that happens to the
+bot. When other teams trade in the same book, the market is partly people, some of them trying.
+
+## The idea
+
+### Alone, or in one market
+
+There are two kinds of competition, and they need different preparation. In Prosperity each team trades alone against
+the exchange's bots, and teams compete only through the leaderboard: nobody can take our fills or see our quotes. In
+AlgoTrade 2026, the winners write, "all teams traded in the same shared market"
+[(`references/algotrade2026-negative-eevee/README.md:7`)]{.src}, and UChicago's competition was shared too
+[(`references/wiki/concepts/shared-market-and-adversaries.md`)]{.src}. For the Arena
+it is still unknown: the site calls its leaderboard a market simulation and lists "anticipate competitors" among the
+skills, but says nothing firmer [(`ON_THE_DAY.md`, "Known so far")]{.src}.
+
+In a replay, the only other traders are the recorded ones and whatever we bring. So every number in this chapter is
+from bots we chose to put in the market, and says what they would do, not what the other teams will.
+
+### What a second bot takes
+
+Chapter 4 put copies of the template beside it: alone on Prosperity 3's round 1 it makes 72,674 credits, beside one copy each makes about 41 thousand [(`data/copies.csv`; `IDEAS.md`, "The template against copies of
+itself")]{.src}. Against three real teams' Prosperity 4 bots, the template kept 45 to 51% of Osmium's spread against
+one of them and 20% against all three [(`IDEAS.md`, "The template against the teams' P4 traders in one market")]{.src}.
+
+Theory says the same. In Grossman and Miller's model, as Cartea, Jaimungal and Penalva present it, a trader who must sell [$i$]{speak="i"} units finds [$n$]{speak="n"} market makers willing to take them only at a discount below the
+efficient price [$\mu$]{speak="mu"}, and in equilibrium
+
+::: {.eq speak="the discount the market makers earn is their risk aversion times the variance times the size to be sold, divided by the number of market makers plus one"}
+$$\left|S_1 - \mu\right| = \gamma \sigma^2 \frac{i}{n+1}$$
+:::
+
+with [$\gamma$]{speak="gamma"} their risk aversion and [$\sigma^2$]{speak="sigma squared"} the variance of the price shock
+before the next trader arrives (*Algorithmic and High-Frequency Trading*, §2.1.1, PDF p. 41).
+Each extra market maker shrinks everyone's margin. The spread is a rent, and rents are shared.
+
+Edges other than market making decay the same way, often faster. AlgoTrade's winners ran a cross-exchange arbitrage
+bot that took mispricings "out of the market as soon as they appeared"; "several teams mentioned that their own
+cross-exchange arbitrage became much worse around round 2, which was also when our first prototypes went live"
+[(`references/algotrade2026-negative-eevee/README.md:23`)]{.src}. They also say which edges survive a crowd: mean
+reversion "still allowed other teams to enter later; cross-exchange arbitrage did not". The edge worth having in a
+shared market is the one others can't join late.
+
+### Which setting is best depends on who else is there
+
+A rival changes not only how much we make but which setting is best. The script `experiments.day.rival_field` puts
+six versions
+of the template (Kelp's `make_edge` 0.5, 1 or 1.5, times Resin's 1 or 2) into 14 markets: alone, beside one archetype
+(a plain market maker at three edges, a taker, a sniper, a spoofer, a trapper, a copy of us), and beside mixes of three
+to six of them (@fig-rival-field).
+
+![Our PnL on Prosperity 3's round 1 in each of 14 markets, for the committed settings (Kelp 0.5, Resin 2) and for
+Kelp 0.5 with Resin 1; the grey bar spans all six settings tried. Left, orders that live one tick; right, orders that
+rest. Data: `data/rival_field.csv`, from `experiments.day.rival_field --engine rust`.](../figures/g13_rival_field.png){#fig-rival-field
+fig-alt="Two dot plots, one row per market. With orders living one tick, the two settings stay close everywhere, between about 35 and 90 thousand credits. With resting orders, the committed setting collapses where other makers quote nearer fair: 5.4 thousand against a maker at 0.5, 0.9 in a crowd of five, 8.5 among six bots, where Resin at 1 keeps 24.3, 28.5 and 40.4."}
+
+With orders that live one tick, six different settings were best across the 13 markets with rivals, and the one best
+against a copy alone was neither the best worst case nor the best average. With resting orders the choice matters
+far more. Resin's edge of 2 waits for prices a rival quoting nearer fair takes first: in a crowd of five bots the
+committed setting made 0.9 thousand credits where Resin at 1 made 28.5
+[(`data/rival_field.csv`; `IDEAS.md`, "Our settings against a field of rival archetypes in one market")]{.src}.
+
+What if the rivals adapt too? With the `--game` option, a copy chooses among the same six settings and the two reply
+to each other in turn. Play always settled and never cycled, and with any fixed crowd behind the two of them, Resin at 1 was the stable
+reply. The committed Resin 2 is stable only between two copies alone. The verdict is still `open`: the committed edge stays, decided for the Prosperity products. The row's re-test scores candidates against a field and takes the max-min or the mean choice, never the reply to
+one copy; `ON_THE_DAY.md` repeats it [(`IDEAS.md`, same row; `ON_THE_DAY.md`, "Is the market shared with the other teams?")]{.src}.
+
+### The herd: what an LLM writes
+
+Most teams will hand the rules to a language model and start from what it writes. So the repo has a zoo: bots written
+blind by models from one spec of Prosperity 3's round 1, never edited afterwards (`python/bots/zoo/`). They are the
+baseline the template must beat and the rivals it may meet.
+
+Alone, the best of them beat the template: Claude Opus's baseline made 99.2 thousand credits to the template's 72.7,
+most of the difference from Squid Ink (21.8 thousand), which the template doesn't trade. Under the strict fill rule they were level,
+62.8 against 63.3. Head to head the Opus bot made 61.9 to the template's 40.5, and in a market of thirteen bots the
+template made 31.1 thousand and Opus's market maker 125.1. The models know the Prosperity winners' playbook: the
+Claude bots take, clear at fair and quote one tick inside the best, and five of six hard-code Resin at 10,000 from
+the spec's hint [(`data/zoo.csv`; `IDEAS.md`, "The LLM zoo")]{.src}.
+
+The same model and prompt can also write a disaster. Small local models wrote takers that paid the spread every tick, and quotes that crossed the book after every fill:
+gemma4's second market maker, its inventory skew in the wrong units, lost 1,979.5 thousand alone, and the template made 585.7 thousand next to it, against
+72.7 alone [(`data/zoo.csv`)]{.src}. One sample says little about a model, and a field holding such bots is where
+quoting every product pays most.
+
+### Bots built to hurt
+
+The zoo is careless; the bots in the repo's rivals folder are built to hurt. In Prosperity 3's round 1 with resting
+orders, against the template as committed, the trapper (a large bait one tick inside the best, which sells to whoever
+steps in front of it) cost us 16.3 thousand and lost 34.3 itself; the spoofer one tick behind the best cost 0.5, the
+one 10 behind 10.2, all on Resin; the sniper, which takes any order one tick through its fair, cost 10.3. A plain copy
+of the template cost 39.7, more than any of them [(`data/adversaries.csv`, from `experiments.day.adversaries --data p3 --days 1 --engine rust`)]{.src}.
+
+What protects the committed bot from the near spoof is Resin's fixed fair, not `sized_mid`. With every product on
+`sized_mid`, the spoofer one tick behind cost 34.5 thousand (Resin from 45.8 to 12.6) and the far one 20.8
+[(`data/adversaries.csv`)]{.src}. A far spoof moves a fair read from the largest level; a large order near the touch
+still moves `sized_mid`, since it is the first level with enough lots.
+
+Turning the attack around is harder than it looks. Our spoofer one tick behind the best, run with orders resting
+against the four Claude zoo bots, cost them 1 to 56 thousand more than they lost alone, while the spoofer itself lost
+25.6 to 96.8 thousand every time. Hurting is easy; profiting isn't [(`IDEAS.md`, "Manipulating other bots")]{.src}.
+And a spoofer is exactly the kind of bot the gate below keeps from being uploaded.
+
+### Gray areas, and the gate
+
+Some strategies trade well; others work by fooling the exchange or other teams: spoofing a fair value that reads
+size, pushing the price the close is marked at, using an exchange bug. In real markets the first two are illegal. In
+a competition they are whatever the rules say, and Prosperity's history shows organisers will rule: IMC banned the
+hard-coding of the previous year's bot behaviour and re-ran two rounds (chapter 8). The Arena's rules allow any AI
+tool and forbid help from outside the team [(`ON_THE_DAY.md`, "Known so far")]{.src}; whether they have a market-abuse
+clause is one of the questions for the organisers.
+
+The repo's position is simple: we never game the exchange or other teams outside the rules. Such a variant may still
+be worth building and backtesting, to know what it would gain and to recognise it if someone else runs it. So the repo keeps one from being uploaded by accident (@fig-gate). Any bot file that games the market must set a
+line setting `GRAY_AREA` to what it does; nothing detects a file that doesn't, so the rule is on its author. A file
+that sets it can't pass: the validator fails it, with "GRAY AREA:" and its warning in capitals, and `arena.compact`
+keeps the line and warns, and only `--allow-gray-area`, after an organiser has said yes in writing, turns the failure into a
+warning [(`python/arena/validate.py`, `gray_area_check`; `python/tests/test_validate.py:300`)]{.src}. RUNBOOK's rules
+for the whole day repeat it: never uploaded without an organiser's yes.
+
+![The gate: a bot that trades passes `arena.validate` and may be uploaded; a bot that sets `GRAY_AREA` fails it, and
+only an organiser's written yes and `--allow-gray-area` let it through. From `python/arena/validate.py` and
+`RUNBOOK.md`, "Rules that hold all day".](../figures/g14_gray_area_gate.png){#fig-gate
+fig-alt="Diagram. Top row: a bot file that trades goes through validate to pass and upload. Bottom row: a bot file that sets GRAY AREA goes through validate to a failure, with its reason in capitals; never uploaded without an organiser's yes. Only after a yes written in the day's notes does validating with allow gray area give a warning instead, and lead to upload."}
+
+### The field is noisy too
+
+Other teams also make mistakes, and their mistakes move the leaderboard as much as their skill does. In Prosperity 3, CMU Physics used Jasper's visualiser, which pushed their submission past 100 MB of memory; the platform restarted it, which wiped the
+rolling windows behind their basket and volcanic rock trades, "causing our trader to effectively buy and sell these products randomly". Together with an implied-volatility fit that stopped fitting on the day, it took them from 7th to 241st in that
+round [(`references/online-snapshots/chrispyroberts_imc-prosperity-3.README.md:230-236`)]{.src}.
+Meanwhile Alpha Animals' bug left them short the volcanic rock at its limit all day; it happened to pay, and took
+them to 2nd [(`references/prosperity3-alpha-animals/README.md:135`)]{.src}.
+
+So a rank is a noisy reading of the field: each team's bot, its bugs and its luck. After each deadline the leaderboard
+shows every team's curve, and `experiments.day.leaderboard_curves` reads from them whether the teams shared one market
+[(`IDEAS.md`, "Reading the leaderboard's curves: alone, on the same data, or one shared market?")]{.src}.
+
+::: {.callout-note title="If you know ML"}
+This is multi-agent learning. The best reply to a fixed field is a best response; the max-min choice is a minimax
+policy; the `--game` option is self-play with fictitious play. Against the far spoofer, `sized_mid` is a robust
+estimator against a poisoned input: a rule that a large order far from the touch can't move, where a maximum used to
+be. Where it breaks: an ML adversary usually gets a budget and
+attacks one input, while a market adversary pays for every attack with its own position, which is why most of ours
+lost money. And there is no test distribution to hold out: the field is unknown until it trades.
+:::
+
+::: {.callout-tip title="In the repo"}
+- Rivals in one market: `arena.backtest BOT DAYS --vs OTHER` (repeatable; `--requote` for bots written for orders that
+  live one tick); copies, the zoo through `arena.compare`, and `python/bots/rivals/` (trapper, spoofer with `OFFSET`,
+  sniper, taker).
+- `uv run python -m experiments.day.rival_field --engine rust` (`--candidate`, `--game`, `--background`),
+  `experiments.day.adversaries`, `experiments.day.undercut`, `experiments.study.zoo`, `experiments.day.leaderboard_curves`.
+- The gate: `GRAY_AREA` in the bot file, `arena.validate --allow-gray-area`.
+- The rows: "The template against copies of itself", "The template against the teams' P4 traders in one market",
+  "Adversarial rivals", "Our settings against a field of rival archetypes in one market", "The LLM zoo", "Manipulating
+  other bots", "A spoof tell from the data".
+- On the day: `RUNBOOK.md`, "Each round", T+1:30 and "After"; `ON_THE_DAY.md`, "Is the market shared with the other
+  teams?" and "Gray-area variants".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* whether the Arena's teams shared one market, what the leaderboard
+curves said after round 1, what the round's zoo bots made against ours, what the market-abuse rules were, and whether
+any gray-area variant was built.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Harris, *Trading and Exchanges*, ch. 11 §11.1.2 (PDF pp. 261–263): quote matchers, which the template is, and the
+  traders who trap them.
+- Cartea, Jaimungal and Penalva, *Algorithmic and High-Frequency Trading*, §2.1 (PDF pp. 38–41): Grossman and Miller,
+  and what competition does to a market maker's margin.
+- Wang and Wellman, *Spoofing the Limit Order Book: An Agent-Based Model* (PDF p. 4): the spoofer one tick
+  behind the best, in an agent-based market.
+:::
