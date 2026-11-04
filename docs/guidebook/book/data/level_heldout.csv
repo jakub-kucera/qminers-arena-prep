@@ -1,0 +1,4 @@
+# uv run python -m experiments.day.p4_level_template --engine rust: thousands of credits over P4 rounds 3-4's four distinct days; the last two, the committed settings with the level from the other days or from the day so far
+product,held_out,in_sample,level_other_days,level_day_so_far
+HYDROGEL_PACK,149.9,179.6,170.8,113.7
+VELVETFRUIT_EXTRACT,98.9,120.7,109.4,71.2

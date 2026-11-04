@@ -1,0 +1,5 @@
+# experiments.study.kelp_drift's mirrored() and arena.engine.run_day: python/bots/template.py on P3 round 1, --match-trades all; KELP; riding = sum of position x the next change in the wall mid (riding_mid: in the mid)
+day,pnl,pnl_mirrored,mean_position,mean_position_mirrored,riding,riding_mid,mark_open,mark_close
+r1d-2,6724.0,6724.0,27.8,-27.8,413.5,5440.5,2000.0,2028.0
+r1d-1,6247.0,6247.0,21.5,-21.5,-70.5,4867.5,2028.5,2029.0
+r1d0,5726.5,5726.5,24.3,-24.3,-518.0,4119.0,2030.0,2033.5

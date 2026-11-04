@@ -7,6 +7,35 @@ book:
   date: "2026-11-04"
   chapters:
     - index.qmd
+    - part: "The game"
+      chapters:
+        - guidebook/01-round.qmd
+        - guidebook/02-exchange.qmd
+    - part: "Why market making pays, and when it doesn't"
+      chapters:
+        - guidebook/03-price.qmd
+        - guidebook/04-market-making.qmd
+        - guidebook/05-other-side.qmd
+        - guidebook/06-position.qmd
+        - guidebook/07-prices.qmd
+    - part: "Beyond plain market making"
+      chapters:
+        - guidebook/08-beyond.qmd
+        - guidebook/09-others.qmd
     - part: "How we know"
       chapters:
         - guidebook/10-backtest.qmd
+        - guidebook/11-real.qmd
+        - guidebook/12-portal.qmd
+        - guidebook/13-risk.qmd
+    - part: "The repo"
+      chapters:
+        - guidebook/14-code.qmd
+        - guidebook/15-parameters.qmd
+        - guidebook/16-day.qmd
+  appendices:
+    - guidebook/a-glossary.qmd
+    - guidebook/b-datasets.qmd
+    - guidebook/c-commands.qmd
+    - guidebook/d-reading.qmd
+    - guidebook/e-arena.qmd

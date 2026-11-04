@@ -1,0 +1,5 @@
+# arena.formats.prosperity.load_days(p4, ['3']): HYDROGEL_PACK's wall mid per day
+day,low,high,sd,mean
+r3d0,9928.5,10070.5,25.3,9991.0
+r3d1,9908.5,10079.5,37.6,9992.1
+r3d2,9891.0,10051.5,31.6,9989.4

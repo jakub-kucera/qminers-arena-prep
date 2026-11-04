@@ -1,0 +1,12 @@
+# uv run python -m arena.grid python/bots/template.py 1 2 --data p4 --set PARAMS.ASH_COATED_OSMIUM.fixed_fair=10000 --grid PARAMS.ASH_COATED_OSMIUM.fair=fixed,wall_mid --grid PARAMS.ASH_COATED_OSMIUM.skew=0,1,2,4,8 --modes all,worse --engine rust --out ...: the ASH_COATED_OSMIUM columns
+fair,skew,pnl_all,pnl_worse
+fixed,0.0,99195.0,97157.0
+fixed,1.0,98852.0,84880.0
+fixed,2.0,89221.0,74632.0
+fixed,4.0,73434.0,62982.0
+fixed,8.0,53633.0,46128.0
+wall_mid,0.0,115932.5,115904.5
+wall_mid,1.0,115532.5,110876.0
+wall_mid,2.0,112619.0,104293.5
+wall_mid,4.0,107137.5,94984.5
+wall_mid,8.0,95989.5,83915.0

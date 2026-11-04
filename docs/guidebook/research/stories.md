@@ -70,7 +70,7 @@ Ryan Challman's voucher fair, a cumulative mean, lagged the live mid. They "fixe
 - **Source:** `references/prosperity4-ryan-challman/README.md:266`
 
 ### 13. smile_window 20 against 5,000 on P2's coconut coupon
-On P2 round 4's coconut coupon, our options mode with a 20-tick window lost −266,554: the residual's lag-1 autocorrelation was 0.89, so it drifted rather than reverted. With a 5,000-tick window the same strategy made **+441,929** (worst day +114,476), and the same cell won on each held-out day. One parameter, the timescale of the "fair", turned the biggest loss into the biggest gain.
+On P2 round 4's coconut coupon, our options mode with a 20-tick window lost −266,554: the part of the gap it traded (the residual less its 20-tick average) was large (sd 2.3–2.4 against a half-spread of 0.55) and slow to close (lag-1 0.89–0.90, a half-life of about 6 ticks; the residual's own lag-1 is 0.996–0.997) *(corrected 2026-11-04: an earlier version called 0.89 the residual's lag-1 and said it drifted)*. With a 5,000-tick window the same strategy made **+441,929** (worst day +114,476), and the same cell won on each held-out day. One parameter, the timescale of the "fair", turned the biggest loss into the biggest gain.
 - **Concept:** mean reversion depends on the horizon; check autocorrelation before fading
 - **Source:** `IDEAS.md:264`
 
@@ -105,9 +105,9 @@ DTU added an Avellaneda–Stoikov inventory skew on P4 Osmium. In their backtest
 - **Source:** `references/prosperity4-dtu-quant-lab/README.md:91`; `references/wiki/contradictions.md` row 1
 
 ### 20. The fixed anchor that kept buying (DTU round 3)
-DTU's static market maker worked on Osmium's peg, so they reused it on Hydrogel. Their handed-out data was about 99% "pinned", but the live day was noisy. Hydrogel drifted 70 ticks in one session, the fixed fair value kept buying into the fall, and the round made +3,686 (rank 2,232).
+DTU's static market maker worked on Osmium's peg, so they reused it on Hydrogel. By their later volatility detector the handed-out data was about 99% "pinned" and the live day noisy (their claim; the handed-out days' wall mid ranged as widely as the live day's, sd 25–38). Hydrogel drifted 70 ticks in one session, the fixed fair value kept buying into the fall, and the round made +3,686 (rank 2,232).
 - **Concept:** regime change; training data unlike the scored data
-- **Source:** `references/prosperity4-dtu-quant-lab/docs/journey.md:14-16`; `references/prosperity4-dtu-quant-lab/round_4/algorithmic/trader.py:261-296`
+- **Source:** `references/prosperity4-dtu-quant-lab/docs/journey.md:16-18`; `references/prosperity4-dtu-quant-lab/round_4/algorithmic/trader.py:261-296`
 
 ### 21. A rival's far order poisons your fair value
 Against the other teams' bots with resting orders, the template lost −377k on Osmium. At tick 2,400 a rival's 40-lot bid at 9,906 was larger than the real 23-lot wall at 9,991. The "largest level" rule then put fair at 9,957 against a true 10,001.5, and the bot sold into real bids. A deliberate spoofer 10 ticks behind the best did the same to Kelp (16.8k → −2.1k). A rule using the first level of at least 15 lots (`sized_mid`) was immune at no cost.

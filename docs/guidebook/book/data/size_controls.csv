@@ -1,0 +1,17 @@
+# uv run python -m arena.grid python/bots/template.py 1 --data p3 --grid PARAMS.KELP.size_skew=0,0.5,1,2,4 | PARAMS.KELP.make_size=5,10,20,40,None | PARAMS.RAINFOREST_RESIN.make_size=5,10,20,40,None --modes all,worse --engine rust --out ...
+product,parameter,value,pnl_all,pnl_worse
+KELP,size_skew,0,18697.5,14530.5
+KELP,size_skew,0.5,18607.0,14408.5
+KELP,size_skew,1,18323.5,14193.0
+KELP,size_skew,2,17319.0,13362.5
+KELP,size_skew,4,15982.0,12407.0
+KELP,make_size,5,15041.0,11442.5
+KELP,make_size,10,17794.5,13764.5
+KELP,make_size,20,18694.5,14534.5
+KELP,make_size,40,18697.5,14530.5
+KELP,make_size,None,18697.5,14530.5
+RAINFOREST_RESIN,make_size,5,48140.0,43535.0
+RAINFOREST_RESIN,make_size,10,53351.0,48206.0
+RAINFOREST_RESIN,make_size,20,53976.0,48771.0
+RAINFOREST_RESIN,make_size,40,53976.0,48771.0
+RAINFOREST_RESIN,make_size,None,53976.0,48771.0

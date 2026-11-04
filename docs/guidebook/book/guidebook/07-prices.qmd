@@ -1,0 +1,226 @@
+# What do the prices do?
+
+*You'll need the fair value, the wall mid and the signature plot (chapter 3), market making (chapter 4), and holding a
+position, `target` and the loss stop (chapter 6). Options are named here and explained in chapter 8; the fill rules in
+chapter 10.*
+
+## The story
+
+Prosperity 2's round 4 added a coconut coupon: a call option on coconuts, with a strike of 10,000 and 250 days to
+expiry. The template's `smile` mode values an option the textbook way, with the Black–Scholes formula at one fixed
+volatility (chapter 8), and then adds the option's own average gap from that value, because real prices sit a little
+off any model. The gap is an exponential average with a span of `smile_window` ticks, started from the first tick's
+gap [(`python/bots/template.py:116`, `:755-756`)]{.src}. The bot buys when the price is half a credit
+below the result and sells when it is half a credit above.
+
+With the default window of 20 ticks the coupon looked like a gift. Its gap from the 20-tick average had a standard
+deviation of 2.3 to 2.4 credits, against a half-spread of 0.55: plenty of apparent mispricing, every day. The bot
+traded it and lost 266,554 credits over the three days. With a window of 5,000 ticks, the same strategy on the same
+days made 441,929, and its worst day made 114,476 (@fig-smile). The same cell won when each day was held out in turn,
+and under the strict fill rule too, since it only takes [(`data/smile_window.csv`; `IDEAS.md`, "Prosperity 2 round 4's
+coconut coupons with the template's options modes")]{.src}.
+
+![The template's `smile` mode on Prosperity 2's coconut coupon, round 4, three days, at each `smile_window`. Data:
+`data/smile_window.csv`, from the IDEAS row's `arena.grid` command.](../figures/f08_smile_window.png){#fig-smile
+fig-alt="Profit over three days against the window, on a log scale: minus 267 thousand credits at 20 ticks, 100 thousand at 200, 306 thousand at 1,000, 442 thousand at 5,000 and 418 thousand at 20,000. The worst day goes from minus 144 thousand at 20 to plus 114 thousand at 5,000."}
+
+What changed was only how long the fair value remembers: the horizon at which the bot asked whether the price comes
+back.
+
+## The idea
+
+### Every pattern has a timescale
+
+Every strategy built on a fair value bets that deviations from it come back, and whether they do depends on the
+horizon: the same series can bounce back within a tick, wander for an hour, and return to a level by the evening.
+
+The tool is the autocorrelation: how much of a deviation is still there some ticks later. Where it falls fast,
+deviations are noise to fade; where it stays near 1, they are moves to follow or stay out of. If it falls by the same
+factor every tick, its lag-1 value says how long half of a gap takes to close (Bailey and co-authors, Proposition 6.2,
+equation 6.5, PDF p. 21):
+
+::: {.eq speak="the half-life, in ticks, is minus the natural log of two, divided by the natural log of the lag-one autocorrelation"}
+$$\tau_{1/2} = -\frac{\ln 2}{\ln \varphi}$$
+:::
+
+Here [$\varphi$]{speak="phi"} is the lag-1 autocorrelation. For an Ornstein–Uhlenbeck process, a price pulled back
+toward its mean at a steady rate (Ahuja and co-authors' equation 1, PDF p. 3), minus the log of the lag-1
+autocorrelation is that rate a tick, so the half-life is the log of 2 over the rate.
+
+The figure below applies it to the coupon (@fig-acf). The gap between its price and the fixed-volatility model
+has a lag-1 autocorrelation of 0.996 to 0.997, a half-life of 163 to 255 ticks. Twenty ticks after any moment, 92 to
+95% of the gap is still there. By 1,000 ticks almost none is [(`data/coupon_acf.csv`, from
+`experiments.day.p3_smile`'s residual)]{.src}.
+
+![The autocorrelation of the coupon's gap from its model at each lag, on the three days, with the half-life its lag-1
+value implies and the two windows of the story. Data: `data/coupon_acf.csv`, from `experiments.day.p3_smile`'s
+functions with the IDEAS row's settings.](../figures/g09_residual_acf.png){#fig-acf
+fig-alt="Three curves fall from nearly 1 at a lag of one tick through 0.92 to 0.95 at 20 ticks, cross one half at about 170, 210 and 260 ticks, and reach about 0.1 at 1,000 ticks. The half-life from the lag-1 value is 163 to 255 ticks. A line marks the 20-tick window, which lost 267 thousand credits, and another the 5,000-tick window, which made 442 thousand."}
+
+That explains the story. A 20-tick average follows a gap that takes about 200 ticks to halve, so the "fair" moves
+with the price. When the price runs ahead of it, the bot sells; the price keeps going, and the average catches up with
+the price rather than the price coming back. What the bot traded was the *fast part*, the gap less its 20-tick
+average, and that did revert: its lag-1 autocorrelation of 0.89 means a half-life of about 6 ticks. But it reverted
+by the average moving, which pays nothing. A 5,000-tick average is about 20 to 30 half-lives long: it stands
+still while the gap closes, and the bot is paid for waiting. Twenty thousand ticks did a little worse, probably
+because each day's average gap differs (−0.9, −3.3 and +4.1 credits) [(`experiments.day.p3_smile`, part 2)]{.src}.
+
+So before fading a deviation, measure how long it lasts, and make the fair value's memory long against that.
+
+### The shapes a price takes, and the notes that find them
+
+The repo's diagnosis tool, `arena.diagnose`, reads each product's data before any bot runs and prints notes, with
+thresholds calibrated on Prosperity's data (`python/arena/diagnose.py`; `references/wiki/concepts/reading-the-data-on-day-one.md`). Each shape
+below has a note and a response in the template; the examples are its output on Prosperity 3 and 4.
+
+| Shape | `diagnose`'s note | Example | The template's response | Verdict |
+|---|---|---|---|---|
+| noise around a value | "mid mean-reverts at one tick" | Kelp, lag-1 −0.48 | a fair from the walls, not the mid | kept |
+| a fixed value | "wall mid nearly fixed at 10000" | Resin, sd 0.35 | `fair: fixed`, with `fixed_guard` | kept |
+| a level over hundreds of ticks | "wall mid reverts to a level over ~1,000 ticks" | Hydrogel, Velvetfruit | `level` mode | kept |
+| a drift | "drifts up every day" | Pepper Root, +1,000 a day | a `target` toward it | kept |
+| jumps that snap back | "jumps of 6+ spreads snap back" | `ROBOT_DISHES`, 87% of 743 | `jump` mode | kept, off by default |
+
+::: {.content-visible when-format="audio"}
+Five shapes, each with a note. Noise around a value, as on Kelp, gets the note that the mid mean-reverts at one tick,
+and the template takes its fair from the walls, not the mid. A fixed value, as Resin's 10,000, gets a fixed fair with a guard. A
+level the price returns to over hundreds of ticks, as on Hydrogel and Velvetfruit, gets the level mode. A drift, as
+Pepper Root's thousand a day, gets a target position in its direction. Jumps that snap back, as on one robot product,
+get the jump mode, kept but off by default. All five were kept on Prosperity's data.
+:::
+
+**Noise around a value.** Kelp's mid changes have a lag-1 autocorrelation of −0.48: a move is mostly undone the next
+tick. The note fires at −0.2 or below and, with "wall mid filters the mid's noise", says to price off the wall mid
+(chapter 3) [(`arena.diagnose 1 --data p3`)]{.src}.
+
+**A fixed value.** Resin's wall mid has a standard deviation of 0.35 around 10,000, so the template fixes its fair
+there. A fixed value can't notice it has stopped being true, which is the rest of this chapter.
+
+**A level.** Prosperity 4's Hydrogel and Velvetfruit wander far within a day, yet each day's mean sits close to the
+others' (Hydrogel's between 9,989 and 10,003). The note compares the
+variance per tick of 50-tick changes with that of 1,000-tick ones and fires at 1.8 or above: the price comes back over hundreds
+of ticks, too slowly for any one-tick number to see [(`IDEAS.md`, "Trading toward a known level")]{.src}. The `level`
+mode holds the full limit short once the price is `level_band` above the level, and long once it is as far below: a
+directional bet, not market making. With the level and settings chosen on three days and scored on
+the fourth, it made 149.9 thousand credits on Hydrogel and 98.9 thousand on Velvetfruit over the four held-out days,
+against 179.6 and 120.7 thousand chosen on all four. Taking the level from the day so far instead of the other days
+cost about a third, 184.9 thousand against 280.2, because a day can open far from its level
+[(`data/level_heldout.csv`)]{.src}. Verdict: `kept`.
+
+**A drift.** Pepper Root rose about 1,000 credits a day, every day. Bouchaud and co-authors put the general point
+plainly: market making is easy when prices mean-revert and difficult when they trend (*Trades, Quotes and Prices*,
+§17.1, PDF p. 341). The template's plain market maker on it made between −3.9 thousand and +57.6 thousand a day; with a `target` of the full
+limit, 80 long, and a skew of 20 ticks toward it, 75.9 to 78.2 thousand on each of the six days [(`data/drift_target.csv`;
+`IDEAS.md`, "A long bias on a drifting product")]{.src}. Here chapter 6's skew earns its place, working toward a
+position the bot wants. Verdict: `kept`.
+
+**Jumps.** Two notes. "Wall mid jumps past half the spread on 16% of ticks: if orders rest, take only" fires on
+Prosperity 3's Squid Ink: a price that jumps goes straight through a resting quote (chapter 10). "Snap back" fires on
+four product-days of Prosperity 4's round 5, all jumping by 100: `ROBOT_IRONING` on day 2 (98% of 58 large jumps
+reversed the one before), Evening Breath on day 2 (88% of 66), Chocolate on day 4 (86% of 57), and the largest,
+`ROBOT_DISHES` on day 4, whose wall mid sat on multiples of 100 and stepped off and back: 87% of 743
+[(`arena.diagnose 5 --data p4`)]{.src}. The `jump` mode holds the limit against each jump,
+and only once most of the day's jumps have reversed. Over the round's three days it made 958.8 thousand credits against
+457.8 thousand for plain market making, 429.1 thousand of the gain on `ROBOT_DISHES`' day; without the gate, fading
+every jump, day 3 made 184.1 thousand less than plain market making, a loss of 37.3 thousand [(`IDEAS.md`, "Fading jumps that snap back"; re-run with `experiments.day.p4_jumps`)]{.src}.
+Verdict: `kept`, off by default.
+
+Each verdict is a Prosperity result, and the thresholds are rules of thumb from the same data. The runbook's table for each round runs `diagnose` on every new download at T+0:15 (`RUNBOOK.md`, "Each round"; `ON_THE_DAY.md`, "What kind of market is
+each product?").
+
+### When the past stops describing the day
+
+Every response in that table assumes the data's pattern continues. In Prosperity 4's round 3, DTU Quant Lab met the
+case where it didn't. Their fixed-anchor market maker had worked on Osmium's peg for two rounds, so they used
+it on a new product, Hydrogel. In the live round, by their account, Hydrogel drifted 70 ticks in one session, and
+"the fixed-FV anchor kept buying into the drawdown"; the round's algorithmic result was +3,686 credits, rank 2,232
+(*their claim*) [(`references/prosperity4-dtu-quant-lab/docs/journey.md:16-18`)]{.src}. Elsewhere their write-up
+gives the drift as 35 ticks or more (*their claim*) [(`references/prosperity4-dtu-quant-lab/round_3/README.md:48`)]{.src}.
+
+Their regime detector, built for the next round from the mid's one-tick volatility over 200 ticks, called the
+handed-out days about 99% "pinned" and the live day 100% "noisy", and their static trader made 17,593 on the
+handed-out days (*their claim*) [(`references/prosperity4-dtu-quant-lab/round_4/algorithmic/trader.py:283-295`)]{.src}.
+In level, though, those days were as wide as the live one: Hydrogel's wall mid ranged over 142 to 171 ticks on each,
+standard deviations of 25 to 38 [(`data/hydrogel_days.csv`)]{.src}, against a standard deviation of about 30 and a
+range of 9,915 to 10,031 on the live day as DTU describes it
+[(`references/prosperity4-dtu-quant-lab/round_4/algorithmic/trader.py:261-262`)]{.src}. The anchor survived
+excursions that large in sample and lost live. A fixed anchor is the purest level bet: it pays while the price keeps
+coming back, and in-sample days can't say when that stops.
+
+### What a regime change costs: the stress test
+
+The stress tool, `arena.stress`, reruns a bot on copies of each day with the prices moved:
+volatility doubled, a steady trend of ten median spreads over the day, a shift of five spreads at midday that stays, a
+spike of five that comes back after 100 ticks, or the largest level removed for the middle fifth of the day. Only the path changes [(`python/arena/stress.py`)]{.src}.
+
+The figure below runs it on the template, Prosperity 3's round 1 (@fig-stress). As committed, the template makes 72,674 credits on the
+plain days and 66,554 and 62,214 with a trend. Take away one parameter, Resin's `fixed_guard`, which switches the
+fixed fair to the market's price while the two are more than 5 apart, and the trends take it to 10,444 and 6,228: Resin
+alone goes from +53,976 to −10,413 and −10,309, a fixed fair trading all day against a price that has left, buying
+into the fall and selling into the rise
+[(`data/stress_variants.csv`)]{.src}.
+
+![The template on Prosperity 3's round 1 under each of `arena.stress`'s perturbations: as committed, without its loss
+stops, and without Resin's `fixed_guard`. Data: `data/stress_variants.csv`, from `arena.stress python/bots/template.py
+1` with `--set`.](../figures/g10_stress.png){#fig-stress
+fig-alt="Grouped bars over nine kinds of day. On plain days all three versions make 72.7 thousand credits. With a trend the committed bot makes 66.6 and 62.2 thousand, and without Resin's guard only 10.4 and 6.2 thousand. On the shift-up and spike days the committed bot makes 52 to 63 thousand, less than the same bot without its loss stops, 69 to 73 thousand."}
+
+The loss stop doesn't save it. The runs with and without the stops are identical when the guard is off, because the
+stop judges today's profit at the bot's own fair value, cash plus the position at fair
+[(`loss_stop`, `python/bots/template.py:503`)]{.src}. A fixed fair that the market has left calls every trade a bargain, so on its own
+books the bot is winning. A stop can only see a loss its fair value can see.
+
+With the guard on, the stops cost money instead. When the price shifts up and stays, Resin makes 32.0 thousand with
+its stop against 49.1 thousand without, and on the spike days 33.6 and 44.8 thousand against 53.8 and 53.9: the
+stop fires on the move, and the bot sits out the rest of a day that would have paid
+[(`data/stress_variants.csv`)]{.src}. On Prosperity 4, in sample, the same rule kept every perturbed day's loss within its product's stop; held out, on
+Kelp and Resin over Prosperity 3's rounds 2 to 5 and ten `arena.sim` days, no stop fired on a plain day (the Prosperity
+4 products have no held-out recorded day). It is `kept`, sized to about three times each product's
+largest plain-day drawdown [(`IDEAS.md`, "A loss stop per product")]{.src}. The first run of this test, before the
+guard existed, took the template from 81.3 thousand to 19.6 with a trend [(`IDEAS.md`, "Stress: what a regime change
+costs")]{.src}; the template has changed since, and the re-run above is today's.
+
+The runbook's table for each round runs the stress test at T+1:30 and sizes the stops from it (`RUNBOOK.md`, "Each
+round"; `ON_THE_DAY.md`, "Stress the bot before submitting").
+
+::: {.callout-note title="What would differ on another market"}
+On ABIDES the signature plot is flat at short horizons and rises to about three times its 50-tick value at 1,000
+ticks (chapter 3): no fast noise to fade, and moves that continue. Inside `arena.sim`, where the
+market maker re-centres on a shifted price and the takers follow, Resin's guard held: 214.4 to 223.5 thousand credits
+over ten days under each shift and trend with it, 66.4 to 112.9 thousand without the guard and the stops. Hydrogel's level bet was the
+exposure there too: 62.7 thousand on the trend up against 477.9 thousand on plain days [(`data/sim_regimes.csv`;
+`IDEAS.md`, "Regime changes in a market that reacts")]{.src}.
+:::
+
+::: {.callout-note title="If you know ML"}
+The window is a bandwidth, and the autocorrelation should set it: a smoother shorter than the signal's correlation
+length tracks the signal instead of averaging out noise. The stress test is a robustness test under a hand-chosen
+distribution shift. Where the analogy breaks: a trend changes the right action, so robustness to it is paid for with
+the edge on the days the bot was built for.
+:::
+
+::: {.callout-tip title="In the repo"}
+- The notes: `uv run python -m arena.diagnose DAYS --data D [--profile]` (`python/arena/diagnose.py`, thresholds
+  at the top; the day-one wiki page maps each note to a choice).
+- The perturbed days: `uv run python -m arena.stress BOT DAYS [--only trend_up,shift_up] [--size 2] [--set ...]`.
+- An option's residual at any window: `experiments.day.p3_smile --window N` (part 2); levels held out:
+  `experiments.day.p4_level_template`; jumps: `experiments.day.p4_jumps`.
+- The parameters: `smile_window`, `fixed_guard`, `level`, `level_band`, `target`, `jump_min`, `stop_loss`.
+- The rows: "Prosperity 2 round 4's coconut coupons with the template's options modes", "Trading toward a known level",
+  "Fading jumps that snap back", "Stress: what a regime change costs", "A fixed fair that gives way", "A loss stop per
+  product".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* which shapes `diagnose` found in each round's products, what
+`arena.stress` said before each submission, whether a round's prices changed regime between the download and the
+scored run, and what the stops and guards did when they did.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Bailey, Borwein, López de Prado and Zhu, *Pseudo-mathematics and financial charlatanism*, §6.2 (PDF p. 21): the
+  half-life of an autoregressive process, and why serial dependence makes overfitting worse.
+- Ahuja and co-authors, *Limit order trading with a mean reverting reference price* (PDF pp. 2–8): market making on an
+  Ornstein–Uhlenbeck price.
+- Bouchaud and co-authors, *Trades, Quotes and Prices*, ch. 17 §17.1 (PDF p. 341): why trends make market making hard.
+:::

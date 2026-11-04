@@ -1,0 +1,213 @@
+# What does holding a position cost?
+
+*You'll need position limits (chapter 2), the fair value and the wall mid (chapter 3), take, clear and make and the
+round trip (chapter 4), and adverse selection (chapter 5). The fill rules `all` and `worse` are named here and
+explained in chapter 10.*
+
+## The story
+
+Run the template on Prosperity 3's round 1 and look at its position in Kelp, the product whose price wanders. It is
+long most of the day. Over the three days its mean position is between +21.5 and +35.2 lots, depending on the day
+and on the fill rule (`all`, `worse`, or orders that rest), out of a limit of 50, and it sits at the limit itself on 5 to 15% of ticks
+[(`IDEAS.md`, "`skew` against Kelp's long position"; `experiments.study.kelp_drift`)]{.src}.
+
+That looks like a market maker failing at its one job, staying flat. The textbook fix is a *skew*: move both quotes
+down when long, so the bot buys less and sells more. First we asked a plainer question. Is something in the bot leaning long, or is the market handing it a long position?
+
+The test was to mirror each day. Every price is reflected around the day's middle, so each rise becomes a fall; every
+bid becomes an ask; every buyer in the trade record becomes a seller. If the bot has a bias, a fair value that sits a
+little low or quotes that lean one way, it stays long on the mirrored day. If the position comes from the flow, it
+flips. It flipped exactly: on day −2 a mean of +27.8 lots became −27.8, and the PnL was 6,724 credits on both days,
+to the unit (@fig-mirror). The same held on every day, under `all`, under `worse` and with resting orders
+[(`data/mirror_summary.csv`; `IDEAS.md`, "`skew` against Kelp's long position")]{.src}.
+
+![The template's Kelp position on Prosperity 3's round 1, day −2, and on the same day mirrored: top, the price and its
+reflection; bottom, our position. Data: `data/mirror_test.csv`, from `experiments.study.kelp_drift`'s `mirrored` and
+the engine.](../figures/g07_mirror_test.png){#fig-mirror
+fig-alt="Two panels over one day. Top: Kelp's price rises from 2,000 to about 2,028, and its mirror falls from 2,020 to about 1,992. Bottom: our position mostly between 0 and plus 50 lots on the real day, and the exact mirror image, between 0 and minus 50, on the reflected day; the mean is plus 27.8 against minus 27.8 lots, and the profit 6,724 credits on both."}
+
+So the bot is symmetric, and the long comes from the people trading with it. Only 34 to 36% of Kelp's trades at the
+touch are buys (41 to 43% of the volume), against about half on Resin, so the bot buys 1.24 to 1.32 lots passively for
+each lot it sells. Then we tried the fix anyway. Every tick of skew cost money. This chapter is about why.
+
+## The idea
+
+### A position is a bet nobody chose
+
+A market maker's position isn't a decision. It is what is left when the fills on one side outnumber those on the
+other. Holding it costs in three ways.
+
+- **It moves with the price.** A position of a given size gains or loses that many credits on every move of one.
+  Kelp's price rose 28 credits over day −2; held at the day's mean position all day, the rise would have been worth
+  about 780 credits, and a fall as much the other way. That is variance, not an expected loss.
+- **It may come from informed traders.** If the traders who sold to us knew the price was about to fall, the
+  position built from their trades loses on average. That is chapter 5's adverse selection, seen through the position
+  instead of through each fill's markout.
+- **It uses up the limit.** At +50 the bot can't buy. Every seller that would have hit its bid goes elsewhere, and
+  half its business stops until the position comes down.
+
+The second and third are expected costs: one a loss, the other income given up. The data can say whether the second
+is there, and the third is small here, 5 to 8% of the time at a limit under the default fill rule. The first is a
+risk, which costs something only if the score charges for risk.
+
+### Skew: leaning the quotes
+
+A dealer controls inventory with the tactics Harris tabulates: move both quotes against the position, quote more size
+on the side that reduces it and less on the side that adds to it, take another trader's quote to change the position
+at once, or hedge it in a correlated instrument [(Harris, Table 13-2, PDF p. 298)]{.src}. The template has the first
+two as parameters and the third as its `clear` step; the hedge is chapter 8's. The price lever is `skew`:
+
+::: {.eq speak="the template moves both quotes down by the skew times the position's gap from its target as a share of the limit, rounded to whole ticks"}
+$$\text{shift} = \operatorname{round}\!\left(\text{skew} \times \frac{\text{position} - \text{target}}{\text{limit}}\right)$$
+:::
+
+So `skew` is the number of ticks both quotes move at the full limit: long 50 with `skew` 2, the bid drops two
+ticks, so fewer sellers reach it, and the ask drops two, so more buyers do [(`python/bots/template.py:847`)]{.src}.
+The target is zero unless a product has a reason to hold something, like a steady drift.
+
+### Avellaneda–Stoikov in words
+
+The famous version is Avellaneda and Stoikov's (2008). Their market maker is risk-averse: it maximises a utility of
+its wealth at a known time T, when what it holds is valued at the mid. Its quotes centre not on the mid but on a
+*reservation price*, its own value for the stock given what it already holds (equation 29, PDF p. 6; the same as equation 8,
+p. 4):
+
+::: {.eq speak="the reservation price is the mid, less the position times the risk aversion, times the price's variance, times the time left"}
+$$r = s - q\,\gamma\,\sigma^2\,(T - t)$$
+:::
+
+Here [$s$]{speak="s"} is the mid, [$q$]{speak="q"} the position, [$\gamma$]{speak="gamma"} the risk aversion,
+[$\sigma^2$]{speak="sigma squared"} the variance of the mid per unit of time, and [$T - t$]{speak="T minus t"} the
+time left. A bigger position is more exposed, a jumpier price moves it further, and the longer it must be held, the
+more the price can wander. Long, the reservation price sits below the mid, so both quotes drop: a skew. The spread is
+then set around it, from the same risk term and from how quickly fills fall off with distance (equation 30).
+
+Two later results reframe it. Guéant, Lehalle and Fernandez-Tapia, solving it with a position limit, showed
+that the time left is an artefact of an approximation near the end: far from it, the skew is a constant times the
+position (PDF pp. 8 and 11), which is the template's `skew`. Ahuja and co-authors put a mean-reverting price in place
+of the random walk: far from the end, the best quotes are then constant around the long-run mean, and ignore the
+inventory (PDF p. 8) [(`references/wiki/concepts/optimal-quoting-models.md`)]{.src}.
+
+So the advice depends on its premises. The skew grows with the volatility of the *fair value*, the risk
+that the thing you hold is worth less tomorrow. Where that is small, as on a pegged product, the theory asks for almost
+no skew. And the whole model is built on a utility, a penalty on risk. A bot scored on profit alone has a risk aversion
+of zero, and with none the reservation price is the mid: no skew at all.
+
+### Is the position a signal or the flow?
+
+The mirror test says the bot is symmetric. It doesn't say whether the long position is dangerous, because a mirrored
+day mirrors the danger too. That needs Harris's test for informed counterparties, asked of the position: does it
+predict the price moving against it? [(`references/wiki/concepts/informed-counterparties.md`)]{.src}
+
+On Kelp it doesn't. The correlation of our position with the change in the price over the next 10 to 1,000 ticks is
+between −0.10 and +0.18 over the three days and the three fill rules, mostly slightly positive. If the sellers knew
+something, a long position would come before falls, and the number would be clearly negative
+[(`IDEAS.md`, "`skew` against Kelp's long position")]{.src}.
+
+The same answer comes out of the PnL. Split each tick's change in profit into two parts: what the fills earned at once,
+and what the position earned by riding the price until the next tick. The second is the position times the next
+change in the wall mid, summed over the day. On the three days it was +414, −71 and −518 credits, against total
+Kelp profits of 6,724, 6,247 and 5,727. Over the three days, holding the position added −175 credits to 18,698: about
+nothing. The rest is the spread [(`data/mirror_summary.csv`)]{.src}.
+
+The split has to use the wall mid. Kelp's plain mid flickers around the walls from tick to tick (a lag-1
+autocorrelation of −0.48, chapter 3), so against it much of what the fills earned gets booked as the position's gain:
+4,119 to 5,441 credits a day [(`data/mirror_summary.csv`, `riding_mid`)]{.src}. Chapter 3's noise reaches the
+accounting too.
+
+### Why the skew lost here
+
+With the flow uninformed and the score in profit, a skew can only cost, and the figure below shows how much
+(@fig-skew). Each tick of skew
+gives up fills the bot would have had, and sells what it holds a little cheaper. In exchange the position shrinks: the
+mean falls from +24.5 lots at no skew to +9.7 at 3 ticks under `all`. Kelp's profit falls with it, from 18,698 credits
+to 15,893 at 3 and 11,324 at 8. Under `worse`, where fewer passive fills are counted, it falls faster, from 14,531 to
+9,514 at 3 and 6,582 at 8 [(`data/skew_grid.csv`; `IDEAS.md`, "`skew` against Kelp's long position")]{.src}.
+
+![Kelp's profit over the three days of Prosperity 3's round 1 against the template's `skew`, under both fill rules.
+Data: `data/skew_grid.csv`, from `arena.grid ... --grid PARAMS.KELP.skew=0,1,2,3,4,6,8 --modes
+all,worse`.](../figures/g08_skew.png){#fig-skew
+fig-alt="Two falling lines. Under the optimistic rule Kelp makes 18.7 thousand credits at no skew, 15.9 thousand at 3 ticks and 11.3 thousand at 8. Under the strict rule 14.5 thousand, 9.5 thousand and 6.6 thousand."}
+
+The theory's own coefficient does no better. Fitted from Kelp's volatility and fill rates, GLFT's closed form asks
+for 0.6 ticks at the smallest risk aversion tried, 0.001, and costs 514 credits; at 0.01 it asks for 1.9 ticks and
+costs 952 [(`data/glft_skew.csv`; `IDEAS.md`, "The skew coefficient from GLFT's closed form")]{.src}. And our engine,
+like Prosperity, values the position left at the end at the mid, so holding to the close costs nothing extra.
+
+### The skew a famous model prescribes
+
+The textbook's case was tried by a team that knew it well. In Prosperity 4's round 1, DTU Quant Lab added an
+Avellaneda–Stoikov skew to their market maker on Osmium, a product pegged at 10,000 with noise around it that reverts
+quickly [(`references/prosperity4-dtu-quant-lab/README.md:85`)]{.src}. In
+their backtest it cost 16,593 of that edition's credits (*their claim*), and they went back to a fixed fair value of 10,000
+[(`references/prosperity4-dtu-quant-lab/README.md:91`)]{.src}.
+
+Our grid on the same product agrees on the direction. Re-run today (the cited rows have older numbers from an earlier
+template: 113.8 thousand at no skew and 93.4 at 8), over Prosperity 4's rounds 1 and 2, six days, the template's
+Osmium makes 115.9 thousand credits with no skew, 115.5 thousand at 1 tick, 112.6 at 2, 107.1 at 4 and 96.0 at 8;
+under `worse`, 115.9 thousand falls to 83.9. A fixed fair of 10,000, the mean-reverting model's constant quotes, makes
+99.2 thousand with no skew and 53.6 thousand at 8 [(`data/osmium_skew.csv`; the wiki's `contradictions.md`, row 1)]{.src}.
+GLFT's closed form, with the variance read off one-tick changes, asks for a skew of 94 ticks there even at a risk
+aversion of 0.001, and makes 23.7 thousand, where the row's older run had 20 thousand against 114
+[(`data/glft_skew.csv`)]{.src}. On a pegged price the one-tick variance is
+noise, not risk: the model's premise, a price that wanders, doesn't hold. We didn't check which variance DTU used;
+noise in the mid would explain their loss.
+
+### The other levers, a line each
+
+- **`size_skew`** shrinks the quote on the side that adds to the position, Harris's "change the sizes" (Bouchaud and
+  co-authors' equation 17.4). On Kelp, 0 is best: 0.5 costs 91 credits and 4 costs 2,716. Verdict: `dropped here`
+  [(`data/size_controls.csv`; `IDEAS.md`, "Inventory control through quote size")]{.src}.
+- **`make_size`** caps each quote. A cap of 20 costs 3 credits on Kelp and nothing on Resin; 10 costs 903 and 625; 5 costs
+  3,657 and 5,836. The flow a tick is smaller than the room, so the cap is no risk lever here: `dropped here` as one,
+  kept for Pepper Root's drift bet against rivals [(`data/size_controls.csv`; `IDEAS.md`, "Using less than the full
+  position limit")]{.src}.
+- **`stop_loss`** flattens a product and stops it for the day once today's profit is that far below its high. It is
+  meant for prices that leave, and chapter 7 shows how mixed that is on Prosperity 3: it does nothing when the fair
+  value can't see the loss, and costs 17 to 20 thousand on some perturbed days when it can. Verdict: `kept`, set to about three
+  times a product's largest plain-day drawdown [(`IDEAS.md`, "A loss stop per product")]{.src}.
+
+All of these were measured on Prosperity's markets, so each verdict is a prior. The rows' re-test column asks this
+chapter's question again: a skew only where Harris's test is clearly negative or the score charges for holding. The
+day's list in On the Day, under "Every round", goes through that column.
+
+::: {.callout-note title="What would differ on another market"}
+On ABIDES the takers are informed: their trades move the price by 1.31 cents within 50 ticks (chapters 4 and 5), so a
+position built from their fills comes before moves against it, the case the skew is for. We never measured a skew
+there; the template loses on ABIDES before inventory matters. Inside `arena.sim`, a market that reacts to our orders,
+a preset with Kelp's one-sided flow made the template 23.1 thousand credits against 21.2 thousand without it: flow
+that knows nothing costs nothing there either [(`IDEAS.md`, "Replay against a market that reacts")]{.src}. Where the close is marked at a price the bot can't see, as in the Varde rehearsal (chapter 10), a position held to
+the end carries a cost Prosperity never charged.
+:::
+
+::: {.callout-note title="If you know ML"}
+Skew is a regulariser on the position: it trades expected profit for lower variance, and like weight decay it pays
+only when the variance it removes would have cost you. The mirror test is an equivariance test: transform the input,
+check the output transforms the same way. Where the analogy breaks: the data answer back, since skew changes who trades
+with you, and a score that is a rank, not a profit, can make variance cost after all (chapter 13).
+:::
+
+::: {.callout-tip title="In the repo"}
+- The parameters: `skew`, `size_skew`, `target`, `make_size` and `stop_loss` in the template's `DEFAULTS`
+  [(`python/bots/template.py:65-68`, `:142`)]{.src}; the quote shift in `make` [(`python/bots/template.py:847`)]{.src}.
+- The mirror test, the flow's share of buys, Harris's test and the skew sweep, on Kelp and Resin:
+  `uv run python -m experiments.study.kelp_drift`. The buy share for any download: `arena.diagnose`'s `buys` column.
+- The theory's coefficient: `experiments.day.glft_skew`.
+- The rows: "`skew` against Kelp's long position", "Skew on a pegged product", "The skew coefficient from GLFT's closed
+  form", "Inventory control through quote size", "Using less than the full position limit", "A loss stop per product".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* whether any Arena product held the template on one side, what
+Harris's test said about it, whether a skew or a size cap went into a submitted bot, and how the Arena valued a
+position left at the end of a round.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Avellaneda and Stoikov, *High-frequency trading in a limit order book* (PDF pp. 3–6): the reservation price
+  (equation 8, p. 4) and its approximation with the spread (equations 29 and 30, p. 6).
+- Guéant, Lehalle and Fernandez-Tapia, *Dealing with the inventory risk* (PDF pp. 8–11): why the time left drops out,
+  and the closed form with a position limit.
+- Ahuja and co-authors, *Limit order trading with a mean reverting reference price* (PDF p. 8): constant quotes around a level.
+- Harris, *Trading and Exchanges*, ch. 13, Table 13-2 (PDF p. 298): how dealers control their inventory.
+:::

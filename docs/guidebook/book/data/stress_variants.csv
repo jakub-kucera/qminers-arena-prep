@@ -1,0 +1,83 @@
+# uv run python -m arena.stress python/bots/template.py 1 --engine rust [--set PARAMS.KELP.stop_loss=None --set PARAMS.RAINFOREST_RESIN.stop_loss=None | --set PARAMS.RAINFOREST_RESIN.fixed_guard=None]
+variant,product,perturbation,pnl
+as committed,KELP,plain,18698.0
+as committed,KELP,vol2,18508.0
+as committed,KELP,trend_up,20858.0
+as committed,KELP,trend_down,16538.0
+as committed,KELP,shift_up,20272.0
+as committed,KELP,shift_down,17122.0
+as committed,KELP,spike_up,19598.0
+as committed,KELP,spike_down,17798.0
+as committed,KELP,no_wall,17398.0
+as committed,RAINFOREST_RESIN,plain,53976.0
+as committed,RAINFOREST_RESIN,vol2,51403.0
+as committed,RAINFOREST_RESIN,trend_up,45696.0
+as committed,RAINFOREST_RESIN,trend_down,45676.0
+as committed,RAINFOREST_RESIN,shift_up,31977.0
+as committed,RAINFOREST_RESIN,shift_down,54795.0
+as committed,RAINFOREST_RESIN,spike_up,33582.0
+as committed,RAINFOREST_RESIN,spike_down,44846.0
+as committed,RAINFOREST_RESIN,no_wall,53488.0
+as committed,total,plain,72674.0
+as committed,total,vol2,69912.0
+as committed,total,trend_up,66554.0
+as committed,total,trend_down,62214.0
+as committed,total,shift_up,52250.0
+as committed,total,shift_down,71918.0
+as committed,total,spike_up,53180.0
+as committed,total,spike_down,62644.0
+as committed,total,no_wall,70886.0
+without the loss stops,KELP,plain,18698.0
+without the loss stops,KELP,vol2,18508.0
+without the loss stops,KELP,trend_up,20858.0
+without the loss stops,KELP,trend_down,16538.0
+without the loss stops,KELP,shift_up,20272.0
+without the loss stops,KELP,shift_down,17122.0
+without the loss stops,KELP,spike_up,19598.0
+without the loss stops,KELP,spike_down,17798.0
+without the loss stops,KELP,no_wall,17398.0
+without the loss stops,RAINFOREST_RESIN,plain,53976.0
+without the loss stops,RAINFOREST_RESIN,vol2,51403.0
+without the loss stops,RAINFOREST_RESIN,trend_up,45696.0
+without the loss stops,RAINFOREST_RESIN,trend_down,45676.0
+without the loss stops,RAINFOREST_RESIN,shift_up,49115.0
+without the loss stops,RAINFOREST_RESIN,shift_down,54795.0
+without the loss stops,RAINFOREST_RESIN,spike_up,53781.0
+without the loss stops,RAINFOREST_RESIN,spike_down,53941.0
+without the loss stops,RAINFOREST_RESIN,no_wall,53488.0
+without the loss stops,total,plain,72674.0
+without the loss stops,total,vol2,69912.0
+without the loss stops,total,trend_up,66554.0
+without the loss stops,total,trend_down,62214.0
+without the loss stops,total,shift_up,69388.0
+without the loss stops,total,shift_down,71918.0
+without the loss stops,total,spike_up,73378.0
+without the loss stops,total,spike_down,71738.0
+without the loss stops,total,no_wall,70886.0
+without Resin's guard,KELP,plain,18698.0
+without Resin's guard,KELP,vol2,18508.0
+without Resin's guard,KELP,trend_up,20858.0
+without Resin's guard,KELP,trend_down,16538.0
+without Resin's guard,KELP,shift_up,20272.0
+without Resin's guard,KELP,shift_down,17122.0
+without Resin's guard,KELP,spike_up,19598.0
+without Resin's guard,KELP,spike_down,17798.0
+without Resin's guard,KELP,no_wall,17398.0
+without Resin's guard,RAINFOREST_RESIN,plain,53976.0
+without Resin's guard,RAINFOREST_RESIN,vol2,62252.0
+without Resin's guard,RAINFOREST_RESIN,trend_up,-10413.0
+without Resin's guard,RAINFOREST_RESIN,trend_down,-10309.0
+without Resin's guard,RAINFOREST_RESIN,shift_up,23268.0
+without Resin's guard,RAINFOREST_RESIN,shift_down,28237.0
+without Resin's guard,RAINFOREST_RESIN,spike_up,55898.0
+without Resin's guard,RAINFOREST_RESIN,spike_down,60810.0
+without Resin's guard,RAINFOREST_RESIN,no_wall,53488.0
+without Resin's guard,total,plain,72674.0
+without Resin's guard,total,vol2,80760.0
+without Resin's guard,total,trend_up,10444.0
+without Resin's guard,total,trend_down,6228.0
+without Resin's guard,total,shift_up,43540.0
+without Resin's guard,total,shift_down,45360.0
+without Resin's guard,total,spike_up,75496.0
+without Resin's guard,total,spike_down,78608.0
+without Resin's guard,total,no_wall,70886.0

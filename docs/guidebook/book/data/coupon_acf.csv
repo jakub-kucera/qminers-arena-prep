@@ -1,0 +1,59 @@
+# experiments.day.p3_smile's residual (points, fit_parabola, smile, bs_call) on P2 round 4's COCONUT_COUPON (--data p2 --days 4 --underlying COCONUT --prefix COCONUT_COUPON --strike 10000 --expiry r4d1=250,r4d2=249,r4d3=248): its autocorrelation at each lag, demeaned per day
+day,series,lag,autocorrelation
+r4d1,residual,1,0.9968
+r4d1,residual,2,0.994
+r4d1,residual,5,0.9857
+r4d1,residual,10,0.9717
+r4d1,residual,20,0.9446
+r4d1,residual,50,0.8662
+r4d1,residual,100,0.7526
+r4d1,residual,200,0.598
+r4d1,residual,300,0.4426
+r4d1,residual,500,0.2702
+r4d1,residual,1000,0.1074
+r4d1,residual,2000,0.0668
+r4d1,residual,5000,-0.2611
+r4d1,half-life from lag 1,218.4,0.5
+r4d1,"fast part, window 20",1,0.8877
+r4d1,"fast part, window 200",1,0.9846
+r4d1,"fast part, window 1000",1,0.9942
+r4d1,"fast part, window 5000",1,0.9964
+r4d1,"fast part, window 20000",1,0.9969
+r4d2,residual,1,0.9973
+r4d2,residual,2,0.9949
+r4d2,residual,5,0.9877
+r4d2,residual,10,0.9751
+r4d2,residual,20,0.9483
+r4d2,residual,50,0.8622
+r4d2,residual,100,0.7287
+r4d2,residual,200,0.5237
+r4d2,residual,300,0.3938
+r4d2,residual,500,0.1293
+r4d2,residual,1000,-0.0049
+r4d2,residual,2000,0.0967
+r4d2,residual,5000,0.0272
+r4d2,half-life from lag 1,255.2,0.5
+r4d2,"fast part, window 20",1,0.8998
+r4d2,"fast part, window 200",1,0.9891
+r4d2,"fast part, window 1000",1,0.9962
+r4d2,"fast part, window 5000",1,0.9979
+r4d2,"fast part, window 20000",1,0.9978
+r4d3,residual,1,0.9958
+r4d3,residual,2,0.9921
+r4d3,residual,5,0.981
+r4d3,residual,10,0.9618
+r4d3,residual,20,0.9238
+r4d3,residual,50,0.8121
+r4d3,residual,100,0.65
+r4d3,residual,200,0.4411
+r4d3,residual,300,0.372
+r4d3,residual,500,0.3699
+r4d3,residual,1000,0.0972
+r4d3,residual,2000,0.0991
+r4d3,residual,5000,-0.1177
+r4d3,half-life from lag 1,163.2,0.5
+r4d3,"fast part, window 20",1,0.8932
+r4d3,"fast part, window 200",1,0.9848
+r4d3,"fast part, window 1000",1,0.9923
+r4d3,"fast part, window 5000",1,0.9947
+r4d3,"fast part, window 20000",1,0.9953

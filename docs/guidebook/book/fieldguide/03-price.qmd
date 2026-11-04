@@ -72,8 +72,8 @@ one over which deviations from the fair *come back*.
 another product, here coconuts), the template valued the coupon at a model price plus the coupon's gap from that
 model, averaged with more weight on recent ticks (an exponential average over about `smile_window` ticks), and
 traded what was left of the gap. With a 20-tick window that fast part
-didn't come back: it drifted (its correlation from one tick to the next was 0.89), so fading it lost 267 thousand
-credits. With a 5,000-tick window the same strategy made 442 thousand credits, its worst day +114 thousand
+was large, about four times the half-spread, and slow to close (each tick kept 89% of the last, a half-life of about
+six ticks), and fading it lost 267 thousand credits. With a 5,000-tick window the same strategy made 442 thousand credits, its worst day +114 thousand
 [(`IDEAS.md`, "Prosperity 2 round 4's coconut coupons with the template's options modes")]{.src}.
 
 ![One parameter, the fair's timescale, on Prosperity 2's coconut coupon (take_edge 0.5). Data: `data/smile_window.csv`,

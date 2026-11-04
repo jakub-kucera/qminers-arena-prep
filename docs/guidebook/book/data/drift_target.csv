@@ -1,0 +1,14 @@
+# uv run python -m arena.backtest python/bots/template.py 1 2 --data p4 --engine rust [--set PARAMS.INTARIAN_PEPPER_ROOT.target=0 --set PARAMS.INTARIAN_PEPPER_ROOT.skew=0]: Pepper Root's PnL per day
+setting,day,pnl
+"target 80, skew 20 (committed)",r1d-2,76523.0
+"target 80, skew 20 (committed)",r1d-1,78154.0
+"target 80, skew 20 (committed)",r1d0,77926.0
+"target 80, skew 20 (committed)",r2d-1,76330.0
+"target 80, skew 20 (committed)",r2d0,75885.0
+"target 80, skew 20 (committed)",r2d1,76937.0
+plain market making,r1d-2,36301.0
+plain market making,r1d-1,57596.0
+plain market making,r1d0,21837.0
+plain market making,r2d-1,-1488.0
+plain market making,r2d0,-3334.0
+plain market making,r2d1,-3916.0
