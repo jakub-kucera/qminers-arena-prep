@@ -16,6 +16,10 @@ book:
     - 06-backtest.qmd
     - 07-real.qmd
     - 08-portal.qmd
+    - 09-code.qmd
+    - 10-day.qmd
+  appendices:
+    - glossary.qmd
 
 lang: en-GB
 number-sections: false
@@ -32,6 +36,8 @@ format:
     papersize: a4
     fontsize: 11pt
     geometry: [margin=25mm]
+    include-in-header:
+      text: \usepackage{multicol}
     toc: true
     fig-align: center
   epub:

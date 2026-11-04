@@ -1,0 +1,117 @@
+# Glossary {.unnumbered}
+
+*Each term with the chapter that defines it, and its nearest neighbour in machine learning where there is an honest
+one.*
+
+```{=latex}
+\begin{multicols}{2}
+```
+
+Adapter
+: The part of the bot that knows one exchange: it reads the exchange's state and writes its orders. Chapter 9. *ML: the
+  I/O layer for one deployment target.*
+
+Adverse selection
+: The tendency of a waiting order to be filled just before the price moves against it, because the traders keenest to
+  take it know something. Chapter 5. *ML: selection bias, chosen by an adversary.*
+
+Ask, bid
+: An offer to sell, an offer to buy. The best ask and best bid together are the *touch*. Chapter 2.
+
+Backtest
+: A replay of recorded days with the bot trading in them. Chapter 6. *ML: offline evaluation in a simulator.*
+
+Calibrate
+: The tool that searches the engine's settings for one that reproduces the portal's figures, or refuses. Chapter 8.
+  *ML: system identification.*
+
+Clear
+: Trading back towards a flat position at the fair value. Chapter 9.
+
+Fair value
+: The bot's estimate of what a product is worth now; every quote is placed relative to it. Chapter 3. *ML: an estimate
+  of a latent variable.*
+
+Fill
+: A trade that executes one of your orders, wholly or partly. Chapter 2.
+
+Fill model
+: The engine's assumption about which recorded trades would have filled orders that weren't really there: `all`,
+  `worse`, `none`, or resting with a queue. Chapter 6. *ML: the simulator's sim-to-real gap, one-sided.*
+
+Format plug-in
+: The module that reads one exchange's data into Days of Ticks and wraps its bot interface. Chapter 9. *ML: a dataset
+  loader behind a common interface.*
+
+Grid
+: Every combination of a few settings, each backtested and ranked. Chapter 7. *ML: grid search over hyperparameters.*
+
+Impact
+: How far the price moves, on average, in the direction of a trade after it; [$\mathcal{R}_\infty$]{speak="R infinity"} in the long run.
+  Chapter 4.
+
+Level
+: All the orders at one price on one side of the book. Chapter 2.
+
+Limit order
+: An order to buy at a price or lower, or sell at a price or higher. Chapter 2.
+
+Making, taking
+: Making is posting an order that waits; taking is crossing the book to trade at once and paying the spread. Chapter 2.
+
+Mark
+: The price at which a position is valued when PnL is computed. Chapters 2 and 6.
+
+Market maker
+: A trader that quotes on both sides and earns the spread from those who want to trade now. Chapter 4.
+
+Markout
+: A fill's profit some ticks later, measured from the mid. Chapter 5.
+
+Mid
+: Halfway between the best bid and the best ask. Chapter 2.
+
+Order book
+: The orders waiting at a moment, bids on one side and asks on the other, grouped by price. Chapter 2. *ML: the state.*
+
+PBO
+: The probability of backtest overfitting: how often the best setting on one half of the data ranks below the median on
+  the other. Chapter 7. *ML: a measure of model-selection overfitting.*
+
+Pick
+: The grid's chosen setting: the best cell that a multiple-testing correction confirms beats the bot as is, under every
+  fill model. Chapter 7.
+
+PnL
+: Profit and loss: cash plus the position valued at the mark. Chapter 2. *ML: the reward, after a choice of reference
+  price.*
+
+Position, limit
+: What you hold, positive if long, negative if short; the most the exchange lets you hold either way. Chapter 2.
+
+Premise test
+: The repo's check of whether a product is Prosperity-like (uninformed takers) or agent-like (informed traders, moves
+  that continue). Chapter 5.
+
+Queue
+: The order in which waiting orders at one price are filled: earliest first. Chapter 2.
+
+Resting
+: An order that stays in the book between ticks until filled or cancelled. Chapter 2.
+
+Shuffle test
+: The search re-run on days with their ticks in random order; if the result doesn't drop, it didn't need the order of
+  events. Chapters 5 and 6. *ML: a permutation test.*
+
+Spread
+: The gap between the best ask and the best bid. Chapter 2.
+
+Tick
+: One step of the recorded market; also the smallest price step, the *tick size*. Chapter 2. *ML: a time step.*
+
+Wall, wall mid
+: A large order a market-making bot keeps at a stable price; the midpoint of the walls on each side. Chapter 3.
+
+```{=latex}
+\end{multicols}
+```

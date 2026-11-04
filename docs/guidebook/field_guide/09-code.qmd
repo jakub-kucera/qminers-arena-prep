@@ -1,0 +1,96 @@
+# How is the code laid out?
+
+*You'll need the round's loop (chapter 1), the order book and orders (chapter 2) and fill models (chapter 6).*
+
+## The story
+
+The third rehearsal, the Kestrel Bourse, hid a rule: orders reached the exchange one step after the bot sent them.
+Two agent sessions played it, one with the repo before its calibration tools and one after. Both worked out the hidden rules
+soon after their first upload. Both lost money anyway: −4,850 and −283 on the public sessions, −3,553 and −489 on
+the hidden ones, where the exchange's own plain market maker made +325
+[(`IDEAS.md`, "The kickoff prompts on a disguised round")]{.src}.
+
+The cause wasn't the strategy. It was the few lines that turn a strategy's wishes into orders. With orders a step late,
+an order sent last step is neither in the book yet nor gone; neither session's code counted those orders "on their way".
+So each step it saw no order where it wanted one, sent another, ran into the exchange's cap of three working orders,
+and, when the late orders all arrived, held more than its limit and paid the penalty. Counting the orders on their way,
+and changing nothing else, took the public score from −283 to +142 and the penalty from 25 to 0
+[(`python/experiments/mock_round/round3/README.md`)]{.src}.
+
+That is why the bot is split the way it is.
+
+## The idea
+
+### The engine knows no format
+
+@fig-architecture is the repo on one page.
+
+![The repo's architecture. A format plug-in turns any exchange's data into Days of Ticks, and wraps the bot's call;
+the engine and every tool work only on those. Drawn from `docs/guidebook/research/repo_map.md`, A.](figures/f13_architecture.png){#fig-architecture
+fig-alt="Boxes and arrows: the day's data goes through a format plug-in into Days of Ticks, which feed the engine; the bot file, wrapped by the plug-in, also feeds the engine; the engine feeds backtest, grid, stress, validate and calibrate; diagnose reads the Days directly; a Rust twin of the engine sits beside it."}
+
+- **The engine** (`python/arena/engine.py`) replays a `Day` against a bot and returns fills and PnL. It knows nothing
+  about any exchange: no file layout, no bot interface, no units.
+- **A format plug-in** (`python/arena/formats/<name>.py`) knows one exchange. It reads that exchange's files into Days,
+  wraps the exchange's bot interface so the engine can call it, and states the engine settings the exchange's rules
+  fix (resting orders, the mark, delay, fees). On the day the Arena gets its own plug-in, `qminers.py`, already
+  sketched with `TODO(day)` markers.
+- **The tools** (`arena.backtest`, `arena.grid`, `arena.stress`, `arena.validate`, `arena.diagnose`,
+  `experiments.day.calibrate` and the day's experiments) all take `--format` and `--data`, and work on any exchange
+  that has a plug-in.
+
+So a new exchange costs a plug-in and an adapter, not a new set of tools. Chapter 1's rehearsal wrote both in under five
+minutes.
+
+### The bot in three parts
+
+The template, `python/bots/template.py`, is one self-contained file, as the competitions require, in three sections:
+
+- **STRATEGY** decides what the bot *wants*: for each product, a fair value (chapter 3), then *take* (cross the book
+  where it is mispriced against the fair), *clear* (trade back towards zero at the fair when the position is large),
+  and *make* (quote either side of the fair). Other modes trade towards a target instead: a level the price returns
+  to, a basket's spread, an option's model price, a trader worth following. Every choice is a parameter in `PARAMS`,
+  one entry per product, over shared `DEFAULTS`.
+- **EXECUTION** turns what the strategy wants into orders and cancels, given what already rests, what is on its way,
+  and the limits. This is the part the Kestrel story was about. It is generic, the same on every exchange.
+- **ADAPTER** is the only code that knows the exchange: it reads the exchange's state into the template's own form,
+  and writes its orders back in the exchange's format. On the day it is the part that changes.
+
+Keeping the three apart is what lets one strategy run on every exchange we have rehearsed, and what keeps an execution bug from hiding
+inside strategy code, where the Kestrel sessions looked for it first.
+
+### The rest of the repo
+
+- **The Rust twins** (`rust/`): the engine, the simulator, the statistics and the bots ported to Rust, giving the same
+  results to the bit, 40 to 130 times faster. `--engine rust` uses them; a twin whose Python changed since it was
+  checked is refused.
+- **`IDEAS.md`**: every idea tested on Prosperity data, with the command and the numbers, kept even when it failed
+  ("dropped here"): priors to re-test on the Arena's data, not verdicts.
+- **The wiki** (`references/wiki/`): concept pages that join the literature, the other teams' write-ups and our
+  measurements, each line cited.
+- **The day's documents**: `RUNBOOK.md` (one page), `ON_THE_DAY.md` (every open question, with what to assume and
+  what changes if it's different) and `KICKOFF_PROMPT.md` (what starts an agent session).
+
+::: {.callout-note title="If you know ML"}
+The split is the one between a model, its inference wrapper and a data loader. The engine is the evaluation harness,
+plug-ins are dataset loaders behind one interface, STRATEGY is the model, EXECUTION is the serving logic, and ADAPTER is
+the I/O layer for one deployment target. As in ML, most production failures are in the last two, and they are the
+hardest to see in offline evaluation: a replay with no delay can't show an order-counting bug that only a delay
+exposes.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `ARCHITECTURE.md`: how the parts fit, and its paragraph "Formats are plug-ins" before writing one.
+- The template's sections: search `template.py` for `STRATEGY`, `EXECUTION` and `ADAPTER`; `on_the_way` and `went`
+  count orders on their way.
+- `arena.validate BOT DAYS --late` replays with a delay, to catch the Kestrel bug before an upload.
+:::
+
+::: {.callout-important title="On the day"}
+`ON_THE_DAY.md`, "The format swap, step by step": the plug-in, the adapter and the checks, in order, as the one
+checklist for the swap.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- `ARCHITECTURE.md` in full, then `python/arena/engine.py`'s module docstring: the matching rules in each mode.
+:::
