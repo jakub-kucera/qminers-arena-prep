@@ -1,0 +1,178 @@
+# What did we do on the day?
+
+*You'll need the whole book; this chapter only explains why the day was planned as RUNBOOK says. It was written
+on 4 November 2026, before the event, from what the organisers had said by then, and it gives no instruction of its
+own: every instruction is RUNBOOK's, and where the two differ, RUNBOOK is right. What happened in each round is
+written after the event, in the boxes marked "On the Arena".*
+
+## The story
+
+Qminers' own 2024 hackathon was a sports-betting contest. Its online stage ran on hidden data with a limit of 20
+submissions, and one entrant scored 77,382 points, as he puts it a profit equal to the rest of the field's combined.
+The final was in person, over a single Saturday: new data, scores reset to the 1,000 points everyone started with, and
+a shorter horizon, "thus introducing more variance to the competition"
+[(`references/qminers-hackathon-2024/README.md:33-43`)]{.src}.
+
+Before it, he wrote a small simulation of the final: twenty finalists starting level, with models of varying quality,
+correlated with each other, each with its own appetite for risk. He used it to choose how much of his bankroll to
+bet, choosing the fraction that maximised his chance of winning the tournament, not his expected score
+[(`README.md:45-49`)]{.src}. (The code committed for it doesn't run as it stands; the idea carries over, not the
+number [(`references/wiki/sources/qminers-hackathon-2024.md`, "Traps")]{.src}.)
+
+The final had three rounds. He took the lead in the first and extended it in the second. Before the third he worked
+out that its scrambled data came from just after covid, a period other finalists' models might handle better than
+his, and halved his stake so as not to lose the lead. It was, he wrote, "a minor mistake": his model "performed the
+best during this time". He finished on 107,074 points, against 69,460 for the second, and estimates he would have
+ended near 143,000 at full stake [(`README.md:55-63`; `final_scores.png`)]{.src}.
+
+The point is not that halving was right. It is that the question changed once he was ahead: from "what makes the
+most" to "what keeps the place".
+
+## The idea
+
+### How the plan was made
+
+The plan was built in steps, each from something learned, and the dates say where each part came from
+[(`ON_THE_DAY.md`, "Known so far"; `IDEAS.md`, "The kickoff prompts on a disguised round")]{.src}.
+
+- **7 October.** The organisers' e-mail gave the schedule: a playground in the morning, then four rounds of five
+  hours through the night.
+- **10 October.** The Arena's site, read from its own code, showed the shape of the game: one Python file uploaded
+  to a web portal each round, a capped number of submissions, and public backtest data to download.
+- **24 and 25 October.** We would be two, so each of us holds two of four roles: A drives and records, B runs the
+  data and the research. The portal gained its twelve figures for each upload, one evaluation at a time, and a new
+  upload becomes final only once it completes.
+- **26 October.** The leaderboard ranks by PnL, not by a risk-adjusted score. The first disguised rehearsal ran the
+  same day, and three more followed on 28 October, 30 October and 3 November (chapter 1). Each changed the plan: the
+  third taught the template to count its orders still on their way and, once its engine fit turned out to be
+  circular, made `calibrate` refuse any fit worse than 5%; the fourth tested that refusal on a portal that wasn't our
+  engine.
+- **2 November.** The last e-mail: no elimination, every team plays all four rounds; any AI tools allowed; nobody
+  may sleep in the building, but the whole team may leave to rest.
+- **4 November.** This chapter, and the field guide's version of it.
+
+### The weekend
+
+![The weekend and one round, as planned. The weekend from `ON_THE_DAY.md`'s timeline, the round from `RUNBOOK.md`'s
+"Each round"; both drawn from those files by `make_data.py`.](../figures/f14_timeline.png){#fig-timeline
+fig-alt="Top: Saturday 8:00 registration, then the opening, the workshop, a playground from 10:30 to 12:00, lunch, then four five-hour rounds at 13:00, 19:00, 01:00 and 07:00, weighted 10, 20, 30 and 40 percent. Bottom: one round from T to T plus 5 hours, with the data at T, a validated upload by T plus 2 hours, and the strategy frozen half an hour before the deadline."}
+
+Saturday starts with registration at 08:00, as a whole team. The Technical Rules are published at the opening, and
+the *playground*, 10:30 to 12:00, is planned as the one chance to try the real exchange before anything is
+scored. Then four
+rounds, at 13:00, 19:00, 01:00 and 07:00 (@fig-timeline). The site's code weights them 10, 20, 30 and 40%, but no page
+uses those weights, and the leaderboard it does show is per round, with no total: how the rounds combine is unknown
+until the rules say [(`ON_THE_DAY.md`, "Known so far" and "The day: timeline and roles")]{.src}.
+
+### The morning: settle what changes the code
+
+RUNBOOK's morning is about the answers that change code, before any strategy. One person reads the Technical Rules in
+full and writes each answer into the "First hour" section of ON_THE_DAY: the entry point, the data format, whether orders
+rest, the limits, the Python version, the time limit, the submission cap. Any module the organisers hand out goes into
+the plug-in unchanged. In the playground three tracks run at once: a probe bot that measures the exchange's rules, the
+data loader, and the bot's adapter. Over lunch, the first upload's figures go into calibrate.
+
+The reason is the rehearsals. In the second and third, most of the time went on mapping the rules onto the engine and
+writing the adapter, and the third's first upload lost its money to the adapter, not to the strategy (chapter 1). Chapter 2 is the
+list of what can differ: whether orders rest, how the limit is enforced, what the data looks like.
+
+### Why each round runs as it does
+
+RUNBOOK's "Each round" is chapter 1's loop with times on it. Each step has its reason in this book:
+
+- **The data and the rules first, then `diagnose` and the premise test** (T+0:00 to T+0:15): before tuning anything,
+  find out what kind of market each product is (chapters 3, 5 and 7). Where a product behaves like an agent market
+  rather than like Prosperity, a bot that does nothing is the benchmark [(`KICKOFF_PROMPT.md`, round 1, step
+  5)]{.src}.
+- **The grid under two fill models** (T+1:00): until the playground or the rules settle which fill model the Arena
+  has, a choice must hold under both (chapters 10 and 11). A setting changes only to the grid's `pick`, with the one
+  exception RUNBOOK names for round 1 if the total turns out to be raw PnL.
+- **Stress, and a loss stop sized from it** (T+1:30): a loss stop about three times the bot's plain drawdown limits
+  the damage when the market stops behaving like its data (chapters 7 and 13).
+- **A validated bot, at least as good as the last one, uploaded by T+2:00:** its portal score against our backtest
+  is the engine's error, and no two variants closer than that error can be told apart (chapter 12).
+- **Stop changing the strategy half an hour before the deadline,** or earlier if twice the first evaluation's time
+  is longer: the last change has the least evidence behind it, and an upload that fails can't be marked final.
+- **The handover note ten minutes before the deadline:** what was learned, for the next round's session, which starts
+  fresh. Chapter 1's rehearsal wrote one; the Arena's four are what this chapter's boxes will be written from.
+
+### The rules that hold all day
+
+Above every step sit RUNBOOK's "Rules that hold all day". Never upload code `arena.validate` hasn't passed, and never
+a `GRAY_AREA` bot without an organiser's yes (chapter 9). A round's first upload is a bot that has already run in the
+playground, or last round's final bot, because the validator checks only against our copy of their interface. Never
+choose between two variants by a portal score that differs by less than the engine's error. One evaluation at a time,
+and an upload that completes becomes final, so mark the chosen one final again after any exploratory upload. Naps
+only in rounds 2 and 3, and only when the round looks like the one before. Each rule is a lesson from somewhere in
+this book, written down so that nobody has to remember it at four in the morning.
+
+### Each round, choose again
+
+The site promises "a forgiving market" first and "a sophisticated finale". So the round-1 bot is a starting point
+for round 2, not a default: RUNBOOK has each round re-run the premise test, re-grid every setting on the round's own
+data, and try one alternative to the last round's approach by T+1:00. Every number in this book before the event was
+measured on someone else's market: Prosperity's, our simulator's, ABIDES's or a rehearsal's. Each is a prior, to be
+tested again on the Arena's data, round by round.
+
+### Risk, once there is a score to protect
+
+Two things decide how much risk to carry into the later rounds, and neither was known on 4 November: how the four
+rounds combine into the final ranking, and whether profit carries over. The plan has the decision made in writing at
+breakfast, before round 4, from `experiments.day.standings`: our rank under each way the rounds might combine, given
+the standings and our round-4 grid [(`RUNBOOK.md`, "Rules that hold all day")]{.src}. If rounds 2 and 3's private
+runs strayed from our backtests, a bot that sends nothing is on the list. The 2024 story is the frame: once you are
+ahead, the variance you could avoid counts for more than it did, and when you are behind, for less (chapter 13).
+
+### The rounds as they went
+
+::: {.callout-warning title="On the Arena: round 1 (13:00–18:00)"}
+*Written after the event, from `data/arena/round1/HANDOVER.md` and `leaderboard.json`:* the round's products and
+rules, the first upload and its portal score against our backtest, the fill model and mark the portal matched, what
+the private run did to the public score, our rank, and the first candidate it left for round 2.
+:::
+
+::: {.callout-warning title="On the Arena: round 2 (19:00–24:00)"}
+*Written after the event, from `data/arena/round2/HANDOVER.md` and `leaderboard.json`:* what changed from round 1,
+the alternative tried against round 1's approach and whether it won, the uploads, the private run, our rank, and
+whether anyone slept.
+:::
+
+::: {.callout-warning title="On the Arena: round 3 (01:00–06:00)"}
+*Written after the event, from `data/arena/round3/HANDOVER.md` and `leaderboard.json`:* the same, for the night
+round, and the standings that went into the breakfast decision on risk.
+:::
+
+::: {.callout-warning title="On the Arena: round 4 (07:00–12:00)"}
+*Written after the event, from `data/arena/round4/HANDOVER.md` and `leaderboard.json`:* the risk decided at
+breakfast and why, the final bot, the private run, and the final ranking.
+:::
+
+::: {.callout-note title="If you know ML"}
+A competition ranked on one final evaluation rewards the probability of being first, not the expected score, the way
+a leaderboard with a private test set rewards robustness over the public score. Where the analogy breaks: on a
+leaderboard you choose the model once, while here the stake can change from round to round, after you have seen the
+standings, so the choice of risk is itself a decision made on new information. And the rounds may not be the same
+task: the organisers promise harder ones, so a model fitted to round 1 is a prior for round 2, not a solution.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `RUNBOOK.md` (one page), `ON_THE_DAY.md` (every open question about the Arena, and the timeline) and
+  `KICKOFF_PROMPT.md` (the prompts that start each round's session).
+- `docs/HANDOVER_TEMPLATE.md`, copied to `data/arena/round<N>/HANDOVER.md` each round; the round's leaderboard in
+  `leaderboard.json` beside it.
+- `experiments.day.standings` and `experiments.day.leaderboard_curves`: what the standings say about risk, once there
+  are standings.
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* the weekend as it went against @fig-timeline as planned (the
+timeline redrawn with both), which of RUNBOOK's times held, and what the plan got wrong.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- The wiki's pages on risk and protecting a lead, and on harder rounds: how other teams sized risk with a lead, and
+  how competitions make later rounds harder [(`references/wiki/concepts/risk-and-protecting-a-lead.md`,
+  `harder-rounds.md`)]{.src}.
+- The wiki's page on Qminers' 2024 hackathon: its final in full, with what the screenshots confirm
+  [(`references/wiki/sources/qminers-hackathon-2024.md`)]{.src}.
+:::

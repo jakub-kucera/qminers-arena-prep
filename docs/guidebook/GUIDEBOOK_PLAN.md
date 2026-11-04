@@ -51,7 +51,7 @@ guide's (`FIELD_GUIDE_PLAN.md`), reused; G-figures are new. "(Arena)" marks what
 | # | Question | Words | From the field guide | Stories | Figures |
 |---|---|---|---|---|---|
 | 1 | What happens in a round? | 1,800 | ch. 1, grown | 15 (Varde, end to end); the Arena's round 1 (Arena) | F1 the round's loop; G1 the Arena's round 1 as it went, from its HANDOVER (Arena) |
-| 2 | What is an exchange? | 2,800 | ch. 2, grown | the portal's identity (Varde Session 1); R "hidden depth" (53.9% of AlgoTrade's ZSE prints outside the top 3) | F2 an order book; F3 the score's parts; G2 the three data shapes (snapshots, an event log, prints with an aggressor flag) becoming our `Day` of `Tick`s |
+| 2 | What is an exchange? | 2,800 | ch. 2, grown | the portal's identity (Varde Session 1); R "hidden depth", a misreading (AlgoTrade's ZSE: 34.0% of 1.41M prints outside the three levels a recording kept, of the five the API sent) | F2 an order book; F3 the score's parts; G2 the three data shapes (snapshots, an event log, prints with an aggressor flag) becoming our `Day` of `Tick`s |
 
 Chapter 2 adds the data shapes, matching rules in full (price-time priority, what a take does, what rests), position
 limits and how each exchange enforces them, and the Arena's own format (Arena).

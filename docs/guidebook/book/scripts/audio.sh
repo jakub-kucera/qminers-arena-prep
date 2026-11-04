@@ -24,7 +24,8 @@ for chapter in $chapters; do
   # pandoc on its own, so its exit status (audio.lua's check) isn't lost in a pipeline
   pandoc "$tmp" -f markdown -t plain --wrap=none -L scripts/audio.lua -o "$tmp.txt" || { echo "audio.sh: $chapter failed" >&2; exit 1; }
   [ -s "$tmp.txt" ] || { echo "audio.sh: $chapter came out empty" >&2; exit 1; }
-  sed -E 's/ +([.,;:)])/\1/g; s/\( +/(/g; s/\(\)//g; s/(^|[.?!] )the figure/\1The figure/g; s/([Tt])he wiki.s the wiki page/\1he wiki page/g; s/  +/ /g' "$tmp.txt" > "$out.new"
+  sed -E 's/ +([.,;:)])/\1/g; s/\( +/(/g; s/\(\)//g; s/(^|[.?!] )the figure/\1The figure/g; s/([Tt])he wiki.s the wiki page/\1he wiki page/g; s/  +/ /g' "$tmp.txt" |
+    perl -CSD -pe 's/(^|[.?!][\x{201D}"]? )(\p{Ll})/$1\u$2/g' > "$out.new"  # a sentence that starts with a code name starts in capitals
   if cmp -s "$out.new" "$out"; then rm "$out.new"; else mv "$out.new" "$out"; fi  # unchanged text keeps its date
   echo "$out: $(wc -w < "$out" | tr -d ' ') words"
 done

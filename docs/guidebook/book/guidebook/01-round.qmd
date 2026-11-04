@@ -1,0 +1,148 @@
+# What happens in a round?
+
+*You'll need nothing yet. This chapter is a tour: it uses, loosely, most of the terms the rest of the book defines,
+so that you have the map before the detail. Don't stop on a word you don't know; its chapter is named next to it.*
+
+## The story
+
+Just after midnight on 3 November we rehearsed round 1 against an exchange none of our tools had seen, the Varde Exchange.
+It was built to be unlike anything in the repo: its own data layout, its own way of calling the bot, prices in cents
+on a five-cent step, results in euros, and a portal that matched and scored orders in its own code, not in our
+engine. A fresh agent session got the prompt it will get on the day, a deadline an hour away and no help. Its log
+gives every step a clock time [(`python/experiments/mock_round/round4/results/DRYRUN_LOG.md`)]{.src}.
+
+- **0:00.** It read the rules in full. Three products, LUMEN, QUILL and SORREL, each with a *position limit* of 40,
+  60 and 30 lots: how much of a product the bot may hold, long or short (chapter 2). Orders *rest* on the book until
+  they are filled or cancelled. A fee is charged per lot traded and per order placed. Three public sessions of 5,000
+  steps to practise on; the score comes from two sessions nobody sees.
+- **0:02.** It wrote down what the rules settle, what they leave open (the price at which open positions are valued
+  at the end, among others) and where they contradict how our engine assumes a market works. That list is the first
+  thing in the round's handover note [(`python/experiments/mock_round/round4/results/HANDOVER.md`)]{.src}.
+- **0:03.** It wrote a *format plug-in*, the piece of code that reads this exchange's files into the engine's own
+  shape (chapters 2 and 14), and ran `arena.diagnose`, which describes each product from the data alone: how wide its
+  *spread* is (chapter 2), whether its price wanders or comes back to a level (chapter 7), whether its trades move the
+  price (chapter 5). A minute later a second tool found that LUMEN and QUILL open at the same level every session and
+  return to it.
+- **0:05.** It wrote the bot: the repo's *template*, with a block of settings, `PARAMS`, for each product (chapter
+  15), and an *adapter* that speaks this exchange's language (chapter 14). Its first *backtest*, a replay of the
+  public sessions with the bot trading in them (chapter 10), made 73,038 cents, about 730 euros. SORREL alone lost
+  567 euros by quoting.
+- **0:06.** A *grid*: a few settings in every combination, each backtested, under two *fill models*, two answers to
+  what would have happened to orders the recording never saw (chapters 10 and 11). SORREL set to take only, which in
+  practice meant it never traded, lifted the backtest to 133,240 cents under the optimistic model and 124,872 under
+  the strict one, and the grid's own pick agreed. `arena.validate` then checked the file against the rules: its size,
+  60 kilobytes; its slowest tick, a tenth of a millisecond; no outside libraries.
+- **0:07.** The upload. The portal's script crashed on the laptop's old Python; it ran under the repo's own. The
+  portal scored the bot **€367.61** on the three public sessions and returned twelve figures and a file of every fill.
+- **0:09.** *calibrate* searched 144 of our engine's settings for one that reproduces the portal's twelve figures
+  (chapter 12). It **refused**: no setting came within 5%, and the least bad was 98% off on the score. The session did
+  what the refusal says. It pasted nothing into the engine, rebuilt the score by hand from the fills file, and found
+  two things. A fee of half a cent per order placed had taken €143.24, 28% of the €510.85 the bot made before the order
+  fee.
+  And the portal had filled far fewer lots than any of our settings: 8,466, against 11,345 to 18,772.
+- **0:13.** It wrote what it had learned into the repo's notes, and stopped, as the prompt tells it to, after one
+  validated upload and an honest reading of it. The whole run took fourteen minutes.
+
+On the two hidden sessions the bot scored **€208.77**; the example bot the exchange handed out scored **€80.10**
+[(`python/experiments/mock_round/round4/README.md`, re-run with its `portal.py hidden`)]{.src}. The cause of the
+fill gap was in the rehearsal's answer key, not in anything the session could read: only half of each trade reached
+resting orders. The session didn't pin that down in fourteen minutes, but it knew not to trust its engine until
+someone did.
+
+## The idea
+
+### A round is a loop
+
+The Arena gives five hours a round and a limited number of uploads. Inside those, the work is a loop
+(@fig-loop), run as often as time and submissions allow.
+
+![The round's loop. The first lap ends in a validated upload by two hours in (`RUNBOOK.md`, "Each
+round").](../figures/f01_round_loop.png){#fig-loop
+fig-alt="A loop of eight boxes: the round's data and rules, diagnose, the bot, backtest and grid under two fill models, validate, upload, the portal's figures, and calibrate, which leads back to the start."}
+
+1. **Read the market.** The data is a recording: the *order book* at every *tick* (who is offering to buy and sell,
+   at what prices, how much) and the trades that happened (chapter 2). The first question is what kind of market each
+   product is: where its price is (chapter 3), whether it comes back to a level or wanders (chapter 7), who trades it
+   (chapter 5).
+2. **Write the bot.** A bot is called once a tick, sees the book and its own position, and returns orders. Ours is
+   mostly a *market maker*: it offers to buy a little below its estimate of the fair price and to sell a little above
+   it, and earns the gap when others trade with it (chapter 4). It loses when the people trading with it know more
+   than it does (chapter 5), and it pays for whatever it is left holding (chapter 6).
+3. **Backtest.** Replay the recorded days with the bot in them. The replay has to guess what would have happened to
+   orders that were never really there, and that guess can be worth more than the strategy (chapter 10).
+4. **Choose settings without fooling yourself.** A grid tries many settings, and the best of many is flattered by
+   luck; a round's few days of data are very few (chapter 11).
+5. **Upload, and read what comes back.** The portal is the only judge that matters. Its figures say how far our
+   replay is from the real exchange, and calibrate turns that gap into engine settings, or refuses to (chapter 12).
+
+Two habits keep the loop honest. **Upload early:** a validated bot by two hours in, so that there is always something
+scored and the engine's error is measured before it is relied on. **Change only what the evidence supports:** each
+change has to beat the bot before it on days the choice didn't see (the kickoff prompt's step 5), because an upload is
+one noisy measurement and submissions are few.
+
+### Four rehearsals, four different things that went wrong
+
+Varde was the fourth disguised round. Each was built from our simulator's products, renamed and repriced, with a
+layout, a bot interface and rules unlike the round before. Their scores are in each round's
+own units, so they compare only within a round [(`IDEAS.md`, "The kickoff prompts on a disguised round")]{.src}.
+
+- **The first** (26 October) gave a function for an API, orders that rest, and one product whose price jumped and
+  snapped back. Both sessions, one with the repo and one in an empty folder writing its own backtester, found the jump
+  in minutes, and about 89% of each one's profit came from fading it: 42,446 on the hidden days for the repo's bot,
+  42,944 for the clean-room one. It also showed that whether the volume a bot buys stays gone from the replayed book
+  is worth a quarter of the score: 31,172 when it does (chapter 10).
+- **The second**, the Halden Exchange (28 October), tested whether reorganising the repo made a session faster. It
+  didn't: both runs spent most of their thought mapping the rules onto the engine. The first run's bot made 9,777 on
+  the hidden days, between the round's own market maker at 8,632 and its reference bot at 12,195.
+- **The third**, the Kestrel Bourse (30 October), hid four rules, among them that orders reach the exchange a step
+  after the bot sends them. Both uploads lost: −3,553 and −489 credits on the hidden sessions, where the round's plain
+  market maker made +325. The first loss was the adapter's: it didn't count the orders still on their way, so it
+  re-sent its quotes every step and overfilled its limits, and 2,191.75 credits of the loss were charges for the
+  breaches (chapter 14). Counting those orders moved the second bot only from −489 to −389; the rest came from
+  quoting one product whose quotes the round's strict matching filled only when the price ran through them, a choice
+  of settings, not of code.
+- **The fourth**, Varde, put the matching and the scoring outside our engine altogether, and is the story above.
+
+In none of the four did a clever strategy decide the result. The first rewarded reading each product right; the
+second and the third's worst loss were decided by the adapter, the thin layer between our code and theirs; the fourth
+by rules our engine couldn't express, one of them unstated. That is the pattern this book keeps returning to.
+
+### What this rehearsal teaches
+
+The most useful moment of the Varde run was the refusal. A tool that always gives an answer would have handed over
+the least bad setting, 98% off, and every backtest of the next five hours would have been tuned to an engine that
+wasn't the exchange's. A tool that prints "NO SETTING REPRODUCES THE PORTAL within 5%: don't paste an ENGINE.", and
+says where to look [(`python/experiments/day/calibrate.py:298`)]{.src}, sent the session to the one place the truth was, the portal's own fills. It found the fee there in
+three minutes.
+
+Most of this book is about that distinction: what our tools can measure, what they can only assume, and how to tell
+the two apart under time pressure. The rest is the market itself, which is where Part II begins, after one more
+chapter on what an exchange is.
+
+::: {.callout-note title="If you know ML"}
+The loop is model development against a black-box evaluator: a local validation set (the backtest), a hidden test
+set (the scored sessions) and a limited number of test-set queries (the uploads). Two things break the analogy. The
+local validator is a simulator with a known bias, not a held-out sample of the same data, so a model that wins
+locally can lose on the portal for reasons no amount of local data reveals (chapter 10). And every query costs one of
+a few submissions and blocks the next until it is scored, so each upload is planned like an experiment.
+:::
+
+::: {.callout-tip title="In the repo"}
+- The rehearsal: `python/experiments/mock_round/round4/` (its README rebuilds and scores it in seconds); the run's
+  own record, `results/DRYRUN_LOG.md` and `results/HANDOVER.md`. The earlier three: `python/experiments/mock_round/`,
+  `round2/` and `round3/`.
+- The loop's tools: `arena.diagnose`, `arena.backtest`, `arena.grid`, `arena.validate`, `experiments.day.calibrate`.
+- The prompt the session got: `KICKOFF_PROMPT.md`, round 1. The results: `IDEAS.md`, "The kickoff prompts on a
+  disguised round".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* the Arena's round 1 as it went, step by step against the same
+clock, from `data/arena/round1/HANDOVER.md` and its upload log, with a figure of the round's timeline, and what it
+did differently from the Varde rehearsal.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Harris, *Trading and Exchanges*, ch. 13 "Dealers" (from PDF p. 291): what a market maker is, in plain prose, before
+  any of the models.
+:::

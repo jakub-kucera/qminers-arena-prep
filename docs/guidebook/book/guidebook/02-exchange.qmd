@@ -1,0 +1,241 @@
+# What is an exchange?
+
+*You'll need nothing before this chapter. It defines the order book, orders, matching, fills, the position limit,
+profit and the data an exchange publishes, which every later chapter uses.*
+
+## The story
+
+The Varde rehearsal's first upload (chapter 1) scored €110.21 on its first public session. The portal showed totals
+and a file of fills, and the session rebuilt the rest by hand. The portal's own scoring code, run on the same bot,
+shows where the number comes from. It is two large numbers that nearly cancel
+[(`data/sessions.csv`, from the rehearsal portal's own scoring)]{.src}:
+
+- **cash: −€2,814.63.** Over the session the bot spent more on buying than it received from selling, fees included.
+- **the position, valued: +€2,924.84.** At the end it still held what it had bought and not sold, 17 lots net across
+  its products, and the portal valued them at its *settlement price*, the price it chooses for what is still held.
+- **the score: €110.21,** their sum.
+
+![The score's two parts in each of the Varde rehearsal's three public sessions. Data: `data/sessions.csv`, from
+`python/experiments/mock_round/round4/private/portal.py`'s scoring of the uploaded bot.](../figures/f03_score_parts.png){#fig-score
+fig-alt="Bar chart: in each session, cash and the position's value are hundreds to thousands of euros apart and of opposite sign, and the score, their sum, is between 110 and 137 euros."}
+
+All three sessions are in @fig-score. In the third the signs flip: €5,486.92 of cash against a short position worth
+−€5,366.09, for a score of €120.83. In every session the score is a small difference between two numbers, and one of
+them depends on a price the portal chose. The session didn't know which: valuing the positions at each session's last
+mid gave €369.67 against the portal's €367.61, close enough to use and not exact
+[(`python/experiments/mock_round/round4/results/HANDOVER.md`, "Portal against local")]{.src}. The answer key says
+the portal used the average price of each product's last 100 trades, weighted by size. Hold that thought: it is why the end of a
+session matters more than any single tick, and why chapter 10 counts the price used to value a position among a
+backtest's assumptions.
+
+## The idea
+
+### The order book
+
+An exchange is a place where offers to trade wait until someone takes them. Each offer is a *limit order*: buy up to
+this many *lots* (units of the product, the smallest quantity it trades in) at this price or
+lower, or sell up to this many at this price or higher. The offers waiting at a moment
+make up the *order book*: the *bids* (offers to buy) on one side, the *asks* (offers to sell) on the other, each side
+grouped into *levels*, one per price (@fig-book).
+
+![One tick of Prosperity 3's Kelp, round 1, day 0. Data: `data/order_book.csv`, from the engine's loader.](../figures/f02_order_book.png){#fig-book
+fig-alt="An order book: bids of 2 lots at 2,029 and 23 lots at 2,028; asks of 6 lots at 2,030 and 25 lots at 2,032; the mid 2,029.5 and the wall mid 2,030."}
+
+The highest bid is the *best bid* (2,029 here); the lowest ask is the *best ask* (2,030). Together they are the
+*touch*, and the gap between them is the *spread*, here 1 credit. Prices move in fixed steps, the *tick size*: 1
+credit on Prosperity, 5 cents on the Varde Exchange. A spread of one tick is as narrow as a book can be. The word *tick* has a second sense, which the book also uses:
+one step of the market's clock, one snapshot of the book and one call of the bot; the context says which. Halfway
+across the touch is the *mid*, 2,029.5. Chapter 3 is about why the mid is often the wrong number to trust, and what
+the large orders at 2,028 and 2,032, the *walls*, tell you instead.
+
+### Taking and making
+
+A new order either crosses the book or it doesn't.
+
+- A **buy at or above the best ask** (or a sell at or below the best bid) *crosses*. It trades at once with the
+  waiting orders, at their prices, best first, until it is filled or the next level is beyond its own price. This is
+  *taking*, and the order is *aggressive*: you pay the spread for trading now.
+- An order that **doesn't cross** joins the book and waits. This is *making*, or quoting, and the order is
+  *passive*: you offer liquidity and hope someone takes it. When they do, your order is *filled*, at your price.
+
+A trade between two other participants is a *print*, and the side that crossed is its *aggressor*. Chapters 4 and 5
+are about why the passive side earns the spread on average, and when it doesn't.
+
+### Matching in full
+
+The rule that decides who trades with whom is the exchange's *matching*. Nearly every exchange uses *price-time
+priority*: an incoming order trades first with the best price on the other side, and among orders at the same price,
+with the one that arrived first. So a waiting order has a place in a *queue*. Joining a busy level means waiting
+behind everyone already there, and you move up only as the orders ahead of you trade or are cancelled. Prosperity's
+own glossary says its exchange enforces exactly this
+[(`references/prosperity-wikis/prosperity4/trading-glossary-d14f71.md:69`)]{.src}.
+
+On Prosperity, though, the queue hardly exists, because nothing waits long enough to be in one. Our engine follows
+its rules, checked fill for fill against the open-source backtester [(`python/arena/engine.py`, the module's
+docstring; `ARCHITECTURE.md`, "Matching rules (Prosperity semantics)")]{.src}:
+
+1. Every tick the bot sees the book and returns orders.
+2. If a product's orders could take its position past the limit, every order for that product is rejected (below).
+3. Each order trades against the visible book at the book's prices, best price first.
+4. What's left can fill against that tick's prints, at the order's own price.
+5. Anything still unfilled is cancelled. No order rests into the next tick.
+
+Rule 4 is the one a replay has to guess at, because the prints happened between other bots: whether a print at our
+price would have come to us is the *fill model*, and chapter 10 is about how much rides on it. Rule 5 is the likely
+reason one Prosperity 4 team's probe found "no queueing": orders at the best price were served regardless of when
+they were placed (*their claim*) [(`references/online-snapshots/Leo-Hawking_IMC-Prosperity-4-Review.README.md:204`)]{.src}.
+
+Most other exchanges, and all four of our rehearsals, let orders **rest** until they are filled or cancelled. The
+engine's resting mode replaces rule 5 with an exchange where they do [(`python/arena/engine.py`)]{.src}:
+
+- What doesn't trade at once rests at its price, at the back of its level's queue: the volume the book already shows
+  there is ahead of it. An order marked *immediate-or-cancel* doesn't rest.
+- Prints at its price first use up the volume ahead of it, then fill it. A print through its price fills it at once,
+  since it would have traded first.
+- If a later book shows the other side at or through its price, those orders would have hit it, and it fills at its
+  own price.
+- The queue moves up when the level shrinks by more than the prints explain, because orders ahead were cancelled; how
+  much of that happens ahead of us is a guess (chapter 10).
+- The bot's own orders never trade with each other.
+
+Each exchange then adds its own details. The Varde Exchange applied a step's cancels before its new orders, took at
+most 10 actions a step, had no immediate-or-cancel orders, and filled resting orders only from prints, best price
+then oldest first [(`python/experiments/mock_round/round4/public/rules.md`, "Your bot" and "Matching")]{.src}. The
+Kestrel Bourse allowed 6 actions a step, cancels included, and 3 working orders a product. Each of those is a line in the format's engine
+settings, and a line the bot's adapter has to respect.
+
+### One order, worked through
+
+Take the book of @fig-book, at timestamp 400, and send one order: buy 10 Kelp at 2,031
+[(`data/worked_order.csv`, from `arena.engine.run_day`)]{.src}.
+
+- The order crosses: 2,031 is above the best ask of 2,030. It takes the 6 lots there, at 2,030, the book's price, not
+  its own. The next ask, 2,032, is above its price, so the taking stops.
+- Four lots are left at 2,031, the highest bid in the book now and alone at their price.
+- Under Prosperity's rules, no print that tick reaches 2,031, so the four lots are cancelled. The bot bought 6.
+- With orders resting, the four lots wait. At the next tick, 500, the book's best ask has dropped to 2,031, at our
+  price: those sellers would have traded with our bid, so it fills, 4 lots at 2,031.
+
+The same order, the same data, two exchanges: 6 lots or 10. Nothing in the recording says which happened, only the
+rules do.
+
+### Position limits, and how exchanges enforce them
+
+Your *position* in a product is what you hold: positive after buying more than you sold (*long*), negative after
+selling more than you bought (*short*; the exchanges in these competitions let you sell what you don't hold). Each
+product has a *position limit*, and how it is enforced differs more than you would guess.
+
+- **Prosperity** rejects the whole tick for a product. If all of a tick's buy orders for Kelp, filled, could take the
+  position past 50, or all its sells past −50, every Kelp order that tick is rejected, the sells with the buys
+  [(`ARCHITECTURE.md`, "Matching rules (Prosperity semantics)", rule 2)]{.src}. A bot that quotes its whole room on
+  both sides can lose all its orders for a tick by miscounting one lot.
+- **The Varde Exchange** did the same, counting what already rests: if a step's new orders could pass the limit, all
+  that step's new orders for the product were rejected, while the resting ones stayed
+  [(`python/experiments/mock_round/round4/public/rules.md`, "Limits, fees and errors")]{.src}.
+- **The Halden Exchange** checked each order on its own, in the order the bot sent them, and rejected only the ones
+  that didn't fit [(`python/experiments/mock_round/round2/public/rules.md`, "How each step is processed")]{.src}.
+- **The Kestrel Bourse** rejected nothing. After every step it charged 0.25 credits for each lot of a position beyond
+  its limit. The first bot to trade there didn't count the orders still on their way, overfilled its limits, and
+  paid 2,191.75 credits in charges on the two hidden sessions, toward a score of −3,553 credits
+  [(`data/kestrel_breach.csv`, from the round's `portal.py hidden`)]{.src}.
+- **AlgoTrade 2026**, a live competition in Zagreb whose rules, one team's code and its recorded data are in
+  `references/`, set different limits for each side: 2,000 units long, 200 short
+  [(`references/algotrade2026-pitfa19/.firecrawl/algotrade-api.md:687-688`)]{.src}.
+
+A rule that rejects is a cliff, and a rule that charges is a slope. Under the first the bot must never send what
+could breach; under the second a breach is a cost to weigh. Chapter 10 shows the cliff's worst case, orders that
+arrive a tick late and are checked again against a position their own earlier fills have moved.
+
+### Profit and loss
+
+*PnL* is what a bot would have if it closed everything now:
+
+::: {.eq speak="profit is the cash, plus the position times the price it is valued at"}
+$$\text{PnL} = \text{cash} + \text{position} \times \text{price}$$
+:::
+
+Cash goes down by the price of everything bought and up by everything sold; fees come out of it. The price that
+values the position is the *mark*: our engine's default is the mid, Prosperity's own data carries one, and the
+Varde portal used its 100-trade average [(`python/arena/engine.py`, `--mark`)]{.src}. The story's identity is this formula,
+session by session.
+
+### What the data looks like
+
+Every exchange records the same market differently, and the repo meets three shapes (@fig-shapes).
+
+![The three shapes of exchange data, each read by its format plug-in into the engine's one form, a `Day` of `Tick`s.
+The samples are real rows: Prosperity 3's Kelp at timestamps 400 and 500, the Varde rehearsal's first steps; the event
+log is illustrative. Diagram; the types from `python/arena/model.py`.](../figures/g02_data_shapes.png){#fig-shapes
+fig-alt="Three boxes on the left, snapshots from Prosperity, prints with an aggressor flag from the Varde rehearsal, and an event log, each with sample rows, feed three plug-ins, Prosperity's, the Varde round's own and the event-log skeleton, which all produce one box, a Day of Ticks, each tick holding a timestamp, a book per product, the trades per product and a mark per product; it feeds the engine and every tool."}
+
+- **Snapshots** (Prosperity): one row per tick and product with three levels a side, 10,000 ticks a day, and a
+  separate file of the trades between ticks, with buyer and seller names when the round reveals them. The plug-in
+  reads each row as a tick's book and joins the trades to it by timestamp.
+- **Prints with an aggressor flag** (the Varde Exchange): one line per step holding the book and the step's prints,
+  each marked with the side that crossed. The plug-in keeps the flag by naming the crossing side `taker` in the
+  trade's buyer or seller field, so a tool can ask who was in a hurry.
+- **An event log** (LOBSTER, and many real exchanges' own feeds): every order added, changed, cancelled or executed,
+  by id. The plug-in replays the events and takes the book as it stands after each step as a tick, so any snapshot
+  can be rebuilt from it. (Our LOBSTER and ABIDES days are converted into Prosperity's layout before they are loaded.)
+
+Whatever the shape, the plug-in's `load_days` returns the same thing: a `Day`, with its products, limits and
+per-product facts such as the tick size, and its `Tick`s, each with a timestamp, a `Book` of bids and asks per
+product, the prints, and the prices to value positions at [(`python/arena/model.py`; `python/arena/formats/`)]{.src}.
+The engine and every tool work on that, never on the exchange's own files. That is why a new exchange on the day
+costs a plug-in and an adapter, not a new set of tools, and why the Varde session had its plug-in written three
+minutes in.
+
+### Reading a claim about the book
+
+A book shows a few levels. Is that the market? A team in AlgoTrade 2026 looked at where trades printed on one of its
+exchanges, ZSE, and found "53.9% of all ZSE trades print outside the visible top-3", which they read as the exchange's
+own market maker quoting at levels 4 and 5 [(`references/algotrade2026-pitfa19/analysis/mm_analysis.md:153`)]{.src}.
+Two things in their own files change what that number means. It came from the 3,115 prints they had when they wrote
+it (*their claim*) [(`mm_analysis.md:43`)]{.src}. And "visible" meant visible in their recording, which kept three
+levels a side, while the exchange sent every team five
+[(`mm_analysis.md:48-49`; `.firecrawl/algotrade-api.md:518-546`)]{.src}. So what they measured was mostly what their
+recorder dropped, not depth that nobody could see.
+
+We re-ran their test on the 1.4 million prints committed with their analysis. Each print against the last recorded
+snapshot before it gives 34.0%, from 12 to 21% on the exchange-traded funds to 48% on one stock. But a book moves
+between snapshots: counting only prints outside both the snapshot before and the one after gives 5.7%
+[(`data/hidden_depth.csv`, from the committed data)]{.src}. Neither number says how deep the real book was, because
+the recording can't. On Prosperity 3's round 1, whose data is what the bots were shown, a similar check, against the
+books before and at each print, finds no print outside the levels shown, on any of its three products; 3.4 to 3.8%
+of its trades hit a price with no shown level, about half of them inside the spread [(`data/hidden_depth.csv`;
+`experiments.day.structure --data p3 --days 1 --sections fingerprints`)]{.src}. The lesson is about reading, not
+about depth. Before trusting a figure, ask what sample it came from and what the data it was measured on left out.
+And a number from someone's write-up is a claim until it is re-run.
+
+::: {.callout-note title="If you know ML"}
+The order book is the state, a tick is a time step, and the bot is a policy from state to actions; the format plug-in
+is a data loader that maps every source to one schema. Where the analogy breaks: the state is partly made of other
+agents' intentions, which change when you act, and a replay freezes them (chapter 10). The environment's transition
+rules, matching and limits, differ between exchanges in ways that matter more than most model choices, and they are
+given in prose, not code. And the reward, PnL, is defined only after a choice of price for what you hold, like a
+metric that needs a reference you have to pick.
+:::
+
+::: {.callout-tip title="In the repo"}
+- The internal form: `python/arena/model.py` (`Book`, `Tick`, `Day`, `Order`, `Cancel`, `Fill`, `MarketTrade`).
+- The matching rules: `ARCHITECTURE.md`, "Matching rules (Prosperity semantics)" and "Resting mode"; the engine's
+  docstring, `python/arena/engine.py`. Flags: `--resting`, `--queue`, `--mark`, `--limit-penalty`, `--max-actions`,
+  `--max-resting`.
+- The plug-ins: `python/arena/formats/` (`prosperity.py`, `drill.py`, `snapshots.py`, `orderlog.py`, and the day's
+  `qminers.py`); `ARCHITECTURE.md`'s paragraph "Formats are plug-ins".
+- Prints at prices the book didn't show, on any data: `uv run python -m experiments.day.structure --data D --days DAYS --sections fingerprints`.
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* the Arena's own format, its data shape and bot interface, and
+its matching: whether orders rest, where a new order joins the queue, how the position limit is enforced, what its
+position-limit penalty charges, and how many levels its data shows, from the answers written into the "First hour" section of
+ON_THE_DAY and the first upload.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Harris, *Trading and Exchanges*, ch. 6 "Order-Driven Markets", §6.2 (PDF pp. 129–133): order precedence rules, the
+  matching procedure and trade pricing, with worked examples.
+- Bouchaud et al., *Trades, Quotes and Prices*, ch. 3 §3.2.1–3.2.3 (PDF pp. 73–75): priority rules, order types and auctions, in a few
+  pages.
+:::

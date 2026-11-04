@@ -1,0 +1,5 @@
+# uv run python python/experiments/mock_round/round3/private/portal.py hidden python/experiments/mock_round/round3/results/<run>/template.py: credits
+run,score,breach_penalty,abs_inventory_q50,traded_volume
+before,-3552.8839,2191.75,82.0,21688
+after,-489.2924,25.0,47.0,8027
+in_flight,-389.2251,0.0,42.0,8303

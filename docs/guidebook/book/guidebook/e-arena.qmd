@@ -1,0 +1,37 @@
+# Appendix E: The Arena, round by round
+
+*Written after the event. On 4 November 2026, when this skeleton was set down, none of it had happened; nothing below
+is a result.*
+
+This appendix will be the Arena's record, one section per round, each written from that round's handover note and its saved
+leaderboard [(`data/arena/round<N>/HANDOVER.md`, `leaderboard.json`)]{.src}, with every number cited to them. The
+chapters draw on it in their "On the Arena" boxes; here it is in one place, in order.
+
+## What each round's section will hold
+
+- **The rules:** the products, the limits, the data and the bot interface, and what changed from the round before,
+  from the Technical Rules and the answers written into the "First hour" section of ON_THE_DAY.
+- **The data:** what the public backtest data looked like, and what `arena.diagnose` and the premise test said of each
+  product.
+- **What we submitted:** every upload, its time, why it was made, and its local result next to its portal score.
+- **The portal against our engine:** which fill model, queue, mark and penalty the portal matched, and how far its
+  scores were from our backtests.
+- **Scores and rank:** the public and the private run of the final bot, per product where the results show it, and
+  our place on the round's leaderboard.
+- **What we'd change:** what the round taught, and what we would do differently with the same five hours.
+
+## Round 1, Saturday 13:00–18:00
+
+*Written after the event.*
+
+## Round 2, Saturday 19:00–24:00
+
+*Written after the event.*
+
+## Round 3, Sunday 01:00–06:00
+
+*Written after the event.*
+
+## Round 4, Sunday 07:00–12:00
+
+*Written after the event,* with the final ranking, and how the four rounds combined into it.

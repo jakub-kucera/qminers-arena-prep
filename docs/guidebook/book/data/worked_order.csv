@@ -1,0 +1,10 @@
+# arena.engine.run_day on P3 round 1 day 0 with a bot that buys 10 KELP at 2031 at timestamp 400: EngineConfig() (all), trade_matching worse, resting
+row,timestamp,bids_or_price,asks_or_lots,trades_or_source
+book,300,2029x25,2032x25,2029x6
+book,400,2029x2 2028x23,2030x6 2032x25,
+book,500,2028x24,2031x24,2031x1
+book,600,2028x26,2031x26,
+fill (all),400,2030,6,book
+fill (worse),400,2030,6,book
+fill (resting),400,2030,6,book
+fill (resting),500,2031,4,cross
