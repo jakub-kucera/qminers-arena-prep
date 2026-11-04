@@ -12,11 +12,11 @@ names Mark 67, another Marks 14 and 55, another 14 and 38
 
 Ryan Challman's team fitted a weight for each named trader on the training days and used them to lean their fair
 value. On the day they had held out, the weights turned out to be tuned to particular days' behaviour; switching them
-off recovered about $15.8 thousand (*their claim*)
+off recovered about 15.8 thousand of held-out profit (*their claim*)
 [(`references/prosperity4-ryan-challman/README.md:89-91`)]{.src}.
 
 We ran the test that settles it: for each named trader, product and side, choose on two days, score on the third,
-three times. No Mark kept the sign of its move on all three days and beat half the spread. Names chosen on two days by
+three times. No Mark that traded more than a handful of times a day kept the sign of its move on all three days and beat half the spread. Names chosen on two days by
 their average move lost 31 thousand on the third. The careful teams were right to switch them off
 [(`references/wiki/contradictions.md`, row 3)]{.src}.
 
@@ -33,9 +33,9 @@ folds, they are correlated, and the scored day may come from a different regime.
 
 So the repo never ranks by one number. Every grid prints, for each cell:
 
-- **`pnl`**, the total over all days;
+- **`pnl`**, profit, the total over all days;
 - **`min day`**, its worst day, because a setting that wins on average by winning big once is fragile;
-- **`nbhd`**, the average over the cell and its neighbours, because a lone spike among poor neighbours is luck;
+- **`nbhd`**, the neighbourhood, the average over the cell and its neighbours, because a lone spike among poor neighbours is luck;
 - **PnL under a second fill model**, usually `worse`, because chapter 6.
 
 A setting near the top on all four is worth more than the single best `pnl`.
@@ -56,7 +56,8 @@ Held-out days answer "does the choice survive a day it wasn't made on". Four mor
 answer "would the best of this many settings look this good by luck":
 
 - **PBO, the probability of backtest overfitting** (Bailey et al., Definition 2.2, PDF p. 10). Cut the days into
-  blocks, split the blocks into two halves every possible way, pick the best cell on one half, and see where it ranks
+  blocks, split the blocks into two halves in many ways (4,000 of the 48,620 possible
+  halvings in the example below), pick the best cell on one half, and see where it ranks
   on the other:
 
   ::: {.eq speak="the probability of backtest overfitting is how often the best setting on one half of the data ranks below the median on the other half"}
@@ -64,16 +65,19 @@ answer "would the best of this many settings look this good by luck":
   :::
 
   Near 0 is good; 50% means choosing was no better than picking at random.
-- **DSR, the deflated Sharpe ratio:** is the best cell's risk-adjusted gain larger than the best of that many cells
+- **DSR, the deflated Sharpe ratio** (a Sharpe ratio is the mean gain over its standard deviation): is the best
+  cell's risk-adjusted gain larger than the best of that many cells
   with no gain would show?
-- **SPA and StepM:** bootstrap tests of whether any cell, and then which cells, beat the bot as it is, accounting for
+- **SPA and StepM:** bootstrap tests of whether any cell, and then which cells, beat the bot as it is (its current
+  settings), accounting for
   every cell tried. StepM's list at 4% is what the repo trusts.
-- **The permutation test** (chapter 6): run the whole search on days with their ticks shuffled. If it finds as good
+- **The permutation test** (chapters 5 and 6): run the whole search on days with their ticks shuffled. If it finds as good
   a best, the choice doesn't need anything that happens over time.
 
 ### One grid, read in full
 
-@fig-grid is Kelp's two edges on Prosperity 3's round 1, under both fill models.
+@fig-grid is Kelp's two edges on Prosperity 3's round 1, under both fill models: `make_edge`, how far from the fair
+the bot quotes, and `take_edge`, how far the book must be mispriced before it takes.
 
 ![Kelp's `make_edge` against `take_edge` on Prosperity 3's round 1, PnL over three days (both products; only Kelp's
 settings change), under `all` and `worse`. Data: `data/kelp_grid.csv`, from `arena.grid ... --modes all,worse`.](figures/f10_kelp_grid.png){#fig-grid
@@ -81,20 +85,20 @@ fig-alt="Two heat maps of profit over make edge and take edge. Under all, the be
 
 Under `all` the case for quoting wider looks strong. The best cell, `make_edge` 1.5 with `take_edge` 1, is best by
 total, by worst day and by neighbourhood; it is chosen on every held-out day; PBO is 0%; SPA says some cell beats the
-bot as is (p 0.000) and StepM names nine. Only the DSR hesitates (0.74, under its 0.95 bar).
+bot as is (a p-value of 0.000) and StepM names nine. Only the DSR hesitates (0.74, under its 0.95 bar).
 
 Then the second fill model. Under `worse`, only one of StepM's nine cells beats the bot as is, by 596. The repo's
 rule, the *pick*, takes StepM's best cell that beats the bot as is under every mode, and here that is a small step,
 `make_edge` 0.5 with `take_edge` 0.5: +736 under `all`, +596 under `worse`. Every statistic was right about the data it
 saw. None of them could see that the data was replayed under an assumption
-[(the grid's own output; `IDEAS.md`, "A permutation test of the whole search")]{.src}.
+[(the grid's own output, from `data/kelp_grid.csv`'s command)]{.src}.
 
 ### When the profit is on one day
 
-One more failure the tests don't catch: concentration. Ryan Challman's ROBOT_DISHES made about $389 thousand on one
-training day against $11 thousand and $4 thousand on the other two, 96% on one day; its mean reversion was strong on
+One more failure the tests don't catch: concentration. Ryan Challman's `ROBOT_DISHES` made about 389 thousand on one
+training day against 11 thousand and 4 thousand on the other two, 96% on one day; its mean reversion was strong on
 that day only. Rather than tune to that day, they halved its weight, a hedge against the scored day not looking like it
-(*their claim*) [(`references/prosperity4-ryan-challman/README.md:115-141`)]{.src}. `min day` and the held-out days
+(*their claim*) [(`references/prosperity4-ryan-challman/README.md:115-141`)]{.src}. The `min day` column and the held-out days
 are there to show you such a profile before you size to it.
 
 ::: {.callout-note title="If you know ML"}
@@ -119,7 +123,7 @@ model is part of the validation, not an extra.
 :::
 
 ::: {.callout-note title="Go deeper" appearance="simple"}
-- *Pseudo-mathematics and financial charlatanism* (Bailey et al., 33 pp.): why backtest overfitting is the default.
+- *Pseudo-mathematics and financial charlatanism* (Bailey et al., 34 pp.): why backtest overfitting is the default.
 - The wiki's `references/wiki/concepts/validation-and-overfitting.md`, then *The probability of backtest overfitting*
-  (30 pp.): CSCV and PBO in full.
+  (34 pp.): CSCV and PBO in full.
 :::

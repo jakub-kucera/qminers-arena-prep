@@ -1,21 +1,25 @@
 # How is the code laid out?
 
-*You'll need the round's loop (chapter 1), the order book and orders (chapter 2) and fill models (chapter 6).*
+*You'll need the round's loop (chapter 1), the order book and orders (chapter 2), fill models (chapter 6) and the
+portal's figures and penalty (chapter 8).*
 
 ## The story
 
 The third rehearsal, the Kestrel Bourse, hid a rule: orders reached the exchange one step after the bot sent them.
 Two agent sessions played it, one with the repo before its calibration tools and one after. Both worked out the hidden rules
-soon after their first upload. Both lost money anyway: −4,850 and −283 on the public sessions, −3,553 and −489 on
-the hidden ones, where the exchange's own plain market maker made +325
+soon after their first upload. Both lost money anyway: −4,850 and −283 credits on the public sessions, −3,553 and
+−489 on the hidden ones, where the exchange's own plain market maker made +325
 [(`IDEAS.md`, "The kickoff prompts on a disguised round")]{.src}.
 
-The cause wasn't the strategy. It was the few lines that turn a strategy's wishes into orders. With orders a step late,
+Most of the loss wasn't the strategy. It was the few lines that turn a strategy's wishes into orders. With orders a step late,
 an order sent last step is neither in the book yet nor gone; neither session's code counted those orders "on their way".
 So each step it saw no order where it wanted one, sent another, ran into the exchange's cap of three working orders,
 and, when the late orders all arrived, held more than its limit and paid the penalty. Counting the orders on their way,
-and changing nothing else, took the public score from −283 to +142 and the penalty from 25 to 0
-[(`python/experiments/mock_round/round3/README.md`)]{.src}.
+and changing nothing else, took the public score from −283 to +142, the hidden one from −489 to −389, and the hidden
+days' penalty from 25 to 0. What was left was a choice of settings: one product was quoted at all, under a matching
+rule that made quoting it lose [(`IDEAS.md`, "The kickoff prompts on a disguised round")]{.src}. The sessions' bots
+lacked the counting in the code between the strategy and the exchange; the template now does it in EXECUTION
+(`on_the_way` and `went`), switched on by the ADAPTER's `DELAY`.
 
 That is why the bot is split the way it is.
 
@@ -39,7 +43,7 @@ fig-alt="Boxes and arrows: the day's data goes through a format plug-in into Day
   `experiments.day.calibrate` and the day's experiments) all take `--format` and `--data`, and work on any exchange
   that has a plug-in.
 
-So a new exchange costs a plug-in and an adapter, not a new set of tools. Chapter 1's rehearsal wrote both in under five
+So a new exchange costs a plug-in and an adapter, not a new set of tools. Chapter 1's rehearsal wrote both in about five
 minutes.
 
 ### The bot in three parts
@@ -62,7 +66,8 @@ inside strategy code, where the Kestrel sessions looked for it first.
 ### The rest of the repo
 
 - **The Rust twins** (`rust/`): the engine, the simulator, the statistics and the bots ported to Rust, giving the same
-  results to the bit, 40 to 130 times faster. `--engine rust` uses them; a twin whose Python changed since it was
+  results to the bit, about 130 times faster per backtest and 40 to 80 times for a whole grid
+  [(`rust/README.md`)]{.src}. `--engine rust` uses them; a twin whose Python changed since it was
   checked is refused.
 - **`IDEAS.md`**: every idea tested on Prosperity data, with the command and the numbers, kept even when it failed
   ("dropped here"): priors to re-test on the Arena's data, not verdicts.
@@ -74,16 +79,18 @@ inside strategy code, where the Kestrel sessions looked for it first.
 ::: {.callout-note title="If you know ML"}
 The split is the one between a model, its inference wrapper and a data loader. The engine is the evaluation harness,
 plug-ins are dataset loaders behind one interface, STRATEGY is the model, EXECUTION is the serving logic, and ADAPTER is
-the I/O layer for one deployment target. As in ML, most production failures are in the last two, and they are the
-hardest to see in offline evaluation: a replay with no delay can't show an order-counting bug that only a delay
-exposes.
+the input and output layer for one deployment target. As with serving code, the last two are the hardest to test
+offline: a replay with no delay can't show an order-counting bug that only a delay exposes. Where the analogy breaks:
+a model's serving layer rarely changes the model's results, while here EXECUTION decides which orders exist at all,
+so it is part of the strategy's measured performance.
 :::
 
 ::: {.callout-tip title="In the repo"}
 - `ARCHITECTURE.md`: how the parts fit, and its paragraph "Formats are plug-ins" before writing one.
 - The template's sections: search `template.py` for `STRATEGY`, `EXECUTION` and `ADAPTER`; `on_the_way` and `went`
   count orders on their way.
-- `arena.validate BOT DAYS --late` replays with a delay, to catch the Kestrel bug before an upload.
+- `arena.validate` replays the bot one step late by default (`--late STEPS` changes it), to catch the Kestrel bug
+  before an upload.
 :::
 
 ::: {.callout-important title="On the day"}

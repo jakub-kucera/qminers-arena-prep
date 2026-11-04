@@ -5,18 +5,19 @@
 ## The story
 
 In a backtest of Prosperity 4's round 1, our template traded Osmium in one market with three other teams' published
-bots, all with resting orders. It lost 377 thousand. The cause was one number.
+bots, all with resting orders. It lost 377 thousand credits. The cause, traced on one day against one of those bots,
+was one number.
 
 The template prices a product at its *wall mid*, the midpoint of the largest order on each side of the book. At tick
 2,400 of day 0 the real wall on the bid side was 23 lots at 9,991. But a rival bot had a 40-lot bid resting at 9,906,
 far below the touch, and 40 is more than 23. So the template took the rival's order for the wall, put its fair value
-at 9,957 against a recorded mid of 10,001.5, 44 below the truth, and spent the session selling into bids that were
+at 9,957 against a recorded mid of 10,001.5, 44.5 below it, and spent the session selling into bids that were
 worth more than it thought. Its fair was 5 or more off on 36% of ticks
 [(`IDEAS.md`, "The template against the teams' P4 traders in one market")]{.src}.
 
 The fix was a different definition of "the wall": the first level from the top with at least 15 lots, which a large
-order far from the touch can't capture. With it, the same market made +39 thousand instead of −377 thousand, and on
-every product without rivals it stayed within 2.3% of the old rule [(`IDEAS.md`, "Wall-mid definitions")]{.src}.
+order far from the touch can't capture. With it, the same market made +39 thousand credits instead of −377 thousand, and
+on the products tested without rivals (Starfruit, Kelp, Osmium and Pepper Root) it stayed within 2.3% of the old rule [(`IDEAS.md`, "Wall-mid definitions")]{.src}.
 
 ## The idea
 
@@ -35,8 +36,10 @@ fig-alt="Two step lines over 300 ticks: the mid flickers by half a tick constant
 
 ### The walls know more
 
-On Prosperity, each product has a market-making bot that quotes large size, the walls, a fixed distance either side
-of the product's true value. Small orders from other bots sit inside them. So the midpoint of the walls tracks the
+On Prosperity, Frankfurt Hedgehogs found that each product's large orders, the walls, came from market-making bots
+that "appeared to know the true price and simply quoted rounded versions of it" (*their claim*, inferred from the
+website's PnL) [(`references/prosperity3-frankfurt-hedgehogs/README.md:882-883`)]{.src}. Small orders from other bots
+sit inside them. So the midpoint of the walls tracks the
 value far better than the mid does:
 
 ::: {.eq speak="the wall mid is the midpoint of the largest order on each side of the book"}
@@ -52,8 +55,8 @@ Which estimate works is something you measure on the day's data, not something y
 
 The story's lesson is about robustness. "The largest level" is an argmax, and one outlier captures it: anyone who can
 place a large order far from the touch moves your fair value. "The first level from the top with at least 15 lots",
-the template's `sized_mid`, ignores anything behind the real wall. It costs nothing when the book is clean and saves
-everything when it isn't. When other teams' bots share the book, or anyone has a reason to mislead you, prefer the
+the template's `sized_mid`, ignores anything behind the real wall. It cost at most 2.3% when the book was clean, and
+saved everything when it wasn't. When other teams' bots share the book, or anyone has a reason to mislead you, prefer the
 estimate a single order can't move.
 
 ### A fair value has a timescale
@@ -62,17 +65,18 @@ The other choice is how much history the estimate uses. A fair made from this ti
 smoothed one averages over many ticks and ignores short ones. Neither is right in general. The right timescale is the
 one over which deviations from the fair *come back*.
 
-@fig-window shows how much that matters. On Prosperity 2's coconut coupon, an option, the template traded the
-coupon's deviation from a model price that it averaged over `smile_window` ticks. With a 20-tick window the deviation
-didn't come back: it drifted (its correlation from one tick to the next was 0.89), so fading it lost 266 thousand. With
-a 5,000-tick window the same strategy made 442 thousand, its worst day +114 thousand
+@fig-window shows how much that matters. On Prosperity 2's coconut coupon, an option (a contract whose value follows
+another product, here coconuts), the template valued the coupon at a model price plus the coupon's average gap from
+that model over the last `smile_window` ticks, and traded the gap's fast part. With a 20-tick window that fast part
+didn't come back: it drifted (its correlation from one tick to the next was 0.89), so fading it lost 267 thousand
+credits. With a 5,000-tick window the same strategy made 442 thousand credits, its worst day +114 thousand
 [(`IDEAS.md`, "Prosperity 2 round 4's coconut coupons with the template's options modes")]{.src}.
 
 ![One parameter, the fair's timescale, on Prosperity 2's coconut coupon (take_edge 0.5). Data: `data/smile_window.csv`,
 from the IDEAS row's `arena.grid` command.](figures/f08_smile_window.png){#fig-window
-fig-alt="Line chart: PnL against the smile window on a log scale: minus 267 thousand at 20 ticks, plus 100 thousand at 200, 306 thousand at 1,000, 442 thousand at 5,000 and 418 thousand at 20,000."}
+fig-alt="Line chart: profit in credits against the smile window on a log scale: minus 267 thousand at 20 ticks, plus 100 thousand at 200, 306 thousand at 1,000, 442 thousand at 5,000 and 418 thousand at 20,000."}
 
-Before trading against a deviation, check that it reverts at the horizon you trade it: its autocorrelation, or simply
+The check is cheap: before trading against a deviation, see whether it reverts at the horizon you trade it: its autocorrelation, or simply
 whether fading it made money on each day separately.
 
 ::: {.callout-note title="If you know ML"}

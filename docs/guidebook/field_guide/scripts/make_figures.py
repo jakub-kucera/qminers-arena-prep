@@ -209,7 +209,7 @@ def copies():
                                        zip(["our bot alone", "with one copy", "with two copies"], together)])
     ax.set_ylim(0, 82000)
     ax.yaxis.set_major_formatter(thousands)
-    ax.set_ylabel("PnL over three days")
+    ax.set_ylabel("PnL over three days (credits)")
     ax.set_title("The same bot against copies of itself: Prosperity 3, round 1")
     save(fig, "f06_copies")
 
@@ -227,7 +227,8 @@ def shuffle():
         ax.axhline(0, color=T["axis"], linewidth=1)
         ax.set_xticks([0, 1], ["the real days", "the days shuffled\n(mean of 20 copies)"])
         ax.yaxis.set_major_formatter(thousands)
-        ax.set_title(f"{r['market']}   (p {float(r['p']):.2f})")
+        unit = "cents" if r["market"] == "ABIDES" else "credits"
+        ax.set_title(f"{r['market']}, {unit}   (p {float(r['p']):.2f})")
         ax.margins(y=0.15)
     axes[0].set_ylabel("the grid's best PnL (each panel its own scale)")
     save(fig, "f07_shuffle")
@@ -250,7 +251,7 @@ def smile_window():
     ax.minorticks_off()
     ax.yaxis.set_major_formatter(thousands)
     ax.set_xlabel("smile_window: the ticks the fair value averages over (log scale)")
-    ax.set_ylabel("PnL")
+    ax.set_ylabel("PnL (credits)")
     ax.legend(loc="lower right", fontsize=8.5)
     ax.set_title("One parameter, the fair's timescale: Prosperity 2's coconut coupon")
     save(fig, "f08_smile_window")
@@ -269,7 +270,7 @@ def fill_modes():
         ax.text(bar.get_x() + bar.get_width() / 2, value + 1200, f"{value:,.0f}", ha="center", fontsize=9)
     ax.set_xticks(range(len(rows)), [labels[r["mode"]] for r in rows], fontsize=8.5)
     ax.yaxis.set_major_formatter(thousands)
-    ax.set_ylabel("PnL over three days")
+    ax.set_ylabel("PnL over three days (credits)")
     ax.set_title("One bot, the same three days, four answers: Prosperity 3, round 1")
     save(fig, "f09_fill_modes")
 
@@ -302,7 +303,7 @@ def kelp_grid():
         ax.grid(False)
     axes[0].set_ylabel("take_edge")
     bar = fig.colorbar(image, ax=axes, shrink=0.85, pad=0.02)
-    bar.set_label("PnL over three days (thousands)")
+    bar.set_label("PnL over three days (thousands of credits)")
     bar.formatter = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v / 1000:.0f}")
     bar.update_ticks()
     fig.suptitle("Kelp's two edges on Prosperity 3, round 1: the best cell moves with the fill model", x=0.06, ha="left",
@@ -412,9 +413,8 @@ def timeline():
     for r in (r for r in rows if r["part"] == "weekend"):
         start, end, label = float(r["start"]), float(r["end"]), r["label"]
         is_round = label.startswith("round")
-        if not is_round and WEEKEND_LABELS.get(label, label) == "" and "lunch" not in label and "break" not in label and label != "dinner":
-            continue
-        color = BLUE if is_round else YELLOW if "playground" in label else T["grid"] if WEEKEND_LABELS.get(label) == "" else T["muted"]
+        meal = label in ("lunch", "dinner", "coffee break", "breakfast")
+        color = BLUE if is_round else YELLOW if "playground" in label else T["grid"] if meal else T["muted"]
         ax.add_patch(plt.Rectangle((start, 0.2), end - start - 0.08, 0.6, facecolor=color + ("cc" if is_round else "88"), edgecolor="none"))
         ax.text((start + end) / 2, 0.5, label if is_round else WEEKEND_LABELS.get(label, label), ha="center", va="center",
                 fontsize=8 if is_round else 7, color="white" if is_round else T["ink"])

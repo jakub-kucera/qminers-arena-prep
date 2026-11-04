@@ -70,7 +70,7 @@ The user's sense was right: Parts IV, VI and VIII (chapters 9–10, 13–14 and 
 Index: `/Users/jakubkucera/Documents/qminers_arena/literature_md/README.md`. It holds **71 documents**, and each has a wiki source page. Page counts are approximate. **S** marks a short, accessible piece that is good to excerpt; **H** marks a heavy one.
 
 **A. Microstructure basics and intuition**
-- Harris, *Trading and Exchanges* (632 pp., H; read ch. 13 Dealers pp. 292–309 and ch. 14 Bid/Ask Spreads pp. 310–334, which are prose and very readable)
+- Harris, *Trading and Exchanges* (632 pp., H; read ch. 13 Dealers pp. 291–309 and ch. 14 Bid/Ask Spreads pp. 310–334, which are prose and very readable)
 - Gould et al., *Limit order books* (26 pp., S for §1–3)
 - Bouchaud et al., *Trades, Quotes and Prices* (460 pp., H)
 - Cartea, Jaimungal & Penalva, *Algorithmic and HFT* (359 pp., H; ch. 2 pp. 36–55 primer; ch. 10 market making pp. 263–289)
@@ -193,7 +193,7 @@ The concept pages, in `/Users/jakubkucera/Documents/qminers_arena/references/wik
 ## 4. Recommended reading companion for an ML reader, in order (instead of TQP in full)
 
 1. **TQP chapter 1 (PDF pp. 24–40), already read.** Add the wiki's TQP source page, "Main results" and "Assumptions against the Arena", as a 20-minute map of the rest of the book with Prosperity numbers attached (`references/wiki/sources/trades-quotes-prices.md`).
-2. **Harris ch. 13 "Dealers" and ch. 14 "Bid/Ask Spreads" (PDF pp. 292–334, to §14.4).** This is the plain-prose intuition for why a market maker earns the spread and what makes it lose (inventory, adverse selection). Optionally add Gould et al. §1–3 (pp. 1–9) for LOB vocabulary.
+2. **Harris ch. 13 "Dealers" and ch. 14 "Bid/Ask Spreads" (PDF pp. 291–334, to §14.4).** This is the plain-prose intuition for why a market maker earns the spread and what makes it lose (inventory, adverse selection). Optionally add Gould et al. §1–3 (pp. 1–9) for LOB vocabulary.
 3. **TQP ch. 16 §16.1–16.2 and ch. 17 (PDF pp. 317–330 and 338–350).** Glosten–Milgrom, MRR, and the profitability of market making. This is the theory core and the source of the repo's `size_skew` and its "does making pay" test.
 4. **Avellaneda & Stoikov 2008 (8 pp.).** Then the concept page `optimal-quoting-models`, which translates A–S, GLFT and Guéant into the template's `skew` parameter. Skip the GLFT and Guéant papers themselves unless needed; their closed forms have OCR traps.
 5. **Signals: Stoikov's micro-price (9 pp.), Gould & Bonart queue imbalance (29 pp.), and TQP ch. 7 §7.1–7.3 (PDF pp. 137–145).** For an ML reader these amount to feature engineering: a logistic regression on book imbalance. Then read the concept page `book-imbalance-and-micro-price`.

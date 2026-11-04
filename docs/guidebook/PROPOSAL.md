@@ -196,7 +196,7 @@ repo at all. A route of about 120 pages:
 
 1. The wiki's page on the book, `references/wiki/sources/trades-quotes-prices.md`: a 20-minute map of the rest, with our
    measurements attached.
-2. Harris, *Trading and Exchanges*, ch. 13 "Dealers" and ch. 14 "Bid/Ask Spreads" (PDF pp. 292–334): the plain-prose
+2. Harris, *Trading and Exchanges*, ch. 13 "Dealers" and ch. 14 "Bid/Ask Spreads" (PDF pp. 291–334): the plain-prose
    intuition.
 3. Bouchaud et al. ch. 16 §16.1–16.2 and ch. 17 (PDF pp. 317–330, 338–350): why spreads exist; does market making pay.
 4. Avellaneda & Stoikov (8 pages), then the wiki's `optimal-quoting-models` page.

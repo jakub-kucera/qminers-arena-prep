@@ -6,15 +6,15 @@ organisers had said by then.*
 
 ## The story
 
-Qminers' own 2024 hackathon ended with an in-person final of three rounds, scores reset, a shorter horizon. Before it,
+Qminers' own 2024 hackathon, a sports-betting contest, ended with an in-person final of three rounds, scores reset, a shorter horizon. Before it,
 the eventual winner wrote a small simulation of the final: twenty finalists with models of varying quality, correlated
 with each other, each with its own appetite for risk. He used it to choose how much of his bankroll to bet, choosing
 the fraction that won most often, not the one that made most on average.
 
 He took the lead in the first round and extended it in the second. Before the third he noticed that its data came from
-just after covid, a period anyone's model might handle badly, and halved his stake to protect the lead. It turned out
-to be "a minor mistake": his model did best of all in that period, and at full stake he estimates he would have ended
-near 143 thousand. He won anyway, with first place never in doubt
+just after covid, a period other finalists' models might handle better than his, and halved his stake so as not to
+lose the lead. It turned out to be "a minor mistake": his model "performed the best during this time", and at full
+stake he estimates he would have ended near 143 thousand points. He kept "a dominant first place lead" anyway
 [(`references/qminers-hackathon-2024/README.md:41-63`)]{.src}.
 
 The point is not that halving was right. It is that the question changes once you are ahead: from "what makes the most"
@@ -40,15 +40,19 @@ RUNBOOK's "Each round" is the loop from chapter 1, with times on it (@fig-timeli
 guide:
 
 - **Data and rules first, then `diagnose` and the premise test** (T+0:00 to T+0:15): before tuning anything, find out
-  what kind of market each product is (chapters 3 and 5). A product that is agent-like needs a different bot, not
-  different settings.
+  what kind of market each product is (chapters 3 and 5). For an agent-like product, a bot that does nothing is the
+  benchmark, and the first candidates are other kinds of fair value and a gate on moves (`ON_THE_DAY.md`, "What kind
+  of market is each product?").
 - **The grid under two fill models** (T+1:00): until the playground or the rules settle which fill model the Arena
-  has, every choice must hold under both (chapters 6 and 7), and a setting changes only to the grid's `pick`.
-- **A validated upload by T+2:00**: the first upload is the most informative thing in the round (chapter 8). Its score
-  against our backtest is the engine's error, and calibrate turns it into settings or refuses.
-- **Stop changing the strategy half an hour before the deadline**: the last change is the one with the least evidence
+  has, every choice must hold under both (chapters 6 and 7); after that, under that model, `worse` and `none`. A
+  setting changes only to the grid's `pick`, with one exception RUNBOOK names for round 1.
+- **A validated bot at least as good as the last one, uploaded, by T+2:00**: its portal score against our backtest is
+  the engine's error (chapter 8). In rounds 2 to 4 the round's first upload comes earlier: last round's bot, the
+  baseline to beat, from which the backtest's settings are fitted again (`ON_THE_DAY.md`, "Every round").
+- **Stop changing the strategy half an hour before the deadline**, or earlier if twice the first evaluation's time is
+  longer: the last change is the one with the least evidence
   behind it, and an upload that fails can't be marked final.
-- **The handover note at the deadline**: what was learned, for the next round's session, which starts fresh.
+- **The handover note ten minutes before the deadline**: what was learned, for the next round's session, which starts fresh.
 
 ### Each round, choose again
 
@@ -61,13 +65,14 @@ market. Each is a prior for the day, to be re-tested on the Arena's data, round 
 
 Two things decide how much risk to carry into later rounds, and neither is known yet: how the four rounds combine into
 the final ranking, and whether profit carries over. The day's timeline has the decision made in writing at breakfast,
-before round 4, from the standings, the weights and the lead [(`ON_THE_DAY.md`, "The day: timeline and roles")]{.src}. The story above is the frame: when ahead, the variance you can avoid is worth more
-than the expected profit you give up; when behind, the reverse.
+before round 4, from the standings, the weights and the lead [(`ON_THE_DAY.md`, "The day: timeline and roles")]{.src}. The story above is the frame for that decision: once
+you are ahead, the variance you could avoid counts for more than it did, and when you are behind, for less.
 
 ::: {.callout-note title="If you know ML"}
 A competition ranked on one final evaluation rewards the probability of being first, not the expected score, the way
-a leaderboard with a private test set rewards robustness over the public score. With a lead, prefer the lower-variance
-model even at some cost in expected score; when trailing, a riskier one can be right.
+a leaderboard with a private test set rewards robustness over the public score. Where the analogy breaks: on a
+leaderboard you choose the model once, while here the stake can change from round to round, after you have seen the
+standings, so the choice of risk is itself a decision made on new information.
 :::
 
 ::: {.callout-tip title="In the repo"}

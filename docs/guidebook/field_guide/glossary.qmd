@@ -9,7 +9,7 @@ one.*
 
 Adapter
 : The part of the bot that knows one exchange: it reads the exchange's state and writes its orders. Chapter 9. *ML: the
-  I/O layer for one deployment target.*
+  input and output layer for one deployment target.*
 
 Adverse selection
 : The tendency of a waiting order to be filled just before the price moves against it, because the traders keenest to
@@ -21,12 +21,27 @@ Ask, bid
 Backtest
 : A replay of recorded days with the bot trading in them. Chapter 6. *ML: offline evaluation in a simulator.*
 
+Bot as is
+: The bot with its current settings, the baseline a grid's cells are tested against. Chapter 7.
+
 Calibrate
 : The tool that searches the engine's settings for one that reproduces the portal's figures, or refuses. Chapter 8.
   *ML: system identification.*
 
 Clear
-: Trading back towards a flat position at the fair value. Chapter 9.
+: Trading back towards the target position at the fair value; the target is flat unless a strategy sets one.
+  Chapter 9.
+
+Delay
+: Orders reaching the exchange some steps after the bot sends them; the engine's `--delay`. Chapters 6 and 9.
+
+DSR, SPA, StepM
+: Tests of whether the best of many settings beats the bot as is by more than luck would give: the deflated Sharpe
+  ratio, Hansen's test of superior predictive ability, and Romano and Wolf's stepwise test. Chapter 7. *ML:
+  corrections for multiple comparisons.*
+
+Engine
+: The code that replays recorded days against a bot and decides its fills: `python/arena/engine.py`. Chapters 6 and 9.
 
 Fair value
 : The bot's estimate of what a product is worth now; every quote is placed relative to it. Chapter 3. *ML: an estimate
@@ -42,6 +57,9 @@ Fill model
 Format plug-in
 : The module that reads one exchange's data into Days of Ticks and wraps its bot interface. Chapter 9. *ML: a dataset
   loader behind a common interface.*
+
+Held-out day
+: A day left out when a setting is chosen, then used to score it. Chapter 7. *ML: a validation fold.*
 
 Grid
 : Every combination of a few settings, each backtested and ranked. Chapter 7. *ML: grid search over hyperparameters.*
@@ -62,6 +80,10 @@ Making, taking
 Mark
 : The price at which a position is valued when PnL is computed. Chapters 2 and 6.
 
+make_edge, take_edge
+: How far from the fair value the bot quotes, and how far the book must be mispriced before it takes. Chapters 6
+  and 7.
+
 Market maker
 : A trader that quotes on both sides and earns the spread from those who want to trade now. Chapter 4.
 
@@ -80,7 +102,7 @@ PBO
 
 Pick
 : The grid's chosen setting: the best cell that a multiple-testing correction confirms beats the bot as is, under every
-  fill model. Chapter 7.
+  fill model the grid ran. Chapter 7.
 
 PnL
 : Profit and loss: cash plus the position valued at the mark. Chapter 2. *ML: the reward, after a choice of reference
@@ -106,11 +128,19 @@ Shuffle test
 Spread
 : The gap between the best ask and the best bid. Chapter 2.
 
+STRATEGY, EXECUTION
+: The template's two generic parts: what the bot wants (fair value, take, clear, make), and the orders and cancels
+  that get it there. Chapter 9.
+
+Template
+: The repo's bot, `python/bots/template.py`: one file, with settings per product. Chapter 9.
+
 Tick
 : One step of the recorded market; also the smallest price step, the *tick size*. Chapter 2. *ML: a time step.*
 
 Wall, wall mid
-: A large order a market-making bot keeps at a stable price; the midpoint of the walls on each side. Chapter 3.
+: A large order a market-making bot keeps at a stable price; the midpoint of the walls on each side. Chapters 2
+  and 3.
 
 ```{=latex}
 \end{multicols}

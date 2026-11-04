@@ -1,18 +1,19 @@
 # Why is my backtest lying?
 
-*You'll need passive orders and fills (chapter 2), why making earns (chapter 4) and adverse selection (chapter 5).*
+*You'll need passive orders and fills (chapter 2), the fair value (chapter 3), why making earns (chapter 4) and
+adverse selection (chapter 5).*
 
 ## The story
 
-In Prosperity 4 a team that calls itself Kayzerjali tuned one product, Pepper Root, in the competition's open
-backtester. Over one window of 100,000 timestamps it made +2,415. The same code, on the same window, on the live
-platform, made +436 (*their claim*). They didn't conclude that the strategy was bad. They concluded that the backtester's
+In Prosperity 4 a team that calls itself Kayzerjali tuned one product, Pepper Root, in a backtester. Over one
+window of 100,000 timestamps the backtest said +2,415; the live platform, on the same window, said +436
+(*their claim*). They didn't conclude that the strategy was bad. They concluded that the backtester's
 fill model "diverges severely from the live platform", and rebuilt their loop around it: the live result became the
 only thing they optimised, and the backtester became a check for bugs before an upload
 [(`references/online-snapshots/Kayzerjali_Prosperity2026/run_cycle.md:3-7`)]{.src}.
 
-A Prosperity 3 team, Frankfurt Hedgehogs, said the same thing more politely. Their backtester was "very accurate and
-highly flexible", but it "could not … accurately model potential fill probabilities after inserting liquidity for
+A Prosperity 3 team, Frankfurt Hedgehogs, said the same thing more politely. The open-source backtester they used, Jasper's,
+was "very accurate and highly flexible", but it "could not … accurately model potential fill probabilities after inserting liquidity for
 assets like Rainforest Resin and Kelp" [(`references/prosperity3-frankfurt-hedgehogs/README.md:898-900`)]{.src}.
 
 Both teams hit the same wall, and it is not a bug in anyone's code. It is a question that recorded data cannot answer.
@@ -42,11 +43,11 @@ and @fig-fill-modes shows what they do to one bot on the same three days.
   their price, so a trade at our price fills whoever was there first.
 
 ![The template on Prosperity 3's round 1, all three days, under each fill model. Resting uses the default queue
-[(`back`, behind everyone already there)]{.src}. Data: `data/fill_modes.csv`, from
+(`back`, behind everyone already there). Data: `data/fill_modes.csv`, from
 `arena.backtest python/bots/template.py 1 --data p3` in each mode.](figures/f09_fill_modes.png){#fig-fill-modes
 fig-alt="Bar chart of profit over three days under four fill models: all 72,674, worse 63,302, none 28,217, resting 66,558."}
 
-The bot is the same, and so are the days. The answer goes from 28,217 to 72,674. More than half of the default number
+The bot is the same, and so are the days. The answer goes from 28,217 credits to 72,674. More than half of the default number
 comes from fills that only exist if you believe that bots which traded with each other would have traded with us
 instead [(`README.md`, "Fill assumptions matter")]{.src}.
 
@@ -55,8 +56,8 @@ instead [(`README.md`, "Fill assumptions matter")]{.src}.
 If the fill model were only imprecise, it would cost some accuracy and nothing else. It is worse than that: it is
 biased, and the bias depends on the very parameters you tune.
 
-Take Kelp's `make_edge`, how far from our fair value the bot quotes. On Prosperity 3's round 1, the template made, in
-thousands:
+Take Kelp's `make_edge`, how far from our fair value the bot quotes. The table gives what the template made with three
+settings of it on Prosperity 3's round 1, and on three days of round 5, in thousands of credits.
 
 | `make_edge` | 0.5 | 1 | 1.5 |
 |---|---|---|---|
@@ -75,10 +76,11 @@ Under `all`, the wider quote wins; under `worse`, it loses. And it isn't overfit
 the choice never saw, each fill model ranks the edges the same way it did in sample [(`IDEAS.md`, "Why the zoo beat the
 template head to head")]{.src}. Held-out data can't settle it, because the held-out days are replayed under the same
 assumption. **The fill model decides the edge.** A permutation test agrees: shuffling the order of Kelp's ticks finds
-the same best edge and the same lift over the median setting (p 0.55), so the choice comes from each tick's book and
+the same best edge and the same lift over the median setting (a p-value of 0.55 for the best cell, 0.80 for its
+lift), so the choice comes from each tick's book and
 the fill rule, not from anything the price does over time [(`IDEAS.md`, "A permutation test of the whole search")]{.src}.
 
-The reason is mechanical. A quote further from the fair sits where fewer traders reach, so a larger share of its fills
+A likely reason, which we haven't measured directly: a quote further from the fair sits where fewer traders reach, so a larger share of its fills
 are the doubtful kind, trades printed at its price between other bots. The rule that counts those as ours rewards
 moving out; the rule that doesn't punishes it.
 
@@ -88,24 +90,27 @@ The fill rule is the largest assumption, not the only one. Each of these is a se
 on Prosperity data, and none can be read from the data itself:
 
 - **When an order arrives.** The replay matches an order against the book the bot saw. If the exchange applies it a
-  tick later, the price has moved. The template on round 1 falls from 72,674 to 40,472 one tick late: Resin's takes
-  against its fixed fair arrive after the price has already come back [(`IDEAS.md`, "Orders that arrive a tick late";
+  tick later, the price has moved. The template on round 1 falls from 72,674 credits to 40,472 one tick late. Resin's
+  takes against its fixed fair arrive after the price has already come back, and part of the loss is a race against
+  the limit: a late order is checked again on arrival, against a position its own earlier orders have moved, and one
+  failure rejects all the product's orders (on 3,248 of day 0's 10,000 ticks) [(`IDEAS.md`, "Orders that arrive a tick late";
   `--delay`)]{.src}.
 - **Whether what we take stays gone.** A replay usually restores the recorded book every tick, so the volume we bought
-  is back for sale a tick later. In our first rehearsal the bot made 42,446 on the hidden days with the book restored,
+  is back for sale a tick later. In our first rehearsal the bot made 42,446, in that round's units, on the hidden days with the book restored,
   and 31,172 when what it took stayed gone: a quarter of the score from one assumption [(`IDEAS.md`, "The kickoff
   prompts on a disguised round"; `--deplete`)]{.src}.
-- **Whether orders rest.** With orders that live one tick, plain market making on Prosperity 3's jumpy basket legs
-  earned a few thousand each. Let the same quotes rest, and the next snapshot jumps straight through them, filling them
-  at their own stale price: Roses lost 1,477k [(`IDEAS.md`, "Market making on products that jump, with resting
+- **Whether orders rest.** With orders that live one tick, plain market making on the jumpy basket legs of
+  Prosperity 2 and 3 earned a few thousand credits each. Let the same quotes rest, and the next snapshot jumps straight through them, filling them
+  at their own stale price: Prosperity 2's Roses lost 1,477 thousand [(`IDEAS.md`, "Market making on products that jump, with resting
   orders")]{.src}.
 - **What the position is worth at the end.** A bot that ends the day holding something is scored on cash plus that
   position at some price, and the engine chooses which:
 
   [$\text{PnL} = \text{cash} + \text{position} \times \text{mark}$]{speak="profit is the cash, plus the position valued at the mark"}
 
-  The mark can be the mid, the last trade or a portal's own average (the Varde rehearsal used the average of the last
-  100 trades, and didn't say so). The `--mark` option picks one.
+  The mark can be the mid, the last trade or a portal's own average (the Varde rehearsal used the volume-weighted
+  average of the last 100 trades, and didn't say so [(`python/experiments/mock_round/round4/README.md`)]{.src}). The
+  `--mark` option picks the mid, the touch or the last trade; it has no such average.
 
 ### What to do about it
 
@@ -138,8 +143,8 @@ uncertainty as a range, here the span between `all` and `worse`.
 :::
 
 ::: {.callout-important title="On the day"}
-`RUNBOOK.md`, "Each round", T+1:00: the grid runs under the mode closest to the rules *and* `worse`, until the rules or
-the playground's fills pin the mode down. `ON_THE_DAY.md`, "Which backtest settings match the playground?", says how
+`RUNBOOK.md`, "Each round", T+1:00: while the fill mode is uncertain, the grid runs under the mode closest to the
+rules *and* `worse`; once the rules or the playground's fills pin it, under that mode, `worse` and `none`. `ON_THE_DAY.md`, "Which backtest settings match the playground?", says how
 to read the first upload against our settings.
 :::
 

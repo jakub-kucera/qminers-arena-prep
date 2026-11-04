@@ -5,16 +5,17 @@
 ## The story
 
 In the Varde rehearsal (chapter 1), the first upload scored €367.61 on the three public sessions. Our backtest of the
-same file, under its best guess of the exchange's rules, had said about €730, and calibrate, the tool
+same file, under its best guess of the exchange's rules, had said about €1,330, and calibrate, the tool
 that searches our engine's settings for one that reproduces the portal, refused: no setting came within 5% of every
 figure (@fig-calibrate).
 
 So the session read the portal's results file by hand. The rules had said there was a fee per order placed as well as
 per lot, and it was easy to underrate: the bot placed and cancelled orders all the time, and those fees came to €143 of
 a €511 gross, **28%** [(`data/sessions.csv`; `python/experiments/mock_round/round4/README.md`)]{.src}. The fills file
-showed a second gap the rules had not stated at all: only half of each trade reached resting orders, so our engine filled
-about twice the portal's volume. Neither was a strategy problem. Both would have made every backtest that afternoon
-wrong in the same direction.
+showed a second gap: the portal had filled far fewer lots than any of our settings did (8,466 against 18,772 or
+more). The rule behind it, that only half of each trade reached resting orders, was not stated; it sat in the
+rehearsal's answer key. Neither was a strategy problem, and either would have misled every backtest that night
+[(`python/experiments/mock_round/round4/results/DRYRUN_LOG.md`, "What calibrate printed")]{.src}.
 
 ## The idea
 
@@ -26,27 +27,29 @@ An upload comes back with a dozen numbers. For the Varde upload:
 |---|---|---|
 | `score` | 367.61 | the PnL that ranks you: cash plus the positions at the mark, less any penalty |
 | `fills`, `tradedVolume` | 5,056; 8,466 | how many fills, and how many lots |
-| `inventory` | −6 | the position at the end, summed over products |
+| `inventory` | −6 | the last session's end position, summed over products |
 | `cash` | 2,310.30 | cash at the end, fees included |
-| `markPrice` | 233.44 | the price the position was valued at |
+| `markPrice` | 233.44 | the last session's marks, averaged over products |
 | `breachPenalty` | 0 | the charge for going past a limit |
 | `pnlSe` | 22.98 | the score's standard error |
 | `absInventoryQ50` to `Q997` | 8, 13, 27, 36 | quantiles of the absolute position over the session |
 
 ::: {.content-visible when-format="audio"}
 The Varde upload came back with a score of 367.61 euros, 5,056 fills over 8,466 lots, an end position of minus 6, cash
-of 2,310 euros, a mark price of 233.44, no penalty, a standard error of 22.98, and absolute positions of 8 lots at the
-median, 13, 27, and 36 at the 99.7th percentile.
+of 2,310 euros, a mark price of 233.44 euros, no penalty, a standard error of 22.98, and an absolute position of 8 lots at the
+median, 13 at the 68th percentile, 27 at the 95th and 36 at the 99.7th.
 :::
 
 Three of them repay a closer look.
 
-**The score is an identity.** It is cash plus position times mark, less the penalty, as in chapter 2, and you can check
-it. With one product the check is exact. With several, `inventory` sums positions across products and `markPrice` is a
-single number for all of them, an average of different products' prices, so the identity holds only product by product.
-2,310.30 − 6 × 233.44 is not 367.61, and nothing is wrong. Know which figures are sums before you compare them.
+**The score is an identity.** It is cash plus position times mark, as in chapter 2, less any penalty, and you can check
+it. With one product and one session the check is exact. Here it fails twice over, and nothing is wrong: `cash` is
+summed over all three sessions while `inventory` and `markPrice` are the last session's, and `markPrice` is one number
+averaged over three products' prices. So 2,310.30 less 6 times 233.44 is not 367.61, and the identity holds only
+session by session and product by product. Know which figures are sums before you compare them.
 
-**`pnlSe` says how much the score is worth.** It is the standard error of the total over the sessions scored:
+**`pnlSe` says how much the score is worth.** On the Varde portal it is the standard error of the total over the
+sessions scored [(`python/experiments/mock_round/round4/private/portal.py`)]{.src}:
 
 ::: {.eq speak="the standard error of a total over n sessions is the spread of the session scores times the square root of n"}
 $$\text{pnlSe} = \text{sd}(\text{session scores}) \times \sqrt{n}$$
@@ -54,10 +57,12 @@ $$\text{pnlSe} = \text{sd}(\text{session scores}) \times \sqrt{n}$$
 
 The Varde sessions scored 110.21, 136.57 and 120.83: their spread is 13.3, times the square root of 3 is 23. Two
 uploads whose scores differ by less than a couple of standard errors are not shown to differ, however tempting the
-better number. With only a handful of uploads, this is what stops you chasing noise.
+better number. With only a few uploads, this is what stops you chasing noise. What the Arena's `pnlSe` measures isn't known yet;
+calibrate tries per-tick, per-block and per-day versions and keeps the one that fits.
 
-**The position quantiles say how hard the bot leans on its limits.** A median of 8 lots and a 99.7th percentile of 36
-mean the bot is usually near flat and occasionally near full; a bot whose median is near its limit is carrying a bet,
+**The position quantiles say how hard the bot leans on its limits.** The quantiles sum the position over products, and
+the two products the bot traded allow 100 lots between them. A median of 8 lots and a 99.7th percentile of 36 mean the
+bot is usually near flat and at most uses about a third of its room; a bot whose median is near its limit is carrying a bet,
 whether it meant to or not.
 
 ### Calibrate: fitting the simulator to the real thing
@@ -66,18 +71,20 @@ Our backtest has a dozen settings that recorded data can't decide (chapter 6): w
 rest and where they queue, delay, depletion, the mark, the share of each trade we can get. One upload of a plain bot
 measures them. Calibrate replays the uploaded file under every combination, computes the same twelve figures, and ranks
 the settings by their *worst* figure's error against the portal. If the best is within 5% on every figure, it prints the
-settings to paste into the day's format. If not, it refuses, and names the usual causes: a cost the engine doesn't
-charge, a rule it doesn't model, a unit or scale mismatch.
+settings to paste into the day's format. If not, it refuses, and names the usual causes: the money off by one factor (a
+unit or scale mismatch), a cost the engine doesn't charge, or our wrapper doing something their exchange doesn't.
 
 ![Calibrate on the Varde upload: each figure's error, for the best-ranked setting and for the setting closest on fills
 and volume alone, against calibrate's 5% line. Data: `data/calibrate.csv`, from `experiments.day.calibrate` through the
 round's plug-in.](figures/f12_calibrate.png){#fig-calibrate
-fig-alt="Dot plot of the error on each of eleven figures. The best-ranked setting is near 100% off on score, fills and volume. The setting closest on the fills is 2.6% off on fills and 10.5% on volume but 36% off on the score and over 300% on cash. Only the mark price is within 5% for both."}
+fig-alt="Dot plot of the error on eleven of the twelve figures (the penalty, zero on both sides, isn't drawn). The best-ranked setting is near 100% off on score, fills and volume. The setting closest on the fills is 2.6% off on fills and 10.5% on volume but 36% off on the score and over 300% on cash. Only the mark price is within 5% for both."}
 
 @fig-calibrate shows why it refused. The best-ranked setting barely trades, which makes it "least wrong" on cash and
 inventory and 98% wrong on the score. The setting closest on fills and volume, with half of each trade available, gets
-fills within 2.6% but the score 36% off and cash over 300% off: the order fee, which the engine didn't charge. No
-setting can be right everywhere when the exchange has a rule the engine lacks, and a fit that is right on some figures
+fills within 2.6%, but it scores €236.58 against the portal's €367.61 and ends the last session with a different
+position (−12 against −6), which throws cash off by over 300%. On top of
+that, the order fee is a cost the engine can't charge at
+all. No setting can be right everywhere when the exchange has rules the engine lacks, and a fit that is right on some figures
 and wrong on others would have been worse than none.
 
 ::: {.callout-note title="If you know ML"}
@@ -96,8 +103,8 @@ however good its best metric looks.
 :::
 
 ::: {.callout-important title="On the day"}
-`RUNBOOK.md`, "Each round", T+2:00: the first validated upload's score against our backtest is the engine's error, and
-`ON_THE_DAY.md`, "Which backtest settings match the playground?", says how to settle the engine's settings on that
+`RUNBOOK.md`, "Each round", T+2:00: a validated bot at least as good as the last one, uploaded; its portal score
+against our backtest is the engine's error. `ON_THE_DAY.md`, "Which backtest settings match the playground?", says how to settle the engine's settings on that
 upload's figures and results file.
 :::
 

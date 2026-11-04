@@ -515,3 +515,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-04] lint | --suggest flags a large-tick book that drifts
 - `concepts/reading-the-data-on-day-one`: `--suggest` adds a note to grid taking only against its quotes under `worse` where large-tick and a drift note both fire (`IDEAS.md`, "`arena.diagnose --suggest`"; the audit's round 8, R8).
+
+## [2026-11-04] lint | contradictions row 10 quotes Frankfurt word for word
+- `contradictions`: row 10's "could not properly handle fill probabilities" is now the README's "could not accurately model potential fill probabilities" (`prosperity3-frankfurt-hedgehogs/README.md:900`), found by the field guide's fact-check.

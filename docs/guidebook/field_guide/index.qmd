@@ -5,8 +5,8 @@ at the end of each. It assumes what an engineer with machine learning behind the
 overfitting, hyperparameter search, simulators) and builds the rest from zero: what an order book is, why a market maker
 earns anything, why a backtest flatters it, and where each of these lives in the repo.
 
-Every chapter answers one question and opens on something that happened, in a Prosperity competition, in one of our own
-rehearsals or in the literature. Then comes the idea in plain words, at most one or two formulas with a sentence that
+Every chapter answers one question and opens on something that happened: in a Prosperity competition, in a past Qminers
+hackathon, in one of our own rehearsals or in the literature. Then comes the idea in plain words, at most one or two formulas with a sentence that
 says each one aloud, and four boxes:
 
 - **If you know ML:** the analogy, and where it breaks.
@@ -25,4 +25,4 @@ the CSV next to the figure; a number in the text names its `IDEAS.md` row or its
 write-up that our engine did not reproduce is marked *their claim*.
 
 **The audio edition** reads the same text. Each formula is read as its sentence, a table as its summary, and a figure
-as its caption.
+as a short description of it.

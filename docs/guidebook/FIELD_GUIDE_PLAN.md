@@ -47,7 +47,7 @@ commands. Diagrams are drawn in matplotlib too, so one script owns every image.
 | F3 the score's parts | bars | the Varde upload's three sessions | `mock_round/round4/private/portal.py`'s `evaluate` on `results/template.py` (no upload counted) |
 | F4 mid against wall mid | line | 300 ticks of P3 round 1 Kelp | `load_days` |
 | F5 a round trip | price, position and PnL | Varde LUMEN, session 1, steps 0–399 | the portal's fills |
-| F6 income against copies | bars | 81,292 alone; about 41k each with one copy; about 28k each with two | `IDEAS.md`, "The template against copies of itself" |
+| F6 income against copies | bars | 72,674 alone; 41,352 and 41,848 with one copy; 27,460, 28,970 and 29,515 with two (the template since its 18 Oct `sized_mid` change; the IDEAS row's 81,292 is the earlier template's) | `arena.backtest ... --vs`, run by `make_data.py` (`data/copies.csv`) |
 | F7 real against shuffled | bars | ABIDES: real −21,798 and shuffled +4,540,545, **in cents** (ABIDES's own unit: −$218 and +$45,405); Kelp: 27,390 and 27,326 credits | the IDEAS row's `arena.grid ... --permute 20`, run by `make_data.py` |
 | F8 the smile window | line | `smile_window` 20 / 200 / 1,000 / 5,000 / 20,000 on P2's coupon, `take_edge` 0.5 | the IDEAS row's `arena.grid` command, run by `make_data.py` |
 | F9 PnL under each fill model | bars | P3 round 1: all 72,674, worse 63,302, none 28,217, resting 66,558 (`--resting`, queue `back`, the default; the queue model changes it) | `arena.backtest` in each mode |
@@ -118,10 +118,14 @@ installed only when the voice step runs, and `say` stays the fallback. Charts ru
 
 - **4 Nov:** the data and figures (done, a391c5d); chapter 6, "Why is my backtest lying?", as the sample, built to
   HTML for the user to read. Its depth and length set the rest.
-- **4–5 Nov:** chapters 1–5, then 7 and 8, then 9, 10 and the glossary: in reading order, since the user found
-  chapter 6 heard alone hard to follow without the concepts before it. Each chapter opens with a "You'll need" line
-  naming the terms it uses and where they are defined.
-- **5 Nov, before the 18:00 usage reset:** the fact-check pass (the checklist above) by a second agent.
-- **6 Nov:** PDF, EPUB, the audio text and the voice. Ready a day before the event.
+- **4 Nov:** chapters 1–5, then 7 and 8, then 9, 10 and the glossary, in reading order, since the user found
+  chapter 6 heard alone hard to follow without the concepts before it (done). Each chapter opens with a "You'll need"
+  line naming the terms it uses and where they are defined.
+- **4 Nov:** the fact-check pass by a second agent (done): about 30 factual errors and the audio's misreadings, all
+  fixed, including the same misreadings in `research/stories.md` and one wiki row. Of the voice's back ends, the CPU
+  stayed: Kokoro ran at 4.1 times real time on it, 4.0 through Core ML (which took only half the model's operations)
+  and 2.5 through MLX on the GPU.
+- **Then:** PDF, EPUB, the audio text and the voice, built from the fixed text; the user reads or listens, and their
+  notes are the last pass.
 - **If time runs out,** the guide ships with chapters 1–8 and the glossary; 9 and 10 follow after the event as part
   of the guidebook.

@@ -5,8 +5,9 @@ which every later chapter uses.*
 
 ## The story
 
-The Varde rehearsal's first upload (chapter 1) scored €110.21 on its first public session. The portal's results showed
-where that number came from, and it is two large numbers that nearly cancel
+The Varde rehearsal's first upload (chapter 1) scored €110.21 on its first public session. The portal showed only
+totals and a file of fills, and the session rebuilt the rest by hand; the portal's own scoring code, run on the same
+bot, shows where the number comes from. It is two large numbers that nearly cancel
 [(`data/sessions.csv`, from the rehearsal portal's own scoring)]{.src}:
 
 - **cash: −€2,814.63.** Over the session the bot spent more on buying than it received from selling, fees included.
@@ -16,10 +17,10 @@ where that number came from, and it is two large numbers that nearly cancel
 
 ![The score's two parts in each of the Varde rehearsal's three public sessions. Data: `data/sessions.csv`, from
 `python/experiments/mock_round/round4/private/portal.py`'s scoring of the uploaded bot.](figures/f03_score_parts.png){#fig-score
-fig-alt="Bar chart: in each session, cash and the position's value are thousands of euros apart and of opposite sign, and the score, their sum, is between 110 and 137 euros."}
+fig-alt="Bar chart: in each session, cash and the position's value are hundreds to thousands of euros apart and of opposite sign, and the score, their sum, is between 110 and 137 euros."}
 
-@fig-score shows all three sessions. In each, the score is a small difference between two big numbers, and one of
-them, the position's value, depends on a price the portal chooses. Hold that thought: it is why chapter 6 counts the
+@fig-score shows all three sessions. In sessions 1 and 3 the score is a small difference between two big numbers, in
+session 2 between two smaller ones, and in every session one of them, the position's value, depends on a price the portal chooses. Hold that thought: it is why chapter 6 counts the
 *mark* among a backtest's assumptions, and why the end of a session matters more than any single tick.
 
 ## The idea
@@ -53,8 +54,8 @@ A new order either crosses the book or it doesn't.
 
 - A **buy at or above the best ask** (or a sell at or below the best bid) *crosses*. It trades at once with the
   waiting orders, at their prices, best first. This is *taking*: you pay the spread for trading now.
-- An order that **doesn't cross** joins the book and waits. This is *making*, or quoting: you offer liquidity and hope
-  someone takes it. When they do, your order is *filled*, at your price.
+- An order that **doesn't cross** joins the book and waits. This is *making*, or quoting, and the order is *passive*:
+  you offer liquidity and hope someone takes it. When they do, your order is *filled*, at your price.
 
 Among orders at the same price, the earliest is filled first: *price-time priority*. So a waiting order has a place in
 a *queue*, and joining a busy level means waiting behind everyone already there.
@@ -115,7 +116,7 @@ first: whether orders rest, where a new order joins the queue, how the limit is 
 :::
 
 ::: {.callout-note title="Go deeper" appearance="simple"}
-- Harris, *Trading and Exchanges*, ch. 13 "Dealers" (from PDF p. 292).
+- Harris, *Trading and Exchanges*, ch. 13 "Dealers" (from PDF p. 291).
 - Bouchaud et al., *Trades, Quotes and Prices*, ch. 1 (PDF pp. 24–40), which you have read: the ecology of who trades
   and why.
 :::

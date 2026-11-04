@@ -10,7 +10,7 @@ On P3 Kelp the grid picks `make_edge` 1 over 0.5. That gain holds on four days t
 - **Source:** `references/wiki/contradictions.md` row 18; `IDEAS.md:214`, `IDEAS.md:234`
 
 ### 2. Backtest +2,415, live +436
-A Prosperity 4 team, Kayzerjali, measured one product over the same 100k-timestamp window: +2,415 in the backtester, +436 on the live platform (their claim). They rebuilt their loop so the live result was the only objective, with one change per upload and a written stopping rule. Frankfurt Hedgehogs said the same thing: the open backtester "could not … handle fill probabilities after inserting liquidity".
+A Prosperity 4 team, Kayzerjali, measured one product over the same 100k-timestamp window: +2,415 in the backtester, +436 on the live platform (their claim). They rebuilt their loop so the live result was the only objective, with one change per upload and a written stopping rule. Frankfurt Hedgehogs said the same thing of the open-source backtester they used (Jasper's): it "could not accurately model potential fill probabilities after inserting liquidity" *(corrected 2026-11-04 against the README)*.
 - **Concept:** passive fills can't be simulated from a replay; the live system is the oracle
 - **Source:** `references/online-snapshots/Kayzerjali_Prosperity2026/run_cycle.md:4-5`; `references/prosperity3-frankfurt-hedgehogs/README.md:900`; `references/wiki/contradictions.md` row 10
 
@@ -45,7 +45,7 @@ Frankfurt Hedgehogs (Prosperity 3) held a 200k lead. They no longer believed in 
 - **Source:** `references/prosperity3-frankfurt-hedgehogs/README.md:616`, `:759`
 
 ### 8. Olivia, the informed trader
-On P3's Squid Ink one anonymous bot bought exactly 15 lots at the daily low and sold at the daily high. Frankfurt detected her from trade size and running extremes before names were ever revealed, and simply followed her to the position limit. Our own measurement: all 19 of her trades over three days were followed by a move her way at 100, 1,000 and 5,000 ticks.
+On P3's Squid Ink one anonymous bot bought exactly 15 lots at the daily low and sold at the daily high. Frankfurt detected her from trade size and running extremes before names were ever revealed, and "positioned accordingly" *(corrected 2026-11-04: an earlier version said they followed her to the position limit, which the README doesn't say)*. Our own measurement: all 19 of her trades over three days were followed by a move her way at 100, 1,000 and 5,000 ticks.
 - **Concept:** informed flow; reading counterparties; a signal found by aggregating trades
 - **Source:** `references/prosperity3-frankfurt-hedgehogs/README.md:270-319`; `IDEAS.md:190`
 
@@ -80,7 +80,7 @@ A mock round's hidden rule was that orders reach the exchange one step late. In 
 - **Source:** `python/experiments/mock_round/round3/README.md:10-26`; `IDEAS.md:205`
 
 ### 15. A fee hidden in plain sight: 28% of gross (Varde Exchange)
-In the fourth rehearsal the portal's rules stated a fee per order placed, not just per lot. Our calibration tool refused to fit (98% off at best), so the session rebuilt the score from the results ZIP by hand. It found the order fee was 28% of the gross, and that our engine filled over twice the portal's volume (only half of each print reached resting orders). The bot still scored €208.77 against the example bot's €80.10.
+In the fourth rehearsal the portal's rules stated a fee per order placed, not just per lot. Our calibration tool refused to fit (98% off at best), so the session rebuilt the score from the results ZIP by hand. It found the order fee was 28% of the gross, and that our engine filled over twice the portal's volume. The rule behind the gap, that only half of each print reached resting orders, was in the answer key; the session didn't find it *(corrected 2026-11-04)*. The bot still scored €208.77 against the example bot's €80.10.
 - **Concept:** transaction costs; calibrating a simulator to the real venue; trusting a refusal
 - **Source:** `python/experiments/mock_round/round4/README.md:3-10`, `:30-32`; `IDEAS.md:205`
 
@@ -115,7 +115,7 @@ Against the other teams' bots with resting orders, the template lost −377k on 
 - **Source:** `IDEAS.md:165`, `IDEAS.md:207`
 
 ### 22. A second copy halves your market making
-Alone, the template made 81,292 on P3 round 1. Against one copy of itself, each copy made about 41k; against two copies, about 28k each. On Osmium the spread is a fixed pie of 55–62k a round that the bots split. Any second bot at our price halves the market-making income.
+Alone, the template makes 72,674 on P3 round 1 (81,292 before its 18 Oct `sized_mid` change; `docs/guidebook/field_guide/data/copies.csv`). Against one copy of itself, each copy makes about 41k; against two copies, about 28k each: each keeps about 57% of the lone income with one copy, so a copy takes a little under half. On Osmium the spread is a fixed pie of 55–62k a round that the bots split. Any second bot at our price halves the market-making income.
 - **Concept:** competition among market makers; the spread as a shared rent
 - **Source:** `IDEAS.md:164`, `IDEAS.md:165`
 

@@ -4,18 +4,18 @@
 
 ## The story
 
-Put our template alone into Prosperity 3's round 1 and it makes 72,674 over three days. Put a second copy of the same
+Put our template alone into Prosperity 3's round 1 and it makes 72,674 credits over three days. Put a second copy of the same
 bot into the same market, quoting the same prices, and each copy makes about 41 thousand: 41,352 and 41,848. With two
 copies beside it, each makes 27 to 30 thousand (@fig-copies). Nothing about the market changed except that someone
 else was offering the same thing at the same price
-[(`IDEAS.md`, "The template against copies of itself")]{.src}.
+[(`data/copies.csv`; the method in `IDEAS.md`, "The template against copies of itself")]{.src}.
 
 ![The same bot alone, against one copy of itself and against two, on Prosperity 3's round 1. Data: `data/copies.csv`,
 from `arena.backtest ... --vs python/bots/template.py`.](figures/f06_copies.png){#fig-copies
 fig-alt="Bar chart: alone 73 thousand; with one copy 41 and 42 thousand; with two copies 27, 29 and 30 thousand."}
 
 On Prosperity 4's Osmium the same measurement against other teams' bots gives the cleanest picture: the spread there is
-a pie of 55 to 62 thousand a round, and the bots split it. Our template kept 45–51% against one rival and 20% against
+a pie of 55 to 62 thousand credits a round, and the bots split it. Our template kept 45 to 51% against one rival and 20% against
 three [(`IDEAS.md`, "The template against the teams' P4 traders in one market")]{.src}. A market maker's income is a
 rent, and rents are shared.
 
@@ -28,8 +28,8 @@ the bid, below it. Someone willing to wait posts an order and lets the hurried c
 one who waits on both sides at once. Each time a taker buys from its ask and another sells to its bid, it has bought
 low and sold high by the width of its quotes, without needing any view of where the price is going.
 
-@fig-round-trip shows this at small scale, the template's first 400 steps on one product of the Varde rehearsal. Its
-fills alternate, sells near the top of the range and buys near the bottom; its position swings between short 9 and
+@fig-round-trip shows this at small scale, the template's first 400 steps on one product of the Varde rehearsal. Most
+of its fills are passive, sells above the mid and buys below it, with some takes among them; its position swings between short 9 and
 long 6 and keeps coming back to zero; and its profit climbs in small steps, about €4 over 400 steps, while the price
 itself drifts down.
 
@@ -44,21 +44,22 @@ buys from you, you are now short. If the taker knew something, the price rises, 
 spread earned. So the question is not "how wide is the spread" but "how wide is the spread compared with how far the
 price moves, on average, in the direction of the trades".
 
-*Trades, Quotes and Prices* (eq. 17.13, PDF p. 345) gives the break-even for a patient market maker, per unit traded:
+*Trades, Quotes and Prices* (eq. 17.13, PDF p. 345) gives the gain of a patient market maker, per unit traded:
 
 ::: {.eq speak="a market maker's gain per unit traded is half the average spread, less how far the price eventually moves in the direction of the trades"}
 $$\frac{\mathbb{E}[\mathcal{G}]}{\nu_0 T} = \frac{\mathbb{E}[s]}{2} - \mathcal{R}_\infty$$
 :::
 
-Here [$s$]{speak="s"} is the spread and [$\mathcal{R}_\infty$]{speak="R infinity"} is the long-run *impact*: after a buy, how far the mid ends up above
+In it, [$s$]{speak="s"} is the spread and [$\mathcal{R}_\infty$]{speak="R infinity"} is the long-run *impact*: after a buy, how far the mid ends up above
 where it was, on average, and the same for sells with the sign flipped (the book's eq. 1.9, PDF p. 35). Half the
 spread is what each fill earns at once; the impact is what the market takes back later. On the large stock markets
 the book studies, the two nearly cancel, and without the exchange's rebates the plain strategy loses (§17.2.2):
 making markets is a competitive business with thin margins.
 
-Both sides can be measured from the data alone, before writing any bot. On Prosperity 3's round 1 the margin is clearly
-positive: about 0.9 of a tick a unit on Kelp and 1.4 on Resin, and trades barely move the price at all. On ABIDES it is
-negative, −0.32 a unit, because its trades move the price by 1.3 ticks within 50 ticks
+Both sides can be measured from the data alone, before writing any bot, with the impact after 50 ticks standing in
+for the long run. On Prosperity 3's round 1 the margin is clearly positive: about 0.9 of a tick (a credit) a unit on
+Kelp and 1.4 on Resin, and trades barely move the price at all. On ABIDES it is negative, −0.32 of a tick (a cent) a
+unit, because its trades move the price by 1.3 ticks within 50 ticks
 [(`IDEAS.md`, "Does market making pay here, by the textbook's test?"; "An independent generator: ABIDES's RMSC04")]{.src}.
 That one measurement says whether plain market making can work on a market at all. Prosperity is the easy case, the
 textbook's "zero-intelligence" market where takers know nothing; chapter 5 is about the other kind.
@@ -69,7 +70,7 @@ Three things decide it, and you control only some of them:
 
 - **How much uninformed flow there is,** traders who cross the spread for reasons that don't predict the price. They
   are the market maker's customers. You can't create them.
-- **How many others compete for them.** The story: a second bot at your price takes half. Quoting a little better
+- **How many others compete for them.** The story: a second bot at your price takes a little under half. Quoting a little better
   than the others wins the trades, but each step inside the spread gives away margin.
 - **How well you avoid the informed.** Quoting further from the fair, pulling quotes when the book looks dangerous,
   or skewing them against your position all trade a little income for safety. Chapter 5.
@@ -86,7 +87,7 @@ everyone gets more of the informed flow too.
 :::
 
 ::: {.callout-tip title="In the repo"}
-- The margin, per product: `uv run python -m arena.diagnose 1 --data p3` ("thin Bouchaud margin" is one of its notes).
+- The margin, per product: `uv run python -m arena.diagnose 1 --data p3` (its notes say "market making pays" or "thin or negative market-making margin", as a share of the spread).
 - Copies and rivals in one market: `arena.backtest BOT DAYS --vs OTHER_BOT` (repeatable).
 - The rows: "Does market making pay here, by the textbook's test?", "The template against copies of itself", "The
   template against the teams' P4 traders in one market".
