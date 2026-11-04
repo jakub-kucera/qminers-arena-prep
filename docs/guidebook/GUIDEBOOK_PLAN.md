@@ -17,6 +17,12 @@ the prep used.
 each chapter's "On the Arena" box says it is written after the event. **The Arena parts start when** the event is over
 and its four `data/arena/round*/HANDOVER.md` notes and `leaderboard.json` exist.
 
+**State, 2026-11-04:** every chapter and appendix not marked "(Arena)" is written, each part fact-checked by a second
+agent against its primary sources and fixed (commits 28a8bb6 to f29890d): 129 A4 pages, about 44,000 spoken words.
+Every CSV and figure reproduces from `make_data.py` and `make_figures.py` run in full. The re-runs moved 17 `IDEAS.md`
+rows (dated notes added) and corrected `ON_THE_DAY.md`'s hidden-depth figure, two wiki pages and `rust/README.md`'s day
+count. Left: the "(Arena)" parts after the event, and the user's read.
+
 **Where it lives:** `docs/guidebook/book/`, one Quarto project for both books, which share `data/`, `figures/` and
 `scripts/`. The guidebook's chapters are `book/guidebook/<nn>-<name>.qmd` (its preface `book/guidebook/_preface.qmd`),
 listed in `_quarto-guidebook.yml`; `quarto render --profile guidebook` builds it into `_out/guidebook/`, and

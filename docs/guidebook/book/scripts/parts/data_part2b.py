@@ -100,8 +100,13 @@ def coupon_acf() -> None:
     parser = argparse.ArgumentParser()
     add_dataset_arguments(parser, products=False)
     dataset = dataset_from(parser.parse_args(["--data", "p2", "--days", "4"]))
-    vars(p3_smile).update(p3_smile._settings(dataset, "COCONUT", "COCONUT_COUPON", "r4d1=250,r4d2=249,r4d3=248", 10000))
-    by_day = {day.name: p3_smile.points(day) for day in p3_smile.load()}
+    settings = p3_smile._settings(dataset, "COCONUT", "COCONUT_COUPON", "r4d1=250,r4d2=249,r4d3=248", 10000)
+    saved = {key: vars(p3_smile)[key] for key in settings if key in vars(p3_smile)}
+    vars(p3_smile).update(settings)  # p3_smile keeps its dataset in module globals: put P3's back afterwards
+    try:
+        by_day = {day.name: p3_smile.points(day) for day in p3_smile.load()}
+    finally:
+        vars(p3_smile).update(saved)
     rows = []
     for name, points in by_day.items():
         others = [r for n, rs in by_day.items() if n != name for r in rs]

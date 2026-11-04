@@ -99,6 +99,7 @@ The Varde Exchange, a portal that isn't our engine (`IDEAS.md`, "The kickoff pro
   - Done when: the field guide is built and read, or the user decides against it; then the guidebook after the event, as a new item.
 
 - [ ] **The guidebook, the full book** (the user, 2026-11-04: "start working on the full book"): `docs/guidebook/GUIDEBOOK_PLAN.md`, sixteen chapters and five appendices, about 45k words, built as the `guidebook` profile of `docs/guidebook/book/`. Begun with chapter 10 as the sample (`book/guidebook/10-backtest.qmd`).
+  - 2026-11-04: every chapter not marked "(Arena)" written and fact-checked, part by part (129 pages; `GUIDEBOOK_PLAN.md`, "State").
   - Done when: every chapter not marked "(Arena)" is written and fact-checked, part by part; then, after the event, the Arena's parts from the round handovers, and the plan's checklist holds for all of them.
 
 ## Rehearsal and setup
