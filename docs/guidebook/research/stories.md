@@ -75,7 +75,7 @@ On P2 round 4's coconut coupon, our options mode with a 20-tick window lost −2
 - **Source:** `IDEAS.md:264`
 
 ### 14. The late-orders rehearsal that lost both uploads (Kestrel Bourse)
-A mock round's hidden rule was that orders reach the exchange one step late. In both agent runs the code connecting the bot to the exchange (its ADAPTER) did not count orders still in flight. So each run re-posted every step, hit the 3-order cap and overfilled its position limits: public −4,850 and −283, hidden −3,553 and −489, against a plain market maker's +325. Counting in-flight orders alone moved public to +142 and the breach penalty from 25 to 0.
+A mock round's hidden rule was that orders reach the exchange one step late. In both agent runs the code connecting the bot to the exchange (its ADAPTER) did not count orders still in flight. So each run re-posted every step, hit the 3-order cap and overfilled its position limits: public −4,850 and −283, hidden −3,553 and −489, against a plain market maker's +325. Counting in-flight orders alone, in the second run's bot, moved public from −283 to +142 (its breach penalty 198 → 0) and hidden from −489 to −389 (25 → 0); the rest of the hidden loss was quoting BRAM under `worse` matching, a choice of settings *(corrected 2026-11-04 against `docs/guidebook/book/data/kestrel.csv`)*.
 - **Concept:** latency; order state; execution bugs dominate strategy
 - **Source:** `python/experiments/mock_round/round3/README.md:10-26`; `IDEAS.md:205`
 
