@@ -1,0 +1,14 @@
+# python/experiments/mock_round/round4/private/portal.py's evaluate(results/template.py, 'public')
+metric,value
+score,367.61
+fills,5056
+tradedVolume,8466
+inventory,-6
+cash,2310.3
+markPrice,233.4356
+breachPenalty,0.0
+pnlSe,22.98
+absInventoryQ50,8
+absInventoryQ68,13
+absInventoryQ95,27
+absInventoryQ997,36

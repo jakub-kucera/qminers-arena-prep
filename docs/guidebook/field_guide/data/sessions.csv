@@ -1,0 +1,5 @@
+# python/experiments/mock_round/round4/private/portal.py's evaluate(results/template.py, 'public'): euros; cash is after the fees
+session,cash,position_value,score,end_position,order_fees,lot_fees
+Session 1,-2814.63,2924.84,110.21,17,47.03,2.75
+Session 2,-361.98,498.56,136.57,1,47.28,2.81
+Session 3,5486.92,-5366.09,120.83,-6,48.92,2.91

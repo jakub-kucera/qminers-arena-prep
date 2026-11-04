@@ -1,0 +1,6 @@
+# uv run python -m arena.backtest python/bots/template.py 1 --data p3 --engine rust [--match-trades worse|none | --resting]
+mode,pnl
+all,72674.0
+worse,63302.0
+none,28217.0
+resting,66558.0

@@ -1,0 +1,9 @@
+# arena.formats.prosperity.load_days(p3, ['1-0']): KELP, the first tick with two levels a side
+side,price,volume
+bid,2029,2
+bid,2028,23
+ask,2030,6
+ask,2032,25
+mid,2029.5,
+wall_mid,2030.0,
+timestamp,400,

@@ -1,0 +1,4 @@
+# uv run python -m arena.grid python/bots/template.py 1 --data data/abides|p3 --grid PARAMS.ABM|KELP.make_edge=0.5,1,2 --permute 20 --engine rust
+market,real,shuffled_mean,p
+ABIDES,-21798.0,4540545.0,1.0
+Prosperity Kelp,27390.0,27326.0,0.476

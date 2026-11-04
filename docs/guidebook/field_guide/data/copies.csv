@@ -1,0 +1,8 @@
+# uv run python -m arena.backtest python/bots/template.py 1 --data p3 --engine rust [--vs python/bots/template.py]*n
+field,bot,pnl
+alone,1,72674.0
+1 copy,1,41352.0
+1 copy,2,41848.0
+2 copies,1,27460.0
+2 copies,2,28970.0
+2 copies,3,29515.0
