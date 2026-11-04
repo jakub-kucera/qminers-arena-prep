@@ -2,12 +2,12 @@
 
 2026-11-04. Phase 1 of `docs/guidebook/PROPOSAL.md`, as the user decided (its §10): the field guide now, in Quarto, the
 recommended structure, written by this session, with the audio text and a voice track. This file says what will be
-built and how to check it; the guide's sources are in `docs/guidebook/field_guide/`. The full book that grows from it
+built and how to check it; the guide's sources are in `docs/guidebook/book/` (its chapters in `book/fieldguide/`). The full book that grows from it
 after the event has its own plan, `GUIDEBOOK_PLAN.md`.
 
 ## What it is
 
-About 35 pages (13–14k words): ten chapters, each a question, each opening on a true story, plus a preface and a
+About 35 pages planned, 41 A4 pages built (13,946 words): ten chapters, each a question, each opening on a true story, plus a preface and a
 glossary (a definition list, set in two columns in print). Every number comes from the repo (an IDEAS row, a wiki
 line, a committed command) or from a team's write-up marked "their claim". Dataset-agnostic: each idea stated for any market first, then shown on named markets
 (Prosperity, our `arena.sim`, ABIDES, the mock rounds).
@@ -35,9 +35,9 @@ gives no instruction RUNBOOK doesn't (the audit's round 8, R4: three copies of t
 Each chapter ends with the same four boxes: "If you know ML", "In the repo", "On the day", "Go deeper" (sections of the
 literature with page ranges, from `research/literature_map.md` §4).
 
-## Figures (`field_guide/figures/`, drawn by `field_guide/scripts/make_figures.py` from `field_guide/data/`)
+## Figures (`book/figures/`, drawn by `book/scripts/make_figures.py` from `book/data/`)
 
-Every chart reads a CSV in `field_guide/data/`; `field_guide/scripts/make_data.py` regenerates each CSV from committed
+Every chart reads a CSV in `book/data/`; `book/scripts/make_data.py` regenerates each CSV from committed
 commands. Diagrams are drawn in matplotlib too, so one script owns every image.
 
 | Figure | Kind | Data | Made by |
@@ -51,7 +51,7 @@ commands. Diagrams are drawn in matplotlib too, so one script owns every image.
 | F7 real against shuffled | bars | ABIDES: real −21,798 and shuffled +4,540,545, **in cents** (ABIDES's own unit: −$218 and +$45,405); Kelp: 27,390 and 27,326 credits | the IDEAS row's `arena.grid ... --permute 20`, run by `make_data.py` |
 | F8 the smile window | line | `smile_window` 20 / 200 / 1,000 / 5,000 / 20,000 on P2's coupon, `take_edge` 0.5 | the IDEAS row's `arena.grid` command, run by `make_data.py` |
 | F9 PnL under each fill model | bars | P3 round 1: all 72,674, worse 63,302, none 28,217, resting 66,558 (`--resting`, queue `back`, the default; the queue model changes it) | `arena.backtest` in each mode |
-| F10 the grid under two fill models | two heatmaps | Kelp `make_edge` × `take_edge` on P3 round 1, Kelp's own PnL | `arena.grid ... --out` (as `sim_fit --compare` ran it) |
+| F10 the grid under two fill models | two heatmaps | Kelp `make_edge` × `take_edge` on P3 round 1, the total over both products (only Kelp's settings change) | `arena.grid ... --out` (as `sim_fit --compare` ran it) |
 | F11 days as folds | diagram | none | leave-one-day-out over three days, against k-fold |
 | F12 calibrate's errors | dots | the Varde upload: the per-figure errors of calibrate's best-ranked setting and of the one closest on the fills, against its 5% line | `experiments.day.calibrate` as of bc8569c, through the round's plug-in, `--vary fill_ratio=1,0.5` |
 | F13 the architecture | diagram | none | `research/repo_map.md`, A |
@@ -81,9 +81,10 @@ installed only when the voice step runs, and `say` stays the fallback. Charts ru
 
 **Order:** HTML and the audio text first, then PDF and EPUB, the voice last.
 
-- `quarto render` in `field_guide/`: HTML, PDF (TinyTeX), EPUB (MathML).
-- **Audio text:** `field_guide/scripts/audio.sh` runs `scripts/audio.lua` through pandoc on each chapter, in
-  `_quarto.yml`'s order, and writes `_audio/<nn>-<chapter>.txt`:
+- `quarto render` in `book/`: HTML, PDF (TinyTeX), EPUB (MathML), into `book/_out/fieldguide/`.
+- **Audio text:** `book/scripts/audio.sh` runs `scripts/audio.lua` through pandoc on each chapter, in
+  `_quarto-fieldguide.yml`'s order, and writes `_out/audio-fieldguide/<nn>-<chapter>.txt`; it fails, keeping the last
+  good text, if pandoc fails or a chapter comes out empty:
   - math becomes its `speak` sentence (a formula without one is reported, and the build fails);
   - tables are dropped, with any `.content-visible when-format="audio"` summary kept (so the glossary is a definition
     list, set in two columns in print, not a table);
@@ -92,11 +93,11 @@ installed only when the voice step runs, and `say` stays the fallback. Charts ru
   - a source citation written as `[(...)]{.src}` is printed, not read; the "In the repo" box is read as one sentence
     pointing at the printed edition;
   - signs and units are read as words ("plus 2,415", "1,477 thousand").
-- **Voice:** `field_guide/scripts/voice.sh`. It uses Kokoro (local, open weights; `scripts/kokoro_say.py`, voice
+- **Voice:** `book/scripts/voice.sh`. It uses Kokoro (local, open weights; `scripts/kokoro_say.py`, voice
   `bf_emma`, the model in `~/.cache/kokoro`) where installed, else macOS `say`, renders one audio file per chapter, and
   joins them with ffmpeg into one `.m4b` with chapter marks. About 175 words a minute: the sample chapter is 8.5
   minutes, the whole guide about 80.
-- Outputs go in `field_guide/_book/` and `field_guide/_audio/`, both gitignored. The sources, data, scripts and figures are committed.
+- Outputs go in `book/_out/` (gitignored). The sources, data, scripts and figures are committed.
 
 ## Checklist for the auditor
 

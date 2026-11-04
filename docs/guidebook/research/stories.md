@@ -115,7 +115,7 @@ Against the other teams' bots with resting orders, the template lost −377k on 
 - **Source:** `IDEAS.md:165`, `IDEAS.md:207`
 
 ### 22. A second copy halves your market making
-Alone, the template makes 72,674 on P3 round 1 (81,292 before its 18 Oct `sized_mid` change; `docs/guidebook/field_guide/data/copies.csv`). Against one copy of itself, each copy makes about 41k; against two copies, about 28k each: each keeps about 57% of the lone income with one copy, so a copy takes a little under half. On Osmium the spread is a fixed pie of 55–62k a round that the bots split. Any second bot at our price halves the market-making income.
+Alone, the template makes 72,674 on P3 round 1 (81,292 before its 18 Oct `sized_mid` change; `docs/guidebook/book/data/copies.csv`). Against one copy of itself, each copy makes about 41k; against two copies, about 28k each: each keeps about 57% of the lone income with one copy, so a copy takes a little under half. On Osmium the spread is a fixed pie of 55–62k a round that the bots split. Any second bot at our price halves the market-making income.
 - **Concept:** competition among market makers; the spread as a shared rent
 - **Source:** `IDEAS.md:164`, `IDEAS.md:165`
 

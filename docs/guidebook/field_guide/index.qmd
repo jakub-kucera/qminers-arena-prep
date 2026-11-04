@@ -1,9 +1,0 @@
-# Preface: how to read this {.unnumbered}
-
-::: {.content-visible when-profile="fieldguide"}
-{{< include _preface-fieldguide.qmd >}}
-:::
-
-::: {.content-visible when-profile="guidebook"}
-{{< include _preface-guidebook.qmd >}}
-:::

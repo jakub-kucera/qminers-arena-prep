@@ -1,0 +1,5 @@
+_out/
+.quarto/
+**/*.quarto_ipynb
+
+/.quarto/

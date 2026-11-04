@@ -17,11 +17,12 @@ the prep used.
 each chapter's "On the Arena" box says it is written after the event. **The Arena parts start when** the event is over
 and its four `data/arena/round*/HANDOVER.md` notes and `leaderboard.json` exist.
 
-**Where it lives:** the field guide's folder, as a second Quarto profile, so the two books share `data/`, `figures/`
-and `scripts/`: `quarto render --profile guidebook` builds it into `_book-guidebook/`, `scripts/audio.sh guidebook`
-writes its audio text into `_audio-guidebook/`. Its chapters are `g<nn>-<name>.qmd`, listed in
-`_quarto-guidebook.yml`; `index.qmd` shows each book's preface by profile (`_preface-fieldguide.qmd`,
-`_preface-guidebook.qmd`). The field guide's own chapters stay as they are, the edition read before the event.
+**Where it lives:** `docs/guidebook/book/`, one Quarto project for both books, which share `data/`, `figures/` and
+`scripts/`. The guidebook's chapters are `book/guidebook/<nn>-<name>.qmd` (its preface `book/guidebook/_preface.qmd`),
+listed in `_quarto-guidebook.yml`; `quarto render --profile guidebook` builds it into `_out/guidebook/`, and
+`scripts/audio.sh guidebook` and `scripts/voice.sh guidebook` its audio into `_out/audio-guidebook/`. `index.qmd`
+shows each book's preface by profile. The field guide's chapters (`book/fieldguide/`) stay as they are, the edition
+read before the event.
 Chapter 16 and appendix E are only as good as those notes, which are written on 7–8 Nov (RUNBOOK, "Each round",
 deadline − 0:10).
 **Done when:** every chapter below is written, the auditor's checklist (end of this file) holds for all of them, and the
@@ -143,7 +144,7 @@ is cited in the chapter.
 
 ## Figures
 
-Every chart reads a CSV in `field_guide/data/` (the book keeps the field guide's folder), made by
+Every chart reads a CSV in `book/data/`, shared with the field guide, made by
 `scripts/make_data.py` from committed commands; `scripts/make_figures.py` draws them all, diagrams included. A new
 G-figure needs both a `make_data.py` step and a `make_figures.py` function, and its command goes in the caption's
 source line.
@@ -181,7 +182,7 @@ name, since the file's lines will have moved.
 
 1. **Brief:** the proposal, the research dossier, this plan, the field guide as built, and the four HANDOVERs.
 2. **Grow one chapter first,** chapter 10, from the field guide's chapter 6, for the user to read (done 2026-11-04:
-   `g10-backtest.qmd`, with G15 and G16 and the queue formula, about 2,300 spoken words). Its depth and length
+   `book/guidebook/10-backtest.qmd`, with G15 and G16 and the queue formula, about 2,300 spoken words). Its depth and length
    set the rest.
 3. **Chapters in order,** each with its figures and data steps. Each new chapter has a sample read by the user before
    the next part starts.

@@ -1,0 +1,22 @@
+project:
+  output-dir: _out/fieldguide
+
+book:
+  title: "The Field Guide"
+  subtitle: "Market making, backtests and this repo, before the Qminers Algo Trade Arena"
+  date: "2026-11-04"
+  chapters:
+    - index.qmd
+    - fieldguide/01-round.qmd
+    - fieldguide/02-exchange.qmd
+    - fieldguide/03-price.qmd
+    - fieldguide/04-market-making.qmd
+    - fieldguide/05-other-side.qmd
+    - fieldguide/06-backtest.qmd
+    - fieldguide/07-real.qmd
+    - fieldguide/08-portal.qmd
+    - fieldguide/09-code.qmd
+    - fieldguide/10-day.qmd
+  appendices:
+    - fieldguide/glossary.qmd
+

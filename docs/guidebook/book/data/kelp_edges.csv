@@ -1,0 +1,8 @@
+# uv run python -m arena.grid python/bots/template.py 1|5 --data p3 --grid PARAMS.KELP.make_edge=0.5,1,1.5 --modes all,worse --engine rust
+round,make_edge,pnl_all,pnl_worse
+1,0.5,72674.0,63302.0
+1,1.0,81366.0,57764.0
+1,1.5,84512.0,52294.0
+5,0.5,53820.0,48759.0
+5,1.0,61132.0,44285.0
+5,1.5,64520.0,38790.0

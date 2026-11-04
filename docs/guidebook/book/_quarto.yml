@@ -1,0 +1,33 @@
+# Two books from one folder (data/, figures/ and scripts/ shared), chosen by profile:
+#   quarto render                       the field guide (default), into _out/fieldguide/
+#   quarto render --profile guidebook   the guidebook, into _out/guidebook/
+profile:
+  default: fieldguide
+
+project:
+  type: book
+
+lang: en-GB
+number-sections: false
+fig-cap-location: bottom
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    html-math-method: mathjax
+    fig-align: center
+  pdf:
+    documentclass: scrreprt
+    papersize: a4
+    fontsize: 11pt
+    geometry: [margin=25mm]
+    include-in-header:
+      text: |
+        \usepackage{multicol}
+        \counterwithout{figure}{chapter}
+    toc: true
+    fig-align: center
+  epub:
+    html-math-method: mathml
+    toc: true

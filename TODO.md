@@ -95,10 +95,10 @@ The Varde Exchange, a portal that isn't our engine (`IDEAS.md`, "The kickoff pro
 
 - [ ] **A guidebook to the repo and the trading behind it** (the user, 2026-11-04): a field guide (30–40 pages) before the event, a guidebook (100–130 pages) after it, in PDF, EPUB and an audio edition. The proposal, its options and the research dossier: `docs/guidebook/PROPOSAL.md` and `docs/guidebook/research/`.
   - Decisions for the user (the proposal's §10): the field guide now or not; Quarto or LaTeX; the structure; who writes it; how far the audio goes.
-  - Decided 2026-11-04 (the user): the field guide now, Quarto, the recommended structure, written by this session, the voice too. Built the same day: 10 chapters, the preface and the glossary, 41 pages, fact-checked by a second agent (`docs/guidebook/field_guide/`, `FIELD_GUIDE_PLAN.md`); the full book's plan is `docs/guidebook/GUIDEBOOK_PLAN.md`.
+  - Decided 2026-11-04 (the user): the field guide now, Quarto, the recommended structure, written by this session, the voice too. Built the same day: 10 chapters, the preface and the glossary, 41 pages, fact-checked by a second agent (`docs/guidebook/book/`, `FIELD_GUIDE_PLAN.md`); the full book's plan is `docs/guidebook/GUIDEBOOK_PLAN.md`.
   - Done when: the field guide is built and read, or the user decides against it; then the guidebook after the event, as a new item.
 
-- [ ] **The guidebook, the full book** (the user, 2026-11-04: "start working on the full book"): `docs/guidebook/GUIDEBOOK_PLAN.md`, sixteen chapters and five appendices, about 45k words, built as the field guide's `guidebook` profile. Begun with chapter 10 as the sample (`g10-backtest.qmd`).
+- [ ] **The guidebook, the full book** (the user, 2026-11-04: "start working on the full book"): `docs/guidebook/GUIDEBOOK_PLAN.md`, sixteen chapters and five appendices, about 45k words, built as the `guidebook` profile of `docs/guidebook/book/`. Begun with chapter 10 as the sample (`book/guidebook/10-backtest.qmd`).
   - Done when: every chapter not marked "(Arena)" is written and fact-checked, part by part; then, after the event, the Arena's parts from the round handovers, and the plan's checklist holds for all of them.
 
 ## Rehearsal and setup

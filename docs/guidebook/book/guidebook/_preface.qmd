@@ -1,0 +1,35 @@
+This is the long version of the field guide: the same questions, each answered with its evidence, six more chapters
+on what the field guide left out, and the Qminers Algo Trade Arena of 7 and 8 November 2026 as the case study that
+runs through all of them. It assumes what an engineer with machine learning behind them already knows (probability,
+overfitting, hyperparameter search, simulators) and builds the rest from zero.
+
+*This is a working draft, begun on 4 November 2026, before the event. A box headed "On the Arena" marks what is
+written only after the event, from each round's handover note; until then it says so.*
+
+The book has five parts:
+
+- **The game:** a round from start to finish, and what an exchange is.
+- **Why market making pays, and when it doesn't:** the price, the spread, who is on the other side, what holding a
+  position costs, and what prices do.
+- **Beyond plain market making:** what else a bot can trade, and who else is in the market.
+- **How we know:** why backtests lie, how to tell a real result from luck, what the portal says, and how to size risk.
+- **The repo:** how the code is laid out, what each parameter does, and what we did on the day.
+
+Every chapter answers one question and opens on something that happened: in a Prosperity competition, in a past
+Qminers hackathon, in one of our rehearsals, in the literature, or at the Arena. Then comes the idea in plain words,
+at most one or two formulas with a sentence that says each aloud, and the boxes: **If you know ML** (the analogy, and
+where it breaks), **What would differ on another market** (in Parts II and IV), **In the repo**, **On the Arena**,
+and **Go deeper** (the literature, with pages).
+
+**Five markets** recur, and they are kept apart. *Prosperity* is IMC's competition, whose data the prep used as a
+stand-in; its prices are in credits. *`arena.sim`* is our simulator. *ABIDES* is an independent simulator with
+informed traders; its prices are in cents. *The mock rounds* are disguised rehearsals with their own portals; the
+Varde Exchange scores in euros. *The Arena* is the real thing. Nothing measured on one is stated as a fact about
+another.
+
+**Every number can be checked.** A figure comes from `scripts/make_data.py`, which runs a committed command and writes
+the CSV in `data/` that the figure is drawn from; a number in the text names its `IDEAS.md` row or its source. A figure from a team's own
+write-up that our engine did not reproduce is marked *their claim*.
+
+**The audio edition** reads the same text. Each formula is read as its sentence, a table as its summary, and a figure
+as a short description of it.

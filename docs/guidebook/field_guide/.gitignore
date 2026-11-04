@@ -1,8 +1,0 @@
-_book/
-_audio/
-.quarto/
-
-/.quarto/
-**/*.quarto_ipynb
-_book-guidebook/
-_audio-guidebook/

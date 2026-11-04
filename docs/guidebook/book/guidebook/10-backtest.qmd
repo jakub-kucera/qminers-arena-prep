@@ -1,0 +1,216 @@
+# Why is my backtest lying?
+
+*You'll need passive orders and fills (chapter 2), the fair value (chapter 3), why making earns (chapter 4) and adverse
+selection (chapter 5).*
+
+## The story
+
+In Prosperity 4 a team that calls itself Kayzerjali tuned one product, Pepper Root, in a backtester. Over one window of
+100,000 timestamps the backtest said +2,415; the live platform, on the same window, said +436 (*their claim*). They
+didn't conclude that the strategy was bad. They concluded that the backtester's fill model "diverges severely from the
+live platform", and rebuilt their loop around it: the live result became the only thing they optimised, and the
+backtester became a check for bugs before an upload
+[(`references/online-snapshots/Kayzerjali_Prosperity2026/run_cycle.md:3-7`)]{.src}.
+
+A Prosperity 3 team, Frankfurt Hedgehogs, said the same thing more politely. The open-source backtester they used,
+Jasper's, was "very accurate and highly flexible", but it "could not … accurately model potential fill probabilities
+after inserting liquidity for assets like Rainforest Resin and Kelp"
+[(`references/prosperity3-frankfurt-hedgehogs/README.md:898-900`)]{.src}.
+
+Both teams hit the same wall, and it is not a bug in anyone's code. It is a question that recorded data cannot answer.
+This chapter is about that question: what a replay has to assume, how much each assumption is worth, and how to work
+when you can't know which one is true.
+
+## The idea
+
+### The question a replay can't answer
+
+A backtest replays a recorded day: every tick's order book and every trade that printed. Our bot reads each tick and
+sends orders, and the engine decides what would have happened to them. Some of that is easy. An order that crosses the
+book, buying at or above the best ask, trades with orders that were really there, at their prices: a *take*, and the
+replay knows the answer.
+
+A market maker's income comes mostly from orders that don't cross, *passive* orders waiting for someone to trade with
+them. When the recording shows a trade at our bid's price, would it have traded with us? The recording can't say,
+because we weren't there. That trade happened between two other bots. Had we been there, the seller might have hit us
+instead, or the other bot first, or not traded at all because our order changed the book it saw.
+
+So every backtest engine answers the question by assumption, and the assumption is a setting. Ours has four main ones
+(@fig-fill-modes):
+
+- **`all`** (the default, which matches the open-source Prosperity backtester): a recorded trade at our price, or
+  through it, fills us.
+- **`worse`**: only a trade strictly through our price fills us. If someone sold below our bid, they would surely have
+  sold to us first.
+- **`none`**: no recorded trades at all; only orders in the visible book fill us.
+- **`resting`**: orders stay in the book between ticks and wait in a queue behind the orders already at their price.
+
+![The template on Prosperity 3's round 1, all three days, under each fill model. Resting uses the default queue
+(`back`). Data: `data/fill_modes.csv`, from `arena.backtest python/bots/template.py 1 --data p3` in each
+mode.](../figures/f09_fill_modes.png){#fig-fill-modes
+fig-alt="Bar chart of profit over three days under four fill models: all 72,674, worse 63,302, none 28,217, resting 66,558."}
+
+The bot is the same, and so are the days. The answer goes from 28,217 credits to 72,674. More than half of the default
+comes from fills that only exist if bots which traded with each other would have traded with us instead
+[(`README.md`, "Fill assumptions matter")]{.src}.
+
+### What the market offers at each distance
+
+The replay's assumption can be taken apart, because one half of it is in the data. For a quote at distance d from
+the fair, the recording says how often a trade printed at d or beyond, and how many lots: that is what the market
+offered a quote there, before any queue or rival. What it can't say is whether those lots would have come to us.
+
+@fig-fill-curve measures that offer on Kelp. A quote at the wall mid sees a print at or beyond it on 13.9% of ticks, a
+side; at 1.5 ticks out, 8.0%; at 2 ticks, only 2.4%. Multiply the lots by the edge each one earns and you get what a
+quote at each distance could earn, under each rule. Under `all`, every print *at* the quote counts, and the best
+distance is 1.5 ticks: 0.44 credits a side a tick. Under `worse`, only prints *beyond* the quote count, and at 1.5 ticks
+most of those vanish, since the prints at 1.5 outnumber those beyond it more than two to one. The best distance
+becomes 1 tick, at 0.29
+[(`data/fill_curve.csv`, from `experiments.day.fill_curve --data p3 --days 1 --products KELP`)]{.src}.
+
+![What a quote at each distance from the wall mid could fill and earn on Prosperity 3's Kelp, before any queue or
+rival: left, how often a print reaches it; right, its edge earned per side per tick under each rule. Data:
+`data/fill_curve.csv`, from `experiments.day.fill_curve`.](../figures/g15_fill_curve.png){#fig-fill-curve
+fig-alt="Left: the chance of a print at or beyond a quote falls from 13.9 percent at the wall mid to 8 percent at 1.5 ticks and 2.4 percent at 2. Right: under the optimistic rule a quote earns most at 1.5 ticks, 0.44 credits a side a tick; under the strict rule most at 1 tick, 0.29, and only 0.14 at 1.5."}
+
+That is the whole mechanism in one chart. The further out a quote sits, the larger the share of its fills that are
+the doubtful kind, trades printed exactly at its price between other bots. A rule that counts them rewards moving
+out; a rule that doesn't punishes it.
+
+### Why the error isn't noise
+
+So the fill model isn't a small, random error. It is biased, and the bias depends on the very parameter you tune. The
+backtests say the same as the curve. The table gives the template's PnL with three settings of Kelp's `make_edge`, on
+Prosperity 3's round 1 and on three days of round 5 the choice never saw, in thousands of credits.
+
+| `make_edge` | 0.5 | 1 | 1.5 |
+|---|---|---|---|
+| under `all` | 72.7 | 81.4 | 84.5 |
+| under `worse` | 63.3 | 57.8 | 52.3 |
+| out of sample (round 5), `all` | 53.8 | 61.1 | 64.5 |
+| out of sample (round 5), `worse` | 48.8 | 44.3 | 38.8 |
+
+::: {.content-visible when-format="audio"}
+On round 1, a wider quote makes more under the optimistic rule, 72.7 thousand at half a tick up to 84.5 thousand at one
+and a half, and less under the strict rule, 63.3 down to 52.3. On three days of round 5 that the choice never saw, the
+same happens: 53.8 up to 64.5 under the optimistic rule, 48.8 down to 38.8 under the strict one.
+:::
+
+Under `all`, the wider quote wins; under `worse`, it loses; and each rule ranks the edges the same way out of sample as
+in sample [(`data/kelp_edges.csv`; `IDEAS.md`, "Why the zoo beat the template head to head")]{.src}. Held-out data can't settle it, because
+the held-out days are replayed under the same assumption. **The fill model decides the edge.** A permutation test
+agrees: shuffling the order of Kelp's ticks finds the same best edge and the same lift over the median setting (a
+p-value of 0.55 for the best cell, 0.80 for its lift), so the choice comes from each tick's book and the fill rule, not
+from anything the price does over time [(`IDEAS.md`, "A permutation test of the whole search")]{.src}.
+
+### Where we stand in the queue
+
+When orders rest, a second assumption joins the first: our place in the queue. A new order joins the back of its
+price level. As orders ahead of it trade or are cancelled, it moves up. Trades are visible in the data; cancellations
+aren't, only the level shrinking. So the engine must guess where each unexplained drop happened, ahead of us or behind.
+Its three answers are `back` (always behind us, the pessimistic default), `front` (everyone else re-posts behind us
+every tick) and `prob`, which splits the drops by our place:
+
+::: {.eq speak="a cancellation lands ahead of us with probability equal to the share of the level that is ahead of us, raised to the power N"}
+$$\Pr(\text{a cancellation is ahead of us}) = \left(\frac{\text{volume ahead of us}}{\text{volume at the level}}\right)^{N}$$
+:::
+
+with N the `--queue-power`, 1 by default (`python/arena/engine.py`; the rule comes from the hftbacktest library). On
+Prosperity's round 1 the three hardly differ: 66,558 credits with `back`, 66,562 with `prob`, 67,070 with `front`
+[(`data/queues.csv`)]{.src}. That is a fact about Prosperity's book, whose levels are redrawn almost every tick, so
+there is rarely a place in a queue to hold (`arena.diagnose`'s `kept` column, 8% on Prosperity; `ON_THE_DAY.md`,
+"Which backtest settings match the playground?"). On a book whose levels persist, the three models diverge, and only
+the real exchange's fills can choose between them.
+
+### The other things a replay assumes
+
+Each of these is a setting in our engine, each was measured on Prosperity data or a rehearsal, and none can be read
+from the data itself.
+
+**When an order arrives.** The replay matches an order against the book the bot saw. If the exchange applies it a tick
+later, the price has moved. One tick late, the template on round 1 falls from 72,674 credits to 40,472 under `all`, and
+from 63,302 to 31,218 under `worse`; two ticks late, to 36,336 and 28,014 (@fig-delay). Resin's takes against its fixed
+fair arrive after the price has already come back. Part of the loss is a race against the limit: a late order is
+checked again on arrival, against a position its own earlier orders have moved, and one failure rejects every order for
+the product; one tick late, that happened on 3,248 of day 0's 10,000 ticks. Capping each quote's size at 15 to 20 lots
+recovers part of it: 45,534 under `all` one tick late
+[(`IDEAS.md`, "Orders that arrive a tick late")]{.src}.
+
+![The template with its orders arriving on time, one tick late and two ticks late, under both fill models. Data:
+`data/delay.csv`, from `arena.backtest ... --delay N`.](../figures/g16_delay.png){#fig-delay
+fig-alt="Bar chart: on time 72.7 thousand under all and 63.3 thousand under worse; one tick late 40.5 and 31.2 thousand; two ticks late 36.3 and 28.0 thousand."}
+
+**Whether what we take stays gone.** A replay usually restores the recorded book every tick, so the volume we bought
+is back for sale a tick later. In our first rehearsal the bot made 42,446, in that round's units, on the hidden days
+with the book restored, and 31,172 when what it took stayed gone: a quarter of the score from one assumption
+[(`IDEAS.md`, "The kickoff prompts on a disguised round"; `--deplete`)]{.src}.
+
+**How much of each trade we could get.** If others' hidden orders share every trade with us, we get only a part of
+what prints at our price. `--fill-ratio 0.5` halves the available liquidity: the template on round 1 then makes 40,184
+credits per tick instead of 72,674 [(`README.md`, "Fill assumptions matter")]{.src}. The Varde rehearsal's exchange did
+exactly this, giving resting orders half of each print, unannounced; chapter 12 tells how calibrate came closest with
+this setting and still refused.
+
+**Whether orders rest, on a market that jumps.** With orders that live one tick, plain market making on the jumpy
+basket legs of Prosperity 2 and 3 earned a few thousand credits each. Let the same quotes rest, and the next snapshot
+jumps straight through them, filling them at their own stale price: Prosperity 2's Roses lost 1,477 thousand credits,
+having bought and sold 114 thousand units that way on one day
+[(`IDEAS.md`, "Market making on products that jump, with resting orders")]{.src}.
+
+**What the position is worth at the end.** A bot that ends the day holding something is scored on cash plus that
+position at some price, [$\text{PnL} = \text{cash} + \text{position} \times \text{mark}$]{speak="profit is the cash plus the position valued at the mark"},
+and the engine chooses the mark. `--mark` picks the mid, the touch or the last trade. The Varde rehearsal used the
+volume-weighted average of the last 100 trades and didn't say so
+[(`python/experiments/mock_round/round4/README.md`)]{.src}; the engine has no such mark.
+
+### What to do about it
+
+Three habits follow, and the repo is built around them.
+
+1. **Never trust one fill model.** Run every comparison under at least two, `all` and `worse`, and believe only what
+   wins under both [(`README.md`, "Fill assumptions matter")]{.src}. If the ranking flips, the gain is a property of the
+   assumption.
+2. **Measure the real exchange early.** One upload of a plain bot tells you how far the portal is from each of your
+   settings, and its fills file can be read with the same fill curve as above, to measure our share of what the market
+   offered (chapter 12).
+3. **Prefer the edges a replay can see.** A take against the visible book is filled the same way under every fill
+   rule, though not under every delay; income from passive fills is the part to doubt.
+
+::: {.callout-note title="What would differ on another market"}
+On ABIDES, where informed traders move the price after their trades, every rule loses and they lie further apart:
+−21,798 cents under `all`, −57,872 under `worse`, −362,428 resting with the `prob` queue (chapter 5). On the Varde Exchange, the
+closest of our settings on fills was `all` with half of each print. The order of the rules' optimism is the same
+everywhere; how far apart they are is not.
+:::
+
+::: {.callout-note title="If you know ML"}
+A backtest is a simulator, and the fill model is its sim-to-real gap. Two things make it worse than the usual gap.
+It is *one-sided*: optimistic fills always look better, so a search drifts toward whatever the simulator flatters. And
+it is *correlated with the parameters*: `make_edge` decides what share of your fills are the doubtful kind, so tuning
+it is tuning to the gap. Held-out days don't help, as they would against overfitting, because they share the
+simulator. The fix is the one for any simulator: measure it against the real system, and treat what remains as a
+range, here the span between `all` and `worse`.
+:::
+
+::: {.callout-tip title="In the repo"}
+- The fill rules: `uv run python -m arena.backtest BOT DAYS --match-trades all|worse|none`, `--resting` with
+  `--queue back|prob|front` and `--queue-power`, `--fill-ratio`, `--delay`, `--deplete`, `--mark mid|touch|last`
+  (`python/arena/engine.py`; `ARCHITECTURE.md`, "Matching rules (Prosperity semantics)").
+- What the market offered at each distance, and our share of it from a results file:
+  `uv run python -m experiments.day.fill_curve --data D --days DAYS [--results RESULTS]`.
+- Two models at once in a grid: `arena.grid ... --modes all,worse`; named bundles with `--scenario`.
+- The rows: "The template's market maker", "Why the zoo beat the template head to head", "Orders that arrive a tick
+  late", "Market making on products that jump, with resting orders".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* which fill rule, queue and delay the Arena's portal matched, how
+far its scores were from our backtests, and what that did to each round's choices.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Bouchaud et al., *Trades, Quotes and Prices*, ch. 21 §21.3–21.4 (PDF pp. 413–420): limit against market orders, the
+  value of a place in the queue, and why backtests with phantom orders are biased.
+- DeLise, *The negative drift of a limit order fill* (28 pp.): why the fills you get are, on average, the ones you
+  wouldn't have wanted, and which fill rule a backtester should therefore use.
+:::
