@@ -98,6 +98,9 @@ The Varde Exchange, a portal that isn't our engine (`IDEAS.md`, "The kickoff pro
   - Decided 2026-11-04 (the user): the field guide now, Quarto, the recommended structure, written by this session, the voice too. Built the same day: 10 chapters, the preface and the glossary, 41 pages, fact-checked by a second agent (`docs/guidebook/field_guide/`, `FIELD_GUIDE_PLAN.md`); the full book's plan is `docs/guidebook/GUIDEBOOK_PLAN.md`.
   - Done when: the field guide is built and read, or the user decides against it; then the guidebook after the event, as a new item.
 
+- [ ] **The guidebook, the full book** (the user, 2026-11-04: "start working on the full book"): `docs/guidebook/GUIDEBOOK_PLAN.md`, sixteen chapters and five appendices, about 45k words, built as the field guide's `guidebook` profile. Begun with chapter 10 as the sample (`g10-backtest.qmd`).
+  - Done when: every chapter not marked "(Arena)" is written and fact-checked, part by part; then, after the event, the Arena's parts from the round handovers, and the plan's checklist holds for all of them.
+
 ## Rehearsal and setup
 
 - [ ] **Run a mock round before the event.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.

@@ -288,8 +288,47 @@ def timeline() -> None:
           "(hours from T, deadline at T+5)", ["part", "start", "end", "label"], rows)
 
 
+# -- The guidebook's additions ------------------------------------------------------------------------------------
+
+def fill_curve() -> None:
+    """G15: what a quote at each distance from the wall mid could fill on Kelp, from the data alone."""
+    output = run(["-m", "experiments.day.fill_curve", "--data", "p3", "--days", "1", "--products", "KELP"])
+    lines = output.splitlines()
+    at = next(i for i, line in enumerate(lines) if line.startswith("| d (ticks)"))
+    rows = []
+    for line in lines[at + 2:]:
+        if not line.startswith("|"):
+            break
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        rows.append([float(cells[0]), round(float(cells[1].rstrip("%")) / 100, 4), float(cells[3]), cells[4].replace("+", "") if cells[4] != "-" else ""])
+    write("fill_curve", "uv run python -m experiments.day.fill_curve --data p3 --days 1 --products KELP: its first table",
+          ["distance", "p_print", "lots", "value_20"], rows)
+
+
+def delay() -> None:
+    """G16: the template one and two ticks late, under all and worse."""
+    rows = []
+    for ticks in (0, 1, 2):
+        for mode in ("all", "worse"):
+            output = run(["-m", "arena.backtest", TEMPLATE, "1", "--data", "p3", "--engine", "rust", "--delay", str(ticks), "--match-trades", mode])
+            rows.append([ticks, mode, total(output)])
+    write("delay", "uv run python -m arena.backtest python/bots/template.py 1 --data p3 --engine rust --delay N --match-trades all|worse",
+          ["delay", "mode", "pnl"], rows)
+
+
+def queues() -> None:
+    """The guidebook's chapter 10: resting orders under each queue model."""
+    rows = []
+    for queue in ("back", "prob", "front"):
+        output = run(["-m", "arena.backtest", TEMPLATE, "1", "--data", "p3", "--engine", "rust", "--resting", "--queue", queue])
+        rows.append([queue, total(output)])
+    write("queues", "uv run python -m arena.backtest python/bots/template.py 1 --data p3 --engine rust --resting --queue back|prob|front",
+          ["queue", "pnl"], rows)
+
+
 STEPS = {"order_book": order_book, "mid_and_wall": mid_and_wall, "copies": copies, "fill_modes": fill_modes,
-         "kelp_grid": kelp_grid, "shuffle": shuffle, "smile_window": smile_window, "varde": varde, "calibrate": calibrate, "timeline": timeline}
+         "kelp_grid": kelp_grid, "shuffle": shuffle, "smile_window": smile_window, "varde": varde, "calibrate": calibrate, "timeline": timeline,
+         "fill_curve": fill_curve, "delay": delay, "queues": queues}
 
 
 def main() -> int:

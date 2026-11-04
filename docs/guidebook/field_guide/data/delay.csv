@@ -1,0 +1,8 @@
+# uv run python -m arena.backtest python/bots/template.py 1 --data p3 --engine rust --delay N --match-trades all|worse
+delay,mode,pnl
+0,all,72674.0
+0,worse,63302.0
+1,all,40472.0
+1,worse,31218.0
+2,all,36336.0
+2,worse,28014.0

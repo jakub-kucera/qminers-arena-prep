@@ -1,0 +1,5 @@
+# uv run python -m arena.backtest python/bots/template.py 1 --data p3 --engine rust --resting --queue back|prob|front
+queue,pnl
+back,66558.0
+prob,66562.0
+front,67070.0

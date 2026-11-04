@@ -1,0 +1,26 @@
+This guide is for the Qminers Algo Trade Arena on 7 and 8 November 2026: four five-hour rounds, a Python bot submitted
+at the end of each. It assumes what an engineer with machine learning behind them already knows (probability,
+overfitting, hyperparameter search, simulators) and builds the rest from zero: what an order book is, why a market maker
+earns anything, why a backtest flatters it, and where each of these lives in the repo.
+
+Every chapter answers one question and opens on something that happened: in a Prosperity competition, in a past Qminers
+hackathon, in one of our own rehearsals or in the literature. Then comes the idea in plain words, at most one or two formulas with a sentence that
+says each one aloud, and four boxes:
+
+- **If you know ML:** the analogy, and where it breaks.
+- **In the repo:** the file, the parameter, the command, the `IDEAS.md` row.
+- **On the day:** where `RUNBOOK.md` uses it. The guide gives no instruction RUNBOOK doesn't.
+- **Go deeper:** a section or two of the literature, with pages.
+
+**Four markets** recur, and they are kept apart. *Prosperity* is IMC's competition, whose data the prep used as a
+stand-in; its prices are in its own credits. *`arena.sim`* is our simulator. *ABIDES* is an independent simulator with
+informed traders; its prices are in cents. *The mock rounds* are disguised rehearsals with their own portals; the Varde
+Exchange scores in euros. Nothing measured on one is stated as a fact about the Arena: the Arena's own data comes on the
+day.
+
+**Every number can be checked.** A figure comes from `scripts/make_data.py`, which runs a committed command and writes
+the CSV next to the figure; a number in the text names its `IDEAS.md` row or its source. A figure from a team's own
+write-up that our engine did not reproduce is marked *their claim*.
+
+**The audio edition** reads the same text. Each formula is read as its sentence, a table as its summary, and a figure
+as a short description of it.

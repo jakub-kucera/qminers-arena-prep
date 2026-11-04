@@ -1,25 +1,11 @@
+# Two books from one folder (data/, figures/ and scripts/ shared), chosen by profile:
+#   quarto render                       the field guide (default), into _book/
+#   quarto render --profile guidebook   the guidebook, into _book-guidebook/
+profile:
+  default: fieldguide
+
 project:
   type: book
-  output-dir: _book
-
-book:
-  title: "The Field Guide"
-  subtitle: "Market making, backtests and this repo, before the Qminers Algo Trade Arena"
-  date: "2026-11-04"
-  chapters:
-    - index.qmd
-    - 01-round.qmd
-    - 02-exchange.qmd
-    - 03-price.qmd
-    - 04-market-making.qmd
-    - 05-other-side.qmd
-    - 06-backtest.qmd
-    - 07-real.qmd
-    - 08-portal.qmd
-    - 09-code.qmd
-    - 10-day.qmd
-  appendices:
-    - glossary.qmd
 
 lang: en-GB
 number-sections: false

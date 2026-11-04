@@ -4,3 +4,5 @@ _audio/
 
 /.quarto/
 **/*.quarto_ipynb
+_book-guidebook/
+_audio-guidebook/

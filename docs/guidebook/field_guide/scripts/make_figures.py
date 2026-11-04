@@ -446,9 +446,62 @@ def timeline():
     save(fig, "f14_timeline")
 
 
+# -- G15 the fill curve: what each fill rule would pay at each distance ------------------------------------------
+
+def fill_curve():
+    rows = [r for r in read("fill_curve") if float(r["distance"]) <= 2]
+    d = [float(r["distance"]) for r in rows]
+    lots = [float(r["lots"]) for r in rows]
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6))
+    ax = axes[0]
+    ax.plot(d, [float(r["p_print"]) * 100 for r in rows], marker="o", color=BLUE, linewidth=1.8)
+    ax.set_xlabel("distance from the wall mid (ticks)")
+    ax.set_ylabel("ticks with a print there or beyond (%)")
+    ax.set_title("How often the market reaches a quote")
+    # a quote at d earns d a lot: under `all` from the lots printed at or beyond d, under `worse` only beyond it
+    under_all = [x * q for x, q in zip(d, lots)]
+    under_worse = [x * q for x, q in zip(d, lots[1:] + [0.0])]
+    width = 0.18
+    ax = axes[1]
+    ax.bar([x - width / 2 for x in d], under_all, width=width, color=BLUE, label="all: a print at the quote fills it")
+    ax.bar([x + width / 2 for x in d], under_worse, width=width, color=ORANGE, label="worse: only a print beyond it")
+    for x, a, w in zip(d, under_all, under_worse):
+        ax.text(x - width / 2, a + 0.01, f"{a:.2f}", ha="center", fontsize=7.5)
+        ax.text(x + width / 2, w + 0.01, f"{w:.2f}", ha="center", fontsize=7.5)
+    ax.set_xticks(d, [f"{x:g}" for x in d])
+    ax.set_xlabel("distance from the wall mid (ticks)")
+    ax.set_ylabel("edge earned a side a tick (credits)")
+    ax.set_title("What a quote there could earn")
+    ax.legend(loc="upper left", fontsize=7.5)
+    fig.suptitle("Prosperity 3's Kelp, round 1: the market's offer, before any queue or rival", x=0.06, ha="left", fontsize=11,
+                 weight="bold")
+    fig.tight_layout()
+    save(fig, "g15_fill_curve")
+
+
+# -- G16 PnL against delay ----------------------------------------------------------------------------------------
+
+def delay():
+    rows = read("delay")
+    fig, ax = plt.subplots(figsize=(7.5, 3.4))
+    width = 0.36
+    for k, (mode, color) in enumerate((("all", BLUE), ("worse", ORANGE))):
+        pts = [r for r in rows if r["mode"] == mode]
+        xs = [int(r["delay"]) + (k - 0.5) * width for r in pts]
+        bars = ax.bar(xs, [float(r["pnl"]) for r in pts], width=width * 0.92, color=color, label=mode)
+        for bar, r in zip(bars, pts):
+            ax.text(bar.get_x() + bar.get_width() / 2, float(r["pnl"]) + 900, thousands(float(r["pnl"])), ha="center", fontsize=8.5)
+    ax.set_xticks([0, 1, 2], ["on time", "one tick late", "two ticks late"])
+    ax.yaxis.set_major_formatter(thousands)
+    ax.set_ylabel("PnL over three days (credits)")
+    ax.legend(loc="upper right", fontsize=8.5)
+    ax.set_title("The same bot with its orders arriving late: Prosperity 3, round 1")
+    save(fig, "g16_delay")
+
+
 def main() -> int:
     for draw in (round_loop, order_book, score_parts, mid_and_wall, round_trip, copies, shuffle, smile_window, fill_modes,
-                 kelp_grid, folds, calibrate, architecture, timeline):
+                 kelp_grid, folds, calibrate, architecture, timeline, fill_curve, delay):
         draw()
     return 0
 
