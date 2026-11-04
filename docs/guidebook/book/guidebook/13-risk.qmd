@@ -1,0 +1,215 @@
+# How should I size risk?
+
+*You'll need PnL and the position limit (chapter 2), what holding a position costs (chapter 6), a result you can trust
+(chapter 11) and the portal's standard error (chapter 12). Written 4 November 2026, before the Arena's rules are
+known: everything said here about the Arena is what the organisers had said by then.*
+
+## The story
+
+Qminers' own 2024 hackathon was a sports-betting contest that ended in an in-person final: three rounds, every
+finalist's score reset to 1,000 points, a shorter horizon than the qualifier and so more luck in the result. Before
+it, the eventual winner wrote a small simulation of the final: the twenty finalists, each with a model of its own
+quality and its own appetite for risk, the models correlated with each other (his "Quant factor", after a paper on quant funds that crowded into the
+same trades). He used it to choose the fraction of his bankroll to bet, choosing the fraction that won the
+final most often, not the one that made most on average
+[(`references/qminers-hackathon-2024/README.md:41-49`)]{.src}.
+
+He took the lead in the first round and extended it in the second. Before the third he worked out that its data came
+from just after covid, a period other finalists' models might handle better than his, and with a large lead he halved
+his stake. It was, in his words, "a minor mistake": his model "performed the best during this time", and at full stake
+he estimates he would have ended near 143,000 points. He kept "a dominant first place lead" anyway
+[(`references/qminers-hackathon-2024/README.md:55-63`)]{.src}, finishing on 107,074 against the runner-up's 69,460;
+two finalists ended under 40 points [(`references/qminers-hackathon-2024/final_scores.png`)]{.src}.
+
+The point is not that halving was right or wrong. It is that he asked a different question from the one a backtest
+answers. A backtest asks what makes the most. A final asks what keeps the place.
+
+## The idea
+
+### What the score rewards
+
+How much risk to carry depends first on how the competition turns PnL into a ranking, and competitions differ
+[(`references/wiki/concepts/risk-and-protecting-a-lead.md`)]{.src}:
+
+- **Prosperity** ranked teams by cumulative PnL: a large win counts in full, and so does a large loss.
+- **UChicago's 2026 competition** scored each round by rank, the square of one less than a team's place among 41,
+  the lowest total winning, and weighted the later rounds more
+  [(`references/uchicago-trading-2026/README.md:83`, `:221`)]{.src}. A big win counts no more than a narrow one, and a
+  bad round costs more the worse it is, so consistency wins.
+- **AlgoTrade** scored each round's profit on a log scale against the round's best, and any loss as zero
+  [(`references/algotrade2026-pitfa19/.firecrawl/algotrade-participant-guide.md:415-426`)]{.src}. A loss is capped and a
+  win only compresses, which makes a long shot cheap.
+
+The Arena, as far as anyone knew on 4 November: its leaderboard ranks each round by PnL, with no total across rounds;
+the site's code holds a weighted score over four phases at 10, 20, 30 and 40% that no page uses, so the weights are
+the site's and unconfirmed; and whether profit carries from one round to the next is unknown. The Technical Rules,
+published at the opening, should settle all three [(`ON_THE_DAY.md`, "Known so far")]{.src}.
+
+### Rank is not expected profit
+
+Under any of these rules, the objective is a place, and a place is a step function of your score against everyone
+else's. That changes the sign of risk. A team behind needs a large positive draw to pass the teams ahead, so variance
+helps it: the chance of a big enough result rises with the spread, even at the same mean. A team ahead only needs the
+others not to pass it, so variance hurts it: every extra unit of spread is a new way to fall. The 2024 winner's
+simulation is the general tool, and the repo has one for the last round: `experiments.day.standings` reads the
+leaderboards so far, simulates the last round many times, and gives our chance of first, of the top three and of losing
+a place for each risk multiplier and each hedge [(`python/experiments/day/standings.py`)]{.src}.
+
+@fig-stake is that calculator on a synthetic field, since there are no Arena leaderboards yet. The field was generated
+with 30 teams over three rounds whose medians and spreads were 5, 10 and 20 thousand in the field's units, a team's
+skill persisting from round to round at a correlation of 0.7, one common bet worth half a team's variance, and us 3
+standard deviations of skill above the field, holding none of the bet. From those leaderboards the calculator measured
+what it would measure on real ones: the last round's field with a median of 2,883 and a spread of 23,934, persistence
+0.52, the common bet 35% of a team's variance, our loading on it −0.10, and our lead 12,292 points with the rounds
+summed at the site's 10, 20, 30 and 40% [(`IDEAS.md`, "A standings calculator for round 4")]{.src}. The last round is simulated 5,000 times, seeded, for three
+versions of our last round at full risk: steady (a mean of 35 thousand, a spread of 11), weak (10 and 19) and volatile
+(35 and 49). The risk multiplier k scales our round's spread; on the left it scales the mean too, as a smaller position
+earns proportionally less, and on the right it leaves the mean alone, as if the risk cut carried no edge
+[(`data/standings.csv`; `IDEAS.md`, "A standings calculator for round 4")]{.src}.
+
+![The leader's chance of finishing first against the risk it carries into the last round, in a simulated final: three
+kinds of last round, with the edge scaling with the stake (left) or not (right). An illustration of the method on a
+synthetic field, not a forecast of the Arena. Data: `data/standings.csv`, from `experiments.day.standings --synthetic
+--seed 4 --lead 3`.](../figures/g20_stake.png){#fig-stake
+fig-alt="Two line charts of the chance of first against the risk multiplier. Left, where a smaller stake earns proportionally less: every curve rises with the stake; the steady leader goes from 63 percent at a quarter to 94 at full risk and 98 at one and a half; halving costs it 16 points. Right, where a smaller stake keeps its edge: every curve falls; the volatile leader goes from 73 percent at full risk to 86 at half and 93 at a quarter; the steady one barely moves, 94 to 95."}
+
+The two panels give opposite answers, and that is the lesson. If cutting risk cuts the edge with it, a leader with a
+good bot should keep its risk: halving the steady bot takes its chance of first from 94% to 78%. If the risk cut is
+pure noise, cutting it protects the lead, by a lot for the volatile bot (73% to 86% at half) and hardly at all for the
+steady one. Even then, "keep everything" was never far worse for a steady leader. So the question to ask before
+halving is not "am I ahead?" but "does the risk I'd remove carry edge?". The 2024 winner removed risk that, as it turned
+out, carried his best edge of the final, and gave up about 36,000 points, by his estimate, of a margin he didn't need.
+
+### Kelly: size by edge over odds
+
+The classical answer to "how much of my bankroll" is Kelly's: bet the fraction that maximises the long-run growth of
+capital you reinvest. For a bet that wins b units per unit staked with probability p, and loses the stake otherwise,
+with q the chance of losing (Thorp, PDF p. 6):
+
+::: {.eq speak="the Kelly fraction is the edge, b times p minus q, the expected gain per unit staked, divided by the odds b"}
+$$f^* = \frac{bp - q}{b}$$
+:::
+
+On an even-money coin that wins 53% of the time, the fraction is 0.53 less 0.47, or 0.06: bet 6% of what you have on
+each flip.
+Bet more than about 12% and capital shrinks to nothing despite the edge (Example 2.1, p. 6). Three facts from Thorp
+carry over to a trading round, where the formula itself doesn't. **Size follows edge over variance**: in its
+continuous form the fraction is the excess drift over the variance (p. 24). **Over-betting is the expensive mistake**:
+betting half the optimum keeps three quarters of the growth, and one and a half
+times Kelly keeps the same three quarters with three times half Kelly's volatility (p. 26). **Estimated edges are too high**,
+through data mining, markets that change and rivals drawn to the same edge, so bet between half and all of the
+*estimated* optimum, which protects against negative growth at a likely cost of at most a quarter of it (pp. 29–30).
+
+What doesn't carry is the objective. A round's PnL isn't reinvested, the position limit caps the size where Kelly's
+bankroll would, nobody goes broke, and maximising log growth over many bets is not maximising a place over four rounds
+[(`references/wiki/sources/kelly-criterion.md`, "Assumptions against the Arena")]{.src}. In a bot, the Kelly-shaped knobs
+are the share of the limit a product's quotes use, `make_size`, and its `skew` (chapter 6): a product with a thin edge
+and a jumpy price earns a smaller share than one with a fat edge and a quiet price.
+
+Ryan Challman's `ROBOT_DISHES` (chapter 11) is the third fact in practice. Its mean reversion made 96% of its backtest
+profit on one of three days (*their claim*). They read the other two days' small profits as noisy estimates of a real
+edge, not as noise around zero, and its size on the scored day as unknowable, so they cut its weight from 0.12 to 0.06 rather than size to the best day: shading an estimate they had reason to
+think too high [(`references/prosperity4-ryan-challman/README.md:115-141`)]{.src}.
+
+### Value at risk: size the bet to the lead
+
+Kelly sizes against a bankroll; a leader can size against the lead instead. Prosperity 3's runners-up, Frankfurt
+Hedgehogs, led every round but the last and came into it 200,000 SeaShells ahead, in the game's currency. Their option mean-reversion strategy
+had lost about 50,000 the round before, and they no longer believed in it on its own merits. But several teams close behind traded
+only that: if it paid, those teams would close the gap. So they kept some of it, as a hedge against their rivals rather
+than against the market. Having decided that, they checked its 95% value at risk, the loss it would exceed only one
+time in twenty: about 50,000, "only about 25% of our lead" (*their claim*)
+[(`references/prosperity3-frankfurt-hedgehogs/README.md:616`)]{.src}. Turned around, their check is a sizing rule, our
+generalisation rather than theirs:
+
+::: {.eq speak="size the bet so that its ninety-five percent value at risk is at most a set share s of the lead; Frankfurt Hedgehogs' check came out at s equal to a quarter"}
+$$\text{VaR}_{95\%}(\text{the bet}) \le s \times \text{lead}, \qquad s = \tfrac{1}{4}\ \text{in Frankfurt Hedgehogs' check}$$
+:::
+
+In that round, about 190,000 ahead of the second team, they also half-hedged their baskets and limited mean
+reversion, to play it safe [(`references/prosperity3-frankfurt-hedgehogs/README.md:759`)]{.src}. They kept a healthy distance to
+every team that had been close behind, the ones they had hedged against, and still finished second: a team from below
+100th place made about 850,000 in the last round, against the 200,000 to 400,000 typical of the top teams, and took
+first [(`references/prosperity3-frankfurt-hedgehogs/README.md:3`, `:616`, `:765-769`)]{.src}. A relative hedge protects
+against the rivals you can see, not against a long shot that comes off. The standings calculator's hedge
+table prices the same idea: the share of the field's common bet to hold so that a swing can't reorder the ranks. On
+the synthetic field, holding half to all of it cut the steady leader's chance of losing a place from 6% to 4%
+[(`IDEAS.md`, "A standings calculator for round 4")]{.src}. Small insurance, with the bet free
+to hold; on a field that isn't all in on one bet, there is nothing to hedge.
+
+### The tail you can't backtest
+
+The cleanest case for sizing a risk to zero is one the backtest never shows. The winners of UChicago's 2026 Case 1 click-traded
+prediction markets by hand, from a physical DJ deck, on top of their algorithm. The exchange froze sporadically, and in
+round 6 it froze while they held large positions and news hit: about $200,000 gone in seconds, a top-5 round turned
+into 35th. They stopped trading by hand for the remaining six rounds, and wrote afterwards that, given a leaderboard
+that rewarded consistent placing, they should never have started. In the last round they computed that the top 11 of
+41 was enough for first overall and stopped their bot after about 8 minutes, while other teams were manipulating the
+books in the final minutes (*their claim*)
+[(`references/uchicago-trading-2026/README.md:197-203`, `:227-233`)]{.src}.
+
+Two habits come out of it. Size a risk by what it can lose in its worst minute, not by its average contribution: a
+side bet whose expected gain is small and whose tail is large is negative under any rank-based score. And know, before
+the last round, what result is enough. In the repo, the per-product loss stop is the bot's own version of the first:
+`stop_loss` flattens a product and stops it for the day once its PnL falls that far below its high, sized from
+`arena.stress` at about three times its plain drawdown [(`RUNBOOK.md`, "Each round", T+1:30; `IDEAS.md`, "A loss stop per product")]{.src}.
+
+### Round weights and carry-over
+
+How the four rounds combine decides how much a round's lead is worth, and the day's question file works through each
+case [(`ON_THE_DAY.md`, "How is PnL scored?")]{.src}. If the total is a weighted sum of raw PnL, a lead counts in its own
+round's units, and round 1, a simple market while most teams are still learning the API, may be where a prepared team's
+lead is largest, so even at 10% it can matter as much as later rounds. If rounds are normalised or ranked, a big win
+counts little more than a narrow one. If profit carries over into the next round's capital, an early gain compounds and
+an early loss shrinks every later round, as in Qminers' 2024 and 2025 contests
+[(`IDEAS.md`, "Round 1 as the prepared team's largest PnL lead")]{.src}.
+
+So RUNBOOK leaves the decision to the one point where the information exists: before round 4, decide in writing how
+much risk to keep, and any relative hedge, from the standings calculator run on the three real leaderboards, our rank
+under each way the rounds may combine; and if rounds 2 and 3's private runs strayed from our backtests, a bot that sends
+nothing goes on the list [(`RUNBOOK.md`, "Rules that hold all day")]{.src}. Zero is a candidate, as a model that
+abstains is a candidate in a selective-prediction task.
+
+::: {.callout-note title="What would differ on another market"}
+On Prosperity, where the ranking was cumulative PnL, Frankfurt Hedgehogs sized
+their hedge in the game's currency against a lead in the same. Under UChicago's squared ranks, the same lead is worth nothing once
+first place is safe, so stopping was right. On AlgoTrade, with losses scored as zero, a trailing team's long shot cost
+little. The Qminers 2024 final compounded a bankroll, where Kelly's own objective almost applies. The Arena's rule
+picks among these, and none of the numbers above is a fact about it.
+:::
+
+::: {.callout-note title="If you know ML"}
+A competition ranked on one final evaluation rewards the probability of finishing first, not the expected score, the
+way a Kaggle private leaderboard rewards robustness over the public score; the standings calculator is a Monte Carlo
+over the field, exactly as you would simulate a leaderboard shake-up. Where the analogy breaks: on Kaggle you choose the
+model once, before the private score exists. Here the stake can change from round to round after you have seen the
+standings, so the choice of risk is itself a sequential decision on new information, and the rivals are making it too.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `uv run python -m experiments.day.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team <ours> --ours
+  <round 4's grid CSV>` (`--synthetic` for the field above; `--mean-power`, `--hedges`, `--weights`): rank, first place
+  and losing a place per risk multiplier and per hedge, under four ways the rounds may combine.
+- `uv run python -m experiments.day.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`: the
+  field's curves, its common bet and each team's loading.
+- The bot's knobs: `make_size`, `skew`, `stop_loss`, `flatten_from` (`python/bots/template.py`); `arena.stress` sizes the
+  stop.
+- The rows: "A standings calculator for round 4", "Round 1 as the prepared team's largest PnL lead", "A loss stop per
+  product".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* how the Technical Rules combined the rounds and whether anything
+carried over; G21, the rounds' real weights against what each round's PnL was worth to us; the standings calculator's
+run before round 4 on the three real leaderboards, the risk and hedge we chose in writing, and what that choice turned
+out to cost or save. Until then: `RUNBOOK.md`, "Rules that hold all day", and `ON_THE_DAY.md`, "How is PnL scored?".
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Thorp, *The Kelly criterion in blackjack, sports betting, and the stock market* (40 pp.): §2 for the coin (pp. 4–6),
+  §7 for the continuous case and fractional Kelly (pp. 24–26), and the lessons on estimated edges (pp. 29–30). The
+  wiki's source page on it lists what carries over [(`references/wiki/sources/kelly-criterion.md`)]{.src}.
+- The wiki's pages on risk and protecting a lead, and on harder rounds: how other teams sized risk with a lead, and how
+  competitions make later rounds harder
+  [(`references/wiki/concepts/risk-and-protecting-a-lead.md`, `harder-rounds.md`)]{.src}.
+:::

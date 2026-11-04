@@ -1,0 +1,189 @@
+# What does the portal tell me?
+
+*You'll need PnL as cash plus position (chapter 2), the rehearsals (chapter 1) and a backtest's assumptions
+(chapter 10).*
+
+## The story
+
+In the Varde rehearsal, the fourth disguised round we ran before the event, the first upload scored €367.61 on the
+three public sessions. Before the order fee, which our engine can't charge, the portal's gross was €511; our backtest of the same file, under
+its best reading of the exchange's rules, had said about €1,330 [(`python/experiments/mock_round/round4/results/DRYRUN_LOG.md`)]{.src}.
+And calibrate, the tool that searches our engine's settings for one that reproduces the portal, refused: no
+setting came within 5% of every figure (@fig-calibrate).
+
+So the session read the portal's results file by hand. The rules had said there was a fee per order placed as well as
+per lot, and it was easy to underrate: the bot placed and cancelled orders all the time, 28,647 of them, and at half a
+cent each they took €143.24 of a €510.85 gross, **28%**
+[(`data/sessions.csv`; `python/experiments/mock_round/round4/results/DRYRUN_LOG.md`, "What calibrate printed")]{.src}.
+The fills showed a second gap: the portal had filled far fewer lots than any of our settings that traded at all, 8,466
+against 11,345 to 18,772. The rule behind it, that only half of each print reached resting orders, was not in the rules
+the session had; it sat in the rehearsal's answer key [(`python/experiments/mock_round/round4/README.md`)]{.src}.
+
+The first rehearsal had taught the same lesson from the other side. Its bot made 42,446 in that round's units on the
+hidden days, replayed the usual way, with the recorded book restored every step. With what it took kept gone from
+the book, it made 31,172: **27% less**, from one assumption about the exchange and nothing in the strategy
+[(`data/depletion.csv`, from `python/experiments/mock_round/private/evaluate.py ... --days hidden [--deplete]`)]{.src}.
+
+Neither gap was a strategy problem, and either would have misled every backtest that night. The portal's figures were
+the only place they showed.
+
+## The idea
+
+### The twelve figures
+
+An upload comes back with a dozen numbers. On the Arena's portal they have these names
+[(`ON_THE_DAY.md`, "Known so far")]{.src}; the Varde rehearsal's portal reported the same ones, and its upload gave:
+
+| Figure | Varde upload | What it is |
+|---|---|---|
+| `score` | 367.61 | the PnL that ranks you: on the Varde portal, cash plus the positions at the mark, less any penalty (inferred for the Arena) |
+| `fills`, `tradedVolume` | 5,056; 8,466 | how many fills, and how many lots |
+| `inventory` | −6 | the last session's end position, summed over products |
+| `cash` | 2,310.30 | cash at the end, fees included |
+| `markPrice` | 233.44 | the last session's marks, averaged over products |
+| `breachPenalty` | 0 | the charge for going past a limit |
+| `pnlSe` | 22.98 | the score's standard error |
+| `absInventoryQ50` to `Q997` | 8, 13, 27, 36 | quantiles of the absolute position, pooled over the sessions |
+
+::: {.content-visible when-format="audio"}
+The Varde upload came back with a score of 367.61 euros, 5,056 fills over 8,466 lots, an end position of minus 6, cash
+of 2,310 euros, a mark price of 233.44 euros, no penalty, a standard error of 22.98 euros, and an absolute position of 8 lots
+at the median, 13 at the 68th percentile, 27 at the 95th and 36 at the 99.7th.
+:::
+
+[(`data/portal_metrics.csv`, from the rehearsal's `portal.py`)]{.src} Four of them repay a closer look.
+
+### The score is an identity, if you know what is summed
+
+It is cash plus position times mark, less any penalty, as in chapter 2, and you can check it. With one product and one
+session the check is exact. On the Varde upload it fails twice over, and nothing is wrong: `cash` is summed over all
+three sessions while `inventory` and `markPrice` are the last session's, and `markPrice` is one number averaged over
+three products' prices, one of which the bot never traded. So 2,310.30 less 6 times 233.44 is not 367.61; the identity
+holds only session by session and product by product (chapter 2 draws the parts). The session
+rebuilt the score from the results file, valuing each session's end position at its last mid, and got €369.67 against
+the portal's 367.61, within 0.6%: the score was the *sum* over the sessions, not their mean
+[(`python/experiments/mock_round/round4/results/DRYRUN_LOG.md`)]{.src}.
+
+That rebuild is the first of four checks the day's question file asks of the first upload: the identity; the whole path
+(fills, volume, end position and the position quantiles, not just PnL); the aggregation (is `score` a sum or a mean,
+and which standard error is `pnlSe`); and the clock (one continuous run, or a reset per day)
+[(`ON_THE_DAY.md`, "How is PnL scored?")]{.src}. Know which figures are sums before you compare any of them.
+
+### The standard error says how much the score is worth
+
+On the Varde portal it is the standard error of the total over the sessions scored
+[(`python/experiments/mock_round/round4/private/portal.py`)]{.src}:
+
+::: {.eq speak="the standard error of a total over n sessions is the spread of the session scores times the square root of n"}
+$$\text{pnlSe} = \text{sd}(\text{session scores}) \times \sqrt{n}$$
+:::
+
+The Varde sessions scored 110.21, 136.57 and 120.83 euros: their spread is 13.3, times the square root of 3 is 23
+[(`data/sessions.csv`)]{.src}. Two uploads whose scores differ by less than a couple of standard errors are not shown to
+differ, however tempting the better number. With a handful of uploads a round, this is what stops you chasing noise.
+RUNBOOK has a second, separate bar: the engine's error, the gap between an upload's portal score and our backtest of it,
+measured by T+2:00, and never to choose between two variants by a portal score that
+differs by less than that [(`RUNBOOK.md`, "Each round" and "Rules that hold all day")]{.src}. One is the portal's own
+noise, the other our simulator's distance from it.
+
+The Arena's portal shows a `pnlSe` too, but what it measures isn't known: it could be over sessions, over blocks of
+one run, or over repeated runs of a noisy simulation. So `arena.backtest` with `--metrics` prints our engine's version of every
+figure, with guesses at the standard error (ticks taken as independent, 20 blocks' sums, and, over several days, the
+daily PnLs' spread times the square root of the days), and calibrate tries
+per-tick, per-block and per-day versions and keeps the one that fits
+[(`python/arena/report.py`, `format_metrics_total`; `python/experiments/day/calibrate.py`; `ON_THE_DAY.md`, "Probes", 16)]{.src}. One more thing can set the noise floor:
+Prosperity 4's portal scored each upload on a random 80% of the quotes, drawn again every time, so two uploads of
+one file differed [(`ON_THE_DAY.md`, "Known so far")]{.src}. If the Arena does that, the gap between two uploads of the
+same file is the smallest difference worth believing.
+
+### The position quantiles say how hard the bot leans on its limits
+
+The quantiles pool the absolute position over the sessions, summed over products, and the two products the Varde bot
+traded allowed 100 lots between them. A median of 8 lots and a 99.7th percentile of 36 mean the bot was usually near
+flat, and all but 0.3% of the time used at most about a third of its room. A bot whose median sits near its limit is carrying a bet, whether it
+meant to or not, and chapter 6 says what that costs. The quantiles are also the cheapest check of the whole path: a
+backtest that matches the score but not the quantiles reached the right number by a different route.
+
+### Calibrate: fitting the simulator to the real thing
+
+Our backtest has a dozen settings that recorded data can't decide (chapter 10): which prints fill us, whether orders
+rest and where they queue, delay, depletion, the mark, the share of each print we can get, fees and caps. One upload of
+a plain bot measures them. Calibrate replays the uploaded file under every combination, 144 settings and more, delay 0
+and 1 among them, computes the same twelve figures for each, and ranks the settings by their *worst* figure's error
+against the portal. If the best is within 5% on every figure, it prints the settings to paste into the day's format
+plug-in, and lists the settings this upload can't tell apart (every figure within 0.5% of each other), which the probes
+must decide. If not, it refuses, and names the usual causes: the money off by one factor (a unit or scale mismatch), a
+cost the engine doesn't charge, or our wrapper doing something their exchange doesn't
+[(`ON_THE_DAY.md`, "How is PnL scored?")]{.src}.
+
+![Calibrate on the Varde upload: each figure's error, for the best-ranked setting and for the setting closest on fills
+and volume alone, against calibrate's 5% line. Data: `data/calibrate.csv`, from `experiments.day.calibrate` through the
+round's plug-in.](../figures/f12_calibrate.png){#fig-calibrate
+fig-alt="Dot plot of the error on eleven of the twelve figures (the penalty, zero on both sides, isn't drawn). The best-ranked setting is near 100% off on score, fills and volume. The setting closest on the fills is 2.6% off on fills and 10.5% on volume but 36% off on the score and over 300% on cash. Only the mark price is within 5% for both."}
+
+@fig-calibrate shows why it refused. The best-ranked setting, `none` with a one-tick delay, barely trades: it scores €7,
+which makes it "least wrong" on cash and inventory and 98% wrong on the score. The setting closest on fills and volume,
+resting with half of each print available, gets fills within 2.6%, but it scores €236.58 against the portal's €367.61
+and ends the last session at −12 lots against −6, which throws cash off by over 300%
+[(`data/calibrate.csv`)]{.src}. On top of that, the order fee is a cost the engine can't charge at all. No setting can
+be right everywhere when the exchange has rules the engine lacks.
+
+### Refusing a bad fit
+
+The refusal was the most useful thing calibrate did that night. A fit that is right on some figures and wrong on
+others would have been worse than none: pasted into the plug-in, it would have tuned every later grid to an exchange
+that doesn't exist. The session did what the refusal says: it pasted no settings, kept the rules' own, widened the
+grid's modes to `all`, `worse` and `none` with a one-tick delay as a scenario, and read every local PnL net of the
+order fee. And it wrote down the scale of the gap: the local backtest overstated the portal about 2.6 times on gross
+(€1,332 against €511 over the three sessions), so until the next upload a local figure was a ranking, not a forecast
+[(`python/experiments/mock_round/round4/results/DRYRUN_LOG.md`)]{.src}.
+
+That last distinction is the one to keep. A biased simulator can still rank two variants correctly if the bias hits
+both alike; the fill model of chapter 10 is the case where it doesn't, because the bias depends on the parameter being
+tuned. So a refusal changes how a backtest is read, not whether it is used: every comparison under two or three fill
+models, and the portal's score, when it comes, as the judge.
+
+When a gap remains, `experiments.day.shortfall` splits it per order: the same lots at a lower edge mean later or worse
+fills (try `--delay 1`); fewer lots mean the fill model differs, as on Varde, and depletion is the other candidate
+the first rehearsal named [(`ON_THE_DAY.md`, "How is PnL scored?"; `IDEAS.md`, "Implementation shortfall and missed-trade cost per order")]{.src}.
+
+::: {.callout-note title="What would differ on another market"}
+On Prosperity, the open-source backtester follows the platform's published matching, and the gaps teams reported were
+the fill question of chapter 10 (Kayzerjali's +2,415 against +436 on one window, *their claim*). On ABIDES the simulator is the
+market, so calibrate has nothing to do. On the Varde rehearsal the gap was a hidden fee and a hidden fill rule, and
+calibrate's job was to notice. The Arena's portal is the first real target, and what its `pnlSe` and `markPrice` mean is
+unknown until its first upload.
+:::
+
+::: {.callout-note title="If you know ML"}
+Calibrate is system identification: fit a simulator's parameters so that its outputs match logs from the real system.
+Two things limit it, and they are where the analogy to an ordinary fit breaks. It sees twelve aggregate figures, not
+the hidden state, so very different settings can match the same totals; that is why it ranks by the worst figure, not
+the average, and why it lists the settings it can't separate. And the simulator's family may not contain the truth:
+refusing a bad fit is the same discipline as not deploying a model whose validation loss says it doesn't fit, however
+good its best metric looks. A misspecified model fitted anyway gives confident, wrong parameters.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `uv run python -m experiments.day.calibrate --bot BOT --days DAYS --format F --data D --portal metrics.json
+  [--results results.zip] [--vary fill_ratio=0.25,0.5,0.75]`.
+- Our backtest's figures in the portal's names: `arena.backtest ... --metrics`; a gap split per order:
+  `uv run python -m experiments.day.shortfall --data D --days DAYS --results RESULTS`.
+- The rehearsals: `python/experiments/mock_round/round4/` (README, and `results/DRYRUN_LOG.md`, "What calibrate
+  printed"); the depletion check, `python/experiments/mock_round/private/evaluate.py ... --deplete`.
+- The rows: "The kickoff prompts on a disguised round", "Implementation shortfall and missed-trade cost per order".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* the first upload's twelve figures; whether the identity held and
+what was summed; what the Arena's `pnlSe` turned out to measure; calibrate's run on that upload, its per-figure errors
+(G19, the Varde figure's twin) and whether it accepted or refused; and the settings that went into the plug-in. Until
+then: `RUNBOOK.md`, "Lunch (12:00–13:00)" and T+2:00, and `ON_THE_DAY.md`, "How is PnL scored?" and "Which backtest
+settings match the playground?".
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- The wiki's pages on submission and scoring mechanics and on probing the environment: what other competitions'
+  portals reported, and how teams measured an exchange they couldn't see
+  [(`references/wiki/concepts/submission-and-scoring-mechanics.md`, `probing-the-environment.md`)]{.src}.
+:::

@@ -1,0 +1,81 @@
+# Appendix D: The reading route {.unnumbered}
+
+*What to read after this book, in order, and what each step adds to it: about 200 pages, in place of the whole of
+Bouchaud and colleagues' book. Every page range below was checked against the PDF, with `literature_md/pdfpage.py` or, for the
+scanned Kelly paper, on the page images (here, or by the wiki's source page). All of it is in `literature_md/`, and the wiki's index is the way in
+[(`references/wiki/index.md`)]{.src}.*
+
+Read a step when the chapter it extends has left you wanting the reason, not before.
+
+## 1. The map: the wiki's page on *Trades, Quotes and Prices*
+
+About twenty minutes [(`references/wiki/sources/trades-quotes-prices.md`)]{.src}. Its "Main results" and "Assumptions against
+the Arena" are the rest of the book in one page, each result next to what we measured on Prosperity. After this book it
+adds the shape of the field. The wiki names the book's chapters that matter here, 1, 11, 16, 17 and 21; the
+proposal for this book adds chapter 7, and the chapters you can skip, 5 and 6, 9 and 10, 12 to 14, 18 to 20, and 22
+[(`docs/guidebook/PROPOSAL.md`, §8)]{.src}. Chapter 1 of the book itself (PDF pp. 24–40) is the best
+single chapter for us.
+
+## 2. Harris, *Trading and Exchanges*, chapters 13 and 14
+
+"Dealers" and "Bid/Ask Spreads", to the end of §14.4 (PDF pp. 291–323). Plain prose, no equations. It adds the
+practitioner's view of chapters 4 to 6: why dealers earn the spread, how they control inventory, and what informed
+traders cost them, with §14.3 on adverse selection, which Harris calls the most important lesson in his book for most
+readers.
+
+## 3. Bouchaud and colleagues, chapter 16's first two sections and chapter 17
+
+§16.1–16.2 (PDF pp. 317–330) and chapter 17 (pp. 338–350). The theory core: the market maker's problem, Glosten–Milgrom and the MRR model, then
+whether market making pays at all. It adds the derivations behind chapter 4's margin and chapter 5's spread that grows
+with the share of informed traders, and the source of the repo's "does making pay" test.
+
+## 4. Avellaneda and Stoikov, *High-frequency trading in a limit order book*
+
+Nine pages. The reservation price and the optimal spread of chapter 6, derived. Read the setup and the approximate
+solution and skip the control theory; then the wiki's page on optimal quoting models
+[(`references/wiki/concepts/optimal-quoting-models.md`)]{.src}, which maps it, and its successors
+by Guéant and others, onto the template's `skew`. It adds why the skew is proportional to the position, the variance
+and the time left, and what the model assumes that Prosperity's data doesn't do.
+
+## 5. Signals: Stoikov's micro-price, and the first three sections of Bouchaud's chapter 7
+
+The micro-price paper (9 pages) and the book's §7.1–7.3 (PDF pp. 137–145). For an ML reader this is feature engineering: the book's
+imbalance predicts the next move, and the micro-price is the estimate that uses it. It adds the model behind chapter 3's
+micro-price, and the queue races that make imbalance informative. The wiki's page on book imbalance and the micro-price
+has what we measured [(`references/wiki/concepts/book-imbalance-and-micro-price.md`)]{.src}.
+
+## 6. Adverse selection measured: the first three sections of Bouchaud's chapter 11, then DeLise
+
+§11.1–11.3 (PDF pp. 227–240), then *The negative drift of a limit order fill* (28 pages). Price impact and the response function, which
+are what `arena.analysis`'s markouts measure (chapter 5), then why the fills you get are, on average, the ones you
+wouldn't have wanted, and what that means for a backtester's fill rule (chapter 10).
+
+## 7. Bouchaud's chapter 21, its third and fourth sections
+
+§21.3–21.4 (PDF pp. 413–420). Limit against market orders, when to stay in the queue and when to go, and why backtests with phantom
+orders are biased. It adds the theory to chapter 10's fill models and queue positions.
+
+## 8. Validation: *Pseudo-mathematics*, the wiki, then PBO
+
+*Pseudo-mathematics and financial charlatanism* (34 pages), the wiki's page on validation and overfitting
+[(`references/wiki/concepts/validation-and-overfitting.md`)]{.src}, then *The
+probability of backtest overfitting* (34 pages; CSCV on pp. 10–12). This is where an ML background transfers directly.
+It adds the full argument behind chapter 11: why the best of many backtests is usually luck, how long a backtest must be
+for a given number of trials, and the estimator `arena.grid` prints.
+
+## 9. Then, as needed
+
+- **Testing the best cell against the bot as is:** Bailey and López de Prado's *Deflated Sharpe ratio* (22 pages; the
+  formula on pp. 7–9), Hansen's *Test for superior predictive ability* (16 pages) and Romano and Wolf's *Stepwise
+  multiple testing* (36 pages; the studentized step-down on pp. 14–15). They add what chapter 11 states without proof:
+  why the DSR's bar rises with the poor cells and why SPA's doesn't.
+- **Sizing:** Thorp, *The Kelly criterion in blackjack, sports betting, and the stock market* (40 pages): the coin on
+  pp. 4–6, fractional Kelly on pp. 24–26, estimated edges on pp. 29–30. It adds the reasons behind chapter 13's
+  shading of an estimated edge.
+- **Vocabulary:** Gould et al., *Limit order books*, §1–3, for the order book's terms in one place.
+- **Reference books:** Cartea, Jaimungal and Penalva's *Algorithmic and high-frequency trading*, and the rest of
+  Bouchaud and colleagues' book. Look things up in them; don't read them through.
+
+These papers are about long samples of daily returns or about stylised markets. How far their numbers transfer to a
+few days of tick data in a competition is an open question, which is why the repo tests each one on Prosperity data
+before it trusts it.

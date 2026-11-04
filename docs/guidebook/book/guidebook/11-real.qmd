@@ -1,0 +1,239 @@
+# How do I know a result is real?
+
+*You'll need informed traders (chapter 5), the fill models (chapter 10), the permutation test's first appearances (chapter 5, as
+the shuffle test, and chapter 10),
+and `make_edge` and `take_edge` (chapter 4). From machine learning you'll need nothing new: this is the chapter where
+your background transfers most directly.*
+
+## The story
+
+Prosperity 4's last round had fifty products, and Baguette Fromage pointed scanners at them: cointegration tests,
+lead–lag relationships, book-imbalance signals. "At first it looked like we had found basically unlimited alpha."
+Whole families of products looked tightly linked; baskets reverted to their legs; products seemed to predict each other
+"with almost suspicious precision". That made them more sceptical, not less, so they forced themselves to fit on two
+days and test on the third. "The result was a disaster." Residuals stopped being stationary, hedge ratios changed sign,
+correlations weakened or inverted. "If you searched hard enough, it really was possible to find absurdly profitable
+backtests" [(`references/prosperity4-baguette-fromage/README.md:866-902`)]{.src}.
+
+The round before, the same data had shown teams the names of the bots behind each trade, "Mark 14", "Mark 22",
+"Mark 67", and every team went looking for an informed trader like Prosperity 3's Olivia (chapter 5). Several found
+one, and they didn't agree which: one write-up names Mark 67, another Marks 14 and 55, another 14 and 38
+[(`references/wiki/contradictions.md`, row 3)]{.src}. Ryan Challman's team fitted a weight per named trader on the
+training days; on the day they had held out, switching the weights off recovered about 15.8 thousand of profit, in
+the game's currency (*their claim*) [(`references/prosperity4-ryan-challman/README.md:89-91`)]{.src}.
+
+We ran two tests that settle it. First, for each named trader, product and side, the move after its trades on each of
+the three days: no Mark that traded more than a handful of times a day kept the sign of its move on all three and beat
+half the spread. Second, choosing names on two days by their average move and trading them on the third, three times
+over: the chosen names lost 30.5 thousand credits on the days they were tested on
+[(`IDEAS.md`, "Following informed counterparties")]{.src}. Every one of those signals looked real on the days it was
+found on.
+
+## The idea
+
+### A grid is a hyperparameter search, with very few folds
+
+`arena.grid` runs every combination of a few settings and ranks them. The best of many noisy estimates is biased
+upward, the winner's curse, and the more combinations, the bigger the bias. What is unusual
+here is how little data there is. A Prosperity round gives three days; the Arena may give a handful. Three days are
+three folds, they are correlated, and the scored day may come from a different regime.
+
+So the grid never ranks by one number. For each cell it prints `pnl`, the total over all days; `min day`, its worst
+day, because a setting that wins on average by winning big once is fragile; `nbhd`, the average over the cell and its
+neighbours, because a lone spike among poor neighbours is luck; and the PnL under a second fill model, usually
+`worse`, because of chapter 10. A setting near the top on all four is worth more than the single best `pnl`.
+
+### Hold out days, not ticks
+
+The honest split is by day (@fig-folds): choose on two days, score on the third, and repeat for each day. Splitting
+ticks at random would put a scored tick between two training ticks that share its price level and its regime, and
+every method would look good.
+
+![Leave one day out against shuffled k-fold. Days are the unit that can differ; ticks within a day share their
+regime.](../figures/f11_folds.png){#fig-folds
+fig-alt="Left: three rows of three day blocks, each row scoring a different day and fitting on the other two. Right: three rows of many thin tick blocks, scored and fitted ticks interleaved."}
+
+`--holdout` goes one step further: it keeps a part of the data out of the whole choice, the last day or the last 25%
+of a single day, picks on the rest, and keeps the pick only if it also beats the bot as is on what was kept out. It
+is a test set in the strict sense, used once.
+
+### One grid, read in full
+
+@fig-grid is Kelp's two edges on Prosperity 3's round 1, 24 cells under both fill models.
+
+![Kelp's `make_edge` against `take_edge` on Prosperity 3's round 1, PnL over three days (both products; only Kelp's
+settings change), under `all` and `worse`. Data: `data/kelp_grid.csv`, from `arena.grid ... --modes all,worse`.](../figures/f10_kelp_grid.png){#fig-grid
+fig-alt="Two heat maps of profit over make edge and take edge. Under all, the best cell is make edge 1.5, take edge 1, at 84.5 thousand. Under worse, the best is make edge 0, take edge 0.5, at 63.9 thousand, and the cells at make edge 1.5 and above are among the worst."}
+
+Under `all`, the case for quoting wider looks strong. The best cell, `make_edge` 1.5 with `take_edge` 1, makes 84,512
+credits against the bot as is's 72,674 [(`data/fill_modes.csv`)]{.src}, and it is best by total, by worst day (26,956) and by neighbourhood (80,404).
+Each held-out day chooses it again. Then the second fill model: under
+`worse`, the best cell is `make_edge` 0 with `take_edge` 0.5, at 63,912, and the wide cells are among the worst
+[(`data/kelp_stats.csv`)]{.src}. Every statistic below is computed under `all` only.
+
+### PBO: does the in-sample best stay good out of sample?
+
+Bailey and colleagues' answer to "is this search overfit?" is a cross-validation built for it, CSCV,
+combinatorially symmetric cross-validation (@fig-cscv). Cut the days into blocks, here 18, six a day. Split the blocks
+into two equal halves in every way there is (48,620 ways; the grid draws 4,000 of them). For each split, choose the best
+cell on one half and see where it ranks among all the cells on the other.
+
+![How CSCV estimates the probability of backtest overfitting: blocks, the halvings, and where each halving's pick ranks
+on the half it didn't see. A diagram; the ranks drawn are an illustration.](../figures/g18_cscv.png){#fig-cscv
+fig-alt="Six blocks spanning three days; four example splits into fitting and testing halves; for each, the best fitted cell's rank among all cells on the test half, three above the median and one below, which counts as overfit."}
+
+::: {.eq speak="the probability of backtest overfitting is how often the best setting on one half of the data ranks below the median on the other half"}
+$$\text{PBO} = \Pr\big(\text{the in-sample best ranks below the median out of sample}\big)$$
+:::
+
+This is the paper's Definition 2.2 (PDF p. 10), estimated by its Algorithm 2.3 (pp. 11–12). Near 0 is good; 50% means
+choosing was no better than picking at random. On the Kelp grid PBO is 0%: the halvings' picks rank, on average, at
+0.95 of the way to the top out of sample, and none loses money there [(`data/kelp_stats.csv`)]{.src}. On ten grids
+of pure noise built for the purpose, it averaged 46.5% [(`IDEAS.md`, "Bootstrap tests of the best cell")]{.src}, so the
+blocks next to each other don't leak enough to fake a result.
+
+### The DSR: is the best Sharpe ratio better than the best of that many with no edge?
+
+A Sharpe ratio is a mean gain over its standard deviation. Run many cells with no edge at all and the best of them will
+still show a positive one, larger the more cells you try and the more their results vary. Bailey and López de Prado's
+deflated Sharpe ratio asks how likely it is that the best cell's Sharpe ratio beats that bar:
+
+::: {.eq speak="the deflated Sharpe ratio is the normal curve's area up to the best cell's Sharpe ratio less the best expected from that many cells with no edge, scaled by the square root of the sample length and corrected for the gains' skew and fat tails"}
+$$\text{DSR} = Z\left[\frac{(\widehat{SR} - \widehat{SR}_0)\sqrt{T-1}}{\sqrt{1 - \hat\gamma_3\,\widehat{SR} + \frac{\hat\gamma_4 - 1}{4}\,\widehat{SR}^2}}\right]$$
+:::
+
+Here [$Z$]{speak="Z"} is the normal distribution's cumulative function, [$T$]{speak="T"} the number of blocks, [$\hat\gamma_3$]{speak="gamma three"} and
+[$\hat\gamma_4$]{speak="gamma four"} the skew and kurtosis of the gains, and [$\widehat{SR}_0$]{speak="S R zero"} the best Sharpe ratio
+expected from [$\hat N$]{speak="N hat"} independent cells with no edge (eq. 2 and the line under it, PDF p. 8; eq. 1, p. 7). The cells of a grid
+aren't independent, so the paper discounts their count by their average correlation (eq. 9, p. 14): the Kelp grid's 24
+cells count as 16.1 [(`data/kelp_stats.csv`; `python/arena/stats.py`)]{.src}.
+
+`arena.grid` applies it to the best cell's *gain over the bot as is*, block by block, since on the cells' own PnL it
+would only say that the bot makes money. On the Kelp grid: a per-block Sharpe ratio of 7.44 against a bar of 6.73, and a
+DSR of 0.74, under the paper's 0.95 [(`data/kelp_stats.csv`)]{.src}. So the DSR hesitates where PBO didn't. The reason
+is in its bar, which rises with the spread of *every* cell's Sharpe ratio, poor ones included: on the wider 64-cell grid of the same two
+edges, where the DSR was 0.76, it was 1.00 computed over the nine best cells only
+[(`IDEAS.md`, "Bootstrap tests of the best cell")]{.src}. A wide grid's bad
+corners can hide a real gain.
+
+### SPA and StepM: does any cell, and which, beat the bot as is?
+
+Hansen's test of superior predictive ability starts where the DSR stumbles. It compares every cell to one benchmark,
+here the bot as is, and asks whether any of them beats it, accounting for all of them. It improves on White's Reality
+Check, which the poor and irrelevant alternatives can drive to a non-result; Hansen studentizes each cell's gain and
+lets the data discount the cells that are clearly worse (PDF p. 1). In his own application, to forecasts of US
+inflation, adding a large set of poor forecasts moved the Reality Check's p-value from 10.6% to 96.3% and his test's
+from 4.8% to 10% (Table 6, PDF p. 13, and p. 14). Romano and Wolf's StepM
+answers the next question, *which* cells: it rejects the cells whose gain clears a bootstrap bar, removes them, and
+recomputes the bar for the rest, holding the chance of naming even one false cell at a set level (Algorithm 4.1, PDF
+p. 14). Both run on each cell's gain per block of 100 ticks, resampled in runs of random length so that the blocks'
+autocorrelation survives (Politis and Romano's stationary bootstrap). Each resample's spread is re-estimated from that
+resample, as Romano and Wolf's Algorithm 4.2 says (p. 15) [(`python/arena/stats.py`)]{.src}.
+
+On the Kelp grid, SPA gives a p-value of 0.000 that no cell beats the bot as is, and StepM names nine cells, led by
+`make_edge` 1.5 with `take_edge` 1, 0.5 and 2, then `make_edge` 1. The grid flags the disagreement with the DSR as expected (the wiki's contradictions, row 18)
+[(`data/kelp_stats.csv`)]{.src}.
+
+### Why we read them at 4%
+
+A test is only as good as its rate of false alarms, which we measured. On a thousand
+grids a row of pure noise (24 cells, 300 blocks, the cells correlated 0.7 with each other, six kinds of noise), StepM
+at its nominal 5% named a noise cell in 5.9 to 8.3% of grids, not 5%. Read at 4%, it did so in 4.5 to 5.2%, except
+where the gains were strongly autocorrelated, 7.0%. The price is power: a cell with a small real gain was found in
+47.7% of grids rather than 51.1%. So the repo aims at a 5% error and reads both tests at 4%, `TEST_ALPHA` in
+`python/arena/stats.py`; with `--holdout` the pick's rate of false alarms falls to 2.2 to 4.0%
+[(`IDEAS.md`, "Bootstrap tests of the best cell")]{.src}.
+
+### The pick
+
+Every statistic so far was right about the data it saw. None could see that the data was replayed under an assumption.
+That is what the second fill model is for, and it is built into the one line the repo acts on, the *pick*: StepM's best
+cell that also beats the bot as is under every other mode. On the Kelp grid, only one of StepM's nine cells beats the
+bot under `worse`, and the pick is a small step, `make_edge` 0.5 with `take_edge` 0.5: +736 credits under `all`, +596
+under `worse`. With `--holdout last`, the choice is made without day 0 and then checked on it: the same cell, +48
+under `all` and +109 under `worse` on the day it never saw, so it is kept [(`data/kelp_stats.csv`)]{.src}.
+
+We chose this rule by testing ten ways of choosing a cell on days the choice never saw. Over six two-parameter grids on
+Prosperity 3 and 4, trained on one round and scored on the product's later days, picking the best PnL gained 12.2
+thousand credits under `all` and lost 19.8 thousand under `worse`; on fresh simulated days, SPA with the `worse` gate lost in 2
+of 120 runs, while rules that gained as much lost in 10 to 22. On the real days, from the committed settings, that rule never
+moved at all, so its record there is one of never acting, not of never losing
+[(`IDEAS.md`, "Selection rules on unseen days")]{.src}.
+That is a Prosperity result, to be re-tested on the Arena's own days once two rounds exist.
+
+### The permutation test: does the choice need the order of events?
+
+Chapters 5 and 10 used this test, the first time as the shuffle test. Here is how it
+works. Make copies of the days whose ticks are shuffled, so that each
+tick keeps its book and its trades but the order between them is gone: no trend, no level the price returns to, no
+signal that leads it. Run the *whole search* on each copy, and compare two statistics with the real run's: the best
+cell's PnL, and its lift over the median cell. The p-value is the share of copies, the real days counted as one, at
+least as large (the grid's docstring; an adaptation of Masters' test, his book unread).
+
+![The permutation test on two grids, 19 shuffled copies each. Kelp's real search sits inside its copies (p 0.55 for
+the best cell, 0.80 for its lift); Hydrogel's lift sits far beyond every copy, and its best cell just beyond them
+(both p 0.05, the smallest 19 copies allow). Data:
+`data/permutation_null.csv`, from `arena.grid ... --permute 19`.](../figures/g17_permutation_null.png){#fig-permute
+fig-alt="Dot strips of the shuffled copies with the real result as a diamond. Kelp: the best cell's PnL is 27 thousand against copies from 26 to 30 thousand, and its lift 24 thousand against copies from 23 to 30 thousand. Hydrogel: the best cell is 298 thousand against copies from 161 to 296 thousand, one of them only 0.4 percent below it, and its lift 125 thousand against copies up to 71 thousand."}
+
+@fig-permute shows both outcomes. On Kelp's 64-cell grid of edges, the copies' searches find as good a best cell and as
+large a lift (the real lift 23,868 credits, the copies' mean 25,833): the choice of edge comes from each tick's book and
+the fill rule, not from anything the price does over time. On Prosperity 4's Hydrogel, gridding the band around its
+level and how hard to clear, the real lift is 124,762 against the copies' mean of 28,585 and their largest, 70,547: choosing
+those settings exploits the price returning to its level, the positive control. The best cell's own margin is thin:
+297,606 against one copy's 296,299, 0.4%, and with the ticks shuffled in runs of 100 rather than one at a time its p
+was 0.15 [(`data/permutation_null.csv`; `IDEAS.md`, "A permutation test of the whole search")]{.src}.
+
+### When the profit is on one day
+
+One failure no test above catches is concentration. Ryan Challman's `ROBOT_DISHES` made about 389 thousand, in the game's currency, on one
+training day against 11 and 4 thousand on the other two, 96% on one day; its lag-1 autocorrelation of returns was −0.29
+on that day and about zero on the others (*their claim*). They didn't gate the strategy to that day's regime or size it
+to that day's number; they cut its weight from 0.12 to 0.06, as a hedge against the scored day not looking like it
+[(`references/prosperity4-ryan-challman/README.md:115-141`)]{.src}. The `min day` column and the held-out days are
+there to show you such a profile before you size to it; chapter 13 is about the sizing.
+
+::: {.callout-note title="What would differ on another market"}
+On ABIDES, the same permutation test points the other way: shuffling an agent market's ticks removes the informed
+traders' moves, and plain market making on the copies made 4.5 million cents on average against −21,798 on the real
+days [(`data/shuffle.csv`)]{.src}, so p is 1.0 and the order of events is everything. On the Varde rehearsal there were three
+public sessions, too few for any of these tests; the portal's standard error was the only measure of noise (chapter
+12). The Arena may give one day of data a round: then `--holdout 25%` replaces the held-out day.
+:::
+
+::: {.callout-note title="If you know ML"}
+Everything here is model selection under multiple comparisons: held-out folds, a correction for the number of trials,
+bootstrap tests against a baseline, permutation nulls, and calibrating a threshold on synthetic nulls. Three things are
+harsher than usual, and that is where the analogy breaks. There are three folds, not a thousand. The folds are
+correlated and the test day may come from another distribution, which every block-level statistic here is blind to,
+since its halvings and resamples mix blocks of the same days. And the simulator that scores every fold shares one bias
+(chapter 10), which no statistic computed inside it can detect, so the second fill model is part of the validation, not
+an extra.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `uv run python -m arena.grid BOT DAYS --grid PARAMS.P.key=v1,v2 --modes all,worse [--holdout last|25%] [--gate first]
+  [--permute 19]`: the columns, the held-out days, PBO, DSR, SPA, StepM, the `pick` and the permutation test
+  (`python/arena/grid.py`; the statistics in `python/arena/stats.py`, twinned in Rust).
+- The null rates: `uv run python -m experiments.study.snooping_null_rates --engine rust`; the choice of rule:
+  `uv run python -m experiments.day.selection_rules --part 1 --engine rust`.
+- The rows: "Bootstrap tests of the best cell", "Selection rules on unseen days", "A permutation test of the whole
+  search", "Following informed counterparties".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* which grids the rounds ran, what their PBO, SPA, StepM and picks
+said, whether any pick failed on the private run, and how many days each round gave to hold out. Until then,
+`RUNBOOK.md`, "Each round", T+1:00, and `ON_THE_DAY.md`, "Evaluation data" and "Which modes gate the grid's pick?".
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Bailey, Borwein, López de Prado and Zhu, *Pseudo-mathematics and financial charlatanism* (34 pp.): why backtest
+  overfitting is the default. Then the wiki's page on validation and overfitting
+  [(`references/wiki/concepts/validation-and-overfitting.md`)]{.src}, and *The
+  probability of backtest overfitting* (34 pp.), CSCV in full (pp. 10–12).
+- Bailey and López de Prado, *The deflated Sharpe ratio* (pp. 7–9 for the formula, p. 14 for correlated trials).
+- Hansen, *A test for superior predictive ability* (p. 1 for the idea, pp. 7–8 for the bootstrap, pp. 13–14 for the
+  application); Romano and Wolf,
+  *Stepwise multiple testing as formalized data snooping* (pp. 14–15, the studentized step-down).
+:::

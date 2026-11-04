@@ -1,0 +1,30 @@
+# uv run python -m arena.grid python/bots/template.py 1 --data p3 --grid PARAMS.KELP.make_edge=0,0.5,1,1.5,2,3 --grid PARAMS.KELP.take_edge=0,0.5,1,2 --modes all,worse --engine rust --holdout last: its summary, from 'best by pnl' on
+line,text
+0,"best by pnl      KELP.make_edge=1.5, KELP.take_edge=1  (84,512)"
+1,"best by nbhd     KELP.make_edge=1.5, KELP.take_edge=1  (80,404)"
+2,"best by min-day  KELP.make_edge=1.5, KELP.take_edge=1  (26,956)"
+3,"best by worse    KELP.make_edge=0, KELP.take_edge=0.5  (63,912)"
+4,measures disagree: prefer a setting near the top on every measure over the single best pnl
+6,"held-out days: the best pnl(all) on the other days, scored on the day left out"
+7,"  r1d-2: KELP.make_edge=1.5, KELP.take_edge=1  29,105  (best combination: 29,105)"
+8,"  r1d-1: KELP.make_edge=1.5, KELP.take_edge=1  28,451  (best combination: 28,451)"
+9,"  r1d0: KELP.make_edge=1.5, KELP.take_edge=1  26,956  (best combination: 26,956)"
+10,"held out 84,512 against 84,512 for the best combination (+0%); 1 different settings chosen over 3 days"
+12,overfitting: 24 cells × 2 modes = 48 trials on 3 days
+13,"  CSCV on pnl(all) in 18 blocks (6 a day), 24 distinct cells, 4,000 of 48,620 halvings:"
+14,"  PBO 0%  ·  the pick's mean rank out of sample 0.95 (1 top, 0.5 median)  ·  it loses money there in 0%"
+15,"  DSR 0.74 for the best cell's gain over the bot as is: per-block Sharpe 7.44 against 6.73, the best of N^ 16.1 cells with no gain (more cells than blocks: N^ is rough)"
+16,! the best cell's gain over the bot as is is not clearly more than the best of that many cells with no gain (DSR < 0.95)
+17,"  SPA on pnl(all) gains over the bot as is, 300 blocks of 100 ticks, 23 distinct cells, bootstrap blocks of 1,000 ticks on average, 1,000 resamples:"
+18,  p 0.000 that no cell beats the bot as is (bounds 0.000 to 0.000; the upper is the Reality Check)
+19,"  StepM at 4%: 9 cells beat the bot as is: KELP.make_edge=1.5, KELP.take_edge=1 | KELP.make_edge=1.5, KELP.take_edge=0.5 | KELP.make_edge=1.5, KELP.take_edge=2 | KELP.make_edge=1, KELP.take_edge=1 | KELP.make_edge=1, KELP.take_edge=0.5 | ... 4 more"
+20,"! SPA finds a gain the DSR doesn't: the DSR's bar rises with the spread of all cells, poor ones included, and SPA discounts those (references/wiki/contradictions.md, row 18)"
+21,  under worse: 1 of StepM's 9 cells beat the bot as is (best by +596)
+22,"  pick: KELP.make_edge=0.5, KELP.take_edge=0.5 (all +736 · worse +596): StepM's best cell that beats the bot as is under every mode"
+24,"held out day r1d0: SPA, StepM and the pick on the rest, then the pick checked on day r1d0:"
+25,"  SPA on pnl(all) gains over the bot as is, 200 blocks of 100 ticks, 23 distinct cells, bootstrap blocks of 1,000 ticks on average, 1,000 resamples:"
+26,  p 0.000 that no cell beats the bot as is (bounds 0.000 to 0.000; the upper is the Reality Check)
+27,"  StepM at 4%: 9 cells beat the bot as is: KELP.make_edge=1.5, KELP.take_edge=1 | KELP.make_edge=1.5, KELP.take_edge=0.5 | KELP.make_edge=1.5, KELP.take_edge=2 | KELP.make_edge=1, KELP.take_edge=0.5 | KELP.make_edge=1, KELP.take_edge=1 | ... 4 more"
+28,  under worse: 1 of StepM's 9 cells beat the bot as is (best by +487)
+29,"  pick: KELP.make_edge=0.5, KELP.take_edge=0.5 (all +688 · worse +487): StepM's best cell that beats the bot as is under every mode"
+30,"  pick, held out: KELP.make_edge=0.5, KELP.take_edge=0.5: it also beats the bot as is on day r1d0 (all +48 · worse +109)"

@@ -1,0 +1,283 @@
+# Appendix A: Glossary {.unnumbered}
+
+*Each term with the chapter that defines it, and its nearest neighbour in machine learning where there is an honest
+one.*
+
+```{=latex}
+\begin{multicols}{2}
+```
+
+Adapter
+: The part of the bot that knows one exchange: it reads the exchange's state and writes its orders. Chapter 14. *ML:
+  the input and output layer for one deployment target.*
+
+Adverse selection
+: The tendency of a waiting order to be filled just before the price moves against it, because the traders keenest to
+  take it know something. Chapter 5. *ML: selection bias, chosen by an adversary.*
+
+Ask, bid
+: An offer to sell, an offer to buy. The best ask and best bid together are the *touch*. Chapter 2.
+
+Backtest
+: A replay of recorded days with the bot trading in them. Chapter 10. *ML: offline evaluation in a simulator.*
+
+Basket
+: A product whose value is a fixed weighted sum of other products, its legs; its spread is its price less that sum.
+  Chapter 8. *ML: a constraint between outputs.*
+
+Black–Scholes
+: The formula that prices an option from the underlying's price, the strike, the time left and the volatility.
+  Chapter 8.
+
+Bot as is
+: The bot with its current settings, the baseline a grid's cells are tested against. Chapter 11.
+
+Calibrate
+: The tool that searches the engine's settings for one that reproduces the portal's figures, or refuses. Chapter 12.
+  *ML: system identification.*
+
+Clear
+: Trading back towards the target position with orders up to `clear_edge` worse than the fair value; the target is
+  flat unless a strategy sets one. Chapters 4 and 14.
+
+Cross
+: To trade at once against an order already in the book, buying at the ask or selling at the bid. Chapter 2.
+
+CSCV
+: Combinatorially symmetric cross-validation: every split of the data's blocks into two halves, choosing on one and
+  ranking on the other; it estimates PBO. Chapter 11. *ML: cross-validation of the selection itself.*
+
+Delay
+: Orders reaching the exchange some steps after the bot sends them; the engine's delay option. Chapter 10.
+
+Delta
+: How much an option's price moves when the underlying moves by one; the units of underlying that hedge it.
+  Chapter 8. *ML: a partial derivative.*
+
+Depletion
+: Whether volume the bot takes from the recorded book stays gone in later ticks; the engine's deplete option.
+  Chapters 10 and 12.
+
+DSR
+: The deflated Sharpe ratio: the chance that the best cell's Sharpe ratio beats the best expected from that many cells
+  with no edge. Chapter 11. *ML: a correction for the number of trials.*
+
+Engine
+: The code that replays recorded days against a bot and decides its fills, in the repo's `arena` package. Chapters 10 and 14.
+
+Fair value
+: The bot's estimate of what a product is worth now; every quote is placed relative to it. Chapter 3. *ML: an estimate
+  of a latent variable.*
+
+Fill
+: A trade that executes one of your orders, wholly or partly. Chapter 2.
+
+Fill model
+: The engine's assumption about which recorded trades would have filled orders that weren't really there: `all`,
+  `worse`, `none`, or resting with a queue. Chapter 10. *ML: the simulator's sim-to-real gap, one-sided.*
+
+Format plug-in
+: The module that reads one exchange's data into Days of Ticks and wraps its bot interface. Chapters 2 and 14. *ML: a
+  dataset loader behind a common interface.*
+
+GRAY_AREA
+: A flag in a bot file marking a strategy that may break the spirit of the rules; `arena.validate` fails such a file,
+  so it is never uploaded without an organiser's yes (RUNBOOK, "Rules that hold all day"). Chapter 9.
+
+Grid
+: Every combination of a few settings, each backtested and ranked. Chapter 11. *ML: grid search over hyperparameters.*
+
+Half-life
+: How long a price pulled back towards a level takes to close half its gap to it. Chapter 7.
+
+Held-out day
+: A day left out when a setting is chosen, then used to score it; `--holdout` keeps one out of the whole choice.
+  Chapter 11. *ML: a validation fold, and a test set used once.*
+
+Impact
+: How far the price moves, on average, in the direction of a trade after it; [$\mathcal{R}_\infty$]{speak="R infinity"} in the long run.
+  Chapter 4.
+
+Implied volatility
+: The volatility at which the Black–Scholes formula gives an option's market price; plotted against the strike, the
+  smile. Chapter 8. *ML: a parameter fitted by inverting a model.*
+
+Informed trader
+: A trader whose trades predict the price's next move, such as Prosperity 3's Olivia; trading with one is adverse
+  selection. Chapter 5.
+
+Inventory risk
+: The price risk of holding a position between a buy and the sale that closes it. Chapter 6.
+
+Kelly fraction
+: The share of a bankroll to bet that maximises its long-run growth: the edge over the odds. Chapter 13.
+
+Level
+: All the orders at one price on one side of the book. Chapter 2.
+
+Lift over the median cell
+: How much more the grid's best cell makes than its median cell; the permutation test compares it with the shuffled
+  copies'. Chapter 11.
+
+Limit order
+: An order to buy at a price or lower, or sell at a price or higher. Chapter 2.
+
+Lot
+: One unit of a product, the size in which orders and positions are counted. Chapter 2.
+
+make_edge, take_edge
+: How far from the fair value the bot quotes, and how far the book must be mispriced before it takes. Chapters 4
+  and 11.
+
+Making, taking
+: Making is posting an order that waits; taking is crossing the book to trade at once and paying the spread. Chapter 2.
+
+Mark
+: The price at which a position is valued when PnL is computed; the portal's `markPrice` averages it over products.
+  Chapters 2, 10 and 12. Also the name Prosperity 4 gave its bots, "Mark 14", "Mark 67", when it showed who traded.
+  Chapters 5 and 11.
+
+Market maker
+: A trader that quotes on both sides and earns the spread from those who want to trade now. Chapter 4.
+
+Markout
+: A fill's profit some ticks later, measured from the mid or the wall mid. Chapter 5. *ML: the label, observed with a
+  delay.*
+
+Mean reversion
+: A price's tendency to come back towards a level or an average after it moves away. Chapter 7.
+
+Micro-price
+: Stoikov's estimate of the price far ahead, the mid plus an adjustment learned from the book's imbalance and spread.
+  Most teams use the name for the simpler weighted mid, which leans the mid towards the side with less size.
+  Chapter 3.
+
+Mid
+: Halfway between the best bid and the best ask. Chapter 2.
+
+Order book
+: The orders waiting at a moment, bids on one side and asks on the other, grouped by price. Chapter 2. *ML: the state.*
+
+PARAMS, DEFAULTS
+: The template's settings: `DEFAULTS` holds every setting with its default, and `PARAMS` each traded product's
+  entries over them. Chapters 14 and 15. *ML: a config file over its defaults.*
+
+Passive order
+: An order that doesn't cross the book and waits for someone to trade with it; a market maker's quotes. Chapters 2
+  and 10.
+
+PBO
+: The probability of backtest overfitting: how often the best setting on one half of the data ranks below the median on
+  the other. Chapter 11. *ML: a measure of model-selection overfitting.*
+
+Permutation test
+: The whole search re-run on days with their ticks in random order; if it finds as much, the choice didn't need the
+  order of events. Also the shuffle test. Chapters 5, 10 and 11. *ML: a permutation null.*
+
+Pick
+: The grid's chosen setting: the best cell that StepM confirms beats the bot as is under the grid's first fill model,
+  and that also beats it under every other model the grid ran. Chapter 11.
+
+PnL
+: Profit and loss: cash plus the position valued at the mark. Chapter 2. *ML: the reward, after a choice of reference
+  price.*
+
+pnlSe
+: The portal's standard error of the score; on the Varde portal, the spread of the session scores times the square
+  root of their number. Chapter 12. *ML: the error bar on a test metric.*
+
+Position, limit
+: What you hold, positive if long, negative if short; the most the exchange lets you hold either way. Chapter 2.
+
+Premise test
+: The repo's check of whether a product is Prosperity-like (uninformed takers), agent-like (informed traders, moves
+  that continue) or mixed. Chapter 5.
+
+Print, aggressor
+: A trade between two other participants, and the side of it that crossed the book. Chapter 2.
+
+Queue
+: The order in which waiting orders at one price are filled: earliest first. The engine's queue models, `back`, `prob`
+  and `front`, guess our place in it. Chapters 2 and 10.
+
+Rehearsal
+: A disguised mock round run before the event, with its own exchange, data and portal; Varde was the fourth.
+  Chapter 1.
+
+Relative hedge
+: Holding some of the bet the teams behind are making, so that if it pays they can't pass you. Chapter 13.
+
+Reservation price
+: The price a market maker quotes around, in Avellaneda and Stoikov's model: the mid less its position times its risk
+  aversion, the variance and the time left. Chapter 6.
+
+Resting
+: An order that stays in the book between ticks until filled or cancelled. Chapter 2.
+
+Round trip
+: A buy and the sale that closes it, or the reverse; what a market maker earns on is the gap between them. Chapter 4.
+
+Settlement price
+: The price at which a portal values what is still held at the end, the Varde Exchange's name for its mark. Chapter 2.
+
+Sharpe ratio
+: A gain's mean over its standard deviation. Chapter 11. *ML: a signal-to-noise ratio.*
+
+Signature plot
+: The variance of price changes over h ticks, per tick, plotted against h: flat for a random walk, falling for a
+  price that reverts, rising for one that trends. Chapter 3.
+
+Skew
+: Moving both quotes against the position held, so that the side that reduces it fills more often. Chapter 6.
+
+SPA
+: Hansen's test of superior predictive ability: does any cell beat the bot as is, allowing for every cell tried?
+  Chapter 11. *ML: a multiple-comparison test against a baseline.*
+
+Spoofing
+: Placing orders one means to cancel, to move others' view of the price; banned on real exchanges. Chapter 9.
+
+Spread
+: The gap between the best ask and the best bid. Chapter 2.
+
+StepM
+: Romano and Wolf's step-down test: which cells beat the bot as is, with the chance of naming even one false cell held
+  at a set level; read at 4%. Chapter 11. *ML: family-wise error control.*
+
+Stop loss
+: The template's `stop_loss`: it flattens a product and stops it for the day once its PnL falls a set distance below
+  its high. Chapters 6 and 13.
+
+Stress test
+: `arena.stress`: the bot re-run on copies of each day with the prices changed (more volatile, trending, shifted,
+  spiked, the walls removed), to see what a change of regime costs. Chapter 7. *ML: evaluation under distribution shift.*
+
+STRATEGY, EXECUTION
+: The template's two generic parts: what the bot wants (fair value, take, clear, make), and the orders and cancels
+  that get it there. Chapter 14.
+
+Target, target modes
+: The position the bot works towards, flat for a plain market maker; a target mode (`basket`, `level`, `copy`,
+  `jump`, `follow`, `hedge`) sets it from a rule outside the book. Chapter 8. *ML: a forecaster whose output is a position.*
+
+Template
+: The repo's bot, `python/bots/template.py`: one file, with settings per product. Chapter 14.
+
+Tick
+: One step of the recorded market; also the smallest price step, the *tick size*. Chapter 2. *ML: a time step.*
+
+Value at risk
+: The loss a position would exceed only a given share of the time, one in twenty for the 95% value at risk.
+  Chapter 13. *ML: a quantile of the loss distribution.*
+
+Wall, wall mid
+: The largest level on each side of the book; the wall mid is their midpoint. On Prosperity the walls are a
+  market-making bot's large, stable quotes. Chapters 2 and 3.
+
+Zoo
+: The repo's collection of bots written by language models from fixed prompts, used as rivals and as a baseline.
+  Chapter 9.
+
+```{=latex}
+\end{multicols}
+```

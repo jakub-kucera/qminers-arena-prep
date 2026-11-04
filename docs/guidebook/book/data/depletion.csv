@@ -1,0 +1,4 @@
+# uv run python python/experiments/mock_round/private/evaluate.py python/experiments/mock_round/results/repo_template.py --days hidden [--deplete]: the round's own units
+book,pnl
+restored,42446.17
+deplete,31171.86
