@@ -14,6 +14,8 @@ book:
     - 04-market-making.qmd
     - 05-other-side.qmd
     - 06-backtest.qmd
+    - 07-real.qmd
+    - 08-portal.qmd
 
 lang: en-GB
 number-sections: false
