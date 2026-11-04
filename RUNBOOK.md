@@ -10,8 +10,8 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 - `git pull && uv sync && uv run pytest` on every laptop; `references/` was cloned at home.
 - `python3 references/check_arena_site.py`: a change goes into "Known so far"; offline, the snapshot stands.
 - Names for A (driver, recorder) and B (data, research) ["The day: timeline and roles"].
-- Every laptop on Europe/Prague time, and logged in to the portal during the playground: the e-mailed links are
-  single-use ["Known so far"].
+- Every laptop on Europe/Prague time, logged in to the portal by the playground: e-mailed links are single-use
+  ["Known so far"].
 
 ## Opening and workshop (09:00–10:30)
 1. One person reads the Technical Rules in full and writes each answer into "First hour", with its source;
@@ -22,11 +22,11 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 4. By 10:30, a fallback bot or not: an agent writes one only if the cap leaves an extra round-1 upload and the
    ADAPTER may not be validated by 13:00 ["Spend the round's submissions", "A fallback first?"].
 
-## Playground (10:30–12:00): three tracks at once ["Splitting the first hour"]
-- **Probes (A):** rewrite `python/bots/qminers/probe.py`'s ADAPTER and set `PRODUCT` and `LIMIT`. Check it locally with
-  `uv run python -m arena.backtest python/bots/qminers/probe.py all --format qminers --data D --print --no-strict`, then run it in the
-  playground and read the `PROBE` lines ["Probes"]. If their rules forbid dynamic imports or sleeps, or
-  uploads are scarce, delete its RISKY PROBES block first.
+## Playground (10:30–12:00): three tracks at once, B's loader first ["Splitting the first hour"]
+- **Probes (A):** rewrite `python/bots/qminers/probe.py`'s ADAPTER, `PRODUCT` and `LIMIT`. Once B's loader runs, check it:
+  `uv run python -m arena.backtest python/bots/qminers/probe.py all --format qminers --data D --print --no-strict`; then run it in
+  the playground and read the `PROBE` lines ["Probes"]. If their rules forbid dynamic imports or sleeps, or uploads are scarce,
+  delete its RISKY PROBES block first.
 - **Data (B):** fill in `python/arena/formats/qminers.py` (registered) by the 13-step checklist ["The format swap, step by
   step"]; then run `uv run python -m arena.diagnose DAYS --format qminers --data D --profile --suggest` ["What kind of market is
   each product?"].

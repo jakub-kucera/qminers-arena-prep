@@ -2,8 +2,9 @@
 
 Run it once in the playground (or the backtester: `--print`) and read its output:
   SEEN {...}       every tick: the probed product's book (3 levels a side), position, our open
-                   orders and our fills since the last tick. The lines double as a dataset when no
-                   historical data is given.
+                   orders, our fills and the market's trades since the last tick. The lines double as
+                   a dataset when no historical data is given: experiments.seen_days turns a log of
+                   them into the Prosperity layout.
   PROBE <name>: <finding>
                    once per probe, what it found.
 
@@ -344,6 +345,9 @@ class View:
         own = state.own_trades.get(product, [])
         self.fills = [[t.price, t.quantity if t.buyer == US else -t.quantity] for t in own]
         self.self_trades = sum(1 for t in own if t.buyer == US and t.seller == US)
+        # the market's trades since the last tick, with their own timestamps: with the books, a dataset
+        # (experiments.seen_days) when the round gives no data
+        self.prints = [[t.price, t.quantity, t.timestamp] for t in state.market_trades.get(product, [])]
         self.prev_time = None  # set by step
 
 
@@ -368,7 +372,7 @@ class Trader:
         view = View(state, product)
         act = Act(self.instance)
         findings = step(view, memory, act)
-        seen = {"t": view.time, "p": product, "b": view.bids[:3], "a": view.asks[:3], "pos": view.position, "open": view.open, "fills": view.fills}
+        seen = {"t": view.time, "p": product, "b": view.bids[:3], "a": view.asks[:3], "pos": view.position, "open": view.open, "fills": view.fills, "trades": view.prints}
         print("SEEN " + json.dumps(seen, separators=(",", ":")))
         for finding in findings:
             print(finding)

@@ -65,3 +65,23 @@ def test_without_the_risky_block_the_bot_runs_the_other_probes(capsys, monkeypat
     assert len(found) == 11 and not {"imports", "exception", "time_limit"} & set(found)
     assert result.errors == [] and len(seen) == 450
     assert found["resting"].startswith("orders rest between ticks: yes")
+
+
+def test_the_probes_seen_lines_become_days_with_the_same_books(capsys, monkeypatch, tmp_path):
+    from experiments import seen_days
+
+    _, _, seen = findings(capsys, monkeypatch, False)
+    log = tmp_path / "playground.log"
+    log.write_text("noise before\n" + "\n".join(f"[info] {line}" for line in seen) + "\n")  # a log's prefixes are skipped
+    days = seen_days.read([log])
+    assert len(days) == 1 and len(days[0]) == len(seen)
+    seen_days.write(days, tmp_path / "out", 1, 50)
+    (day,) = prosperity.load_days(tmp_path / "out", ["1"])
+    original = sim.run(sim.preset_market(["KELP"], ticks=450), 5).day
+    books = {t.timestamp: t.books["KELP"] for t in original.ticks}
+    assert day.limits == {"KELP": 50} and len(day.ticks) == len(seen)
+    for tick in day.ticks:  # the probe saw three levels a side, before its own orders traded
+        shown = books[tick.timestamp]
+        assert [list(l) for l in tick.books["KELP"].bids] == [list(l) for l in shown.bids[:3]]
+        assert [list(l) for l in tick.books["KELP"].asks] == [list(l) for l in shown.asks[:3]]
+    assert sum(len(t.trades.get("KELP", [])) for t in day.ticks) > 0

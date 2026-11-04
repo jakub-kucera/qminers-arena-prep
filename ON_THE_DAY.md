@@ -53,7 +53,7 @@ Each agent session starts from [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md), the pro
 
 Three tracks can run in parallel (with two of us: A the checklist, then the probes; B the data; "The day: timeline and roles"):
 - **Checklist:** read the docs and fill in every answer they give.
-- **Probes:** rewrite `python/bots/qminers/probe.py`'s ADAPTER for their API, set `PRODUCT` and `LIMIT`, and run it in the playground (see "Probes" below).
+- **Probes:** rewrite `python/bots/qminers/probe.py`'s ADAPTER for their API, set `PRODUCT` and `LIMIT`, and run it in the playground (see "Probes" below). Its local check (`arena.backtest ... --print`) needs the data track's loader, so the data track starts with the swap's step 1; the probe can go to the playground before that if the rules are clear enough to trust the ADAPTER.
 - **Data:** fill in `python/arena/formats/qminers.py` (already registered), so the backtester runs on their data as soon as possible: follow "The format swap, step by step" below. Then run `arena.diagnose` on it (see "What kind of market is each product?").
 
 ## The format swap, step by step
@@ -200,7 +200,7 @@ Pointers only: each answer goes under its item, with its source. Ask only what t
   - The dashboard's file-size cap is a capacity budget: MB-scale fits a table or a small model; KB-scale means `arena.compact`. Read its value at the round's start.
 - [ ] **What data can you backtest on?**
   - Find out: the format of the "Download public backtest data" files, and whether the private evaluation's data looks the same (depth, tick spacing). The link goes with the round: download at the round's start and keep it (Known so far).
-  - Then: the loader ("The format swap"), and the template and validator on it before any strategy change. No data: have the probe bot print the book and trades every tick and build a dataset from the logs.
+  - Then: the loader ("The format swap"), and the template and validator on it before any strategy change. No data: the probe prints the book and the market's trades every tick (its `SEEN` lines), and `uv run python -m experiments.seen_days LOG --out data/arena/round1/seen --limit <L>` turns a log of them into days in the Prosperity layout for every tool (`--data data/arena/round1/seen --days 1 --format prosperity`): one product, three levels, the books exact, the trades less what filled the probe.
 - [ ] **Is the data a real series in disguise?** An idea to explore, **only once the user explicitly approves it**: the search can cost an agent a lot of tokens, so agree a budget first.
   - Why: last year's hockey data was the Czech league with the years changed (the user, 2026-10-22). Look for fingerprints that survive relabelling (shape after rescaling, timestamp gaps, volatility, correlations, dated jumps) and compare by shape with public series (indices, futures, FX, crypto, sports).
   - We assume: simulated prices. If a source turns up, first check that the Technical Rules allow using it.
