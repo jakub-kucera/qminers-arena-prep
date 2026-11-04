@@ -1,0 +1,8 @@
+# python/experiments/mock_round/round3/private/portal.py's run_session and metrics on results/{before,after,in_flight}/template.py, public and hidden sessions: credits
+bot,sessions,score,breach_penalty,fills,BRAM,OPHIR,TALC
+before,public,-4849.9146,4002.25,4130,-466.2,-4573.89,190.18
+before,hidden,-3552.8839,2191.75,2561,-1239.41,-2674.79,361.31
+after,public,-283.0144,198.0,1937,-596.88,-36.57,350.43
+after,hidden,-489.2924,25.0,1177,-810.67,-30.54,351.92
+in_flight,public,142.1301,0.0,1718,-376.08,-45.35,563.56
+in_flight,hidden,-389.2251,0.0,1113,-781.49,-32.75,425.02

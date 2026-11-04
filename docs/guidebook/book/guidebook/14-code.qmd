@@ -1,0 +1,225 @@
+# How is the code laid out?
+
+*You'll need the round's loop (chapter 1), the order book, takes and resting orders (chapter 2), the fair value
+(chapter 3), take, clear and make (chapter 4), fill models and orders that arrive late (chapter 10) and the portal's
+figures (chapter 12).*
+
+## The story
+
+The third rehearsal, the Kestrel Bourse, was built to differ from our engine on purpose. Its rules said that orders
+rest, that a product may have at most three orders working, and that every lot beyond a position limit costs 0.25
+credits a step. They left out what the first upload had to reveal, among it that an order reaches the exchange one
+step after the call that sent it
+[(`python/experiments/mock_round/round3/README.md`; `private/portal.py`, `TRUTH`)]{.src}.
+
+Two agent sessions played it, one on the repo before its calibration tools and one after. Both worked out the hidden
+rules within minutes of their first upload. Both lost money anyway: on the public sessions −4,850 and −283 credits,
+on the hidden ones −3,553 and −489, where the round's own plain market maker made +325
+[(`data/kestrel.csv`; `IDEAS.md`, "The kickoff prompts on a disguised round")]{.src}.
+
+Most of the loss was not in the strategy but in the few lines between the strategy and the exchange. With orders a step late,
+an order sent at one step is, at the next, neither on the book nor gone: it is on its way. Neither session's bot
+counted those. So at each step it saw no order where it wanted one and sent another; the cap refused most of them; and
+the room under the limit was spent twice. When the late orders arrived and filled, the bot held more than its limit
+and paid for every lot over it: 2,192 credits of penalty on the first session's hidden days.
+
+The repair changed nothing but the counting. The second session's bot with the template's `on_the_way` and `went`
+switched on made +142 credits on the public sessions instead of −283 and −389 on the
+hidden ones instead of −489; the breach penalty fell from 198 credits to 0 on the public days and from 25 to 0 on the
+hidden ones. What it still lost was one product, BRAM, a book one tick wide where, under the round's strict matching, a
+quote at the touch fills only when the price moves through it: −781 credits on the hidden days. That was a choice of
+parameters, not a bug [(`data/kestrel.csv`; `IDEAS.md`, "The kickoff prompts on a disguised round")]{.src}.
+
+That is why the bot file is split as it is, and why the split is worth a chapter.
+
+## The idea
+
+### The repo on one page
+
+@fig-architecture is the whole repo as one diagram.
+
+![The repo's architecture. A format plug-in turns any exchange's data into Days of Ticks and wraps the bot's call; the
+engine and every tool work only on those. Drawn from `docs/guidebook/research/repo_map.md`, A.](../figures/f13_architecture.png){#fig-architecture
+fig-alt="Boxes and arrows: the day's data goes through a format plug-in into Days of Ticks, which feed the engine; the bot file, wrapped by the plug-in, also feeds the engine; the engine feeds backtest, grid, stress, validate and calibrate; diagnose reads the Days directly; a Rust twin of the engine sits beside it."}
+
+Two rules hold it together. The engine knows no exchange: everything that knows one lives in a format plug-in and in
+the bot's ADAPTER. And every tool works on what the plug-in loads, so a new exchange costs those two pieces of code,
+not a new set of tools [(`ARCHITECTURE.md`, "Architecture")]{.src}.
+
+### The engine: one loop over ticks
+
+A `Day` is a list of `Tick`s, each a timestamp's books, the trades printed at it and its marks
+[(`python/arena/model.py`)]{.src}. `run_day(day, bot, config)` replays a day against any object with a `step` method and returns a `DayResult`: every
+tick's positions, marks and PnL, every order, cancel and fill, every error and every limit breach. It is two lines
+long, because it is `run_market` with one participant [(`python/arena/engine.py:223`)]{.src}. `run_market` is the loop, and
+each tick goes through it in the same order:
+
+1. If orders rest, those the new snapshot crosses fill at their own price, and each one's place in its queue is
+   updated from how its level changed.
+2. Each bot is called with the book it sees (the others' resting orders included, never its own), its position, the
+   fills it hasn't been shown, the market trades since its last call and its open orders.
+3. With a delay, the decisions join a queue and those made that many ticks earlier come out instead.
+4. The bots' actions reach the exchange in a seeded random order. The cap on actions drops what is over it; cancels
+   apply; the caps on new and on working orders drop theirs; then, unless the format charges a penalty instead, the
+   limit check rejects every new order for a product if all its buys, or all its sells, could carry the position past
+   the limit.
+5. Each new order trades with the recorded book and other bots' orders, best price first. What is left meets the
+   tick's market trades under the fill rule (chapter 10). In the default mode it then dies; in resting mode it stays.
+6. Positions are valued at the tick's mark, any penalty is charged, and the tick is recorded.
+
+Every assumption chapter 10 described is a field of `EngineConfig`, so a mode is a setting, not a separate engine:
+`trade_matching`, `resting`, `queue` and `queue_power`, `fill_ratio`, `mark`, `limit_penalty`, `delay`, the fees,
+`deplete` and three order caps [(`engine.py:118-140`)]{.src}. The default settings are Prosperity's rules, and they matched
+the open-source Prosperity 3 backtester fill for fill; a test keeps them that way
+[(`ARCHITECTURE.md`, "Parity with prosperity3bt is pinned")]{.src}.
+
+### Formats are plug-ins
+
+A format plug-in, one file in `python/arena/formats/`, is the only code that knows an exchange's files and its bot
+interface. It must provide five things:
+
+- **`PROVIDED_MODULES`**: the modules the exchange lets a bot import, such as Prosperity's `datamodel`, put in place
+  before the bot file runs.
+- **`resolve_data_dir`**: turns `--data` into a folder (`p3` is the Prosperity 3 data in `references/`).
+- **`load_days`**: reads the folder into `Day`s, a limit for every product or an error.
+- **`load_bot`**: wraps the bot file: it builds the exchange's state from a tick, calls the bot's entry point and
+  converts the answer into the engine's orders and cancels.
+- **`check_source`**: what `arena.validate` checks about the entry point, such as a class `Trader` with a `run` method.
+
+Three more are optional. `RESTING`, set to true, says the exchange's orders rest until cancelled, so every tool runs as with
+`--resting`. `ENGINE` holds the other engine settings the exchange's rules fix, the queue, the mark, a fee, and every
+tool starts from them (`arena.cli.format_config`); a flag on the command line still overrides one. `CREDITS` is what
+one unit of the quoted price is worth per lot where it isn't 1, such as the Kestrel's points at 2 credits
+[(`python/arena/formats/__init__.py`; `ARCHITECTURE.md`, "Formats are plug-ins")]{.src}.
+
+There are five plug-ins: `prosperity.py`, the stand-in the prep ran on; `drill.py`, a practice format made unlike it on
+purpose; `snapshots.py` and `orderlog.py`, skeletons for shapes the Arena's data might take; and `qminers.py`, the
+Arena's own, registered already as a copy of `snapshots.py` marked `TODO(day)`, to be filled in on the day by the
+format swap's checklist [(`ON_THE_DAY.md`, "The format swap, step by step")]{.src}.
+
+### The bot: PARAMS, then three sections
+
+The template [(`python/bots/template.py`)]{.src} is one self-contained file of about 1,100 lines, standard library only,
+because the competitions run one file. Its state between ticks lives in the string the exchange hands back each call
+(`traderData` on Prosperity). It opens with four globals the ADAPTER owns: `STRICT` (raise on errors; the backtester
+sets it), `DELAY`, `ORDERS_REST` and `MAX_RESTING`. Then the settings. `DEFAULTS` holds 71 of them, each with a comment saying what it does [(`template.py:41`)]{.src};
+`PARAMS` has one entry per product with only what differs [(`template.py:161`)]{.src}. A product's settings are the two merged,
+the entry winning. A product not in `PARAMS` isn't traded; a key not in `DEFAULTS` raises, which catches typos; and an
+entry without `limit` raises too, because the default limit of 50 is a placeholder [(`params_for`)]{.src}. Chapter 15 goes
+through the settings one group at a time.
+
+**STRATEGY** says what the bot wants, as a `Plan` for each product: the orders that trade with the book now (`takes`)
+and the quotes that wait (`quotes`), kept inside the limit as they are added. The room to buy ignores planned sells,
+because both sides can fill in the same tick. `trade_product` [(`template.py:312`)]{.src} runs the same steps in the same order
+for every product:
+
+1. **The fair value**, by the product's `fair` method (chapter 3), or from an options smile.
+2. **The target**, the position to work towards, 0 unless something sets it. The first that applies decides: the
+   close (`flatten_from`), a fired loss stop, the volatility guard, then the target modes in a fixed order, `basket`,
+   `level`, `copy`, `jump_min`, `follow`, `hedge` (chapter 8). `arena.validate` names any setting that can't matter
+   because an earlier mode wins (`param_conflicts`).
+3. **Leans on the fair**: the book's imbalance and the linear terms, each off by default.
+4. **Take**: trade with any order priced at least `take_edge` better than the fair.
+5. **Clear**: trade back towards the target with orders up to `clear_edge` worse than the fair.
+6. **Make**: quote each side `make_edge` from the fair, or `make_inside` ticks inside the best remaining quote if that
+   is further out, moved by `skew` against the position, never crossing the book.
+
+Take and clear use up the levels of a copy of the book, so make sees only what is left.
+
+**EXECUTION** turns the plan into orders, given what is already working. `execute` [(`template.py:935`)]{.src} keeps a
+resting order, and its place in the queue, while a quote on its side at its price still wants at least its size, and
+sends only the difference; it cancels every other resting order; it sends takes as immediate-or-cancel, so nothing
+rests at a crossing price; and it keeps within `MAX_RESTING`. Where orders arrive late, `went` [(`template.py:987`)]{.src}
+writes each call's cancels and new orders into the product's memory for `DELAY` calls, and `on_the_way`
+[(`template.py:973`)]{.src} reads them back: those orders start the next plan as already planned, and the resting orders
+whose cancels haven't landed keep their room, because they may fill first. With `DELAY` 0 nothing is kept. This is the
+Kestrel repair, and it lives here because it is the same on every exchange.
+
+**ADAPTER** [(`template.py:998` to the end)]{.src} is, with the `datamodel` import at the top of the file
+[(`template.py:28`)]{.src}, the only Prosperity code in it. It reads the exchange's state into
+the template's own book, trades, fills and resting orders, and writes the plan back as the exchange's `Order` and
+`Cancel`. `Trader.run`, the entry point, wraps each product in its own `try`: a product that raises is skipped for that
+tick, its resting orders cancelled and each distinct error printed once, so one bug can't stop the others trading. On the day,
+only the imports, `PARAMS` and this section are rewritten [(`ON_THE_DAY.md`, "The format swap, step by step", step 5)]{.src}.
+
+### One tick, followed through
+
+@fig-one-tick follows one real tick through those stages: Kelp on Prosperity 3's round 1, day 0, at timestamp 405,400,
+with the template as committed [(`data/one_tick.csv`)]{.src}.
+
+![One tick of Kelp through the template: what each stage reads, what it writes, and what it did at timestamp 405,400 of
+Prosperity 3's round 1 day 0. Data: `data/one_tick.csv`, from the engine's run of that day and the template's own
+functions.](../figures/g22_one_tick.png){#fig-one-tick
+fig-alt="Six boxes left to right: fair, take, clear, make, EXECUTION, ADAPTER. On this tick the fair is 2,035; take buys 5 at 2,034; clear buys 8 at 2,035; make bids 50 at 2,034 and offers 37 at 2,036; EXECUTION sends four orders and no cancels; the two takes fill and the position goes from minus 13 to 0."}
+
+The bot comes in short 13 lots. The book shows one bid, 20 lots at 2,033, and three asks: 5 at 2,034, 8 at 2,035 and
+20 at 2,037. Kelp's fair is the sized mid, the first level each side with at least 15 lots, so the small asks are
+skipped: the fair is halfway between 2,033 and 2,037, 2,035 credits.
+
+Take buys every ask at least one credit below the fair: the 5 lots at 2,034. Clear then works the position to its
+target of 0. The bot is still short 8 if the take fills, and the 8 lots at 2,035 cost no more than the fair, so it buys
+them. Make quotes what is left: half a tick each side of the fair, rounded outward, gives a bid at 2,034 and an ask at
+2,036, and `make_inside` leaves them there, since each is already a tick inside the remaining book. The bid is for 50
+lots, because the room to buy counts the 13 already planned against a position of −13; the ask is for 37.
+
+EXECUTION has nothing resting to keep or cancel, since on Prosperity every order dies at the end of its tick, so it
+sends the four orders: the two takes as immediate-or-cancel, then the two quotes. The engine's limit check passes
+(all the buys together would bring the position to exactly +50), the takes fill against the book, the quotes meet no
+trade and die, and the position ends the tick flat. Kelp's PnL for the day moves from 2,352 to 2,357 credits.
+
+Nothing in the four strategy stages knew it was on Prosperity. Under the Kestrel's rules the same lines would have run,
+and the two quotes would have been on their way when the next call came.
+
+### The tools, the twins and the notes
+
+The tools sit on top [(`python/arena/`)]{.src}: `arena.backtest` for one run, `arena.grid` and `arena.compare` for many with
+chapter 11's statistics, `arena.stress` for perturbed days, `arena.diagnose` for the data with no bot, `arena.validate`
+before every upload, and `arena.sim`, a separate market that reacts. Thirty experiments to run on the day's data, calibrate among them, sit
+beside them [(`python/experiments/day/`)]{.src}.
+
+The Rust folder holds a second copy of the engine, the agent market, the heavy statistics and our bots, ported function for
+function. It gives the same results to the bit, about 130 times faster for one backtest and 40 to 80 times for a grid,
+behind `--engine rust` [(`rust/README.md`)]{.src}. Two copies drift unless something stops them: a table of twins
+holds a hash of the Python each port was last checked against, and a stale twin is refused until the Rust benchmark's
+parity run has compared every recorded field again [(`rust/twins.json`; `experiments.rust_bench --parity-only --record`)]{.src}. The uploaded bot is always
+the Python file.
+
+What the prep learnt is in three places: the ideas file, 113 tested ideas and 11 waiting, each with its command,
+numbers and verdict (chapter 15); the wiki, whose 23 concept pages join the literature, other teams'
+write-ups and our measurements; and the day's documents, the runbook, the on-the-day notes and the kickoff prompt
+[(`IDEAS.md`; `references/wiki/`; `RUNBOOK.md`, `ON_THE_DAY.md`, `KICKOFF_PROMPT.md`)]{.src}.
+
+::: {.callout-note title="If you know ML"}
+The split is the one between a model, its serving code and a data loader. The engine is the evaluation harness, the
+plug-ins are dataset loaders behind one interface, STRATEGY is the model, EXECUTION the serving logic and the ADAPTER
+the input and output layer for one deployment target; `PARAMS` over `DEFAULTS` is a config file over its defaults.
+Where the analogy breaks: serving code rarely changes a model's measured accuracy, while
+here EXECUTION decides which orders exist at all, so it is part of the strategy's measured result. And as with
+serving bugs, a replay without the delay can't show it: the Kestrel bug only appeared under the rule it depended on.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `ARCHITECTURE.md`, its paragraph "Formats are plug-ins" before writing a plug-in; `python/arena/formats/__init__.py`
+  for the interface.
+- The engine: `python/arena/engine.py`, its module docstring for every rule, `run_market` for the loop.
+- The template: `STRATEGY`, `EXECUTION` and `ADAPTER` are banner comments in `python/bots/template.py`;
+  `trade_product`, `execute`, `on_the_way`, `went`, `Trader.run`.
+- `uv run python -m arena.validate BOT DAYS --late 1` replays the first day a step late (the default while the run's
+  delay is 0) and fails a bot that re-posts into the caps or its limits.
+- The rows: "The kickoff prompts on a disguised round", "Orders that arrive a tick late", "Order caps".
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* what the Arena's format was, how its plug-in and ADAPTER were
+written and how long they took, which of `RESTING`, `ENGINE` and `DELAY` its rules fixed, and any bug that, like the
+Kestrel's, lived between the strategy and the exchange.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- `ARCHITECTURE.md` in full, then `python/arena/engine.py`'s module docstring: the matching rules in each mode.
+- The Rust folder's README [(`rust/README.md`)]{.src}: what is in Python, in Rust and in both, and how a twin is kept
+  in step.
+- `references/wiki/concepts/many-products-architecture.md`: how the teams that kept control of
+  Prosperity 4's 50-product round laid out their bots: one object per product, strategies that propose targets, and
+  safety nets above them.
+:::

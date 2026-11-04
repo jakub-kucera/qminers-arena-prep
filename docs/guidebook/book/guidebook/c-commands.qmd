@@ -1,0 +1,95 @@
+# Appendix C: The commands on one page {.unnumbered}
+
+::: {.content-visible when-format="audio"}
+This appendix is a page of commands, and it is in the printed edition only. It lists, in the order a round uses them,
+the commands for setting up the repo, reading a day's data, backtesting, grid search, stress, validating a file before
+an upload, fitting the engine to the portal, and keeping the repo's notes and Rust twins in step. Each comes from the
+repo's own guide and the day's runbook, and each flag was checked against the command's help.
+:::
+
+::: {.content-hidden when-format="audio"}
+*Every command runs from the repo's root. `BOT` is a bot file, `DAYS` a day spec (`1`, `1-0`, `1--1`; `all` outside
+Prosperity), `D` a data folder or `p2`, `p3`, `p4`. On the day, add `--format qminers --data D` to each command that
+reads the day's data, as `RUNBOOK.md` does (not `arena.compact`, the data generators, the sync, the benchmark, the
+index or the lint). Flags here were checked with `--help`; `--engine rust` works wherever a tool takes it (not
+`arena.validate`).*
+
+**Set up** (once per laptop; the clones are about 2 GB, the tests about 3 minutes)
+
+```sh
+references/clone.sh && uv sync && uv run pytest
+```
+
+**Read the data** (chapter 3; appendix B; only `premise` needs a bot)
+
+```sh
+uv run python -m arena.diagnose DAYS --data D --profile --suggest      # notes per product and a PARAMS entry each
+uv run python -m experiments.day.premise --data D --days DAYS --bot BOT  # Prosperity-like or agent-like, per product
+uv run python -m experiments.day.structure --data D --days DAYS        # repeats, fixed sums, price grids
+```
+
+**Backtest one file** (chapter 10)
+
+```sh
+uv run python -m arena.backtest BOT DAYS --data D [--match-trades all|worse|none] [--resting --queue back|prob|front]
+    [--delay N] [--fill-ratio R] [--deplete] [--mark mid|touch|last] [--metrics] [--engine rust] [--out results/]
+uv run python -m arena.analysis results/                              # charts, fill tables, markouts
+```
+
+**Search the settings** (chapters 11 and 15)
+
+```sh
+uv run python -m arena.grid BOT DAYS --data D --grid PARAMS.KELP.make_edge=0.5,1,2 --modes all,worse \
+    [--holdout last] [--screen 0.25 | --search tpe --budget 1000] [--permute 19] [--scenario rest:resting] --engine rust
+uv run python -m arena.compare BOT DAYS --bot python/bots/zoo/claude/*.py --modes all,worse
+```
+
+Change a setting only to the summary's `pick` (`RUNBOOK.md`, "Each round", T+1:00).
+
+**Stress, and the market that reacts** (chapters 7, 9 and 13)
+
+```sh
+uv run python -m arena.stress BOT DAYS --data D                       # perturbed days; stop_loss about 3x the plain drawdown
+uv run python -m arena.sim run BOT --days 5 [--regime trend_up] [--resting]
+uv run python -m arena.backtest BOT DAYS --data D --vs BOT            # a shared market, against a copy
+```
+
+**Before an upload** (chapter 14)
+
+```sh
+uv run python -m arena.validate BOT DAYS --data D --time-limit-ms <theirs> --max-size <the cap> [--late 1]   # exit 1 on FAIL
+uv run python -m arena.compact BOT submit/copy.py                     # over the size cap: validate the copy
+```
+
+**After an upload** (chapter 12)
+
+```sh
+uv run python -m experiments.day.calibrate --data D --days DAYS --bot <the uploaded file> --portal metrics.json \
+    --results <the results ZIP> [--vary delay=0,1]
+uv run python -m experiments.day.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>
+```
+
+**Before round 4** (chapter 13; the whole command is in `RUNBOOK.md`, "Rules that hold all day")
+
+```sh
+uv run python -m experiments.day.standings --rounds data/arena/round{1,2,3}/leaderboard.json --team <ours> \
+    --ours <round 4's grid CSV> --format qminers
+```
+
+**Other data** (appendix B)
+
+```sh
+uv run python -m experiments.abides_days generate --days 10           # ABIDES's days into data/abides
+uv run python -m arena.sim generate data/sim --days 5                 # arena.sim's days, Prosperity's layout
+uv run python -m experiments.format_drill data/drill                  # the drill format's practice days
+```
+
+**Keeping the repo in step** (chapter 14)
+
+```sh
+uv run python -m experiments.format_drill --sync                      # after changing DEFAULTS, STRATEGY or EXECUTION
+uv run python -m experiments.rust_bench --parity-only --record         # after changing a twin's Python
+uv run python -m experiments.ideas_index                              # after editing IDEAS.md
+python3 references/wiki/lint.py                                       # after editing the wiki
+```
+:::

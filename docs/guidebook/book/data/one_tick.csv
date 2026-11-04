@@ -1,0 +1,23 @@
+# arena.engine.run_day(P3 1-0, the template) and the template's own fair_value, take, clear, make and execute on Kelp's tick 4054: credits
+key,value
+timestamp,405400
+bids,20 at 2033
+asks,5 at 2034; 8 at 2035; 20 at 2037
+position,-13
+wall_size,15
+take_edge,1
+clear_edge,0
+make_edge,0.5
+make_inside,1
+limit,50
+fair,2035.0
+take,buy 5 at 2034
+clear,buy 8 at 2035
+make,buy 50 at 2034; sell 37 at 2036
+net_if_all_fill,13
+cancels,0
+sent,buy 5 at 2034 (ioc); buy 8 at 2035 (ioc); buy 50 at 2034; sell 37 at 2036
+filled,bought 5 at 2034 (book); bought 8 at 2035 (book)
+position_after,0
+pnl_before,2352.0
+pnl_after,2357.0

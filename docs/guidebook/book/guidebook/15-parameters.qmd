@@ -1,0 +1,239 @@
+# What does each parameter do?
+
+*You'll need the fair value (chapter 3), take, clear and make (chapter 4), the skew (chapter 6), trends and the stress
+test (chapter 7), the target modes (chapter 8), held-out days and the grid's `pick` (chapter 11) and the template's
+`PARAMS` and `DEFAULTS` (chapter 14).*
+
+## The story
+
+On 15 October the template went through the stress harness, which replays each day with its prices moved,
+by a trend, a shift, a spike, doubled volatility or the walls removed, and reports what the bot makes on each copy. On
+Prosperity 3's round 1 it found that a trend over the day took the template from 81.3 thousand credits to 19.6
+thousand going up and 14.3 thousand going down. Rainforest Resin's fixed fair of 10,000 lost 10.4 thousand each way: it
+kept trading against a price that had left [(`IDEAS.md`, "Stress: what a regime change costs")]{.src}.
+
+Two parameters came out of that run. `fixed_guard` gives up a fixed fair while the market is further than the guard
+from it, and quotes around the sized mid instead. `stop_loss` flattens a product and stops it for the day once its PnL
+has fallen that far below the day's high, set at about three times its worst drawdown on ordinary days, so that it
+never fires on them [(`IDEAS.md`, "A fixed fair that gives way", "A loss stop per product")]{.src}.
+
+Re-run on the template as it is now, the guard is worth what it was then. With it, the trends cost little: 66,554 and
+62,214 credits against 72,674 on the days as recorded. Without it, Resin again loses 10,413 and 10,309, and the trend
+days make 10,444 and 6,228. But neither parameter is free. With the guard on, a price that shifts up and stays leaves Resin 32.0 thousand with its
+stop against 49.1 thousand without it: the stop fires on the move and the bot sits out a day that would have paid.
+Chapter 7 tells why the stop can't help without the guard and costs with it
+[(`data/stress_variants.csv`, from `arena.stress python/bots/template.py 1` with `--set`)]{.src}.
+
+So a parameter is a bet on what the market will do, with a price on some other market. That is why each one has a
+row in `IDEAS.md` saying what it was tested against, and why this chapter reads the rows before the parameters.
+
+## The idea
+
+### How to read an IDEAS row
+
+The ideas file, `IDEAS.md`, is a table with four columns. **Idea** names it in bold, with where it came from. **Result on Prosperity
+data** holds each test, dated, with the command that reproduces it and its numbers; a later test is added under the
+earlier ones, never in their place. **Verdict here** is one of four words. **Re-test on the Arena** says when and how to
+try it again on the real data.
+
+The file defines the four verdicts in its own words:
+
+- **`kept`**: it is in the template;
+- **`dropped here`**: it is not in the template, and is re-tested on the day anyway;
+- **`measured`**: a fact about the data, not a strategy;
+- **`open`**: tested, with no conclusion yet.
+
+In practice "in the template" means in its settings for the products it was tested on, or available and off by
+default; a dropped setting often stays in `DEFAULTS`, off, so it can be re-tested. "Dropped here" is the one to read
+carefully. It is a result on one market, under its fill models, with its takers;
+the file's own words are that a result there "is a prior about the Arena, not a verdict". A setting dropped on
+Prosperity may be the right one on a market whose prices trend or whose takers are informed, and the re-test column
+says which sign to look for. A verdict cell can name more than one word: a mode kept and one of its options dropped, or a setting dropped for one
+product and kept for another. The index at the top of the file, and @fig-verdicts, take the first; the tables below
+name the others.
+
+**A kept row, read in full: "A fixed fair that gives way".** The idea is `fixed_guard`. The result has two tests. On
+15 October, Resin with a guard of 5: the plain days unchanged at 53,976 credits, the trend days 47.6 and 47.1 thousand
+where they had been −10.4 and −10.3 thousand, the worst day +6.9 thousand instead of −3.5 thousand; but doubled
+volatility and a spike up cost more than before. Later the same day, a second test found a flaw: a rival's large order
+10 ticks behind the best moved the wall mid past the guard, and Resin made 15.3 thousand against 39.6 thousand without
+it, so the guard now reads the sized mid, which a far order can't move. The verdict: kept, for Resin and Prosperity
+2's Amethysts. The re-test: for any fixed-fair product on the day. One row holds the idea, its gain, its cost, the bug a
+second test found, and when to use it.
+
+**A dropped row, read in full: "`skew` against Kelp's long position".** Kelp sits at its limit of +50 about a tenth of
+the time, and the textbook answer is to skew the quotes against the position (chapter 6). The result says three things.
+On each day mirrored, prices reflected and buyers swapped for sellers, Kelp's mean position is exactly the negative of
+the real day's, so the long comes from the takers' flow (34 to 36% of Kelp's trades at the touch are buys), not from
+anything the bot does. The flow isn't informed: the position's correlation with the next 10 to 1,000 ticks' price
+change is −0.10 to +0.18. And skew costs at every step: 18,698 credits at 0, then 18,210, 17,350 and 15,893 for 1, 2
+and 3 ticks under the optimistic fill rule; 14,530 down to 9,514 under the strict one
+[(`data/skew_grid.csv`)]{.src}. The verdict: dropped here, default 0, for Kelp; Pepper Root's skew of 20 is kept, with its long target (the next
+section). The re-test: sweep `skew` per product, and skew
+only where the same test of the position against later prices is clearly negative. It doesn't say skew is wrong; it
+says that on this flow holding the position cost nothing measurable.
+
+### The settings, group by group
+
+The template's 71 settings fall into five groups, plus the ADAPTER's globals. Each table gives the setting's default
+[(`python/bots/template.py:41`)]{.src}, what it does, and the verdict of the row that tested it, named in brackets, with
+any sub-option the row drops. Two settings are left out: `reduce_only`, which flattening sets for itself, and
+`day_length`, the timestamps in a day. Where a committed product overrides a default, the table gives an example, not
+every override.
+
+**Quoting: take, clear and make.**
+
+| Setting | Default | What it does | Verdict |
+|---|---|---|---|
+| `take_edge` | 1 | take any book order at least this much better than the fair | kept ("The template's market maker") |
+| `clear_edge` | 0; for example 5 on Picnic Basket 1 | trade back towards the target at prices up to this much worse than the fair | kept (same row) |
+| `make_edge` | 2; for example Kelp 0.5, Osmium 1 | quote at least this far from the fair | kept ("Kelp `make_edge` and `take_edge`", whose own best is 1; Kelp's 0.5 was chosen later for strict fills, `docs/TODO_DONE.md`, "Tune Kelp and Squid Ink for `worse` fills?") |
+| `make_inside` | 1 | quote no nearer the fair than this many ticks inside the best book quote; none: at `make_edge` whatever the book | kept as an option ("Quoting nearer fair than one tick inside the book, against rivals that do") |
+| `take_edge_buy`, `_sell`, `make_edge_buy`, `_sell` | none | each side its own edge | dropped here ("Per-side edges") |
+| `make_levels`, `make_step` | 1, 1 | split each side's quote over several prices | open ("Laddered quotes") |
+| `take_reserve` | 0 | keep this much of the limit free for takes | dropped here ("A take reserve") |
+| `join_min`, `join_ratio` | none, 2 | a quote that would join the best stands a tick back unless the queue there is deep and the other side's isn't much deeper | dropped here ("A large-tick book") |
+
+::: {.content-visible when-format="audio"}
+The quoting settings. The take edge, the clear edge and the make edge are kept: they are the market maker itself, with
+Kelp's make edge at half a tick. Make inside, which stops a quote from improving on the book by more than it needs, is
+kept as an option. Per-side edges, a take reserve and the large-tick gate were dropped here; laddered quotes are open.
+:::
+
+**Fair value.**
+
+| Setting | Default | What it does | Verdict |
+|---|---|---|---|
+| `fair` | `sized_mid` | the method: `fixed`, `mid`, `wall_mid`, `outer_mid`, `sized_mid`, `weighted_mid` or `hysteresis_mid` | the wall, outer and sized mids kept ("Wall-mid definitions"); `weighted_mid` dropped here ("The weighted mid as fair value"); `hysteresis_mid` dropped here ("A large-tick book") |
+| `wall_size` | 15 | `sized_mid`'s smallest level that counts as the market maker's quote | kept ("Wall-mid definitions": 10 to 20 within 3%) |
+| `smoothing` | 0; Osmium 0.9 | an exponential average of the fair, slower nearer 1 | kept for Osmium ("A slow fair on Osmium") |
+| `imbalance` | 0 | add this times the best levels' size imbalance | dropped here ("Book imbalance `ρ` and the micro-price") |
+| `lin_rho3`, `lin_momentum`, `lin_window` | 0, 0, 100 | lean the fair on three levels' imbalance and on the last move | open: the settings that paid on ABIDES, a cost on Prosperity ("A `linear` fair", "A linear fair and a gate on the last move, in an agent market") |
+
+::: {.content-visible when-format="audio"}
+The fair value. The wall mid, the outer mid and the sized mid are kept, the sized mid by default, with a wall size of
+15 lots. Smoothing is kept for Osmium at 0.9. The weighted mid, the hysteresis mid and the imbalance term were dropped
+here. The linear terms are open: they paid in ABIDES's agent market and cost a little on Prosperity.
+:::
+
+**Inventory.**
+
+| Setting | Default | What it does | Verdict |
+|---|---|---|---|
+| `skew` | 0; Pepper Root 20 | move both quotes against the position, by this much at the full limit | dropped here for Kelp ("`skew` against Kelp's long position"); Pepper Root's 20 kept with its target ("A long bias on a drifting product") |
+| `size_skew` | 0 | shrink the quote that would add to the position | dropped here ("Inventory control through quote size") |
+| `target` | 0; Pepper Root 80 | the position to hold; clear and skew work towards it | kept ("A long bias on a drifting product") |
+| `make_size` | all the room; for example Pepper Root 10, the baskets and vouchers 0 | the largest quote | kept ("Using less than the full position limit") |
+| `cross_max`, `cross_excess` | none; Hydrogel's `cross_excess` 25 | cross at most this much a tick, and clear only the part of the gap beyond it | kept ("Passive-first execution toward a target") |
+
+The skew works on the plan's position if every order fills, its net, through one line of `make`
+[(`template.py:821`)]{.src}:
+
+::: {.eq speak="both quotes move down by the skew times the position's distance above its target as a share of the limit, rounded to whole ticks"}
+$$\text{shift} = \operatorname{round}\!\left(\text{skew} \times \frac{\text{net} - \text{target}}{\text{limit}}\right)$$
+:::
+
+::: {.content-visible when-format="audio"}
+Inventory. The size skew was dropped here, and so was the skew on Kelp: on Kelp's flow, holding the position cost
+nothing a skew could save. Pepper Root keeps a skew of 20, with its long target. A target, a quote size below the limit and passive-first crossing are kept, each on the product it was
+tested on: Pepper Root holds a long target of 80 with a skew of 20 and quotes of 10, and Hydrogel crosses only the part
+of its bet beyond 25 lots.
+:::
+
+**Target modes.** Each sets the target in place of the static one; the first that is set wins (chapter 14).
+
+| Setting | Default | What it does | Verdict |
+|---|---|---|---|
+| `level`, `level_band`, `level_exit`, `level_weight` | none, 20, none, none | hold the full limit against a move of `level_band` from a price the product returns to | kept ("Trading toward a known level"), `level_weight` dropped here; a level from the day itself open ("The day's own level where the level drifts across days") |
+| `cpd_hazard` and five more `cpd_` settings | none | detect a shift of that level as it happens | dropped here ("A changepoint detector on the level") |
+| `basket`, `hedge`, `hedge_ratio` | none, off, 0 | trade a basket's spread against its legs | the mode kept, taking only ("Trading a basket's spread"); hedging with the legs dropped here |
+| `smile`, `underlying`, `expiry`, `smile_window` | none, none, none, 20 | price a call off a fitted volatility smile and trade its fast deviations | the mode kept ("Options: trading implied-volatility deviations from a fitted smile, delta hedging"); the smile's shape and the delta hedge dropped here |
+| `follow`, `strike`, `max_cost_per_delta` | none, none, 20 | a call that holds the underlying's bet as delta | measured; the mode kept, its cost gate `max_cost_per_delta` dropped here ("What the P4 vouchers are") |
+| `jump_min` and four more `jump_` settings | none | fade jumps that snap back | kept ("Fading jumps that snap back") |
+| `copy`, `copy_hold`, `copy_edge` | none, none, 5 | follow named traders | kept ("Following informed counterparties") |
+| `copy_sizes`, `copy_warmup` | none, 100 | follow a nameless informed trader by its trade size | measured ("A nameless informed-trade detector") |
+| `gate_move`, `gate_window` | none, 20 | pull the side a recent move runs over | open ("A linear fair and a gate on the last move, in an agent market") |
+
+::: {.content-visible when-format="audio"}
+The target modes. Trading towards a known level, a basket's spread, an option's smile, jumps that snap back and named
+informed traders are all kept as modes, each off until a product sets it. The changepoint detector was dropped here.
+Following an option's underlying and the nameless informed-trader detector are measured; the day's own level and the
+gate on the last move are open.
+:::
+
+**Protection and the close.**
+
+| Setting | Default | What it does | Verdict |
+|---|---|---|---|
+| `stop_loss`, `stop_edge` | none; for example Kelp 1,200, Resin 1,000, Hydrogel 48,000 | flatten and stop for the day once the day's PnL is this far below its high | kept ("A loss stop per product") |
+| `fixed_fair`, `fixed_guard` | none; Resin 10,000 and 5 | a fixed fair, given up while the sized mid is further than the guard from it | kept ("A fixed fair that gives way") |
+| `level_guard` | none | drop a level bet once the price is many bands away | dropped here ("Dropping a level bet once the price is far from the level") |
+| `vol_guard` | none | plain market making while volatility is high | dropped here ("A volatility guard") |
+| `flatten_from`, `flatten_edge` | none | from this timestamp, work the position to zero, quoting only the side that reduces it | kept, off ("Flattening before the close") |
+| `flatten_keep`, `flatten_widen` | none, 0 | keep a small position at the close instead | dropped here ("Keeping a small position at the close") |
+| `limit` | 50, a placeholder | the position limit, the exchange's, required in every entry | a rule, not a choice |
+
+::: {.content-visible when-format="audio"}
+Protection and the close. The loss stop and the guard on a fixed fair are kept, each set per product from the stress
+test. Flattening before the close is kept but off, since Prosperity values the close at the mid. The level guard, the
+volatility guard and keeping a small position at the close were dropped here. The limit is the exchange's rule, and an
+entry without one is refused.
+:::
+
+**The ADAPTER's globals.** `DELAY` (0) and `ORDERS_REST` (off) switch on EXECUTION's counting of orders on their way;
+the row "Orders that arrive a tick late" is open, since the Arena's timing is unknown. `MAX_RESTING` (none) is the
+exchange's cap on working orders; the row "Order caps" measured that the template needs about three orders a product a
+tick.
+
+@fig-verdicts puts the groups side by side. Of the 36 entries, 15 are kept, 12 dropped here, 6 open and 3 measured
+[(`data/parameters.csv`)]{.src}.
+
+![The template's settings by group, each coloured by the verdict of the `IDEAS.md` row that tested it, parsed from
+`IDEAS.md` as its index is, so a rebuild shows a changed verdict. Data: `data/parameters.csv`, from the `parameters`
+data step.](../figures/g23_parameters.png){#fig-verdicts
+fig-alt="Six panels of coloured tiles, each tile the first verdict of its row. Quoting: the three edges and make inside kept, per-side edges, the take reserve and the large-tick gate dropped here, laddered quotes open. Fair value: the wall, outer and sized mids and smoothing kept, the weighted mid, hysteresis and imbalance dropped here, the linear terms open. Inventory: target, make size and passive-first crossing kept, both skews dropped here. Target modes: five kept, the changepoint detector dropped here, the day's own level and the gate on the last move open, following an underlying and the nameless detector measured. Protection: the stop, the fixed guard and flattening kept, two guards and keeping a position dropped here. Execution: the delay settings open, the resting cap measured. In all 15 kept, 12 dropped here, 6 open, 3 measured."}
+
+The pattern is the one the stress story ends on. What is kept is mostly the plain market maker and the modes that
+each answer one kind of product; what is dropped is mostly the refinement the literature recommends for a market
+unlike Prosperity's, inventory skew against uninformed flow, the micro-price, guards against regimes that never came. Those are the rows the
+Arena may turn over.
+
+### Changing one on the day
+
+The runbook gives the order. New products go into `PARAMS` by the wiki's day-one page (T+0:30), after the diagnose
+tool's suggest option has proposed an entry for each (T+0:15); a setting changes only to the grid's `pick` (T+1:00);
+and each `stop_loss` is set to about three times the plain drawdown the stress tool prints (T+1:30)
+[(`RUNBOOK.md`, "Each round")]{.src}. The rows themselves are re-tested every round: down the index, every row whose
+"Re-test on the Arena" condition fits the round's products [(`IDEAS.md`, "Keeping it up to date"; `ON_THE_DAY.md`,
+"Every round", "Re-test the ideas register")]{.src}.
+
+::: {.callout-note title="If you know ML"}
+`DEFAULTS` is a config's defaults, `PARAMS` the per-dataset overrides, and an `IDEAS.md` row an ablation: one switch,
+the baseline beside it, the command to rerun it. "Dropped here" is an ablation that lost on one validation set, which
+in ML you'd keep in the search space for the next dataset, not delete; that is the file's rule too. Where the analogy
+breaks: these settings interact through the fill model, which is itself unknown (chapter 10), so an ablation's sign can
+flip between two simulators of the same data, and the next dataset, the Arena, is drawn from a different
+distribution by design.
+:::
+
+::: {.callout-tip title="In the repo"}
+- Every setting and its comment: `python/bots/template.py`, `DEFAULTS` (line 41) and `PARAMS` (line 161).
+- A product's settings that can't matter: `arena.validate` prints them (`param_conflicts`).
+- The rows by verdict: `IDEAS.md`'s index, its first 150 lines; rebuilt by `uv run python -m experiments.ideas_index`.
+- This chapter's figure: `uv run python docs/guidebook/book/scripts/make_data.py --only parameters` parses the verdicts again.
+- The stress test with a setting switched off: `uv run python -m arena.stress BOT DAYS --set PARAMS.<P>.fixed_guard=None`.
+:::
+
+::: {.callout-warning title="On the Arena"}
+*Written after the event, from the round handovers:* which settings each round's products took, which "dropped here"
+rows the Arena's data turned into kept ones and which kept ones it dropped, and the verdicts as they stood after the
+last round.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- The wiki's concept pages behind the groups: `references/wiki/concepts/fair-value-and-wall-mid.md`,
+  `references/wiki/concepts/market-making-and-inventory-skew.md`, `references/wiki/concepts/optimal-quoting-models.md`
+  and `references/wiki/concepts/drift-and-regime-change.md`, each with the literature it draws on.
+- The ideas file's paragraph "What a market we didn't write said about these priors", just after its index: which
+  verdicts held on ABIDES and which didn't.
+:::

@@ -1,0 +1,38 @@
+# IDEAS.md's verdicts (experiments.ideas_index.rows) for the template's parameters (71 DEFAULTS keys; docs/guidebook/research/repo_map.md, C)
+group,label,keys,row,verdict
+Quoting,"take_edge, make_edge, clear_edge",take_edge make_edge clear_edge,The template's market maker,kept
+Quoting,make_inside,make_inside,"Quoting nearer fair than one tick inside the book, against rivals that do",kept
+Quoting,"per-side edges (*_buy, *_sell)",take_edge_buy take_edge_sell make_edge_buy make_edge_sell,Per-side edges,dropped here
+Quoting,"make_levels, make_step",make_levels make_step,Laddered quotes,open
+Quoting,take_reserve,take_reserve,A take reserve,dropped here
+Quoting,"join_min, join_ratio",join_min join_ratio,A large-tick book,dropped here
+Fair value,"fair: wall, outer or sized mid; wall_size",fair wall_size,Wall-mid definitions,kept
+Fair value,fair: weighted_mid,,The weighted mid as fair value,dropped here
+Fair value,fair: hysteresis_mid,,A large-tick book,dropped here
+Fair value,smoothing,smoothing,A slow fair on Osmium,kept
+Fair value,imbalance,imbalance,Book imbalance `ρ` and the micro-price,dropped here
+Fair value,lin_rho3,lin_rho3,"A `linear` fair: a dot product of features (ρ, ρ3, OFI, trades, momentum, a feed) fitted leaving one day out",open
+Fair value,"lin_momentum, lin_window",lin_momentum lin_window,"A linear fair and a gate on the last move, in an agent market",open
+Inventory,skew,skew,`skew` against Kelp's long position,dropped here
+Inventory,size_skew,size_skew,Inventory control through quote size,dropped here
+Inventory,target,target,A long bias on a drifting product,kept
+Inventory,make_size,make_size,Using less than the full position limit,kept
+Inventory,"cross_max, cross_excess",cross_max cross_excess,Passive-first execution toward a target,kept
+Target modes,"level, level_band, level_exit, level_weight",level level_band level_exit level_weight,Trading toward a known level,kept
+Target modes,"level ""day""",,The day's own level where the level drifts across days,open
+Target modes,cpd_* (changepoints),cpd_hazard cpd_reversion cpd_sd cpd_block cpd_action cpd_threshold,A changepoint detector on the level,dropped here
+Target modes,"basket, hedge, hedge_ratio",basket hedge hedge_ratio,Trading a basket's spread,kept
+Target modes,"smile, underlying, expiry, smile_window",smile underlying expiry smile_window day_length,"Options: trading implied-volatility deviations from a fitted smile, delta hedging",kept
+Target modes,"follow, strike, max_cost_per_delta",follow strike max_cost_per_delta,What the P4 vouchers are,measured
+Target modes,"jump_min, jump_*",jump_min jump_hold jump_edge jump_seen jump_share,Fading jumps that snap back,kept
+Target modes,"copy, copy_hold, copy_edge",copy copy_hold copy_edge,Following informed counterparties,kept
+Target modes,"copy_sizes, copy_warmup",copy_sizes copy_warmup,A nameless informed-trade detector,measured
+Target modes,"gate_move, gate_window",gate_move gate_window,"A linear fair and a gate on the last move, in an agent market",open
+Protection,"stop_loss, stop_edge",stop_loss stop_edge,A loss stop per product,kept
+Protection,"fixed_fair, fixed_guard",fixed_fair fixed_guard,A fixed fair that gives way,kept
+Protection,level_guard,level_guard,Dropping a level bet once the price is far from the level,dropped here
+Protection,vol_guard,vol_guard,A volatility guard,dropped here
+Protection,"flatten_from, flatten_edge, reduce_only",flatten_from flatten_edge reduce_only,Flattening before the close,kept
+Protection,"flatten_keep, flatten_widen",flatten_keep flatten_widen,Keeping a small position at the close,dropped here
+Execution,"DELAY, ORDERS_REST",,Orders that arrive a tick late,open
+Execution,MAX_RESTING,,Order caps,measured
