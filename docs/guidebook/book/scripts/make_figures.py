@@ -502,9 +502,21 @@ def delay():
 
 
 def main() -> int:
-    for draw in (round_loop, order_book, score_parts, mid_and_wall, round_trip, copies, shuffle, smile_window, fill_modes,
-                 kelp_grid, folds, calibrate, architecture, timeline, fill_curve, delay):
-        draw()
+    import argparse
+    import importlib
+
+    figures = [round_loop, order_book, score_parts, mid_and_wall, round_trip, copies, shuffle, smile_window, fill_modes,
+               kelp_grid, folds, calibrate, architecture, timeline, fill_curve, delay]
+    # the guidebook's figures, one module a part (scripts/parts/figures_*.py, each with a FIGURES list)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    for path in sorted((Path(__file__).resolve().parent / "parts").glob("figures_*.py")):
+        figures += importlib.import_module(f"parts.{path.stem}").FIGURES
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--only", nargs="+", choices=[f.__name__ for f in figures])
+    args = parser.parse_args()
+    for draw in figures:
+        if not args.only or draw.__name__ in args.only:
+            draw()
     return 0
 
 

@@ -343,13 +343,27 @@ STEPS = {"order_book": order_book, "mid_and_wall": mid_and_wall, "copies": copie
          "fill_curve": fill_curve, "delay": delay, "queues": queues, "kelp_edges": kelp_edges}
 
 
+def part_steps() -> dict:
+    """The guidebook's steps, one module a part (scripts/parts/data_*.py, each with its own STEPS), so that each
+    part's figures are added without editing this file."""
+    import importlib
+
+    steps = {}
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    for path in sorted((Path(__file__).resolve().parent / "parts").glob("data_*.py")):
+        module = importlib.import_module(f"parts.{path.stem}")
+        steps.update(module.STEPS)
+    return steps
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--only", nargs="+", choices=sorted(STEPS))
-    args = parser.parse_args()
     sys.path.insert(0, str(ROOT / "python"))
-    for name in args.only or STEPS:
-        STEPS[name]()
+    steps = {**STEPS, **part_steps()}
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--only", nargs="+", choices=sorted(steps))
+    args = parser.parse_args()
+    for name in args.only or steps:
+        steps[name]()
     return 0
 
 
