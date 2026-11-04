@@ -397,15 +397,27 @@ def architecture():
 
 # -- F14 the day's timeline ---------------------------------------------------------------------------------------
 
+# Short labels for RUNBOOK's times; a time RUNBOOK adds shows its own text, so the figure can't drift silently.
+ROUND_LABELS = {0: "data, rules;\nnote the deadline", 0.25: "diagnose,\nlast bot\nbacktested", 0.5: "new products\ninto PARAMS",
+                1: "grid under\ntwo fill models", 1.5: "stress;\nstop_loss", 2: "a validated\nbot uploaded",
+                4.5: "stop changing\nthe strategy", 4.833: "final marked;\nhandover"}
+WEEKEND_LABELS = {"arrival, registration": "reg.", "opening ceremony": "", "workshop": "work-\nshop", "playground (90 min)": "play-\nground",
+                  "lunch": "", "dinner": "", "coffee break": "", "breakfast": "", "lunch, closing": "closing"}
+
+
 def timeline():
+    rows = read("timeline")
     fig, axes = plt.subplots(2, 1, figsize=(9, 4.6), gridspec_kw={"height_ratios": [1, 1.25]})
     ax = axes[0]
-    blocks = [(8, 9, "reg.", T["muted"]), (9, 10.5, "rules", T["muted"]), (10.5, 12, "play-\nground", YELLOW),
-              (13, 18, "round 1 (10%)", BLUE), (19, 24, "round 2 (20%)", BLUE), (25, 30, "round 3 (30%)", BLUE),
-              (31, 36, "round 4 (40%)", BLUE), (37, 38, "closing", T["muted"])]
-    for start, end, text, color in blocks:
-        ax.add_patch(plt.Rectangle((start, 0.2), end - start - 0.08, 0.6, facecolor=color + ("cc" if color == BLUE else "88"), edgecolor="none"))
-        ax.text((start + end) / 2, 0.5, text, ha="center", va="center", fontsize=8 if color == BLUE else 7, color="white" if color == BLUE else T["ink"])
+    for r in (r for r in rows if r["part"] == "weekend"):
+        start, end, label = float(r["start"]), float(r["end"]), r["label"]
+        is_round = label.startswith("round")
+        if not is_round and WEEKEND_LABELS.get(label, label) == "" and "lunch" not in label and "break" not in label and label != "dinner":
+            continue
+        color = BLUE if is_round else YELLOW if "playground" in label else T["grid"] if WEEKEND_LABELS.get(label) == "" else T["muted"]
+        ax.add_patch(plt.Rectangle((start, 0.2), end - start - 0.08, 0.6, facecolor=color + ("cc" if is_round else "88"), edgecolor="none"))
+        ax.text((start + end) / 2, 0.5, label if is_round else WEEKEND_LABELS.get(label, label), ha="center", va="center",
+                fontsize=8 if is_round else 7, color="white" if is_round else T["ink"])
     ax.set_xlim(8, 38)
     ax.set_ylim(0, 1)
     ax.set_yticks([])
@@ -413,14 +425,12 @@ def timeline():
     ax.set_xticks(hours, [f"{'Sat' if h < 24 else 'Sun'} {h % 24:02d}" if h in (8, 24) else f"{h % 24:02d}" for h in hours], fontsize=8)
     ax.grid(False)
     ax.spines["left"].set_visible(False)
-    ax.set_title("The weekend (organisers' e-mail of 7 Oct; the weights are the site's, unconfirmed)")
+    ax.set_title("The weekend (ON_THE_DAY.md's timeline; the weights are the site's, unconfirmed)")
     ax = axes[1]
-    steps = [(0, "data, rules;\nnote the deadline"), (0.25, "diagnose,\nlast bot\nbacktested"), (0.5, "new products\ninto PARAMS"),
-             (1, "grid under\ntwo fill models"), (1.5, "stress;\nstop_loss"), (2, "a validated\nbot uploaded"),
-             (4.5, "stop changing\nthe strategy"), (4.83, "final marked;\nhandover")]
+    steps = [(float(r["start"]), ROUND_LABELS.get(float(r["start"]), r["label"])) for r in rows if r["part"] == "round"]
     ax.plot([0, 5], [0, 0], color=T["axis"], linewidth=2)
     for k, (t, text) in enumerate(steps):
-        color = ORANGE if t in (2, 4.5, 4.83) else BLUE
+        color = ORANGE if t >= 2 else BLUE
         ax.scatter([t], [0], color=color, s=40, zorder=3)
         y = [0.5, -0.5, 0.95, -0.95][k % 4] if t < 1.6 else (0.55 if k % 2 == 0 else -0.55)
         ax.plot([t, t], [0, y * 0.6], color=color, linewidth=0.8)

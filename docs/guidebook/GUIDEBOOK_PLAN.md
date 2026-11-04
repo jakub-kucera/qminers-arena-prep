@@ -14,6 +14,8 @@ rounds, which the field guide can't have, run through every chapter as the main 
 the prep used.
 
 **Starts when:** the event is over and its four `data/arena/round*/HANDOVER.md` notes and `leaderboard.json` exist.
+Chapter 16 and appendix E are only as good as those notes, which are written on 7–8 Nov (RUNBOOK, "Each round",
+deadline − 0:10).
 **Done when:** every chapter below is written, the auditor's checklist (end of this file) holds for all of them, and the
 HTML, PDF, EPUB, audio text and m4b build from a clean checkout.
 
@@ -124,7 +126,7 @@ is cited in the chapter.
 | 7 | half-life = ln 2 / κ, for a price pulled back at rate κ | the half-life is how long the price takes to close half its gap to the level | `mean-reverting-reference-price` |
 | 8 | basket spread = basket − Σ wᵢ × legᵢ | the spread is the basket's price less the weighted sum of its legs | ours (the template's `basket` mode) |
 | 8 | Black–Scholes delta = N(d₁) | an option's delta is how many units of the underlying move with it, the normal curve's area up to d-one | the source the wiki's `options-and-vouchers` page cites for it |
-| 10 | the queue's `prob` rule: a cancel ahead of us with probability f(back) / (f(back) + f(front)) | a cancel is more likely ahead of us the more of the queue is in front | hftbacktest, as `references/wiki/concepts/queue-position-and-fills.md` cites it |
+| 10 | our `--queue prob` rule: a cancellation lands ahead of us with probability x^N, x our share of the queue ahead, N `--queue-power` | a cancel is more likely to come from ahead of us the more of the queue is in front | ours (`python/arena/cli.py`'s `--queue-power`, the engine); the wiki's `queue-position-and-fills` page for the rule it came from |
 | 11 | PBO = P(the in-sample best ranks below the median out of sample) | (the field guide's) | `probability-of-backtest-overfitting` |
 | 11 | DSR: the Sharpe ratio deflated by the number of trials | (the sentence; the full expression in the print only) | `deflated-sharpe-ratio` |
 | 12 | pnlSe = sd of the session scores × √n | (the field guide's) | ours (`calibrate`; the portal) |
@@ -140,7 +142,7 @@ source line.
 
 | Figure | Data | Made by |
 |---|---|---|
-| G1 the Arena's round 1 (Arena) | the round's HANDOVER and upload log | hand-entered CSV from `data/arena/round1/HANDOVER.md`, its lines cited |
+| G1 the Arena's round 1 (Arena) | the round's HANDOVER and upload log | **hand-entered** CSV from `data/arena/round1/HANDOVER.md`, the exception to the committed-command rule: the caption says so and cites its lines |
 | G2 the data shapes | none | diagram |
 | G3 the signature plot | P3 round 1, one ABIDES day | `load_days`; the variance of h-tick mid changes over h |
 | G4 the Bouchaud margin | IDEAS "Does making pay" (L172) | its command |
@@ -160,7 +162,7 @@ source line.
 | G18 CSCV's splits | none | diagram |
 | G19 calibrate on the Arena (Arena) | the Arena's first upload | `experiments.day.calibrate` through the day's plug-in |
 | G20 rank against the stake | a simulated final | a Monte Carlo in `make_data.py` (seeded), after the Qminers 2024 winner's method |
-| G21 the rounds' weights (Arena) | the 10/20/30/40 weights and our rounds' PnL | `leaderboard.json` |
+| G21 the rounds' weights (Arena) | the rounds' real weights and our rounds' PnL | parsed from `data/arena/round*/leaderboard.json` by `make_data.py`; the weights from the Technical Rules, cited |
 | G22 one tick through the template | none | diagram |
 | G23 the parameters by verdict | `IDEAS.md`'s rows | parsed from `IDEAS.md` by `make_data.py` |
 

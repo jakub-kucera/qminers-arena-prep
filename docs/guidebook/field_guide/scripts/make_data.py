@@ -251,8 +251,45 @@ def calibrate() -> None:
           "--vary fill_ratio=1,0.5", ["setting", "engine_setting", "figure", "portal", "ours", "error"], rows)
 
 
+# -- The day, from the docs ---------------------------------------------------------------------------------------
+
+def table(path: Path, heading: str) -> list[list[str]]:
+    """The first Markdown table under a heading, as rows of cells (the header and its rule left out)."""
+    lines = path.read_text().splitlines()
+    at = next(i for i, line in enumerate(lines) if line.startswith("#") and heading in line)
+    rows = []
+    for line in lines[at + 1:]:
+        if line.startswith("#"):
+            break
+        if line.startswith("|"):
+            rows.append([cell.strip() for cell in line.strip().strip("|").split("|")])
+        elif rows:
+            break
+    return [row for row in rows[1:] if not set(row[0]) <= set("-: ")]
+
+
+def timeline() -> None:
+    """F14: the weekend (ON_THE_DAY's timeline table) and one round (RUNBOOK's "Each round" table)."""
+    rows, day = [], 0
+    for when, official, _ in table(ROOT / "ON_THE_DAY.md", "The day: timeline and roles"):
+        if when.startswith("Sun"):
+            day = 24
+        h1, m1, h2, m2 = map(int, re.search(r"(\d\d):(\d\d)–(\d\d):(\d\d)", when).groups())
+        start, end = day + h1 + m1 / 60, day + h2 + m2 / 60
+        end += 24 if end <= start else 0
+        rows.append(["weekend", start, end, official.replace("**", "")])
+    for when, do in table(ROOT / "RUNBOOK.md", "Each round"):
+        found = re.match(r"T\+(\d):(\d\d)|deadline − (\d):(\d\d)", when)
+        if not found:
+            continue
+        at = int(found[1]) + int(found[2]) / 60 if found[1] else 5 - int(found[3]) - int(found[4]) / 60
+        rows.append(["round", round(at, 3), "", re.split(r"\. |; ", do.replace("`", ""))[0].strip()[:80]])
+    write("timeline", "ON_THE_DAY.md, \"The day: timeline and roles\" (hours from Saturday 00:00) and RUNBOOK.md, \"Each round\" "
+          "(hours from T, deadline at T+5)", ["part", "start", "end", "label"], rows)
+
+
 STEPS = {"order_book": order_book, "mid_and_wall": mid_and_wall, "copies": copies, "fill_modes": fill_modes,
-         "kelp_grid": kelp_grid, "shuffle": shuffle, "smile_window": smile_window, "varde": varde, "calibrate": calibrate}
+         "kelp_grid": kelp_grid, "shuffle": shuffle, "smile_window": smile_window, "varde": varde, "calibrate": calibrate, "timeline": timeline}
 
 
 def main() -> int:

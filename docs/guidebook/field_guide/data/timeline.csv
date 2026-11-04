@@ -1,0 +1,23 @@
+# ON_THE_DAY.md, "The day: timeline and roles" (hours from Saturday 00:00) and RUNBOOK.md, "Each round" (hours from T, deadline at T+5)
+part,start,end,label
+weekend,8.0,9.0,"arrival, registration"
+weekend,9.0,9.5,opening ceremony
+weekend,9.5,10.5,workshop
+weekend,10.5,12.0,playground (90 min)
+weekend,12.0,13.0,lunch
+weekend,13.0,18.0,round 1 (10%)
+weekend,18.0,19.0,dinner
+weekend,19.0,24.0,round 2 (20%)
+weekend,24.0,25.0,coffee break
+weekend,25.0,30.0,round 3 (30%)
+weekend,30.0,31.0,breakfast
+weekend,31.0,36.0,round 4 (40%)
+weekend,36.0,38.0,"lunch, closing"
+round,0.0,,Reload the dashboard
+round,0.25,,"arena.diagnose --suggest and experiments.day.structure (repeats, sums, grids) on"
+round,0.5,,"New products into PARAMS, by references/wiki/concepts/reading-the-data-on-day-on"
+round,1.0,,uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>
+round,1.5,,uv run python -m arena.stress BOT DAYS --format qminers --data D
+round,2.0,,"A validated bot at least as good as the last one, uploaded"
+round,4.5,,"(T+4:30, or earlier if twice the first evaluation's time is longer.) Stop changi"
+round,4.833,,Check which submission is marked final
