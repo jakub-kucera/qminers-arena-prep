@@ -445,3 +445,14 @@ def test_a_wall_that_moves_before_the_mid_leads():
     row = diagnose.diagnose([Day("d", ["X"], {"X": 10}, ticks)])["X"]
     assert row["lead"] > 0.5 and "the wall moves before the mid" in row["notes"]
     assert diagnose.diagnose([make_day(walls)])["X"]["lead"] == pytest.approx(0)
+
+
+def test_suggest_flags_a_large_tick_book_that_drifts():
+    row = {"notes": ["large-tick (one-tick spread 100% of the time)", "market making pays (0.4 of the spread a unit)", "drifts on 5 of 10 days"],
+           "tick": 1, "spread_ticks_median": 1, "limit": 100, "smoothing_wall": None, "wall_size": 300, "jump_size": None,
+           "wall_sd": 2.0, "wall_day_means_sd": None, "wall_mean": 1000, "q_wall": 0.01, "bot_tick": None}
+    row["notes"] = "; ".join(row["notes"])
+    params, why = diagnose.suggest(row)
+    assert params["make_edge"] == 0.5 and "and drifting: grid make_size=0,None" in "; ".join(why)
+    calm = {**row, "notes": "large-tick (one-tick spread 100% of the time); market making pays (0.4 of the spread a unit)"}
+    assert not any("drifting" in w for w in diagnose.suggest(calm)[1])

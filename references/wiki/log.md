@@ -512,3 +512,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-03] lint | sim_fit corrected after the audit's round 8
 - `concepts/harder-rounds`: Kelp's transfer is now measured by the whole ranking (Spearman 0.97, Osmium 0.16), after `experiments.day.sim_fit` gained the walls' distance and the far trades as moments, restarts and `--compare` (`IDEAS.md`, "Fitting `arena.sim` to the download").
+
+## [2026-11-04] lint | --suggest flags a large-tick book that drifts
+- `concepts/reading-the-data-on-day-one`: `--suggest` adds a note to grid taking only against its quotes under `worse` where large-tick and a drift note both fire (`IDEAS.md`, "`arena.diagnose --suggest`"; the audit's round 8, R8).

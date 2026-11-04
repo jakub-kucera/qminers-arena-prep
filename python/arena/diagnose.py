@@ -784,7 +784,9 @@ def suggest(row: dict) -> tuple[dict, list[str]]:
     when they agree, else "day"); a drift every day is a `target` at the limit; jumps that snap back
     are the jump mode at half their size; make_edge a tick where market making pays, at the touch
     where it is thin or the position only grows, half a tick (joining the best) on a large-tick book where it pays; no quotes where Gao & Wang's condition fails on
-    both sides; make_size where the limit dwarfs the depth; stop_loss from the wall mid's moves.
+    both sides; make_size where the limit dwarfs the depth; stop_loss from the wall mid's moves. A
+    large-tick book that also drifts gets a note to grid taking only (make_size 0) against the quotes
+    under `worse` fills, where a trend turned joining the best into a loss.
     Prices are in the data's unit, or in the bot's ticks where the format gives one (the drill's).
     """
     notes, tick = row["notes"], row["tick"] or 1.0
@@ -808,6 +810,8 @@ def suggest(row: dict) -> tuple[dict, list[str]]:
     if "large-tick" in notes and "market making pays" in notes:  # not where the margin is thin: standing back is the point there
         out["make_edge"] = tick / 2  # a tick away sits behind a one-tick book and never fills (IDEAS.md, "A large-tick book")
         why.append("large-tick: join the best")
+        if "drifts" in notes:  # a trend turns joining the best into a loss under worse fills (IDEAS.md, "`arena.diagnose --suggest`")
+            why.append("and drifting: grid make_size=0,None against it under --modes worse before trusting these quotes")
     if "pays on neither side" in notes:
         out["make_size"] = 0
         why.append("Gao & Wang: no side pays")
