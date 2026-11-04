@@ -91,6 +91,12 @@ The Varde Exchange, a portal that isn't our engine (`IDEAS.md`, "The kickoff pro
 - [ ] **The ZIP's clock in fill_curve.** The ZIP's `step` was the session's step, the engine's timestamps step × 200, and `RESULT_COLUMNS` has no scale, so fill_curve's book lookups miss. Done when: a `RESULT_TIME_SCALE` (or the format's own step → timestamp map) applies when reading the ZIP.
 - [ ] **EXECUTION's top-ups multiply orders.** A partly filled quote is kept and the difference posted as a new order, so up to 22 orders worked one product: each costs an order fee where there is one, and an action against a cap. Done when: a variant that cancels and re-posts the whole size past N orders is gridded net of the order fee on the Varde data, and kept or dropped.
 
+## Guidebook
+
+- [ ] **A guidebook to the repo and the trading behind it** (the user, 2026-11-04): a field guide (30–40 pages) before the event, a guidebook (100–130 pages) after it, in PDF, EPUB and an audio edition. The proposal, its options and the research dossier: `docs/guidebook/PROPOSAL.md` and `docs/guidebook/research/`.
+  - Decisions for the user (the proposal's §10): the field guide now or not; Quarto or LaTeX; the structure; who writes it; how far the audio goes.
+  - Done when: the field guide is built and read, or the user decides against it; then the guidebook after the event, as a new item.
+
 ## Rehearsal and setup
 
 - [ ] **Run a mock round before the event.** One teammate prepares data in a format the others haven't seen, with a stated bot API. The rest go from nothing to a validated submission in 5 hours, working through `ON_THE_DAY.md`.
