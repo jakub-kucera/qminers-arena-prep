@@ -40,7 +40,7 @@ Before the in-person final of Qminers' own 2024 hackathon (scores reset, a short
 - **Source:** `references/qminers-hackathon-2024/README.md:45-63`; `references/wiki/concepts/risk-and-protecting-a-lead.md:21-22`
 
 ### 7. A relative hedge sized by VaR (Frankfurt Hedgehogs)
-Frankfurt Hedgehogs (Prosperity 3) held a 200k lead. They no longer believed in their option mean-reversion strategy, which had lost about 50k the round before. They kept some of it anyway, because the teams behind them traded only that: if it paid, those teams would catch up. They sized it so its 95% VaR (about 50k) was 25% of the lead. In the last round, about 190k ahead, they half-hedged the baskets.
+Frankfurt Hedgehogs (Prosperity 3) held a 200k lead. They no longer believed in their option mean-reversion strategy, which had lost about 50k the round before. They kept some of it anyway, because the teams behind them traded only that: if it paid, those teams would catch up. They estimated its 95% VaR at about 50,000 SeaShells, "only about 25% of our lead", as a check on keeping it, not a sizing rule. In the last round, about 190k ahead of second, they half-hedged the baskets, and finished second overall: the winner made about 850,000 in that round after "essentially zero" in round 4 *(corrected 2026-11-04: an earlier version said they sized it by VaR; README:3, :616, :765-769)*.
 - **Concept:** hedging against competitors rather than against the market; VaR sizing
 - **Source:** `references/prosperity3-frankfurt-hedgehogs/README.md:616`, `:759`
 
@@ -57,7 +57,7 @@ In P4 round 4 several teams each named a different "informed" Mark (67, 14, 55, 
 ### 10. "The result was a disaster": fit on two days, test on the third
 In P4 round 5 (50 products), Baguette Fromage's scanners found "absurdly profitable" cross-product relationships. When they forced themselves to fit on two days and test on the third, the relationships collapsed: residuals non-stationary, hedge ratios flipping sign. Separately, one product-day (ROBOT_DISHES, day 4) makes 437k of their Robots' backtest, yet live the Robots finished about −4.3k.
 - **Concept:** data mining and multiple testing; one-day concentration
-- **Source:** `references/prosperity4-baguette-fromage/README.md:880-902`, `:1041`; `references/wiki/sources/prosperity4-baguette-fromage.md` (Robots row)
+- **Source:** `references/prosperity4-baguette-fromage/README.md:866-902` (the "basically unlimited alpha" quotation is at :874), `:1041`; `references/wiki/sources/prosperity4-baguette-fromage.md` (Robots row)
 
 ### 11. 96% of a product's profit on one day: size it at 0.06
 Ryan Challman's ROBOT_DISHES had a lag-1 autocorrelation of −0.001, −0.004 and **−0.290** on its three days, and made $389k on day 4 against $11k and $4k. Rather than gate on day 4's regime, they cut the weight from 0.12 to 0.06, as a hedge against the test day not looking like day 4.
