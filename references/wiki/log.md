@@ -518,3 +518,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-04] lint | contradictions row 10 quotes Frankfurt word for word
 - `contradictions`: row 10's "could not properly handle fill probabilities" is now the README's "could not accurately model potential fill probabilities" (`prosperity3-frankfurt-hedgehogs/README.md:900`), found by the field guide's fact-check.
+
+## [2026-11-04] lint | Qminers 2024's simulated field: the script's 16 teams, the README's 20
+- `concepts/risk-and-protecting-a-lead`: "15 rivals" is the script's default (`risk_model/main.py:48`, `team_count=16`); the README describes the final's 20 competitors (`README.md:49`). Both now stated, found by the guidebook's fact-check.
