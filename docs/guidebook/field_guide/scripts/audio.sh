@@ -1,14 +1,13 @@
 #!/bin/sh
-# The audio edition's text: each chapter in _quarto.yml's order through audio.lua, one .txt per chapter in _audio/.
+# The audio edition's text: each chapter in _quarto.yml through audio.lua, one .txt per chapter in _audio/, named so
+# that they sort in reading order (the chapter files are numbered; the preface is 00).
 # usage (from docs/guidebook/field_guide): scripts/audio.sh   (fails if a formula has no speak sentence)
 set -eu
 cd "$(dirname "$0")/.."
 mkdir -p _audio
 rm -f _audio/*.txt
-n=0
 for chapter in $(sed -n 's/^    - \(.*\.qmd\)$/\1/p' _quarto.yml); do
-  n=$((n + 1))
-  out=$(printf '_audio/%02d-%s.txt' "$n" "${chapter%.qmd}")
+  case "$chapter" in index.qmd) out=_audio/00-preface.txt ;; *) out="_audio/${chapter%.qmd}.txt" ;; esac
   pandoc "$chapter" -f markdown -t plain --wrap=none -L scripts/audio.lua | sed -E 's/ +([.,;:])/\1/g' > "$out"
   echo "$out: $(wc -w < "$out" | tr -d ' ') words"
 done

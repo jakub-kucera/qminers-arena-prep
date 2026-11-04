@@ -8,6 +8,11 @@ book:
   date: "2026-11-04"
   chapters:
     - index.qmd
+    - 01-round.qmd
+    - 02-exchange.qmd
+    - 03-price.qmd
+    - 04-market-making.qmd
+    - 05-other-side.qmd
     - 06-backtest.qmd
 
 lang: en-GB

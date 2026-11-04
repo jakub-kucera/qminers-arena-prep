@@ -1,5 +1,7 @@
 # Why is my backtest lying?
 
+*You'll need passive orders and fills (chapter 2), why making earns (chapter 4) and adverse selection (chapter 5).*
+
 ## The story
 
 In Prosperity 4 a team that calls itself Kayzerjali tuned one product, Pepper Root, in the competition's open

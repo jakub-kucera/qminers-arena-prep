@@ -1,0 +1,102 @@
+# What is the price?
+
+*You'll need the order book, the touch, the mid and the walls (chapter 2).*
+
+## The story
+
+In a backtest of Prosperity 4's round 1, our template traded Osmium in one market with three other teams' published
+bots, all with resting orders. It lost 377 thousand. The cause was one number.
+
+The template prices a product at its *wall mid*, the midpoint of the largest order on each side of the book. At tick
+2,400 of day 0 the real wall on the bid side was 23 lots at 9,991. But a rival bot had a 40-lot bid resting at 9,906,
+far below the touch, and 40 is more than 23. So the template took the rival's order for the wall, put its fair value
+at 9,957 against a recorded mid of 10,001.5, 44 below the truth, and spent the session selling into bids that were
+worth more than it thought. Its fair was 5 or more off on 36% of ticks
+[(`IDEAS.md`, "The template against the teams' P4 traders in one market")]{.src}.
+
+The fix was a different definition of "the wall": the first level from the top with at least 15 lots, which a large
+order far from the touch can't capture. With it, the same market made +39 thousand instead of −377 thousand, and on
+every product without rivals it stayed within 2.3% of the old rule [(`IDEAS.md`, "Wall-mid definitions")]{.src}.
+
+## The idea
+
+A market maker quotes around a *fair value*, its estimate of what the product is worth right now. Everything it earns
+is measured from that number, so the first question on any market is how to estimate it from the book.
+
+### The mid is noisy
+
+The mid, halfway between the best bid and the best ask, is the obvious estimate, and on many books it is a poor one.
+The touch is often made of small orders that come and go: a 2-lot bid appears one tick above the rest, and the mid
+jumps half a tick without anything having changed. @fig-mid shows 300 ticks of Prosperity's Kelp.
+
+![The mid and the wall mid over 300 ticks of Prosperity 3's Kelp. Data: `data/mid_and_wall.csv`, from the engine's
+loader.](figures/f04_mid_and_wall.png){#fig-mid
+fig-alt="Two step lines over 300 ticks: the mid flickers by half a tick constantly; the wall mid moves in fewer, larger steps."}
+
+### The walls know more
+
+On Prosperity, each product has a market-making bot that quotes large size, the walls, a fixed distance either side
+of the product's true value. Small orders from other bots sit inside them. So the midpoint of the walls tracks the
+value far better than the mid does:
+
+::: {.eq speak="the wall mid is the midpoint of the largest order on each side of the book"}
+$$\text{wall mid} = \frac{\text{bid wall} + \text{ask wall}}{2}$$
+:::
+
+That is a fact about Prosperity's generator, not a law of markets. On ABIDES, an independent simulator whose traders
+have private views of a hidden value, every estimate we tried, mid, wall mid and the rest, was about 35 ticks from the
+value on average, and smoothing them made it worse [(`IDEAS.md`, "An independent generator: ABIDES's RMSC04")]{.src}.
+Which estimate works is something you measure on the day's data, not something you assume.
+
+### Robust beats clever
+
+The story's lesson is about robustness. "The largest level" is an argmax, and one outlier captures it: anyone who can
+place a large order far from the touch moves your fair value. "The first level from the top with at least 15 lots",
+the template's `sized_mid`, ignores anything behind the real wall. It costs nothing when the book is clean and saves
+everything when it isn't. When other teams' bots share the book, or anyone has a reason to mislead you, prefer the
+estimate a single order can't move.
+
+### A fair value has a timescale
+
+The other choice is how much history the estimate uses. A fair made from this tick's book alone follows every move; a
+smoothed one averages over many ticks and ignores short ones. Neither is right in general. The right timescale is the
+one over which deviations from the fair *come back*.
+
+@fig-window shows how much that matters. On Prosperity 2's coconut coupon, an option, the template traded the
+coupon's deviation from a model price that it averaged over `smile_window` ticks. With a 20-tick window the deviation
+didn't come back: it drifted (its correlation from one tick to the next was 0.89), so fading it lost 266 thousand. With
+a 5,000-tick window the same strategy made 442 thousand, its worst day +114 thousand
+[(`IDEAS.md`, "Prosperity 2 round 4's coconut coupons with the template's options modes")]{.src}.
+
+![One parameter, the fair's timescale, on Prosperity 2's coconut coupon (take_edge 0.5). Data: `data/smile_window.csv`,
+from the IDEAS row's `arena.grid` command.](figures/f08_smile_window.png){#fig-window
+fig-alt="Line chart: PnL against the smile window on a log scale: minus 267 thousand at 20 ticks, plus 100 thousand at 200, 306 thousand at 1,000, 442 thousand at 5,000 and 418 thousand at 20,000."}
+
+Before trading against a deviation, check that it reverts at the horizon you trade it: its autocorrelation, or simply
+whether fading it made money on each day separately.
+
+::: {.callout-note title="If you know ML"}
+A fair value is an estimator of a latent variable from noisy observations, and the usual lessons hold: prefer a
+robust statistic when outliers can appear (a trimmed rule over an argmax), and choose the smoothing window to match the
+signal's timescale, as you would a filter's bandwidth. Where it breaks: the outliers here can be adversarial, placed by
+someone who profits from your error, and the latent "true value" may not exist at all on a market where informed
+traders, not a generator, set the price.
+:::
+
+::: {.callout-tip title="In the repo"}
+- `fair_value` in `python/bots/template.py`, chosen per product by `PARAMS[...]["fair"]` (`mid`, `wall_mid`,
+  `outer_mid`, `sized_mid`, `weighted_mid`, `fixed`), with `wall_size` and `smoothing`.
+- `arena.diagnose` says which estimate is least noisy on the day's data, and suggests a PARAMS entry with `--suggest`.
+- The rows: "Wall-mid definitions", "The template against the teams' P4 traders in one market".
+:::
+
+::: {.callout-important title="On the day"}
+`RUNBOOK.md`, "Each round", T+0:30: new products go into PARAMS by `references/wiki/concepts/reading-the-data-on-day-one.md`,
+which maps each `diagnose` note to a choice of fair value and timescale.
+:::
+
+::: {.callout-note title="Go deeper" appearance="simple"}
+- Stoikov, *The micro-price* (9 pp.): a fair value from the book's imbalance, and why it beats the mid.
+- Bouchaud et al., *Trades, Quotes and Prices*, ch. 7 §7.1–7.3 (PDF pp. 137–145): what the book's volumes say about
+  the next move.
+:::

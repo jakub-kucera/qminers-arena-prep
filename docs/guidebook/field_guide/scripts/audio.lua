@@ -29,7 +29,9 @@ end
 
 -- numbers as a voice should say them: +2,415 "plus", 1,477k "thousand"
 local function Str(el)
-  local text = el.text:gsub("^%+(%d)", "plus %1"):gsub("^[−%-](%d)", "minus %1"):gsub("(%d)k$", "%1 thousand"):gsub("(%d)k([%.,;:%)])", "%1 thousand%2")
+  -- Lua patterns work on bytes, so the minus sign (U+2212, three bytes) is matched as a literal string
+  local text = el.text:gsub("^(%(?)−", "%1minus "):gsub("^(%(?)%-([%d%$])", "%1minus %2"):gsub("^(%(?)%+([%d%$])", "%1plus %2")
+  text = text:gsub("(%d)k$", "%1 thousand"):gsub("(%d)k([%.,;:%)])", "%1 thousand%2")
   if text ~= el.text then
     return pandoc.Str(text)
   end

@@ -19,9 +19,9 @@ line, a committed command) or from a team's write-up marked "their claim". Datas
 | 0 | Preface: how to read this | 300 | | |
 | 1 | What happens in a round? | 1,100 | the Varde rehearsal, end to end | F1 the round's loop |
 | 2 | What is an exchange? | 1,500 | the portal's identity: Session 1's cash −€2,814.63, position +€2,924.84, score €110.21 (`data/sessions.csv`, from the portal's `evaluate`) | F2 an order book; F3 the score's parts |
-| 3 | What is the price? | 1,100 | a rival's far 40-lot order moved the fair by 44 | F4 mid against wall mid |
+| 3 | What is the price? | 1,100 | a rival's far 40-lot order moved the fair by 44 | F4 mid against wall mid; F8 the smile window (the fair's timescale) |
 | 4 | Why does a market maker earn anything? | 1,300 | a copy of the bot cuts each one's income to about 57% (72.7k alone; 41.4k and 41.8k with a copy) | F5 a round trip; F6 income against copies |
-| 5 | Who is on the other side? | 1,400 | ABIDES: the playbook lost, the shuffled days made +4.54M cents (about +$45k) | F7 real against shuffled; F8 the smile window |
+| 5 | Who is on the other side? | 1,400 | ABIDES: the playbook lost, the shuffled days made +4.54M cents (about +$45k) | F7 real against shuffled |
 | 6 | Why is my backtest lying? | 1,400 | +2,415 local against +436 live (their claim) | F9 PnL under each fill model |
 | 7 | How do I know a result is real? | 1,600 | the Marks that weren't informed | F10 the grid under two fill models; F11 days as folds |
 | 8 | What does the portal tell me? | 1,100 | the fee that was 28% of the gross | F12 calibrate's errors |
@@ -118,8 +118,10 @@ installed only when the voice step runs, and `say` stays the fallback. Charts ru
 
 - **4 Nov:** the data and figures (done, a391c5d); chapter 6, "Why is my backtest lying?", as the sample, built to
   HTML for the user to read. Its depth and length set the rest.
-- **4–5 Nov:** chapters 2, 4, 7 and 8 (the most for the day), then 1, 3, 5, 9, 10 and the glossary.
+- **4–5 Nov:** chapters 1–5, then 7 and 8, then 9, 10 and the glossary: in reading order, since the user found
+  chapter 6 heard alone hard to follow without the concepts before it. Each chapter opens with a "You'll need" line
+  naming the terms it uses and where they are defined.
 - **5 Nov, before the 18:00 usage reset:** the fact-check pass (the checklist above) by a second agent.
 - **6 Nov:** PDF, EPUB, the audio text and the voice. Ready a day before the event.
-- **If time runs out,** the guide ships with chapters 2, 4, 6, 7 and 8 and the glossary; chapter 1's tour and the rest
-  follow after the event as part of the guidebook.
+- **If time runs out,** the guide ships with chapters 1–8 and the glossary; 9 and 10 follow after the event as part
+  of the guidebook.
