@@ -33,7 +33,7 @@ almost one for one with the underlying's: the lag was the edge
 [(`references/prosperity4-ryan-challman/README.md:266`)]{.src}. In round 4 they found what that kind of edge depends
 on. While the price rises, a lagging running mean sits below it, so resting sells fill on the rise. On a day that
 drifted down 65 ticks, the same lag left resting buys above the market: the deepest voucher, the one that tracks the
-underlying most mechanically, turned to a loss, and the others that track it lost smaller amounts
+underlying most mechanically, turned to a loss, and the others that track it lost smaller amounts (*their claim*)
 [(`references/prosperity4-ryan-challman/README.md:79-87`)]{.src}.
 
 One fair value was wrong because a single order could move it; the other was right because it was slow. Neither is

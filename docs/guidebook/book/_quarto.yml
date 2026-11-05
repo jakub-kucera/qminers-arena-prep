@@ -26,6 +26,8 @@ format:
       text: |
         \usepackage{multicol}
         \counterwithout{figure}{chapter}
+        \usepackage{fvextra}
+        \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,commandchars=\\\{\}}
     toc: true
     fig-align: center
   epub:

@@ -64,6 +64,7 @@ local function Str(el)
     return pandoc.Str("")
   end
   text = text:gsub("^al%.", "and others"):gsub("^(%(?)PnL", "%1P and L")
+  text = text:gsub("(%a)_(%a)", "%1 %2"):gsub("(%a)_(%a)", "%1 %2")  -- ON_THE_DAY in prose: words, not underscores
   -- Lua patterns work on bytes, so the minus sign (U+2212) and the en dash (U+2013) are matched as literal strings
   text = text:gsub("^(%(?)−", "%1minus "):gsub("^(%(?)%-([%d%$€])", "%1minus %2"):gsub("^(%(?)%+([%d%$€])", "%1plus %2")
   text = text:gsub("(%d)k$", "%1 thousand"):gsub("(%d)k([%.,;:%)])", "%1 thousand%2")

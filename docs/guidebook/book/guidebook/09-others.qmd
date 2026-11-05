@@ -44,8 +44,8 @@ from bots we chose to put in the market, and says what they would do, not what t
 ### What a second bot takes
 
 Chapter 4 put copies of the template beside it: alone on Prosperity 3's round 1 it makes 72,674 credits, beside one copy each makes about 41 thousand [(`data/copies.csv`; `IDEAS.md`, "The template against copies of
-itself")]{.src}. Against three real teams' Prosperity 4 bots, the template kept 45 to 51% of Osmium's spread against
-one of them and 20% against all three [(`IDEAS.md`, "The template against the teams' P4 traders in one market")]{.src}.
+itself")]{.src}. Against three real teams' Prosperity 4 bots, with orders living one tick, the template kept 49 to 58% of its lone
+Osmium income (55,902 credits) against one of them and 28% against all three [(`data/osmium_rivals.csv`; `IDEAS.md`, "The template against the teams' P4 traders in one market")]{.src}.
 
 Theory says the same. In Grossman and Miller's model, as Cartea, Jaimungal and Penalva present it, a trader who must sell [$i$]{speak="i"} units finds [$n$]{speak="n"} market makers willing to take them only at a discount below the
 efficient price [$\mu$]{speak="mu"}, and in equilibrium
@@ -78,7 +78,7 @@ Kelp 0.5 with Resin 1; the grey bar spans all six settings tried. Left, orders t
 rest. Data: `data/rival_field.csv`, from `experiments.day.rival_field --engine rust`.](../figures/g13_rival_field.png){#fig-rival-field
 fig-alt="Two dot plots, one row per market. With orders living one tick, the two settings stay close everywhere, between about 35 and 90 thousand credits. With resting orders, the committed setting collapses where other makers quote nearer fair: 5.4 thousand against a maker at 0.5, 0.9 in a crowd of five, 8.5 among six bots, where Resin at 1 keeps 24.3, 28.5 and 40.4."}
 
-With orders that live one tick, six different settings were best across the 13 markets with rivals, and the one best
+With orders that live one tick, five or six different settings were best across the 13 markets with rivals (six only through a four-way tie), and the one best
 against a copy alone was neither the best worst case nor the best average. With resting orders the choice matters
 far more. Resin's edge of 2 waits for prices a rival quoting nearer fair takes first: in a crowd of five bots the
 committed setting made 0.9 thousand credits where Resin at 1 made 28.5
@@ -112,7 +112,7 @@ quoting every product pays most.
 The zoo is careless; the bots in the repo's rivals folder are built to hurt. In Prosperity 3's round 1 with resting
 orders, against the template as committed, the trapper (a large bait one tick inside the best, which sells to whoever
 steps in front of it) cost us 16.3 thousand and lost 34.3 itself; the spoofer one tick behind the best cost 0.5, the
-one 10 behind 10.2, all on Resin; the sniper, which takes any order one tick through its fair, cost 10.3. A plain copy
+one 10 behind 10.2, all of that on Resin; the sniper, which takes any order one tick through its fair, cost 10.3. A plain copy
 of the template cost 39.7, more than any of them [(`data/adversaries.csv`, from `experiments.day.adversaries --data p3 --days 1 --engine rust`)]{.src}.
 
 What protects the committed bot from the near spoof is Resin's fixed fair, not `sized_mid`. With every product on
@@ -151,7 +151,7 @@ fig-alt="Diagram. Top row: a bot file that trades goes through validate to pass 
 
 Other teams also make mistakes, and their mistakes move the leaderboard as much as their skill does. In Prosperity 3, CMU Physics used Jasper's visualiser, which pushed their submission past 100 MB of memory; the platform restarted it, which wiped the
 rolling windows behind their basket and volcanic rock trades, "causing our trader to effectively buy and sell these products randomly". Together with an implied-volatility fit that stopped fitting on the day, it took them from 7th to 241st in that
-round [(`references/online-snapshots/chrispyroberts_imc-prosperity-3.README.md:230-236`)]{.src}.
+round (*their claim*) [(`references/online-snapshots/chrispyroberts_imc-prosperity-3.README.md:230-236`)]{.src}.
 Meanwhile Alpha Animals' bug left them short the volcanic rock at its limit all day; it happened to pay, and took
 them to 2nd [(`references/prosperity3-alpha-animals/README.md:135`)]{.src}.
 

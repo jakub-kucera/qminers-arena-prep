@@ -147,7 +147,7 @@ with the book restored, and 31,172 when what it took stayed gone: a quarter of t
 
 **How much of each trade we could get.** If others' hidden orders share every trade with us, we get only a part of
 what prints at our price. `--fill-ratio 0.5` halves the available liquidity: the template on round 1 then makes 40,184
-credits per tick instead of 72,674 [(`README.md`, "Fill assumptions matter")]{.src}. The Varde rehearsal's exchange did
+credits over the three days in the default per-tick mode, instead of 72,674 [(`README.md`, "Fill assumptions matter")]{.src}. The Varde rehearsal's exchange did
 exactly this, giving resting orders half of each print, unannounced; chapter 12 tells how calibrate came closest with
 this setting and still refused.
 
@@ -209,8 +209,8 @@ far its scores were from our backtests, and what that did to each round's choice
 :::
 
 ::: {.callout-note title="Go deeper" appearance="simple"}
-- Bouchaud et al., *Trades, Quotes and Prices*, ch. 21 §21.3–21.4 (PDF pp. 413–420): limit against market orders, the
-  value of a place in the queue, and why backtests with phantom orders are biased.
+- Bouchaud et al., *Trades, Quotes and Prices*, ch. 21 §21.3–21.5 (PDF pp. 413–421): limit against market orders, the
+  value of a place in the queue, and (§21.5, p. 421) why backtests with phantom orders are biased.
 - DeLise, *The negative drift of a limit order fill* (28 pp.): why the fills you get are, on average, the ones you
   wouldn't have wanted, and which fill rule a backtester should therefore use.
 :::

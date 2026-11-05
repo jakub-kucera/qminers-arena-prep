@@ -83,8 +83,8 @@ gone.
 Third, a backtest's markouts depend on its fill rule, because the rule decides which fills exist. The doubtful fills,
 trades printed exactly at our price between other bots, are the ones a strict rule leaves out, and DeLise's argument is
 that limit-order fills come with adverse price moves, so a fill rule that treats fills as random arrivals overstates
-a market maker's profit; of the four rules he replays, filling always on an adverse move plus a calibrated share of
-the rest comes closest to the live simulator. The analysis tool, `arena.analysis`, prints the curve for each product with takes and passive fills apart; the passive ones are the market maker's, and the ones to watch.
+a market maker's profit; of the three fill techniques he replays against a live simulator, filling always on an adverse move plus a calibrated
+share of the rest comes closest to it. The analysis tool, `arena.analysis`, prints the curve for each product with takes and passive fills apart; the passive ones are the market maker's, and the ones to watch.
 
 ### Why there is a spread at all
 
@@ -134,7 +134,7 @@ Prosperity 2 and 3, plain market making with orders that live one tick earned a 
 Prosperity 2's round 3, 2,685 over three days. With orders that rest, each quote stays in the book until it fills or
 is cancelled, and when the next snapshot jumps straight through it, it fills at its own stale price. Roses' wall mid
 moves more than half the spread on 63% of ticks; resting, the same quotes lost 1,477,350 credits, having bought and
-sold 114 thousand units that way on one day [(`arena.backtest python/bots/template.py 3 --data p2 --set
+sold well over 100 thousand units that way on one day [(`arena.backtest python/bots/template.py 3 --data p2 --set
 "PARAMS.ROSES={'limit': 60, 'fair': 'wall_mid', 'make_edge': 1}"` and `--resting`, re-run; `IDEAS.md`, "Market making
 on products that jump, with resting orders")]{.src}.
 

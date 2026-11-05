@@ -8,7 +8,7 @@ written yet.
 
 ## What it is
 
-About 125 pages (about 45k words, 5 hours of audio): a preface, sixteen chapters in five parts, five appendices. The
+About 125 pages (about 45k words; built, 129 pages and 4 hours 15 minutes of audio): a preface, sixteen chapters in five parts, five appendices. The
 field guide's ten chapters become ten of the sixteen at about twice the length; six chapters are new. The Arena's real
 rounds, which the field guide can't have, run through every chapter as the main case study, next to the three markets
 the prep used.

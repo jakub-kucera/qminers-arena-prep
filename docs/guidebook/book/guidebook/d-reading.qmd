@@ -69,8 +69,8 @@ for a given number of trials, and the estimator `arena.grid` prints.
   formula on pp. 7–9), Hansen's *Test for superior predictive ability* (16 pages) and Romano and Wolf's *Stepwise
   multiple testing* (36 pages; the studentized step-down on pp. 14–15). They add what chapter 11 states without proof:
   why the DSR's bar rises with the poor cells and why SPA's doesn't.
-- **Sizing:** Thorp, *The Kelly criterion in blackjack, sports betting, and the stock market* (40 pages): the coin on
-  pp. 4–6, fractional Kelly on pp. 24–26, estimated edges on pp. 29–30. It adds the reasons behind chapter 13's
+- **Sizing:** Thorp, *The Kelly criterion in blackjack, sports betting, and the stock market* (40 pages): the coin in
+  §2, from PDF p. 3, fractional Kelly on pp. 24–26, estimated edges on pp. 29–30. It adds the reasons behind chapter 13's
   shading of an estimated edge.
 - **Vocabulary:** Gould et al., *Limit order books*, §1–3, for the order book's terms in one place.
 - **Reference books:** Cartea, Jaimungal and Penalva's *Algorithmic and high-frequency trading*, and the rest of

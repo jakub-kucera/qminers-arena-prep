@@ -112,7 +112,7 @@ the strike, the time left and the volatility. Run it backwards and a market pric
 
 If the model were exactly right, every strike would show the same implied volatility. In Prosperity 3 they don't: plotted against *moneyness*, the log of the strike over the price scaled by the square root of the time left, the
 implied vols trace a curve, the *smile*. The figure below (@fig-voucher-smile) shows Prosperity 3's volcanic rock vouchers on all five of their distinct days. One parabola fits them all; fitted on four days, it misses the fifth by
-under one point of volatility [(`data/voucher_smile_fit.csv`; `IDEAS.md`, "Options: trading implied-volatility deviations from a fitted smile, delta hedging")]{.src}.
+under one point of volatility on average (its worst point by 2.2 to 3.6) [(`data/voucher_smile_fit.csv`; `IDEAS.md`, "Options: trading implied-volatility deviations from a fitted smile, delta hedging")]{.src}.
 
 ![Implied volatility of Prosperity 3's five volcanic rock vouchers against moneyness, on the five distinct days with
 vouchers, and the parabola fitted to all of them. Data: `data/voucher_smile.csv`, from `experiments.day.p3_smile`'s
@@ -158,10 +158,10 @@ trades on each training day chose Olivia alone, and made 54.1 thousand held out,
 failed, so it is not a clean test [(`IDEAS.md`, "Following informed counterparties")]{.src}.
 
 The `jump` mode fades jumps. On one product-day of Prosperity 4, `ROBOT_DISHES`' wall mid sat on multiples of 100 and stepped by
-100, and 87% of its 741 jumps were followed by a move the other way. Holding the limit against each jump made 958.8 thousand
+100, and 87% of its 741 jumps were followed by a move the other way (the jump mode's count; the diagnose note, with its own threshold, counts 743). Holding the limit against each jump made 958.8 thousand
 credits over round 5's three days against 457.8 for plain market making, 429.1 thousand of it on that one product-day.
 A gate makes it safe to switch on everywhere: it trades only once most of the day's jumps have reversed; without it,
-fading every jump lost 184.1 thousand on one day. All of these settings were chosen on these three
+fading every jump made 184.1 thousand less than plain market making on one day, a loss of 37.3 thousand (chapter 7). All of these settings were chosen on these three
 days [(`IDEAS.md`, "Fading jumps that snap back")]{.src}.
 
 ### Edges a replay can't value, and edges that aren't allowed
@@ -171,12 +171,13 @@ of ticks, and Baguette Fromage found that a hidden taker would sometimes lift a 
 side: an expected 18.6 thousand credits a day on Osmium, *their claim*
 [(`references/prosperity4-baguette-fromage/README.md:352-365`)]{.src}. DU reports an admin saying the generator removed 20% of the bots' orders at random
 [(`references/prosperity4-du-trading/README.md:77`)]{.src}. Our engine can't value it at
-all: no recorded trade ever printed outside the visible book, so a far quote fills nothing in any mode
+all: almost no recorded trade printed outside the visible book, and none far enough out, so a quote 20, 50 or 100
+from the wall mid fills nothing in any mode
 [(`IDEAS.md`, "Quoting far away when one side of the book is empty")]{.src}.
 
 And some edges are leaks. Hunting for how another team made 1.2 million in one round, Linear Utility regressed that
 year's prices on the *previous* year's public data: last year's diving gear, times about 3, predicted this year's
-roses with an R-squared of 0.99, and last year's coconuts predicted this year's with a beta of 1.25. They called it "fair
+roses with an R-squared of 0.99, and last year's coconuts predicted this year's with a beta of 1.25 (*their claim*). They called it "fair
 game", since the data was public, and spent the last round trading on known future prices
 [(`references/prosperity2-linear-utility/README.md:176-182`)]{.src}. A year later the bots behaved like the previous
 year's to over 95%, so teams hard-coded trades at known timestamps. Frankfurt Hedgehogs reported it after round 2;

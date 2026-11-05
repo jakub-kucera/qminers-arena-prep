@@ -174,7 +174,7 @@ least as large (the grid's docstring; an adaptation of Masters' test, his book u
 the best cell, 0.80 for its lift); Hydrogel's lift sits far beyond every copy, and its best cell just beyond them
 (both p 0.05, the smallest 19 copies allow). Data:
 `data/permutation_null.csv`, from `arena.grid ... --permute 19`.](../figures/g17_permutation_null.png){#fig-permute
-fig-alt="Dot strips of the shuffled copies with the real result as a diamond. Kelp: the best cell's PnL is 27 thousand against copies from 26 to 30 thousand, and its lift 24 thousand against copies from 23 to 30 thousand. Hydrogel: the best cell is 298 thousand against copies from 161 to 296 thousand, one of them only 0.4 percent below it, and its lift 125 thousand against copies up to 71 thousand."}
+fig-alt="Dot strips of the shuffled copies with the real result as a diamond. Kelp: the best cell's profit is 27 thousand against copies from 26 to 30 thousand, and its lift 24 thousand against copies from 23 to 30 thousand. Hydrogel: the best cell is 298 thousand against copies from 161 to 296 thousand, one of them only 0.4 percent below it, and its lift 125 thousand against copies up to 71 thousand."}
 
 @fig-permute shows both outcomes. On Kelp's 64-cell grid of edges, the copies' searches find as good a best cell and as
 large a lift (the real lift 23,868 credits, the copies' mean 25,833): the choice of edge comes from each tick's book and

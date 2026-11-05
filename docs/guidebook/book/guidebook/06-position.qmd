@@ -111,7 +111,7 @@ Kelp profits of 6,724, 6,247 and 5,727. Over the three days, holding the positio
 nothing. The rest is the spread [(`data/mirror_summary.csv`)]{.src}.
 
 The split has to use the wall mid. Kelp's plain mid flickers around the walls from tick to tick (a lag-1
-autocorrelation of −0.48, chapter 3), so against it much of what the fills earned gets booked as the position's gain:
+autocorrelation of −0.48, by `arena.diagnose`; chapter 3's flicker), so against it much of what the fills earned gets booked as the position's gain:
 4,119 to 5,441 credits a day [(`data/mirror_summary.csv`, `riding_mid`)]{.src}. Chapter 3's noise reaches the
 accounting too.
 
@@ -156,7 +156,7 @@ noise in the mid would explain their loss.
 ### The other levers, a line each
 
 - **`size_skew`** shrinks the quote on the side that adds to the position, Harris's "change the sizes" (Bouchaud and
-  co-authors' equation 17.4). On Kelp, 0 is best: 0.5 costs 91 credits and 4 costs 2,716. Verdict: `dropped here`
+  co-authors' equation 17.4, PDF p. 342). On Kelp, 0 is best: 0.5 costs 91 credits and 4 costs 2,716. Verdict: `dropped here`
   [(`data/size_controls.csv`; `IDEAS.md`, "Inventory control through quote size")]{.src}.
 - **`make_size`** caps each quote. A cap of 20 costs 3 credits on Kelp and nothing on Resin; 10 costs 903 and 625; 5 costs
   3,657 and 5,836. The flow a tick is smaller than the room, so the cap is no risk lever here: `dropped here` as one,

@@ -23,7 +23,7 @@ thousand credits a round, and the bots in the market split it [(`IDEAS.md`, "The
 traders in one market")]{.src}.
 
 In round 2 of the same competition, the organisers offered "extra market access" to every team whose bid was above
-the median bid: about 20% more quotes in their feed, but not 20% more trades. Baguette Fromage, a team whose round 1
+the median bid: about 20% more quotes in their feed, but not 20% more trades (*their claim*, as are the bids below). Baguette Fromage, a team whose round 1
 income came from market making and from quoting on empty sides of the book, read it as a trap. More market makers'
 quotes in the book could only tighten the spread, and fill the empty sides they were earning on. "Why would a rational
 team want to PAY for more market maker competition, let alone have more market maker competition at all (even if for
@@ -91,7 +91,7 @@ $$\frac{\mathbb{E}[\mathcal{G}]}{\nu_0 T} = \frac{\mathbb{E}[s]}{2} - \mathcal{R
 In it, [$s$]{speak="s"} is the spread and [$\mathcal{R}_\infty$]{speak="R infinity"} is the long-run *impact*: after a
 buy, how far the mid ends up above where it was, on average, and the same for sells with the sign flipped (the book's
 eq. 1.9, PDF p. 35). Half the spread is what each fill earns at once; the impact is what the market takes back later.
-On the large stock markets the book studies, the two nearly cancel, and without the exchange's rebates the plain
+On the large stock markets the book studies, the two nearly cancel, and without the exchange's rebates (what an exchange pays back to the orders that rest) the plain
 strategy loses (§17.2.2): making markets is a competitive business with thin margins.
 
 ### Measuring the margin before writing a bot
@@ -142,7 +142,7 @@ Three things decide it, and you control only some of them:
 
 Baguette Fromage's reasoning is the textbook's, in reverse. If market makers earn more than their risk, others join,
 undercut each other's quotes and narrow the spread until the margin is thin. The large stock markets are at the end
-of that process; Prosperity's bots aren't, which is why its margins are a third or more of the spread. In a contest
+of that process; Prosperity's bots aren't, which is why its margins are a quarter to a half of the spread. In a contest
 every team is a potential market maker in the same book, if the book is shared. Each one that quotes at your price
 splits the flow, and each one that quotes inside you takes it.
 

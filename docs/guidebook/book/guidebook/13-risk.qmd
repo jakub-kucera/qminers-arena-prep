@@ -8,10 +8,10 @@ known: everything said here about the Arena is what the organisers had said by t
 
 Qminers' own 2024 hackathon was a sports-betting contest that ended in an in-person final: three rounds, every
 finalist's score reset to 1,000 points, a shorter horizon than the qualifier and so more luck in the result. Before
-it, the eventual winner wrote a small simulation of the final: the twenty finalists, each with a model of its own
-quality and its own appetite for risk, the models correlated with each other (his "Quant factor", after a paper on quant funds that crowded into the
-same trades). He used it to choose the fraction of his bankroll to bet, choosing the fraction that won the
-final most often, not the one that made most on average
+it, the eventual winner wrote a small simulation of the final, of twenty finalists by the README's account (the committed script simulates sixteen
+teams), each with a model of its own quality and its own appetite for risk, the models correlated with each other (his "Quant factor", after a paper on quant funds that crowded into the
+same trades). He used it, by his account (*their claim*: the committed script returns nothing), to choose the fraction of his
+bankroll to bet, the fraction that won the final most often, not the one that made most on average
 [(`references/qminers-hackathon-2024/README.md:41-49`)]{.src}.
 
 He took the lead in the first round and extended it in the second. Before the third he worked out that its data came
@@ -114,7 +114,7 @@ think too high [(`references/prosperity4-ryan-challman/README.md:115-141`)]{.src
 ### Value at risk: size the bet to the lead
 
 Kelly sizes against a bankroll; a leader can size against the lead instead. Prosperity 3's runners-up, Frankfurt
-Hedgehogs, led every round but the last and came into it 200,000 SeaShells ahead, in the game's currency. Their option mean-reversion strategy
+Hedgehogs, led every round but the last and came into it 200,000 SeaShells ahead (the game's currency, which the rest of this book calls credits). Their option mean-reversion strategy
 had lost about 50,000 the round before, and they no longer believed in it on its own merits. But several teams close behind traded
 only that: if it paid, those teams would close the gap. So they kept some of it, as a hedge against their rivals rather
 than against the market. Having decided that, they checked its 95% value at risk, the loss it would exceed only one
@@ -130,7 +130,7 @@ In that round, about 190,000 ahead of the second team, they also half-hedged the
 reversion, to play it safe [(`references/prosperity3-frankfurt-hedgehogs/README.md:759`)]{.src}. They kept a healthy distance to
 every team that had been close behind, the ones they had hedged against, and still finished second: a team from below
 100th place made about 850,000 in the last round, against the 200,000 to 400,000 typical of the top teams, and took
-first [(`references/prosperity3-frankfurt-hedgehogs/README.md:3`, `:616`, `:765-769`)]{.src}. A relative hedge protects
+first (*their claim*) [(`references/prosperity3-frankfurt-hedgehogs/README.md:3`, `:616`, `:765-769`)]{.src}. A relative hedge protects
 against the rivals you can see, not against a long shot that comes off. The standings calculator's hedge
 table prices the same idea: the share of the field's common bet to hold so that a swing can't reorder the ranks. On
 the synthetic field, holding half to all of it cut the steady leader's chance of losing a place from 6% to 4%
@@ -161,7 +161,7 @@ case [(`ON_THE_DAY.md`, "How is PnL scored?")]{.src}. If the total is a weighted
 round's units, and round 1, a simple market while most teams are still learning the API, may be where a prepared team's
 lead is largest, so even at 10% it can matter as much as later rounds. If rounds are normalised or ranked, a big win
 counts little more than a narrow one. If profit carries over into the next round's capital, an early gain compounds and
-an early loss shrinks every later round, as in Qminers' 2024 and 2025 contests
+an early loss shrinks every later round, as in Qminers' 2024 contest (in 2025 a busted team was lent its 1,000 back)
 [(`IDEAS.md`, "Round 1 as the prepared team's largest PnL lead")]{.src}.
 
 So RUNBOOK leaves the decision to the one point where the information exists: before round 4, decide in writing how

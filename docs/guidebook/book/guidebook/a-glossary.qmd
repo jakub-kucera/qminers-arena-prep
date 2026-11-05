@@ -133,7 +133,8 @@ Making, taking
 : Making is posting an order that waits; taking is crossing the book to trade at once and paying the spread. Chapter 2.
 
 Mark
-: The price at which a position is valued when PnL is computed; the portal's `markPrice` averages it over products.
+: The price at which a position is valued when PnL is computed; the Varde portal's `markPrice` averages it over
+  products, and the Arena's may (ON_THE_DAY infers it; calibrate tries both readings).
   Chapters 2, 10 and 12. Also the name Prosperity 4 gave its bots, "Mark 14", "Mark 67", when it showed who traded.
   Chapters 5 and 11.
 
@@ -176,7 +177,8 @@ Permutation test
 
 Pick
 : The grid's chosen setting: the best cell that StepM confirms beats the bot as is under the grid's first fill model,
-  and that also beats it under every other model the grid ran. Chapter 11.
+  and that also beats it under every other model the grid ran (the default gate; once the fill mode is pinned, RUNBOOK
+  gates on the first mode only). Chapter 11.
 
 PnL
 : Profit and loss: cash plus the position valued at the mark. Chapter 2. *ML: the reward, after a choice of reference

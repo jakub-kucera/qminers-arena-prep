@@ -1,11 +1,12 @@
 """The books' data (the field guide's and the guidebook's): every CSV in book/data/, each from a committed command or file.
 
-usage (from the repo root; about 3 minutes, most of it calibrate):
+usage (from the repo root; about 10 minutes on a loaded machine, most of it the guidebook's grids and calibrate):
   uv run python docs/guidebook/book/scripts/make_data.py [--only NAME ...]
 
-Needs the clones (references/clone.sh: P2 and P3's days), data/abides (experiments.abides_days) and the Varde
-rehearsal's sessions, which it rebuilds if they're missing (round4/README.md). Each CSV's first comment line names
-the command it came from; make_figures.py draws them. Standard library only.
+Needs the clones (references/clone.sh: P2, P3 and P4's days, and AlgoTrade's ZSE files in algotrade2026-pitfa19),
+data/abides (experiments.abides_days) and the Varde rehearsal's sessions, which it rebuilds if they're missing
+(round4/README.md). Each CSV's first comment line names the command it came from; make_figures.py draws them.
+The guidebook's steps live in scripts/parts/data_*.py, found here. Standard library only.
 """
 
 from __future__ import annotations

@@ -13,7 +13,8 @@ The final was in person, over a single Saturday: new data, scores reset to the 1
 a shorter horizon, "thus introducing more variance to the competition"
 [(`references/qminers-hackathon-2024/README.md:33-43`)]{.src}.
 
-Before it, he wrote a small simulation of the final: twenty finalists starting level, with models of varying quality,
+Before it, he wrote a small simulation of the final, of twenty finalists by the README (sixteen teams in the
+committed script), all starting level, with models of varying quality,
 correlated with each other, each with its own appetite for risk. He used it to choose how much of his bankroll to
 bet, choosing the fraction that maximised his chance of winning the tournament, not his expected score
 [(`README.md:45-49`)]{.src}. (The code committed for it doesn't run as it stands; the idea carries over, not the

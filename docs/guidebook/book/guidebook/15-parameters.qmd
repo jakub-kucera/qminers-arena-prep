@@ -33,7 +33,7 @@ row in `IDEAS.md` saying what it was tested against, and why this chapter reads 
 
 The ideas file, `IDEAS.md`, is a table with four columns. **Idea** names it in bold, with where it came from. **Result on Prosperity
 data** holds each test, dated, with the command that reproduces it and its numbers; a later test is added under the
-earlier ones, never in their place. **Verdict here** is one of four words. **Re-test on the Arena** says when and how to
+earlier ones, never in their place. **Verdict here** is one of four words (the index also carries a fifth, `mixed`, that the file's header doesn't define). **Re-test on the Arena** says when and how to
 try it again on the real data.
 
 The file defines the four verdicts in its own words:
@@ -52,7 +52,7 @@ says which sign to look for. A verdict cell can name more than one word: a mode 
 product and kept for another. The index at the top of the file, and @fig-verdicts, take the first; the tables below
 name the others.
 
-**A kept row, read in full: "A fixed fair that gives way".** The idea is `fixed_guard`. The result has two tests. On
+**A kept row, read in full: "A fixed fair that gives way".** The idea is `fixed_guard`. The result has three dated entries; the story above quoted the third. On
 15 October, Resin with a guard of 5: the plain days unchanged at 53,976 credits, the trend days 47.6 and 47.1 thousand
 where they had been −10.4 and −10.3 thousand, the worst day +6.9 thousand instead of −3.5 thousand; but doubled
 volatility and a spike up cost more than before. Later the same day, a second test found a flaw: a rival's large order
@@ -127,7 +127,7 @@ here. The linear terms are open: they paid in ABIDES's agent market and cost a l
 | `cross_max`, `cross_excess` | none; Hydrogel's `cross_excess` 25 | cross at most this much a tick, and clear only the part of the gap beyond it | kept ("Passive-first execution toward a target") |
 
 The skew works on the plan's position if every order fills, its net, through one line of `make`
-[(`template.py:821`)]{.src}:
+[(`template.py:847`)]{.src}:
 
 ::: {.eq speak="both quotes move down by the skew times the position's distance above its target as a share of the limit, rounded to whole ticks"}
 $$\text{shift} = \operatorname{round}\!\left(\text{skew} \times \frac{\text{net} - \text{target}}{\text{limit}}\right)$$
