@@ -62,7 +62,7 @@ $$\text{shift} = \operatorname{round}\!\left(\text{skew} \times \frac{\text{posi
 :::
 
 So `skew` is the number of ticks both quotes move at the full limit: long 50 with `skew` 2, the bid drops two
-ticks, so fewer sellers reach it, and the ask drops two, so more buyers do [(`python/bots/template.py:847`)]{.src}.
+ticks, so fewer sellers reach it, and the ask drops two, so more buyers do [(`python/bots/template.py:851`)]{.src}.
 The target is zero unless a product has a reason to hold something, like a steady drift.
 
 ### Avellaneda–Stoikov in words
@@ -189,7 +189,7 @@ with you, and a score that is a rank, not a profit, can make variance cost after
 
 ::: {.callout-tip title="In the repo"}
 - The parameters: `skew`, `size_skew`, `target`, `make_size` and `stop_loss` in the template's `DEFAULTS`
-  [(`python/bots/template.py:65-68`, `:142`)]{.src}; the quote shift in `make` [(`python/bots/template.py:847`)]{.src}.
+  [(`python/bots/template.py:69-72`, `:146`)]{.src}; the quote shift in `make` [(`python/bots/template.py:851`)]{.src}.
 - The mirror test, the flow's share of buys, Harris's test and the skew sweep, on Kelp and Resin:
   `uv run python -m experiments.study.kelp_drift`. The buy share for any download: `arena.diagnose`'s `buys` column.
 - The theory's coefficient: `experiments.day.glft_skew`.

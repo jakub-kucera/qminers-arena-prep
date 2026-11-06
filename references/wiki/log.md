@@ -521,3 +521,7 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-04] lint | Qminers 2024's simulated field: the script's 16 teams, the README's 20
 - `concepts/risk-and-protecting-a-lead`: "15 rivals" is the script's default (`risk_model/main.py:48`, `team_count=16`); the README describes the final's 20 competitors (`README.md:49`). Both now stated, found by the guidebook's fact-check.
+
+## [2026-11-06] lint | the pre-event refresh: no clone moved, template.py citations re-mapped
+- `references/clone.sh --update` moved none of the 21 repos (every pin was already its repo's newest commit) and `--check` passes, so no citation into a clone needed re-reading. `python3 references/check_arena_site.py` shows no change since the 6 Nov build was saved (`ON_THE_DAY.md`, "Known so far").
+- `TOPUP_MIN` (d3528a8) put four lines into `python/bots/template.py`'s DEFAULTS, so every citation of it from line 41 on was four short: all 63 on 32 pages, including `SCHEMA.md`'s example, are re-mapped, each checked against the line it named before. The lint flagged only the 19 that open a definition; it went from 19 warnings to none.

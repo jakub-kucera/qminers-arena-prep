@@ -76,7 +76,7 @@ says that on this flow holding the position cost nothing measurable.
 ### The settings, group by group
 
 The template's 71 settings fall into five groups, plus the ADAPTER's globals. Each table gives the setting's default
-[(`python/bots/template.py:41`)]{.src}, what it does, and the verdict of the row that tested it, named in brackets, with
+[(`python/bots/template.py:45`)]{.src}, what it does, and the verdict of the row that tested it, named in brackets, with
 any sub-option the row drops. Two settings are left out: `reduce_only`, which flattening sets for itself, and
 `day_length`, the timestamps in a day. Where a committed product overrides a default, the table gives an example, not
 every override.
@@ -127,7 +127,7 @@ here. The linear terms are open: they paid in ABIDES's agent market and cost a l
 | `cross_max`, `cross_excess` | none; Hydrogel's `cross_excess` 25 | cross at most this much a tick, and clear only the part of the gap beyond it | kept ("Passive-first execution toward a target") |
 
 The skew works on the plan's position if every order fills, its net, through one line of `make`
-[(`template.py:847`)]{.src}:
+[(`template.py:851`)]{.src}:
 
 ::: {.eq speak="both quotes move down by the skew times the position's distance above its target as a share of the limit, rounded to whole ticks"}
 $$\text{shift} = \operatorname{round}\!\left(\text{skew} \times \frac{\text{net} - \text{target}}{\text{limit}}\right)$$

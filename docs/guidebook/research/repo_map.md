@@ -96,7 +96,7 @@ I read CLAUDE.md, ARCHITECTURE.md, RUNBOOK.md, python/experiments/README.md, IDE
 - **Book level:** a price and its total volume on one side; level 1 is the best.
 - **Wall:** the largest-volume level on a side, the exchange's own market-maker bot. Its quote sits near the true value.
 - **Mid:** (best bid + best ask)/2. It is noisy, because small orders move the best prices.
-- **Wall mid:** the midpoint of the two walls (`model.py:26`, `template.py:459`).
+- **Wall mid:** the midpoint of the two walls (`model.py:26`, `template.py:463`).
   - Variants: `outer_mid` (the outermost levels), `sized_mid` (the first level with at least `wall_size`, robust to rivals' resting orders), `weighted_mid` (the micro-price) and `hysteresis_mid`.
 - **Print / market trade:** a trade between other participants, reported in the data. Our order can fill against a print at our own price when the engine runs with `--match-trades`.
 - **Fill:** our own execution, with a `source` field:

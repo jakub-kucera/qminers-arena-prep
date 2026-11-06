@@ -10,7 +10,7 @@ Prosperity 2's round 4 added a coconut coupon: a call option on coconuts, with a
 expiry. The template's `smile` mode values an option the textbook way, with the Black–Scholes formula at one fixed
 volatility (chapter 8), and then adds the option's own average gap from that value, because real prices sit a little
 off any model. The gap is an exponential average with a span of `smile_window` ticks, started from the first tick's
-gap [(`python/bots/template.py:116`, `:755-756`)]{.src}. The bot buys when the price is half a credit
+gap [(`python/bots/template.py:120`, `:759-760`)]{.src}. The bot buys when the price is half a credit
 below the result and sells when it is half a credit above.
 
 With the default window of 20 ticks the coupon looked like a gift. Its gap from the 20-tick average had a standard
@@ -167,7 +167,7 @@ fig-alt="Grouped bars over nine kinds of day. On plain days all three versions m
 
 The loss stop doesn't save it. The runs with and without the stops are identical when the guard is off, because the
 stop judges today's profit at the bot's own fair value, cash plus the position at fair
-[(`loss_stop`, `python/bots/template.py:503`)]{.src}. A fixed fair that the market has left calls every trade a bargain, so on its own
+[(`loss_stop`, `python/bots/template.py:507`)]{.src}. A fixed fair that the market has left calls every trade a bargain, so on its own
 books the bot is winning. A stop can only see a loss its fair value can see.
 
 With the guard on, the stops cost money instead. When the price shifts up and stays, Resin makes 32.0 thousand with

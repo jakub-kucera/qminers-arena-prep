@@ -18,7 +18,7 @@ A way to describe a market maker's quotes as a volume profile over many price le
 - Many levels and resting orders with queue places; in Prosperity orders live one tick.
 
 ## In our notation
-The template's `size_skew` scales one quote per side by inventory (`python/bots/template.py:66`); a beta profile is the many-level version. In `IDEAS.md`, size skew on Kelp was best at 0.
+The template's `size_skew` scales one quote per side by inventory (`python/bots/template.py:70`); a beta profile is the many-level version. In `IDEAS.md`, size skew on Kelp was best at 0.
 
 ## Traps
 - None found.

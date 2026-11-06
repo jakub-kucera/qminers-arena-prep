@@ -102,15 +102,15 @@ format swap's checklist [(`ON_THE_DAY.md`, "The format swap, step by step")]{.sr
 The template [(`python/bots/template.py`)]{.src} is one self-contained file of about 1,100 lines, standard library only,
 because the competitions run one file. Its state between ticks lives in the string the exchange hands back each call
 (`traderData` on Prosperity). It opens with four globals the ADAPTER owns: `STRICT` (raise on errors; the backtester
-sets it), `DELAY`, `ORDERS_REST` and `MAX_RESTING`. Then the settings. `DEFAULTS` holds 71 of them, each with a comment saying what it does [(`template.py:41`)]{.src};
-`PARAMS` has one entry per product with only what differs [(`template.py:161`)]{.src}. A product's settings are the two merged,
+sets it), `DELAY`, `ORDERS_REST` and `MAX_RESTING`. Then the settings. `DEFAULTS` holds 71 of them, each with a comment saying what it does [(`template.py:45`)]{.src};
+`PARAMS` has one entry per product with only what differs [(`template.py:165`)]{.src}. A product's settings are the two merged,
 the entry winning. A product not in `PARAMS` isn't traded; a key not in `DEFAULTS` raises, which catches typos; and an
 entry without `limit` raises too, because the default limit of 50 is a placeholder [(`params_for`)]{.src}. Chapter 15 goes
 through the settings one group at a time.
 
 **STRATEGY** says what the bot wants, as a `Plan` for each product: the orders that trade with the book now (`takes`)
 and the quotes that wait (`quotes`), kept inside the limit as they are added. The room to buy ignores planned sells,
-because both sides can fill in the same tick. `trade_product` [(`template.py:312`)]{.src} runs the same steps in the same order
+because both sides can fill in the same tick. `trade_product` [(`template.py:316`)]{.src} runs the same steps in the same order
 for every product:
 
 1. **The fair value**, by the product's `fair` method (chapter 3), or from an options smile.
@@ -126,16 +126,16 @@ for every product:
 
 Take and clear use up the levels of a copy of the book, so make sees only what is left.
 
-**EXECUTION** turns the plan into orders, given what is already working. `execute` [(`template.py:935`)]{.src} keeps a
+**EXECUTION** turns the plan into orders, given what is already working. `execute` [(`template.py:939`)]{.src} keeps a
 resting order, and its place in the queue, while a quote on its side at its price still wants at least its size, and
 sends only the difference; it cancels every other resting order; it sends takes as immediate-or-cancel, so nothing
-rests at a crossing price; and it keeps within `MAX_RESTING`. Where orders arrive late, `went` [(`template.py:987`)]{.src}
+rests at a crossing price; and it keeps within `MAX_RESTING`. Where orders arrive late, `went` [(`template.py:999`)]{.src}
 writes each call's cancels and new orders into the product's memory for `DELAY` calls, and `on_the_way`
-[(`template.py:973`)]{.src} reads them back: those orders start the next plan as already planned, and the resting orders
+[(`template.py:985`)]{.src} reads them back: those orders start the next plan as already planned, and the resting orders
 whose cancels haven't landed keep their room, because they may fill first. With `DELAY` 0 nothing is kept. This is the
 Kestrel repair, and it lives here because it is the same on every exchange.
 
-**ADAPTER** [(`template.py:998` to the end)]{.src} is, with the `datamodel` import at the top of the file
+**ADAPTER** [(`template.py:1010` to the end)]{.src} is, with the `datamodel` import at the top of the file
 [(`template.py:28`)]{.src}, the only Prosperity code in it. It reads the exchange's state into
 the template's own book, trades, fills and resting orders, and writes the plan back as the exchange's `Order` and
 `Cancel`. `Trader.run`, the entry point, wraps each product in its own `try`: a product that raises is skipped for that

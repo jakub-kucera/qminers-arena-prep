@@ -46,10 +46,10 @@ The Avellaneda–Stoikov model with a **hard inventory bound Q**, solved exactly
 ## In our notation
 | Paper | Ours |
 |---|---|
-| `S_t` (smoothed mid) | `fair` (`python/bots/template.py:370`) |
+| `S_t` (smoothed mid) | `fair` (`python/bots/template.py:374`) |
 | `Q` | `limit` per product in `PARAMS` |
-| `(1/γ)·ln(1 + γ/k) + ½·c₂`, with `c₂ = √(σ²γ/(2kA)·(1 + γ/k)^{1+k/γ})` | `make_edge` (the half-spread at zero inventory; `python/bots/template.py:63`) |
-| `c₂` per unit of inventory | `skew / limit`: the template shifts both quotes by `round(skew × q / limit)` (`python/bots/template.py:847`), so the closed form is our linear skew with `skew = c₂ × limit` *(inferred from the two formulas)* |
+| `(1/γ)·ln(1 + γ/k) + ½·c₂`, with `c₂ = √(σ²γ/(2kA)·(1 + γ/k)^{1+k/γ})` | `make_edge` (the half-spread at zero inventory; `python/bots/template.py:67`) |
+| `c₂` per unit of inventory | `skew / limit`: the template shifts both quotes by `round(skew × q / limit)` (`python/bots/template.py:851`), so the closed form is our linear skew with `skew = c₂ × limit` *(inferred from the two formulas)* |
 | `μ/(γσ²) × c₂` | a drift shift of both quotes; not in the template |
 | `ξ/2` | an extra edge on both sides for adverse selection; compare with the fill markouts in `python/arena/analysis.py` |
 | `σ` | per-tick volatility of `fair`; Prosperity's tick is 100 timestamps |
