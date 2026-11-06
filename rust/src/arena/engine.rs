@@ -52,6 +52,7 @@ pub struct EngineConfig {
     pub fee_bps: f64,               // charged per fill, in basis points of its value
     pub maker_fee: Option<f64>,     // a passive fill's fee a lot instead of fee (negative: a rebate)
     pub maker_fee_bps: Option<f64>, // a passive fill's basis points instead of fee_bps (negative: a rebate)
+    pub order_fee: f64,             // charged per new order the exchange accepts, filled or not
     pub deplete: bool,              // volume taken from the recorded book stays gone from later snapshots
     pub max_orders: Option<usize>,  // new orders a bot may send a tick; the rest are dropped, an error
     pub max_actions: Option<usize>, // orders and cancels a bot may send a tick; the rest are dropped, an error
@@ -74,6 +75,7 @@ impl Default for EngineConfig {
             fee_bps: 0.0,
             maker_fee: None,
             maker_fee_bps: None,
+            order_fee: 0.0,
             deplete: false,
             max_orders: None,
             max_actions: None,
@@ -254,6 +256,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
     let unit: Vec<f64> = (0..n).map(|p| day.info.get(p).copied().flatten().map_or(1.0, |(_, unit)| unit)).collect();
     let lot_fee: Vec<f64> = unit.iter().map(|u| config.fee / u).collect();
     let maker_lot_fee: Option<Vec<f64>> = config.maker_fee.map(|fee| unit.iter().map(|u| fee / u).collect());
+    let order_cost: Vec<f64> = unit.iter().map(|u| config.order_fee / u).collect();
     let penalty: Option<Vec<f64>> = config.limit_penalty.map(|rate| unit.iter().map(|u| rate / u).collect());
     let mut mark = vec![0.0f64; n];
     let mut last: Vec<Option<f64>> = vec![None; n]; // Mark::Last: each product's last market trade
@@ -360,6 +363,11 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
                 id: next_id + k as u64, product: o.product, price: o.price, quantity: o.quantity, timestamp: ts, owner: i, ahead: 0, seen: 0, traded: 0,
             }));
             next_id += s.placed.len() as u64;
+            if config.order_fee != 0.0 {
+                for live in s.placed.iter() {
+                    player.cash[live.product] -= order_cost[live.product];
+                }
+            }
             player.result.orders.extend(working.iter().filter(|o| o.owner == i).chain(s.placed.iter()).map(|o| (ts, o.view())));
             for k in 0..s.orders.len() {
                 let (ioc, mut live) = (s.orders[k].ioc, s.placed[k].clone());

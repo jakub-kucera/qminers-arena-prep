@@ -28,6 +28,10 @@ STRICT = False
 DELAY = 0  # TODO(day): the rules' or probe 3's delay
 # With DELAY: whether an order that doesn't fill stays on the book between calls.
 ORDERS_REST = True  # TODO(day): False if their orders don't rest
+# Where an exchange charges for every order placed: a quote's shortfall at a price where an order already works is
+# posted only once it reaches this many lots (0 posts every shortfall). 10 paid on the 2026-11-03 rehearsal's portal,
+# 11% fewer orders, +8% public and +6% hidden (IDEAS.md, "Top-ups where every order costs a fee").
+TOPUP_MIN = 0
 
 DEFAULTS = {
     "limit": 50,  # position limit: must match the competition's
@@ -869,7 +873,8 @@ def param_conflicts(product: str) -> list[str]:
 # ------------------------------------------------------------------------------ EXECUTION
 
 
-def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | None = None, sent: list[tuple[int, int, bool]] = ()) -> tuple[list[int], list[tuple[int, int, bool]]]:
+def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | None = None, sent: list[tuple[int, int, bool]] = (),
+            topup_min: int = 0) -> tuple[list[int], list[tuple[int, int, bool]]]:
     """Turns the plan into (order ids to cancel, new orders as (price, signed quantity, ioc)).
 
     resting holds the product's resting orders as (id, price, signed quantity left), oldest
@@ -883,6 +888,8 @@ def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | 
     sent, the orders on their way (on_the_way): its posts will rest and can't be cancelled before
     they do, so they cover the quotes at their price, after the resting orders, and take room
     under max_resting.
+    topup_min (TOPUP_MIN): a shortfall at a price where a kept order already works is posted only once it
+    reaches this many lots, so each partial fill doesn't become another order where every order costs a fee.
     """
     wanted: dict[tuple[bool, int], int] = {}  # (buying, price) -> signed quantity still to send
     for price, quantity in plan.quotes:
@@ -895,6 +902,11 @@ def execute(plan: Plan, resting: list[tuple[int, int, int]], max_resting: int | 
             wanted[key] -= quantity
         else:
             cancels.append(order_id)
+    if topup_min:
+        working = {(quantity > 0, price) for order_id, price, quantity in resting if order_id not in cancels}
+        for key in working:
+            if key in wanted and abs(wanted[key]) < topup_min:
+                wanted[key] = 0
     flying = [(price, quantity) for price, quantity, ioc in sent if not ioc]
     for price, quantity in flying:
         key = (quantity > 0, price)
@@ -1013,7 +1025,7 @@ class Bot:  # TODO(day): their entry class and method (qminers.ENTRY)
                 sent, resting, cancelling = on_the_way(mine, read_resting(api, product))
                 plan = trade_product(product, market.books[product], api.position(product), p, mine, market, sent, cancelling)
                 market.plans[product] = plan
-                cancels, new = execute(plan, resting, sent=sent)  # TODO(day): max_resting=<their cap> if their exchange caps orders working a product
+                cancels, new = execute(plan, resting, sent=sent, topup_min=TOPUP_MIN)  # TODO(day): max_resting=<their cap> if their exchange caps orders working a product
                 went(mine, cancels, new, DELAY, ORDERS_REST)
                 for order_id in cancels:
                     api.cancel(order_id)

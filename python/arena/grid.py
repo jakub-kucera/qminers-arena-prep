@@ -1548,6 +1548,7 @@ def format_scenarios(modes: list, s: Setup) -> str:
             setting += (f", fee {config.fee:g} a lot" if config.fee else "") + (f", fee {config.fee_bps:g} bps" if config.fee_bps else "")
             setting += (f", maker {config.maker_fee:g} a lot" if config.maker_fee is not None else "") + (
                 f", maker {config.maker_fee_bps:g} bps" if config.maker_fee_bps is not None else "")
+            setting += f", {config.order_fee:g} an order" if config.order_fee else ""
             setting += ", deplete" if config.deplete else ""
             setting += f", at most {config.max_orders} orders a tick" if config.max_orders is not None else ""
             setting += f", at most {config.max_actions} actions a tick" if config.max_actions is not None else ""

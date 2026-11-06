@@ -424,6 +424,7 @@ def _engine_args(config: EngineConfig) -> list[str]:
     args += ["--fee-bps", repr(float(config.fee_bps))] if config.fee_bps else []
     args += [] if config.maker_fee is None else ["--maker-fee", repr(float(config.maker_fee))]
     args += [] if config.maker_fee_bps is None else ["--maker-fee-bps", repr(float(config.maker_fee_bps))]
+    args += ["--order-fee", repr(float(config.order_fee))] if config.order_fee else []
     args += ["--deplete"] if config.deplete else []
     args += [] if config.max_orders is None else ["--max-orders", str(config.max_orders)]
     args += [] if config.max_actions is None else ["--max-actions", str(config.max_actions)]

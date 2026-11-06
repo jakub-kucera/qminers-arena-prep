@@ -1051,7 +1051,7 @@ fn scaled(size: i64, factor: f64) -> i64 {
 
 /// Pushes the plan's cancels and new orders: resting holds (id, price, signed quantity left), oldest first;
 /// sent the orders on their way, whose posts cover the quotes at their price and take room under max_resting.
-fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], max_resting: Option<usize>, sent: &[Sent], out: &mut Vec<Action>) {
+fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], max_resting: Option<usize>, sent: &[Sent], topup_min: i64, out: &mut Vec<Action>) {
     let mut wanted: Vec<((bool, Price), i64)> = Vec::with_capacity(2);
     for &(price, quantity) in &plan.quotes {
         let key = (quantity > 0, price);
@@ -1061,13 +1061,24 @@ fn execute(product: usize, plan: &Plan, resting: &[(u64, Price, i64)], max_resti
         }
     }
     let mut kept = resting.len();
+    let mut working: Vec<(bool, Price)> = Vec::new(); // TOPUP_MIN: the sides and prices a kept order works
     for &(id, price, quantity) in resting {
         let key = (quantity > 0, price);
         match wanted.iter_mut().find(|(k, _)| *k == key) {
-            Some((_, v)) if quantity.abs() <= v.abs() => *v -= quantity,
+            Some((_, v)) if quantity.abs() <= v.abs() => {
+                *v -= quantity;
+                working.push(key);
+            }
             _ => {
                 out.push(Action::Cancel(id));
                 kept -= 1;
+            }
+        }
+    }
+    if topup_min > 0 {
+        for (key, v) in wanted.iter_mut() {
+            if working.contains(key) && v.abs() < topup_min {
+                *v = 0;
             }
         }
     }
@@ -1160,6 +1171,7 @@ pub struct Template {
     delay: usize,               // DELAY: steps an order takes to reach the exchange
     orders_rest: bool,          // ORDERS_REST: with a delay, a quote on its way still stands when it arrives
     max_resting: Option<usize>, // MAX_RESTING, where the adapter names none
+    topup_min: i64,             // TOPUP_MIN: a shortfall at a working price posted only from this many lots
     units: Drill, // with adapter.units: each product's tick and unit, and its book in ticks
     settings: Vec<(String, P, bool)>, // PARAMS: product, its merged settings, and whether it depends on another (_depends)
     // Per product of the day, set by begin_day.
@@ -1222,6 +1234,7 @@ impl Template {
                 _ => return Err("the template's ORDERS_REST must be True or False".to_string()),
             },
             max_resting: whole("MAX_RESTING")?,
+            topup_min: whole("TOPUP_MIN")?.unwrap_or(0) as i64,
             units: Drill::default(),
             settings,
             params: Vec::new(),
@@ -1388,7 +1401,7 @@ impl Bot for Template {
             let (cancelling, resting): (Vec<_>, Vec<_>) = listed.into_iter().partition(|o| cancelled(&o.0));
             let plan = trade_product(product, book, positions[product], p, memory, &market, &sent, &cancelling);
             let start = out.len();
-            execute(product, &plan, &resting, a.max_resting.or(self.max_resting), &sent, out);
+            execute(product, &plan, &resting, a.max_resting.or(self.max_resting), &sent, self.topup_min, out);
             if self.delay > 0 {
                 // went: this call's, in ticks, kept for the next DELAY calls
                 let mut cancels = Vec::new();

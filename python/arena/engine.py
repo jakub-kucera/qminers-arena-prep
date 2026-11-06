@@ -48,7 +48,9 @@ and aggressive fills alike. `fee` is in the data's price units, as a person read
 format's decimal prices (Day.info's `unit`, e.g. 0.01) a fee of 0.01 is one engine unit a lot.
 0 is Prosperity's rule. `maker_fee` and `maker_fee_bps`, when set, replace them for passive fills
 (a fill's source "trade" or "cross": the resting side; "book" took a level, the aggressor), and may
-be negative, a rebate: Ready Trader Go charged takers 2 bps and paid makers 1.
+be negative, a rebate: Ready Trader Go charged takers 2 bps and paid makers 1. `order_fee` is charged
+for each new order the exchange accepts (after the caps and the limit check), filled or not, in the
+same units: the 2026-11-03 rehearsal's portal charged 0.5 cents an order, 28% of the bot's gross.
 Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
 exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there).
 Its limits are checked twice, as without a delay: against the position the bot saw when it decided
@@ -134,6 +136,7 @@ class EngineConfig:
     fee_bps: float = 0.0  # charged per fill, in basis points of its value
     maker_fee: float | None = None  # a passive fill's fee a lot instead of fee (negative: a rebate)
     maker_fee_bps: float | None = None  # a passive fill's basis points instead of fee_bps (negative: a rebate)
+    order_fee: float = 0.0  # charged per new order the exchange accepts, filled or not (see the module docstring)
     deplete: bool = False  # volume taken from the recorded book stays gone from later snapshots (see the module docstring)
     max_orders: int | None = None  # new orders a bot may send a tick; the rest are dropped, an error (see the module docstring)
     max_actions: int | None = None  # orders and cancels a bot may send a tick; the rest are dropped, an error
@@ -265,6 +268,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
     unit = price_units(day)
     lot_fee = {p: config.fee / unit[p] for p in day.products}
     maker_lot_fee = {p: config.maker_fee / unit[p] for p in day.products} if config.maker_fee is not None else None
+    order_cost = {p: config.order_fee / unit[p] for p in day.products}
     penalty = {p: config.limit_penalty / unit[p] for p in day.products} if config.limit_penalty is not None else None
 
     def settle(fills: list[Fill]) -> None:
@@ -345,6 +349,9 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
             placed = [_Live(next_id + k, o.product, o.price, o.quantity, tick.timestamp, i, tag=o.tag) for k, o in enumerate(orders)]
             next_id += len(placed)
             owner.update((order.id, i) for order in placed)
+            if config.order_fee:
+                for order in placed:
+                    player.cash[order.product] -= order_cost[order.product]
             player.result.orders.extend((tick.timestamp, order.view()) for order in kept + placed)
             for order, live in zip(orders, placed):
                 # Settled straight away: a fill on another bot's resting order changes its

@@ -76,6 +76,7 @@ Every experiment that backtests takes `--engine rust` (and `--allow-stale`), wit
 | `snooping_null_rates` | How often SPA, StepM and the pick name a cell on null grids, with the `worse` and holdout gates (the second audit's A4), each resample studentized by its own omega and by the data's, and their power on one planted cell | "Bootstrap tests of the best cell" | A check of the statistics, on simulated gains |
 | `snooping_tests` | SPA and StepM next to the DSR on two grids and null controls | "Bootstrap tests of the best cell" | A check of the statistics; `arena.grid` runs them on any data |
 | `stops_held_out` | Do the loss stops hold on days they weren't sized on | "A loss stop per product" | `arena.stress` on the day's data does the same check |
+| `top_ups` | Do EXECUTION's top-ups pay where every order costs a fee? Two variants of `execute` patched into the 2026-11-03 rehearsal's bot and scored by its own portal | "Top-ups where every order costs a fee" | `TOPUP_MIN` kept (0 by default), `PARTS_MAX` dropped |
 | `trade_clustering` | Do the market trades cluster in time (Hawkes) | "Quoting from clustered order flow" | Data only; untested idea |
 | `zoo` | Every zoo bot alone, against the template, in `arena.sim` and in one field | "The LLM zoo" | The day's zoo is written for the Arena's API: score it with `arena.compare` (`ON_THE_DAY.md`, "The round's zoo") |
 | `zoo_h2h` | The template against each zoo bot, per product and fill mode | "Why the zoo beat the template head to head" | As `zoo` |

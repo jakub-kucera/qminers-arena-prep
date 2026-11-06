@@ -8,7 +8,7 @@ The first upload is the calibration pack (ON_THE_DAY.md, "How is PnL scored?"): 
 over every plausible engine setting at once. BOT is the file uploaded, D the data its public run used.
 Each candidate is a matching mode (all, worse, none), per tick or resting with a queue model (back, prob,
 front), a mark (mid, touch, last) and depletion (off, on), on top of the format's ENGINE, times any
-`--vary FIELD=V1,V2` (an EngineConfig field: fee, maker_fee, delay, limit_penalty, ...). Orders a step late are
+`--vary FIELD=V1,V2` (an EngineConfig field: fee, maker_fee, order_fee, delay, limit_penalty, ...). Orders a step late are
 tried by default (delay 0 and 1, unless --vary names delay): 144 settings and up.
 Each is scored against the portal's figures, given as the portal's own field names (the submission page's
 metrics response, pasted into a JSON file, or --portal-set): score, fills, tradedVolume, inventory, cash,
@@ -303,8 +303,8 @@ def main(argv: list[str] | None = None) -> int:
             (factor, _), config = min(scaled, key=lambda item: item[0][1])
             print(f"  - the money: under {describe(config)} every money figure is {factor:.4g} times ours and the rest fit,\n"
                   f"    so the unit or CREDITS is off: re-run with --scale {scale * factor:g}")
-        print("  - a cost the engine doesn't charge (a fee per order or message, the 2026-11-03 rehearsal's 28% of the gross):\n"
-              "    rebuild the score from the results ZIP's fills and orders, and net it out of every backtest")
+        print("  - a cost the settings don't include (a fee per order, the 2026-11-03 rehearsal's 28% of the gross): put the rules'\n"
+              "    fee in the plug-in's ENGINE (order_fee, fee) or try it with --vary order_fee=..., and check it against the ZIP's orders")
         print("  - the wrapper: our ADAPTER or format wrapper does something their exchange doesn't (a cancel of an order\n"
               "    not listed yet, a reject, a cap): compare the results ZIP's orders with arena.backtest --out of the same file")
         path = [n for n in theirs if n in PATH or n.startswith(("fills ", "volume "))]

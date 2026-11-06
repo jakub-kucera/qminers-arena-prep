@@ -163,6 +163,21 @@ def test_a_makers_fee_replaces_the_fee_on_passive_fills_and_can_be_a_rebate():
     assert bps.pnl["X"][0] == pytest.approx(2 - 20 * 100 / 10_000 + 10 * 198 / 10_000)
 
 
+def test_an_order_fee_charges_every_accepted_order_filled_or_not():
+    d = day(tick(0, asks=[(100, 5)], mark=100), tick(1, mark=100))
+    # tick 0: a take that fills, a bid nothing meets, and two orders over the limit of 10 that are rejected (not charged)
+    script = {0: [Order("X", 100, 2), Order("X", 95, 3)], 1: [Order("X", 95, 6), Order("X", 94, 6)]}
+    result = run_day(d, ScriptedBot(script), EngineConfig(order_fee=0.25))
+    assert result.positions["X"] == [2, 2] and result.limit_breaches == [(1, "X")]
+    assert result.pnl["X"] == pytest.approx([-0.5, -0.5])  # two accepted orders, 0.25 each; the rejected ones cost nothing
+
+
+def test_an_order_fee_is_in_the_datas_price_units():
+    d = day(tick(0, asks=[(10_000, 5)], mark=10_000))
+    d.info["X"] = {"tick": 0.05, "unit": 0.01}  # prices in cents: 0.005 a unit of the rules' currency is half a cent
+    assert run_day(d, ScriptedBot({0: [Order("X", 9_000, 1)]}), EngineConfig(order_fee=0.005)).pnl["X"] == pytest.approx([-0.5])
+
+
 def test_deplete_keeps_what_we_took_off_the_book_until_the_recording_goes_below_it():
     levels = ([(101, 5)], [(101, 5)], [(101, 7)], [(101, 2)], [(101, 4)], [], [(101, 5)])
     d = day(*(tick(t, asks=a, mark=100) for t, a in enumerate(levels)))

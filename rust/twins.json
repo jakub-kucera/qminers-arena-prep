@@ -1,7 +1,7 @@
 {
   "python/arena/engine.py": {
     "rust": "rust/src/arena/engine.rs",
-    "sha256": "165d296643cb44de6d928aa9a0e5b09bc53fec154e042d6368f34e2d21ebb0d2"
+    "sha256": "048cf98b53378992d4c222c3f6b89708ebd2905d2c1db66bd514b1b767b40c04"
   },
   "python/arena/formats/prosperity.py": {
     "rust": "rust/src/arena/formats/prosperity.rs",
@@ -79,26 +79,28 @@
   "python/bots/template.py": {
     "kind": "template",
     "rust": "rust/src/bots/template.rs",
-    "sha256": "ebf28f398ef2c41d467a5a18ff139242e27d00b3952a55006cd9b3859877da3b",
+    "sha256": "071bb983f4f1fa531cd08a6c21c117eaca448d3c383b3b91f99e207549c8a64b",
     "reads": [
       "DEFAULTS",
       "PARAMS",
       "DELAY",
       "MAX_RESTING",
-      "ORDERS_REST"
+      "ORDERS_REST",
+      "TOPUP_MIN"
     ]
   },
   "python/bots/drill/template.py": {
     "kind": "drill_template",
     "format": "drill",
     "rust": "rust/src/bots/drill/template.rs",
-    "sha256": "f45d291154a9cf29ed96d441c44beb66cfc3375e872f8ae7c6f370dcd5005cd6",
+    "sha256": "c7fe480f6aacf442a91f1f05409dac422a99b6c5377acf7dfd100035ac8627ce",
     "reads": [
       "DEFAULTS",
       "PARAMS",
       "DELAY",
       "MAX_RESTING",
-      "ORDERS_REST"
+      "ORDERS_REST",
+      "TOPUP_MIN"
     ]
   },
   "python/bots/zoo/chatgpt/gpt-5-6-luna_baseline.py": {

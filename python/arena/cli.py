@@ -109,6 +109,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
                         help="a passive fill's fee a lot instead of --fee, in the data's price units; negative is a rebate")
     parser.add_argument("--maker-fee-bps", type=float, metavar="BPS",
                         help="a passive fill's basis points instead of --fee-bps; negative is a rebate")
+    parser.add_argument("--order-fee", type=float, metavar="PER_ORDER",
+                        help="charge every new order the exchange accepts this much, filled or not, in the data's price units "
+                        "(default: the format's ENGINE, else 0)")
     parser.add_argument(
         "--set",
         dest="overrides",
@@ -150,7 +153,7 @@ def add_engine_argument(parser: argparse.ArgumentParser, help: str | None = None
 
 # The engine flags a format's ENGINE can set; a flag left out keeps the format's value (format_config).
 CONFIG_FLAGS = ("trade_matching", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps",
-                "maker_fee", "maker_fee_bps", "deplete", "max_orders", "max_actions", "max_resting")
+                "maker_fee", "maker_fee_bps", "order_fee", "deplete", "max_orders", "max_actions", "max_resting")
 _ENUMS = {"trade_matching": TradeMatching, "queue": QueueModel, "mark": Mark}
 
 
@@ -213,8 +216,8 @@ def setup(args: argparse.Namespace) -> Setup:
     for name in ("max_orders", "max_actions", "max_resting"):
         if getattr(config, name) is not None and getattr(config, name) < 0:
             raise ValueError(f"--{name.replace('_', '-')} needs 0 or more")
-    if config.fee < 0 or config.fee_bps < 0:
-        raise ValueError("--fee and --fee-bps need 0 or more (a maker's rebate is a negative --maker-fee or --maker-fee-bps)")
+    if config.fee < 0 or config.fee_bps < 0 or config.order_fee < 0:
+        raise ValueError("--fee, --fee-bps and --order-fee need 0 or more (a maker's rebate is a negative --maker-fee or --maker-fee-bps)")
     overrides = dict(parse_override(text) for text in args.overrides)
     return Setup(fmt, days, config, overrides, getattr(args, "rivals", []), getattr(args, "requote", False), getattr(args, "engine", "python"))
 

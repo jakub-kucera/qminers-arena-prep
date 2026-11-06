@@ -522,9 +522,9 @@ def _as_config_twin(monkeypatch, tmp_path, adapter, max_resting=None):
     copy = tmp_path / "arena_template.py"
     text = (rust.ROOT / "python/bots/drill/template.py").read_text()
     if max_resting is not None:
-        call = "execute(plan, resting, sent=sent)"
+        call = "execute(plan, resting, sent=sent, topup_min=TOPUP_MIN)"
         assert text.count(call) == 1
-        text = text.replace(call, f"execute(plan, resting, {max_resting}, sent)")
+        text = text.replace(call, f"execute(plan, resting, {max_resting}, sent, TOPUP_MIN)")
     copy.write_text(text)
     rows = {**rust.twins(), str(copy): {"kind": "template", "format": "drill", "rust": "rust/src/bots/template.rs", "adapter": adapter}}
     monkeypatch.setattr(rust, "_rows", lambda: rows)
