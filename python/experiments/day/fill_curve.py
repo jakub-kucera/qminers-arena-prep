@@ -25,7 +25,7 @@ would only restate the engine's fill rule, so it comes in two halves.
    gets beyond what the next smaller one gets: if the last lots fill only when the price runs
    through, their value falls below d.
 2. **Our own fills, from the portal's results ZIP** (its layout is unknown until the day). RESULT_FILES
-   and RESULT_COLUMNS map its files and columns onto ours, as python/arena/formats/snapshots.py's
+   and RESULT_COLUMNS map its files and columns onto ours (RESULT_PRICE_SCALE and RESULT_TIME_SCALE its units), as python/arena/formats/snapshots.py's
    COLUMNS do for the data; edit only those names on the day. The stand-in is `arena.backtest --out`'s
    CSVs (a folder or a ZIP of it). For each tick our orders rested passively at distance d (from the
    orders file; an order that crossed the book is a take and left out), the share of those ticks with
@@ -90,6 +90,10 @@ RESULT_COLUMNS = {
 SIDES = {"BUY": 1, "B": 1, "BID": 1, "SELL": -1, "S": -1, "ASK": -1}
 RESULT_DELIMITER = ","
 RESULT_PRICE_SCALE = 1  # the data's price units per ZIP price unit (100 if the ZIP has currency and the data cents)
+# The data's timestamp per ZIP time unit, and an offset: 200 where the ZIP counts steps and the plug-in's days
+# stamp step × 200 (the 2026-11-03 rehearsal). Wrong, the fills miss the book they are looked up in.
+RESULT_TIME_SCALE = 1
+RESULT_TIME_OFFSET = 0
 DAY_NAMES: dict[str, str] = {}  # the ZIP's day label -> the data's Day.name, when they differ
 PASSIVE_SOURCES = {"trade", "cross"}
 
@@ -264,7 +268,8 @@ def _read_table(text: str, columns: dict[str, str | None]) -> list[dict]:
         quantity = float(row["quantity"])
         if columns.get("side"):
             quantity = abs(quantity) * SIDES[raw[columns["side"]].strip().upper()]
-        row.update(timestamp=int(float(row["timestamp"])), price=float(row["price"]) * RESULT_PRICE_SCALE, quantity=quantity)
+        row.update(timestamp=int(round(float(row["timestamp"]) * RESULT_TIME_SCALE)) + RESULT_TIME_OFFSET,
+                   price=float(row["price"]) * RESULT_PRICE_SCALE, quantity=quantity)
         out.append(row)
     return out
 

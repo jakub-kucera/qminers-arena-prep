@@ -720,6 +720,19 @@ def test_fill_curve_reads_a_results_zip_and_a_per_tick_all_run_takes_every_print
     mapped = fill_curve.queue_share(day, "KELP", fill_curve.read_results(folder)[day.name])
     assert sum(c["ours"] for c in mapped.values()) / sum(c["market"] for c in mapped.values()) == 1.0
 
+    # A ZIP that counts steps, not timestamps: RESULT_TIME_SCALE maps them back (the 2026-11-03 rehearsal's step × 200).
+    step = day.ticks[1].timestamp - day.ticks[0].timestamp
+    for kind in ("fills", "orders"):
+        path = folder / f"{kind}-{day.name}.csv"
+        rows = list(csv.reader(path.open()))
+        with path.open("w", newline="") as dst:
+            csv.writer(dst).writerows([rows[0]] + [[int(r[0]) // step, *r[1:]] for r in rows[1:]])
+    unscaled = fill_curve.queue_share(day, "KELP", fill_curve.read_results(folder)[day.name])
+    assert sum(c["ours"] for c in unscaled.values()) < sum(c["ours"] for c in mapped.values())  # unscaled, most lookups miss
+    monkeypatch.setattr(fill_curve, "RESULT_TIME_SCALE", step)
+    scaled = fill_curve.queue_share(day, "KELP", fill_curve.read_results(folder)[day.name])
+    assert {k: v["ours"] for k, v in scaled.items()} == {k: v["ours"] for k, v in mapped.items()}
+
 
 def test_fill_curve_counts_a_resting_quote_the_next_snapshot_crossed(tmp_path):
     from arena.engine import EngineConfig, QueueModel, run_day

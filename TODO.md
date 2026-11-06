@@ -87,7 +87,6 @@ The engine-fit rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"
 
 The Varde Exchange, a portal that isn't our engine (`IDEAS.md`, "The kickoff prompts on a disguised round"; `python/experiments/mock_round/round4/`). Fixed in the same commit: calibrate's `--help`, its `markPrice` reading (every product's mean too), the fills-only line and the `fill_ratio` hint, the qminers ADAPTER's limit comment, the suggest-units note, RUNBOOK's `premise --engine rust` before a twin exists.
 - [ ] **A share of each print for resting orders.** The portal gave resting orders half of each print (rounded down); `--fill-ratio 0.5` comes nearest (fills within 2.6%, volume within 10.5%) but draws on all liquidity at random. Done when: the Arena's first upload fits within 5% with `fill_ratio` (close it), or a prints-only deterministic share exists in both engines and calibrate tries it.
-- [ ] **The ZIP's clock in fill_curve.** The ZIP's `step` was the session's step, the engine's timestamps step × 200, and `RESULT_COLUMNS` has no scale, so fill_curve's book lookups miss. Done when: a `RESULT_TIME_SCALE` (or the format's own step → timestamp map) applies when reading the ZIP.
 
 ## Guidebook
 
