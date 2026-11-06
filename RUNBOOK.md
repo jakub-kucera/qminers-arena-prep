@@ -1,9 +1,9 @@
 # Runbook
 
 **Start here.** This page is the day's index: each line names the `ON_THE_DAY.md` section behind it in
-brackets; read only those sections, when the line comes up. Before the plug-in: `ARCHITECTURE.md`'s paragraph "**Formats are plug-ins**".
+brackets; read only those, when the line comes up. Before the plug-in: `ARCHITECTURE.md`'s paragraph "**Formats are plug-ins**".
 Before any product's PARAMS: `references/wiki/concepts/reading-the-data-on-day-one.md`. `KICKOFF_PROMPT.md` is
-the prompt the user pastes to start an agent session (it points back here). `D` is `data/arena/round<N>/`,
+the prompt that starts an agent session (it points back here). `D` is `data/arena/round<N>/`,
 `DAYS` its day specs (`all`), and `BOT` is `python/bots/qminers/template.py` (prepared, `--format qminers` registered).
 
 ## Before the doors open (Sat 08:00)
@@ -38,20 +38,20 @@ the prompt the user pastes to start an agent session (it points back here). `D` 
 - After the first upload: its metrics (JSON) and results ZIP into `uv run python -m experiments.day.calibrate --data D
   --days DAYS --format qminers --bot <that file> --portal metrics.json --results <zip>` (its names mapped, swap step 11);
   the `RESTING` and `ENGINE` it prints go into the plug-in; if it refuses (no fit within 5%), keep them and widen `--modes` ["Which backtest settings match the playground?", "How is PnL scored?"].
-- Write round 1's candidates down in order, with the local result of each ["Spend the round's submissions"].
+- Write round 1's candidates in order, with each one's local result ["Spend the round's submissions"].
 
 ## Each round (T = its start; rounds at 13:00, 19:00, 01:00, 07:00)
 | When | Do |
 |---|---|
-| T+0:00 | Reload the dashboard; download the data (its link goes with the round) and the rules; note the submission deadline, which may come before the end. Write what changed into "Rule changes" and "Products". |
+| T+0:00 | Reload the dashboard; download the data (its link goes with the round) and the rules; note the submission deadline (it may come before the end). Write what changed into "Rule changes" and "Products". |
 | T+0:15 | `arena.diagnose --suggest` and `experiments.day.structure` (repeats, sums, grids) on the new days; backtest last round's bot on them in each mode; `arena.validate` it: the first candidate. `uv run python -m experiments.day.premise --data D --days DAYS --format qminers --bot BOT` (`--engine rust` once the twin exists; round 1 before any prior; later, whether a product changed kind): per product Prosperity-like or agent-like, and the grids to run ["What kind of market is each product?"]. |
 | T+0:30 | New products into PARAMS, by `references/wiki/concepts/reading-the-data-on-day-one.md`. Rounds 2–4: by T+1:00, one alternative to last round's approach against it, and every setting gridded again; last round's choices are priors, not defaults ["Choose the approach again each round"]. Options, baskets, named traders or jumps: the experiment for each (`python/experiments/README.md`). |
 | T+1:00 | `uv run python -m arena.grid BOT DAYS --format qminers --data D --grid PARAMS.<P>.make_edge=0.5,1,1.5,2 --modes <closest>,worse [--screen 0.25]` while the fill mode is uncertain; once the rules or the playground's fills pin it, `--modes <that>,worse,none --gate first --holdout last` (`--holdout 25%` for one day of data); past ~100k cells, `--search tpe --budget 1000`. Change a setting only to the summary's `pick` (the last printed, with `--holdout`; round 1 under a raw-PnL total: the best `pnl` cell beating the bot as is ["How is PnL scored?"]) ["Evaluation data", "Which modes gate the grid's pick"]. Fill model unsure: add a `--scenario` for each one left possible ["Which backtest settings match the playground?"]. |
 | T+1:30 | `uv run python -m arena.stress BOT DAYS --format qminers --data D`; set each `stop_loss` to about 3× its plain drawdown ["Stress the bot"]. If the market is shared: `--vs` copies, the round's zoo through `arena.compare`, and the rivals ["Is the market shared"]. |
-| T+2:00 | A validated bot at least as good as the last one, uploaded; its portal score against our backtest is the engine's error `T`. |
-| deadline − 0:30 | (T+4:30, or earlier if twice the first evaluation's time is longer.) Stop changing the strategy. Validate the final candidate and upload it. |
+| T+2:00 | A validated bot at least as good as the last one, uploaded; its portal score against our backtest is the engine's error `T`. Then `KICKOFF_PROMPT.md`'s improvement loop. |
+| deadline − 0:30 | (T+4:30; earlier if 2× the first evaluation's time is longer.) Stop changing strategy. Validate the final candidate and upload it. |
 | deadline − 0:10 | Check which submission is marked final. Write the handover note (`data/arena/round<N>/HANDOVER.md`, copied from `docs/HANDOVER_TEMPLATE.md`), then commit and push it. |
-| After | Once the private run is done: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.day.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
+| After | After the private run: our PRIVATE entry's results against the public run of the same file; save the leaderboard's data to `data/arena/round<N>/leaderboard.json` and run `uv run python -m experiments.day.leaderboard_curves --read data/arena/round<N>/leaderboard.json --team <ours>`. Both into the handover note ["The day: timeline and roles", "Is the market shared"]. |
 
 ## Rules that hold all day
 - Never upload code `arena.validate` hasn't passed, and never spend a submission on untested code. A `GRAY_AREA`

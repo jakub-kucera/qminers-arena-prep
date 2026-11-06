@@ -25,7 +25,7 @@ Work in this order, and tell me when each step is done:
 3. Our bot: python/bots/qminers/template.py, prepared (PARAMS empty, its seven ADAPTER functions raising until written; the drill's bodies beside them): rewrite only its imports, PARAMS and ADAPTER, as python/bots/drill/template.py was. Every product in the data gets a PARAMS entry, starting from diagnose --suggest's (on a large-tick book that pays, make_edge 0.5; where no side pays, make_size 0).
 4. arena.validate on it, under the fill mode and mark the rules state (or both fill modes they make plausible, if they leave it open), with --time-limit-ms at their limit and --max-size at the dashboard's cap (over the cap: arena.compact, then validate the copy). By <T+2h, HH:MM> I want a validated bot I can upload. That comes before any tuning.
    Once its evaluation completes: save the submission's metrics (the page's API response) as JSON and its results ZIP, and run experiments.day.calibrate on the same file and data (--portal, --results, the ZIP's names mapped first as the swap's step 11 says; --vary fee=... if the rules leave it open; delay 0 and 1 are tried anyway). If it prints RESTING and ENGINE (its worst figure within 5%), put them into the plug-in, so every backtest and grid after that uses it, and tell me which settings it couldn't tell apart. If it refuses, don't paste anything: tell me the cause it names (a scale to re-run with, or our wrapper doing something their exchange doesn't) and keep the plug-in's settings with the grid's --modes widened (ON_THE_DAY.md, "How is PnL scored?"). Also note how long the evaluation took: call it E.
-5. Then improve it: the grid's pick under --modes all,worse until the rules or the playground settle the fill mode, then --modes <that>,worse,none --gate first --holdout last (ON_THE_DAY.md, "Which modes gate the grid's pick?": re-decide it if the official rules fit another option better), arena.stress, the stop losses (converted to each product's ticks), and for each product the settings its diagnose notes point to in the day-one table (e.g. "mid and wall mid both noisy": grid smoothing against fair mid and weighted_mid) and the IDEAS.md rows that fit it. On an agent-like product, the benchmark is a bot that sends nothing, and the grids are premise's: the linear fair (lin_rho3, lin_momentum) where its forecast fires, and the move gate (gate_move). If the trades carry no names, experiments.day.informed may find an informed size class for copy_sizes. Each change must beat the bot before it on held-out days, not only in-sample. If the rules make the total a weighted sum of raw PnL, round 1 runs for expected PnL instead (ON_THE_DAY.md, "How is PnL scored?"): ask me first.
+5. Then improve it, in the improvement loop once I start it (KICKOFF_PROMPT.md, "The improvement loop": one pre-registered experiment an iteration, a board of candidates that differ in kind, each checked by a fresh verifier). Its queue starts from these: the grid's pick under --modes all,worse until the rules or the playground settle the fill mode, then --modes <that>,worse,none --gate first --holdout last (ON_THE_DAY.md, "Which modes gate the grid's pick?": re-decide it if the official rules fit another option better), arena.stress, the stop losses (converted to each product's ticks), and for each product the settings its diagnose notes point to in the day-one table (e.g. "mid and wall mid both noisy": grid smoothing against fair mid and weighted_mid) and the IDEAS.md rows that fit it. On an agent-like product, the benchmark is a bot that sends nothing, and the grids are premise's: the linear fair (lin_rho3, lin_momentum) where its forecast fires, and the move gate (gate_move). If the trades carry no names, experiments.day.informed may find an informed size class for copy_sizes. Each change must beat the bot before it on held-out days, not only in-sample. If the rules make the total a weighted sum of raw PnL, round 1 runs for expected PnL instead (ON_THE_DAY.md, "How is PnL scored?"): ask me first.
 6. At <30 min before the deadline, HH:MM>, or earlier if 2E is longer than 30 minutes: stop changing strategy. Run validate on the final candidate and give me the file to upload.
 
 Rules for you:
@@ -57,11 +57,75 @@ Work in this order:
 1. What changed. Compare this round's rules, products, limits and data with round <N-1>'s: new products, removed ones, changed limits, fees, matching, scoring, news or other new inputs. Go through references/wiki/concepts/harder-rounds.md and say which mechanisms this round shows. Show me this list; while I read it, go on with step 2, but change no bot code until I've answered.
 2. Does last round's bot still run? Run validate on the new data (with --max-size at this round's cap), and backtest it on the new days with last round's --mark and --limit-penalty. Fit those two again from this round's first upload's metrics: scoring can change between rounds. That is the baseline, and an upload candidate as soon as it passes. Run experiments.day.premise on the new days too: a harder round may turn a Prosperity-like product agent-like.
 3. Changes, in this order: the format plug-in and ADAPTER for anything new in the API; then PARAMS for the new products; then the old products' settings, gridded again on this round's data rather than kept from last round (diagnose both). The rounds get harder by design, so last round's choices (strategy, modes, settings, fill model) are a baseline to beat, not a default: by <T+1h, HH:MM>, put at least one alternative against last round's approach, the one this round's diagnose notes point to, and say which of last round's choices you kept without testing. Check that a day isn't repeated from an earlier round before treating it as held out (the grid's repeated-day check).
-4. By <T+2h, HH:MM>: a validated bot at least as good as the baseline on this round's data.
+4. By <T+2h, HH:MM>: a validated bot at least as good as the baseline on this round's data. After its upload, the improvement loop (KICKOFF_PROMPT.md, "The improvement loop"), with this round's CANDIDATES.md; step 3's alternatives go on its board.
    Round 4 only: before choosing how much risk to keep, run experiments.day.standings on rounds 1-3's leaderboards, with and without --growth-from (the round's scale from a proxy field on round 3's data and this round's; it helps under one scoring only until the rules give it), and each candidate's own backtests as --ours (ON_THE_DAY.md, "How is PnL scored?").
 5. At <30 min before the deadline, or 2E if longer, HH:MM>: stop changing strategy, run validate, and give me the file.
 
 The rules from round 1 still hold: I upload; one self-contained, deterministic file under the size cap; one evaluation at a time, so the last upload starts at least 2E before the deadline; ask before anything the rules may forbid, any outside data search, or a long run; write what you learn into the repo and commit each step; a five-line status every hour. This round is worth <weight>%, so <"protect what we have: prefer the grid's worst day over its best PnL" | "we need to catch up: say what it would take">.
+```
+
+## The improvement loop
+
+From the first completed upload (about T+2:00) to the freeze, the session works in iterations: one experiment each, measured the same way, checked by a verifier that didn't build it, and recorded in a state file. The point is not the highest local PnL but a small board of verified candidates that differ in kind, each with its pluses and minuses measured, and a final choice made by a rule written before the scores came in.
+
+- **Start it:** in the same session, after the round prompt's validated bot is uploaded and calibrated, ask the agent to copy `docs/CANDIDATES_TEMPLATE.md` to `data/arena/round<N>/CANDIDATES.md` and fill in its "Round" from `HANDOVER.md`. Check the "Round" section yourself, especially the held-out days and the final rule. Then type the line below. `/loop` without an interval paces itself: each firing is one iteration, and long runs wake it when they finish.
+- **Without `/loop`:** paste the loop block once and add "Repeat the iteration until the freeze."
+- **The verifier** is a fresh subagent that the loop starts itself, with the brief below. A teammate's session on the other laptop can take the brief instead.
+
+```text
+/loop Round <N>'s improvement loop: do one iteration as KICKOFF_PROMPT.md's "The improvement loop" says, from data/arena/round<N>/CANDIDATES.md.
+```
+
+The loop's instructions, read at every iteration:
+
+```text
+One iteration of the improvement loop. Your goal is a board of verified candidates that differ in kind, each with measured pluses and minuses, and a final choice by the rule in CANDIDATES.md's "Round", not the highest local PnL.
+
+1. Orient. Run `date`. Read data/arena/round<N>/CANDIDATES.md in full, and HANDOVER.md's "Portal against local" and "Fill model and mark". Past the freeze: go to step 8. If the last iteration's run has finished, record it (steps 5 to 7) before starting another.
+
+2. Choose one experiment: the top of "Queue". Keep the queue filled from, in this order: what the first upload's calibration and the portal's figures showed; each product's diagnose notes against the day-one table (references/wiki/concepts/reading-the-data-on-day-one.md); premise's grids for agent-like and mixed products; the IDEAS.md rows that fit (its index, the first 150 lines; each row says what to re-test on the day); the ON_THE_DAY.md items the probes have answered. The board must hold candidates that differ in kind, not six neighbours of one setting. By the middle of the loop it has:
+   - A0, the baseline: the first upload, as uploaded;
+   - a robust candidate: the grid's `pick` under the gate (it holds under the fill models still possible, at a lower PnL);
+   - an expected-PnL candidate: the best pnl cell that beats A0 under every gate mode (more variance; the right one when raw PnL is summed: ON_THE_DAY.md, "How is PnL scored?");
+   - a structural alternative: another fair, signal or treatment the notes point to (the linear fair or gate_move on an agent-like product, a level or jump bet, a basket's spread), or on an agent-like product a bot that sends nothing for it;
+   - a defensive candidate: a good one with smaller quotes (make_size), stop losses at about 3x its plain drawdown, and flatten_from if the close is valued badly.
+   Never more than six live candidates: each one is a trial the final comparison pays for. Drop the weakest, with the reason, into "Dropped" before adding a seventh.
+
+3. Pre-register, before running anything: write into the queue item the mechanism (why it should work in this market, in one line, from a pattern in this data, not "the grid may find something"), the exact command, the training days, and the rule that keeps it. The default rule: it beats its parent on the held-out data under every gate mode, by more than T if it would replace an upload, and arena.stress's worst perturbation is not more than 10% worse than its parent's. A rule written after the result doesn't count.
+
+4. Run it, choosing on training days only:
+   - settings: arena.grid with the gate in "Round" and the scenarios still possible, at the steps in ON_THE_DAY.md's "Which modes gate the grid's pick?". Take the summary's `pick`, not the best cell. If the axis-end note fires, widen that axis once; the `finer around` line is one second pass at most;
+   - a pattern bet (a level, jumps, a trend, a signal): also --permute 19 on its grid, and keep it only if p for the lift is at most 0.1;
+   - past 100k cells: --search tpe --budget 1000. A run expected to take over 10 minutes: ask me in the status line first, and take the next queue item meanwhile;
+   - a product the template doesn't fit: a new STRATEGY function behind a setting that defaults off, never a change to the ADAPTER.
+   Each candidate is its own file, python/bots/qminers/candidates/r<N>_<id>_<name>.py: the template with only PARAMS (or a gated STRATEGY addition) changed, and a comment at its top naming its parent, what changed, and the commands that chose it.
+
+5. Measure it, the same way as every other candidate, and fill its board row; each number comes from a command written into "Trials":
+   - `uv run python -m arena.compare <A0's file> DAYS --format qminers --data D --bot <every live candidate> --modes <the gate's modes> [the scenarios]`: PnL per mode, the worst day, each day held out, and PBO, the DSR, SPA and StepM's pick over the whole board (the board is the selection, so re-run it with every candidate, not just the new one);
+   - `uv run python -m arena.stress <file> DAYS --format qminers --data D`: the worst perturbation;
+   - `uv run python -m arena.backtest <file> DAYS --format qminers --data D --metrics` under the calibrated settings: the max drawdown, the |position| quantiles, and the figures the portal will show;
+   - `uv run python -m arena.validate <file> DAYS --format qminers --data D --time-limit-ms <theirs> --max-size <cap>`.
+   Write the pluses and minuses as measured facts ("+8% held out under worse; -30% under the trend perturbation"), and what it relies on (a fill mode, a pattern, the mark, the limit).
+
+6. Verify it independently. A candidate counts as verified only on a fresh verifier's PASS, never on your own reading. Commit, then start one subagent (the Agent tool, a fresh general-purpose agent) with KICKOFF_PROMPT.md's "Verifier brief", the candidate's file path, its board row and its "Trials" lines, and nothing else from this conversation. Paste its report verbatim into "Verifier verdicts", and PASS or FAIL into the row. A FAIL is fixed in a new file and verified again, or the candidate is dropped.
+
+7. Close the iteration. Run `git status` first, so a teammate's changes aren't swept in, then commit CANDIDATES.md and the candidate files in one commit. Give me five lines: done; in progress; the best verified candidate and its held-out PnL; what you need from me; next. If the spending rule says an upload is due (ON_THE_DAY.md, "Spend the round's submissions by a rule written before the first score"), name the candidate and the figures it should show: I upload. If the last two iterations kept nothing, stop searching, and spend the next ones on the board's robustness (stress, the scenarios still possible, smaller sizes).
+
+8. At the freeze: no new experiments. Re-run step 5's compare over the verified candidates and choose by "Round"'s final rule; if it needs me (round 1 under a raw-PnL total), ask. Validate the choice, give me its file and the figures it should show, write HANDOVER.md's "Next round", and stop the loop.
+
+The round prompt's rules still hold: I upload; ask before anything the rules may forbid, any outside data, or a run over 10 minutes; one self-contained deterministic file; gray-area variants marked. Never choose with the held-out days, and never tune to a portal score: a portal score decides only through the spending rule. Never edit A0's file or a verified candidate; make a new one.
+```
+
+### Verifier brief
+
+```text
+You are verifying one candidate bot for a trading competition. You didn't build it: your job is to find reasons it should not be uploaded. Work in the repository's root; CLAUDE.md describes the tools. You have the candidate's file, its row on the candidate board (data/arena/round<N>/CANDIDATES.md) and the "Trials" lines that produced its numbers. Edit no file. Report one line per check, then a verdict:
+1. Reproduce: the file is committed unchanged (`git status`); re-run the row's arena.compare and arena.validate commands and check its numbers within 1%. arena.validate also replays a day again for determinism, other hash seeds and a reload every tick: it must PASS.
+2. What changed: diff the file against its parent (named in its top comment). Every difference is one the row declares; no GRAY_AREA, no file, network or clock access, no unseeded randomness.
+3. No leak: its settings were chosen on training days only (the Trials commands set --holdout, or leave the held-out days out), no held-out day repeats a training day (experiments.day.structure's repeats), and no number in its PARAMS comes from the held-out days.
+4. Robustness: it beats its parent on the held-out data under every gate mode, and arena.stress's worst perturbation is not more than 10% worse than its parent's (or the row says why that is accepted). For a pattern bet, its Trials line shows --permute's p for the lift at most 0.1.
+5. The claim: the row's pluses and minuses match what the numbers show; name any that overstate.
+Last line: PASS, or FAIL and the one thing to fix first.
 ```
 
 ## Without the repository

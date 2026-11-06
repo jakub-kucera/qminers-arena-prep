@@ -21,6 +21,7 @@ data/arena/*
 !data/arena/round*/
 data/arena/round*/*
 !data/arena/round*/HANDOVER.md
+!data/arena/round*/CANDIDATES.md
 !data/arena/round*/leaderboard.json
 
 # Rust build output (rust/target)

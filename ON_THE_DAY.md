@@ -49,7 +49,7 @@ The official times are from the organisers' e-mail of 7 Oct (Known so far). The 
 
 ## Splitting the first hour
 
-Each agent session starts from [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md), the prompt the user pastes: one for round 1 and one for rounds 2–4, with the data, the rules, the deadline and the session's track filled in.
+Each agent session starts from [`KICKOFF_PROMPT.md`](KICKOFF_PROMPT.md), the prompt the user pastes: one for round 1 and one for rounds 2–4, with the data, the rules, the deadline and the session's track filled in. From the first completed upload to the freeze, the same session runs its improvement loop (`/loop`): one pre-registered experiment an iteration, a board of at most six candidates that differ in kind (robust, expected-PnL, structural, defensive, against A0), each measured the same way and passed by a fresh verifier agent, the state in `data/arena/round<N>/CANDIDATES.md` (from `docs/CANDIDATES_TEMPLATE.md`), and the final choice by a rule written there before the scores.
 
 Three tracks can run in parallel (with two of us: A the checklist, then the probes; B the data; "The day: timeline and roles"):
 - **Checklist:** read the docs and fill in every answer they give.
