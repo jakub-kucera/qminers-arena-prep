@@ -1543,6 +1543,7 @@ def format_scenarios(modes: list, s: Setup) -> str:
             setting = f"match {config.trade_matching}, " + (f"resting, queue {config.queue}" + (f" (power {config.queue_power:g})" if config.queue == "prob" else "")
                                                             if config.resting else "per tick")
             setting += (f", fill {config.fill_ratio:g}" if config.fill_ratio != 1 else "") + (f", seed {config.seed}" if config.seed else "")
+            setting += f", {config.print_share:g} of each print" if config.print_share != 1 else ""
             setting += (f", mark {config.mark}" if config.mark != "mid" else "") + (f", limit penalty {config.limit_penalty:g}" if config.limit_penalty is not None else "")
             setting += f", delay {config.delay}" if config.delay else ""
             setting += (f", fee {config.fee:g} a lot" if config.fee else "") + (f", fee {config.fee_bps:g} bps" if config.fee_bps else "")

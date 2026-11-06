@@ -178,6 +178,18 @@ def test_an_order_fee_is_in_the_datas_price_units():
     assert run_day(d, ScriptedBot({0: [Order("X", 9_000, 1)]}), EngineConfig(order_fee=0.005)).pnl["X"] == pytest.approx([-0.5])
 
 
+def test_a_print_share_offers_our_orders_part_of_each_trade_rounded_down_and_the_bots_see_the_rest():
+    trade = MarketTrade("X", 99, 5, "", "", 0)  # a sell of 5 at 99: our bid at 99 is at its price
+    d = day(tick(0, bids=[(98, 5)], asks=[(101, 5)], trades=[trade], mark=100), tick(1, mark=100))
+    bot = ScriptedBot({0: [Order("X", 99, 10)]})
+    full = run_day(d, bot)
+    assert sum(f.quantity for f in full.fills) == 5
+    half = ScriptedBot({0: [Order("X", 99, 10)]})
+    shared = run_day(d, half, EngineConfig(print_share=0.5))
+    assert sum(f.quantity for f in shared.fills) == 2  # half of 5, rounded down
+    assert [t.quantity for t in half.seen[1][2]["X"]] == [3]  # next tick the bot sees the trade less what it took
+
+
 def test_deplete_keeps_what_we_took_off_the_book_until_the_recording_goes_below_it():
     levels = ([(101, 5)], [(101, 5)], [(101, 7)], [(101, 2)], [(101, 4)], [], [(101, 5)])
     d = day(*(tick(t, asks=a, mark=100) for t, a in enumerate(levels)))

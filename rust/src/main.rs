@@ -27,6 +27,7 @@
 //!         --fill-ratio X  --seed N  --mark mid|touch|last  --limit-penalty RATE  --delay TICKS
 //!         --fee PER_LOT  --fee-bps BPS  --maker-fee PER_LOT  --maker-fee-bps BPS (a passive fill's, negative a rebate)
 //!         --order-fee PER_ORDER (each new order the exchange accepts, filled or not)
+//!         --print-share SHARE (each market trade offers our orders only this share, rounded down)
 //!         --deplete (volume taken from the recorded book stays gone while its level shows more)
 //!         --max-orders N (new orders a bot may send a tick; the rest are dropped, an error)
 //!         --product NAME (grid only: the product it varies and trades; default KELP)

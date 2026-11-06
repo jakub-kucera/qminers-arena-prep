@@ -51,6 +51,7 @@ impl Args {
             queue: queue(self.get("--queue").unwrap_or("back")),
             queue_power: number(self.get("--queue-power").unwrap_or("1")),
             fill_ratio: number(self.get("--fill-ratio").unwrap_or("1")),
+            print_share: number(self.get("--print-share").unwrap_or("1")),
             seed: self.get("--seed").unwrap_or("0").parse().unwrap_or_else(|_| fail("--seed needs an integer")),
             mark: mark(self.get("--mark").unwrap_or("mid")),
             limit_penalty: self.get("--limit-penalty").map(number),
@@ -372,6 +373,7 @@ pub fn engine_config(value: &Value) -> Result<EngineConfig, String> {
         queue: queue(text("queue", "back")?),
         queue_power: number("queue_power", 1.0)?,
         fill_ratio: number("fill_ratio", 1.0)?,
+        print_share: number("print_share", 1.0)?,
         seed: value.get("seed").map_or(Some(0), Value::as_i64).ok_or("config seed must be an integer")?,
         mark: mark(text("mark", "mid")?),
         limit_penalty: match value.get("limit_penalty") {

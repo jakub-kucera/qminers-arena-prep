@@ -65,6 +65,7 @@ class Scenario:
     max_actions: int | None = None  # orders and cancels a bot may send a tick
     max_resting: int | None = None  # orders a product may have working at once
     order_fee: float | None = None  # per new order accepted
+    print_share: float | None = None  # the share of each market trade our orders may take
 
     def __str__(self) -> str:
         return self.name
@@ -82,7 +83,7 @@ class Scenario:
         return self == Scenario(self.name, self.trade_matching) and self.trade_matching is not None and self.name == self.trade_matching.value
 
     def config(self, base: EngineConfig) -> EngineConfig:
-        changed = {name: getattr(self, name) for name in ("trade_matching", "resting", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps", "maker_fee", "maker_fee_bps", "deplete", "max_orders", "max_actions", "max_resting", "order_fee")}
+        changed = {name: getattr(self, name) for name in ("trade_matching", "resting", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps", "maker_fee", "maker_fee_bps", "deplete", "max_orders", "max_actions", "max_resting", "order_fee", "print_share")}
         return replace(base, **{name: value for name, value in changed.items() if value is not None})
 
 
@@ -100,7 +101,7 @@ def rivals_for(default: list, mode: Scenario | TradeMatching) -> list:
     return list(mode.rivals) if isinstance(mode, Scenario) and mode.rivals is not None else list(default)
 
 
-KEYS = {"match", "resting", "queue", "power", "fill", "seed", "mark", "penalty", "vs", "delay", "fee", "bps", "mfee", "mbps", "deplete", "cap", "acap", "rcap", "ofee"}
+KEYS = {"match", "resting", "queue", "power", "fill", "seed", "mark", "penalty", "vs", "delay", "fee", "bps", "mfee", "mbps", "deplete", "cap", "acap", "rcap", "ofee", "share"}
 
 
 def parse_scenario(text: str) -> Scenario:
@@ -149,16 +150,18 @@ def parse_scenario(text: str) -> Scenario:
             raise ValueError(f"--scenario {name}: bad {item.strip()!r}") from None
     if found.get("fill", 1.0) <= 0 or found.get("fill", 1.0) > 1:
         raise ValueError(f"--scenario {name}: fill must be in (0, 1]")
+    if found.get("share", 1.0) <= 0 or found.get("share", 1.0) > 1:
+        raise ValueError(f"--scenario {name}: share must be in (0, 1]")
     return Scenario(name, found.get("match"), found.get("resting"), found.get("queue"), found.get("power"), found.get("fill"), found.get("seed"),
                     None if rivals is None else tuple(rivals), found.get("mark"), found.get("penalty"), found.get("delay"),
                     found.get("fee"), found.get("bps"), found.get("mfee"), found.get("mbps"), found.get("deplete"), found.get("cap"),
-                    found.get("acap"), found.get("rcap"), found.get("ofee"))
+                    found.get("acap"), found.get("rcap"), found.get("ofee"), found.get("share"))
 
 
 def add_scenario_argument(parser) -> None:
     parser.add_argument("--scenario", dest="scenarios", action="append", default=[], metavar="NAME:ITEM,...",
                         help="score every run under this fill model too, after the --modes: match=all|worse|none, resting[=no], "
-                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS, fee=PER_LOT, bps=BPS, mfee=PER_LOT, mbps=BPS (a maker's, negative a rebate), ofee=PER_ORDER, deplete[=no], cap=N (new orders a tick), acap=N (orders and cancels a tick), rcap=N (orders working a product), vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
+                        "queue=back|prob|front, power=N, fill=RATIO, seed=N, mark=mid|touch|last, penalty=RATE, delay=TICKS, fee=PER_LOT, bps=BPS, mfee=PER_LOT, mbps=BPS (a maker's, negative a rebate), ofee=PER_ORDER, share=SHARE (of each print), deplete[=no], cap=N (new orders a tick), acap=N (orders and cancels a tick), rcap=N (orders working a product), vs=FILE[@PATH=VALUE...] (repeatable; vs=none for no rivals). "
                         "Repeatable; with one, the summary adds the worst case over all of them (python/arena/scenario.py)")
 
 

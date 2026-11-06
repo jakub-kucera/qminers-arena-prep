@@ -110,6 +110,8 @@ CONFIGS = [
     ("takers 2 bps, makers a 1 bp rebate, two bots, resting", EngineConfig(resting=True, fee_bps=2.0, maker_fee_bps=-1.0), TWO),
     ("takers 0.5 a lot, makers 0.1, worse", EngineConfig(fee=0.5, maker_fee=0.1, trade_matching=WORSE), ONE),
     ("an order fee of 0.5, two bots, resting", EngineConfig(resting=True, order_fee=0.5), TWO),
+    ("half of each print, two bots, resting", EngineConfig(resting=True, print_share=0.5), TWO),
+    ("a third of each print, worse, an order fee", EngineConfig(print_share=1 / 3, trade_matching=WORSE, order_fee=0.25), ONE),
     ("an order fee of 0.25 and 0.5 a lot, per tick", EngineConfig(order_fee=0.25, fee=0.5), ONE),
     ("deplete, one bot", EngineConfig(deplete=True), ONE),
     ("at most 3 orders a tick, two bots, resting", EngineConfig(max_orders=3, resting=True), TWO),

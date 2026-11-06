@@ -68,6 +68,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         help="share of book and market-trade volume available to you; below 1 approximates other teams "
         "competing for the same fills (default: 1)",
     )
+    parser.add_argument("--print-share", type=float, default=None, metavar="SHARE",
+                        help="each market trade offers your orders only this share of its volume, rounded down, the same every "
+                        "time (an exchange whose prints also fill orders its book doesn't show; default: the format's ENGINE, else 1)")
     parser.add_argument("--seed", type=int, default=0, help="seed for --fill-ratio draws (default: 0)")
     parser.add_argument(
         "--mark",
@@ -153,7 +156,7 @@ def add_engine_argument(parser: argparse.ArgumentParser, help: str | None = None
 
 # The engine flags a format's ENGINE can set; a flag left out keeps the format's value (format_config).
 CONFIG_FLAGS = ("trade_matching", "queue", "queue_power", "fill_ratio", "seed", "mark", "limit_penalty", "delay", "fee", "fee_bps",
-                "maker_fee", "maker_fee_bps", "order_fee", "deplete", "max_orders", "max_actions", "max_resting")
+                "maker_fee", "maker_fee_bps", "order_fee", "print_share", "deplete", "max_orders", "max_actions", "max_resting")
 _ENUMS = {"trade_matching": TradeMatching, "queue": QueueModel, "mark": Mark}
 
 
@@ -216,6 +219,8 @@ def setup(args: argparse.Namespace) -> Setup:
     for name in ("max_orders", "max_actions", "max_resting"):
         if getattr(config, name) is not None and getattr(config, name) < 0:
             raise ValueError(f"--{name.replace('_', '-')} needs 0 or more")
+    if not 0 < config.print_share <= 1:
+        raise ValueError("--print-share needs a share above 0 and at most 1")
     if config.fee < 0 or config.fee_bps < 0 or config.order_fee < 0:
         raise ValueError("--fee, --fee-bps and --order-fee need 0 or more (a maker's rebate is a negative --maker-fee or --maker-fee-bps)")
     overrides = dict(parse_override(text) for text in args.overrides)

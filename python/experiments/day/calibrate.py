@@ -27,9 +27,10 @@ cause is usually outside the settings (the audit's round 8, R1): our wrapper or 
 their exchange doesn't (a cancel of an order not yet listed, a reject, a cap), a cost the engine doesn't
 charge (a fee per order), or the money is off by a common factor (the unit or CREDITS; the factor is
 printed when every money figure agrees on it, for --scale). It also prints the setting closest on the
-fills and volume alone, and where ours trade more than theirs under most settings, suggests
---vary fill_ratio (an exchange that gives resting orders only part of each print: the 2026-11-03
-rehearsal's). Then keep the plug-in's ENGINE and widen the grid's --modes. Settings whose every figure is within
+fills and volume alone and the one closest with the end position (inventory, cash) aside, and where ours trade
+more than theirs under most settings, suggests
+--vary print_share (an exchange that gives resting orders only part of each print: the 2026-11-03
+rehearsal's half) and fill_ratio. Then keep the plug-in's ENGINE and widen the grid's --modes. Settings whose every figure is within
 half a per cent of the best's can't be told apart by this upload: the probes decide between them.
 """
 
@@ -58,6 +59,7 @@ ACCEPT = 0.05  # the worst figure's error above which no ENGINE is offered to pa
 MONEY = ("score", "cash", "breachPenalty", "pnlSe")  # figures a wrong unit or CREDITS scales together, the factor read off them
 SCALED = MONEY + ("markPrice",)  # scaled too, but its reading may be another product's: left out of the factor
 PATH = ("fills", "tradedVolume")  # what the fill model alone decides (with the ZIP's per-product fills and volume)
+END = ("inventory", "cash")  # the session's end position, and the cash that moves with it
 
 
 def candidates(base: EngineConfig, vary: dict[str, list]) -> list[EngineConfig]:
@@ -312,8 +314,15 @@ def main(argv: list[str] | None = None) -> int:
             config, _, near, p = min(scored, key=lambda s: max(s[3][n] for n in path))
             over = sum(s[2]["tradedVolume"] > theirs["tradedVolume"] for s in scored) >= 2 / 3 * len(scored) if "tradedVolume" in theirs else False
             print(f"\nClosest on the fills alone ({', '.join(path)}): {describe(config)}, worst {max(p[n] for n in path):.1%} off"
-                  + ("; ours trade more than theirs under most settings: try --vary fill_ratio=0.25,0.5,0.75 (their exchange may"
-                     "\n  give resting orders only part of each print)" if over and max(p[n] for n in path) > args.accept / 100 else ""))
+                  + ("; ours trade more than theirs under most settings: try --vary print_share=0.25,0.5,0.75 (their exchange may"
+                     "\n  give resting orders only part of each print) or --vary fill_ratio=0.25,0.5,0.75" if over and max(p[n] for n in path) > args.accept / 100 else ""))
+        # The end position (inventory, and cash, which moves with it) is one number a few lots can swing a long way:
+        # the setting closest on everything else says whether the flow fits, though no ENGINE is offered from it.
+        flow = [n for n in theirs if n not in END]
+        if flow and len(flow) < len(theirs):
+            config, _, near, p = min(scored, key=lambda s: max(s[3][n] for n in flow))
+            print(f"Closest with the end position aside ({', '.join(n for n in theirs if n in END)} left out): {describe(config)}, "
+                  f"worst {max(p[n] for n in flow):.1%} off; " + ", ".join(f"{n} {p[n]:.1%}" for n in flow[:6]))
         return 0
     print("Into the format plug-in (python/arena/formats/qminers.py):")
     print(f"  RESTING = {best.resting}")

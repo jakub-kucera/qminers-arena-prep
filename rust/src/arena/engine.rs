@@ -44,6 +44,7 @@ pub struct EngineConfig {
     pub queue: QueueModel,
     pub queue_power: f64,
     pub fill_ratio: f64,
+    pub print_share: f64, // the share of each market trade, rounded down, our orders may take
     pub seed: i64,
     pub mark: Mark,
     pub limit_penalty: Option<f64>, // None: rule 2's rejection; a rate: charged for each lot beyond a limit, each tick
@@ -67,6 +68,7 @@ impl Default for EngineConfig {
             queue: QueueModel::Back,
             queue_power: 1.0,
             fill_ratio: 1.0,
+            print_share: 1.0,
             seed: 0,
             mark: Mark::Mid,
             limit_penalty: None,
@@ -275,7 +277,7 @@ pub fn run_market(day: &Day, bots: &mut [(String, &mut dyn Bot)], config: &Engin
         let ts = tick.timestamp;
         let depleted = if config.deplete { Some(deplete(&tick.books, &mut missing)) } else { None };
         let base: &[Option<Book>] = depleted.as_deref().unwrap_or(&tick.books);
-        liquidity(base, tick, config.fill_ratio, &mut rng, &mut books, &mut trades);
+        liquidity(base, tick, config.fill_ratio, config.print_share, &mut rng, &mut books, &mut trades);
         let mut current: Cow<[Option<Book>]> = Cow::Borrowed(base);
         if !resting.is_empty() {
             cross(&mut resting, &mut books, ts, &mut s);
@@ -612,7 +614,7 @@ pub fn breaches(orders: &[Order], position: &[i64], resting: impl Iterator<Item 
 }
 
 /// Mutable copies of what this tick's orders can trade against, with the fill ratio's draws.
-fn liquidity(base: &[Option<Book>], tick: &Tick, fill_ratio: f64, rng: &mut PyRandom, books: &mut [Side], trades: &mut [Vec<Entry>]) {
+fn liquidity(base: &[Option<Book>], tick: &Tick, fill_ratio: f64, print_share: f64, rng: &mut PyRandom, books: &mut [Side], trades: &mut [Vec<Entry>]) {
     let mut available = |volume: i64| if fill_ratio >= 1.0 { volume } else { rng.binomialvariate(volume, fill_ratio) };
     for (side, book) in books.iter_mut().zip(base) {
         side.bids.clear();
@@ -627,6 +629,7 @@ fn liquidity(base: &[Option<Book>], tick: &Tick, fill_ratio: f64, rng: &mut PyRa
         entries.clear();
         entries.extend(product_trades.iter().map(|&trade| {
             let volume = available(trade.quantity);
+            let volume = if print_share < 1.0 { (volume as f64 * print_share) as i64 } else { volume };
             Entry { trade, available: volume, for_buys: volume, for_sells: volume }
         }));
     }

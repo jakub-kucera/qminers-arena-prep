@@ -83,12 +83,6 @@ Both runs of the before/after rehearsal (`IDEAS.md`, "The kickoff prompts on a d
 
 The engine-fit rehearsal (`IDEAS.md`, "The kickoff prompts on a disguised round"; logs in `python/experiments/mock_round/round3/results/`).
 
-## From the 2026-11-03 rehearsal
-
-The Varde Exchange, a portal that isn't our engine (`IDEAS.md`, "The kickoff prompts on a disguised round"; `python/experiments/mock_round/round4/`). Fixed in the same commit: calibrate's `--help`, its `markPrice` reading (every product's mean too), the fills-only line and the `fill_ratio` hint, the qminers ADAPTER's limit comment, the suggest-units note, RUNBOOK's `premise --engine rust` before a twin exists.
-- [ ] **A share of each print for resting orders.** The portal gave resting orders half of each print (rounded down); `--fill-ratio 0.5` comes nearest (fills within 2.6%, volume within 10.5%) but draws on all liquidity at random. Done when: the Arena's first upload fits within 5% with `fill_ratio` (close it), or a prints-only deterministic share exists in both engines and calibrate tries it.
-  - 2026-11-06: with the per-order fee now in the engine, calibrate still refuses the rehearsal's upload, and its closest setting on fills scores further off with the fee (187.74 against 367.62); the remaining gap is which prints fill a resting order, so this item is what would let calibrate fit such an exchange (`IDEAS.md`, "Top-ups where every order costs a fee").
-
 ## Guidebook
 
 - [ ] **A guidebook to the repo and the trading behind it** (the user, 2026-11-04): a field guide (30–40 pages) before the event, a guidebook (100–130 pages) after it, in PDF, EPUB and an audio edition. The proposal, its options and the research dossier: `docs/guidebook/PROPOSAL.md` and `docs/guidebook/research/`.

@@ -51,6 +51,10 @@ format's decimal prices (Day.info's `unit`, e.g. 0.01) a fee of 0.01 is one engi
 be negative, a rebate: Ready Trader Go charged takers 2 bps and paid makers 1. `order_fee` is charged
 for each new order the exchange accepts (after the caps and the limit check), filled or not, in the
 same units: the 2026-11-03 rehearsal's portal charged 0.5 cents an order, 28% of the bot's gross.
+Print share (EngineConfig.print_share): each market trade offers our orders only this share of its
+volume, rounded down, the same every time (fill_ratio's draws are random and thin the book too):
+the 2026-11-03 rehearsal's portal gave resting orders half of each print, as if the rest went to
+orders its book didn't show. The bots still see each trade whole, less what our orders took. 1 is Prosperity's rule.
 Latency (EngineConfig.delay): with delay n, what a bot returns at tick t reaches the
 exchange n ticks later: it meets tick t+n's book and market trades (and, per tick, dies there).
 Its limits are checked twice, as without a delay: against the position the bot saw when it decided
@@ -136,11 +140,12 @@ class EngineConfig:
     fee_bps: float = 0.0  # charged per fill, in basis points of its value
     maker_fee: float | None = None  # a passive fill's fee a lot instead of fee (negative: a rebate)
     maker_fee_bps: float | None = None  # a passive fill's basis points instead of fee_bps (negative: a rebate)
-    order_fee: float = 0.0  # charged per new order the exchange accepts, filled or not (see the module docstring)
     deplete: bool = False  # volume taken from the recorded book stays gone from later snapshots (see the module docstring)
     max_orders: int | None = None  # new orders a bot may send a tick; the rest are dropped, an error (see the module docstring)
     max_actions: int | None = None  # orders and cancels a bot may send a tick; the rest are dropped, an error
     max_resting: int | None = None  # orders a product may have working at once; new ones beyond are dropped, an error
+    order_fee: float = 0.0  # charged per new order the exchange accepts, filled or not (see the module docstring)
+    print_share: float = 1.0  # the share of each market trade, rounded down, our orders may take (see the module docstring)
 
 
 class Bot(Protocol):
@@ -294,7 +299,7 @@ def run_market(day: Day, bots: list[tuple[str, Bot]], config: EngineConfig = Eng
         if config.deplete:
             tick = _deplete(tick, missing)
         taken_now: dict[tuple[str, bool, float], int] = defaultdict(int)
-        books, trades = _liquidity(tick, config.fill_ratio, rng)
+        books, trades = _liquidity(tick, config.fill_ratio, rng, config.print_share)
         if resting:
             crossed, taken = _cross(resting, books, tick.timestamp)
             _spend_crossed(trades, taken)
@@ -537,7 +542,7 @@ def breaches(orders, position, resting, limits) -> set[str]:
     }
 
 
-def _liquidity(tick: Tick, fill_ratio: float, rng: random.Random):
+def _liquidity(tick: Tick, fill_ratio: float, rng: random.Random, print_share: float = 1.0):
     """Mutable copies of what this tick's orders can trade against.
 
     Books become [price, volume] levels. Market trades become
@@ -561,6 +566,8 @@ def _liquidity(tick: Tick, fill_ratio: float, rng: random.Random):
         entries = []
         for trade in tick.trades[product]:
             volume = available(trade.quantity)
+            if print_share < 1:
+                volume = int(volume * print_share)
             entries.append([trade, volume, volume, volume])
         trades[product] = entries
 
