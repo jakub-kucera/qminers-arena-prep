@@ -580,6 +580,23 @@ def test_an_axis_that_never_changes_the_pnl_is_flagged(capsys, bot, data_dir):
     assert "! size never changed" not in text
 
 
+def test_a_best_cell_on_an_axis_end_is_flagged_with_a_finer_grid_around_it():
+    mode = TradeMatching.ALL
+    axes = [grid.Axis("PARAMS.KELP.make_edge", [0.5, 1, 2]), grid.Axis("PARAMS.KELP.size", [0, 10, 20]), grid.Axis("PARAMS.KELP.fair", ["mid", "wall_mid"])]
+    row = lambda values, pnl, failed=False: grid.Row(values, {mode: pnl}, pnl, pnl, 0, failed, pnl)
+    rows = [row((1, 20, "mid"), 30.0), row((2, 10, "mid"), 20.0), row((0.5, 0, "wall_mid"), 99.0, failed=True)]
+    text = grid.format_axis_ends(axes, [mode], rows, "pnl")
+    assert "! the best cell by pnl has KELP.size=20, the axis' highest value" in text
+    assert "make_edge=1" not in text.split("\n")[0] and text.count("\n! ") == 0  # make_edge=1 is inside its axis; the failed cell isn't the best
+    assert text.endswith("--grid PARAMS.KELP.make_edge=0.5..2..0.25 --grid PARAMS.KELP.size=10..20..5 --set PARAMS.KELP.fair=mid")
+    assert grid.parse_axis("PARAMS.KELP.make_edge=0.5..2..0.25").values == [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    assert "below a step of 1" not in text  # 10..20..5 stays whole
+    steps = [grid.Axis("PARAMS.KELP.take_edge", [0, 1, 2])]  # whole numbers a step apart: halved, with the caveat, and no note inside the axis
+    finer, caveat = grid.format_axis_ends(steps, [mode], [row((1,), 1.0)], "pnl").split("\n")
+    assert finer.endswith("--grid PARAMS.KELP.take_edge=0..2..0.5") and caveat.startswith("  (KELP.take_edge below a step of 1: only if")
+    assert grid.format_axis_ends(axes, [mode], [row((1, 20, "mid"), 1.0, failed=True)], "pnl") == ""
+
+
 def test_the_grid_writes_the_pnl_paths_measures_and_sorts_by_them(capsys, bot, data_dir, tmp_path):
     out = tmp_path / "grid.csv"
     code, text = run_main(capsys, bot, data_dir, "--grid", "PARAMS.size=1..3", "--sort", "drawdown", "--out", str(out))

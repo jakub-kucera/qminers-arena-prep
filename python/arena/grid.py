@@ -25,7 +25,10 @@ sd of the days' PnL). A cell is flagged `late` when one window made half a day's
 a stretch without a new high lasting half the day: a lucky late reversal. --sort takes each, and
 --out writes them per mode.
 
-The summary names the best combination by each measure and says whether they agree. With two or
+The summary names the best combination by each measure and says whether they agree. It flags the
+best cell by --sort where it sits on the lowest or highest value of a numeric axis (the best may lie
+past it: widen the axis), and prints a finer grid around it, from the value below to the value above
+at half the step, for one second pass judged by the same gates. With two or
 more days it also holds out each day in turn: the combination with the best PnL on the other days
 is scored on the held-out day. The total of those scores is what choosing by PnL earns on days it
 didn't see, and its gap to the best combination's PnL is the selection bias of a grid this size.
@@ -972,6 +975,49 @@ def format_dead_axes(axes: list[Axis], outcomes: dict[tuple[int, ...], Outcome],
                      "(python/bots/template.py's param_conflicts lists those; arena.validate prints them)" for axis in dead_axes(axes, outcomes, modes))
 
 
+def _numeric(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _plain(value) -> str:
+    return str(value) if isinstance(value, int) else repr(round(value, 10))
+
+
+def format_axis_ends(axes: list[Axis], modes: list[TradeMatching], rows: list[Row], sort: str) -> str:
+    """The best working cell by --sort against its numeric axes: a note for each axis of three or more values
+    where it sits on the lowest or highest (the best may lie past it), and a finer grid around it, from the
+    value below to the value above at half the step (whole numbers stay whole down to a step of 1, then
+    halve with a caveat: an edge takes a fraction, a size or a window doesn't), the other axes held at its
+    values. A second pass only: it adds cells, and so selection bias, to the first."""
+    usable = [row for row in rows if not row.failed]
+    if not usable:
+        return ""
+    best = max(usable, key=sort_keys(modes)[sort])
+    lines, finer, held, fractional = [], [], [], []
+    for axis, value in zip(axes, best.values):
+        values = sorted(set(axis.values)) if all(_numeric(v) for v in axis.values) else None
+        if values is None or len(values) < 2:
+            held.append(f"--set {axis.target}={value}")
+            continue
+        i = values.index(value)
+        if len(values) >= 3 and i in (0, len(values) - 1):
+            lines.append(f"! the best cell by {sort} has {axis.label}={value}, the axis' {'lowest' if i == 0 else 'highest'} value: the best may "
+                         "lie past it, so widen the axis unless that end is a bound the setting can't pass (a size of 0, a share of 1)")
+        low, high = values[max(i - 1, 0)], values[min(i + 1, len(values) - 1)]
+        gap = min(g for g in (value - low, high - value) if g > 0)
+        whole = all(isinstance(v, int) for v in values)
+        step = gap // 2 if whole and gap >= 2 else gap / 2
+        if whole and gap < 2:
+            fractional.append(axis.label)
+        finer.append(f"--grid {axis.target}={_plain(low)}..{_plain(high)}..{_plain(step)}")
+    if finer:
+        lines.append(f"finer around the best cell by {sort}, a second pass judged by the same gates on held-out data: {' '.join(finer + held)}")
+    if fractional:
+        lines.append(f"  ({', '.join(fractional)} below a step of 1: only if the setting takes a fraction, as an edge does; a size or a window "
+                     "doesn't, so --set it at the best cell's value instead)")
+    return "\n".join(lines)
+
+
 def leave_one_day_out(outcomes: dict[tuple[int, ...], Outcome], mode: TradeMatching) -> dict[str, Outcome]:
     """For each day, the combination with the best PnL on the other days (failed ones left out)."""
     usable = [outcome for _, outcome in sorted(outcomes.items()) if not outcome.failed]
@@ -1504,6 +1550,9 @@ def main(argv: list[str] | None = None) -> int:
     dead = format_dead_axes(axes, outcomes, modes)
     if dead:
         print(dead)
+    ends = format_axis_ends(axes, modes, rows, args.sort)
+    if ends:
+        print(ends)
     held_out = format_held_out(axes, modes, outcomes, repeated_days(s.days))
     if held_out:
         print("\n" + held_out)

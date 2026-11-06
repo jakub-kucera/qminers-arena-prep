@@ -256,6 +256,18 @@ best by worse    KELP.make_edge=0, KELP.take_edge=1  (63,072)
 measures disagree: prefer a setting near the top on every measure over the single best pnl
 ```
 
+Each axis only offers the values you wrote, so a coarse axis can step over the best value. Under
+the "best by" lines the summary flags a best cell (by `--sort`) that sits on the lowest or highest
+value of a numeric axis with three or more values: the best may lie past it, so widen the axis,
+unless that end is a bound the setting can't pass. It then prints a finer grid around the cell, from
+the value below to the value above at half the step, with the other axes `--set` to its values
+(`finer around the best cell by pnl, ...: --grid PARAMS.KELP.make_edge=0..2..0.5 ...`). Whole numbers
+stay whole down to a step of 1. Below that it halves them with a caveat, since an edge takes half a
+tick but a size or a window doesn't. Run it once, as a second pass judged by the same gates: it adds
+cells, and with them selection bias. A step finer than about half the data's tick buys little,
+since quotes are whole ticks (`floor(fair − make_edge)`). Past about 100,000 cells, `--search tpe`
+covers a fine grid without running it all (below).
+
 With two or more days, the summary also holds out each day in turn. The best combination by
 PnL on the other days is scored on the day left out, from the runs already done. The total is
 what choosing by PnL earns on days the grid didn't see, and its gap to the best combination is

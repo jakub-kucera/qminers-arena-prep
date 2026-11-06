@@ -525,3 +525,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 ## [2026-11-06] lint | the pre-event refresh: no clone moved, template.py citations re-mapped
 - `references/clone.sh --update` moved none of the 21 repos (every pin was already its repo's newest commit) and `--check` passes, so no citation into a clone needed re-reading. `python3 references/check_arena_site.py` shows no change since the 6 Nov build was saved (`ON_THE_DAY.md`, "Known so far").
 - `TOPUP_MIN` (d3528a8) put four lines into `python/bots/template.py`'s DEFAULTS, so every citation of it from line 41 on was four short: all 63 on 32 pages, including `SCHEMA.md`'s example, are re-mapped, each checked against the line it named before. The lint flagged only the 19 that open a definition; it went from 19 warnings to none.
+
+## [2026-11-06] lint | arena.grid flags a best cell on an axis's end
+- `python/arena/grid.py` gained `format_axis_ends` (the best cell by `--sort` on the lowest or highest value of a numeric axis, and a finer grid around it at half the step) and three docstring lines: `sources/superior-predictive-ability`'s `FINE_TICKS` citation is now `grid.py:131`, and `concepts/validation-and-overfitting`'s `format_snooping` is `grid.py:1263` (a single-line citation, which the lint doesn't check for a definition).
