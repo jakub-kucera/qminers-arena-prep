@@ -528,3 +528,7 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 
 ## [2026-11-06] lint | arena.grid flags a best cell on an axis's end
 - `python/arena/grid.py` gained `format_axis_ends` (the best cell by `--sort` on the lowest or highest value of a numeric axis, and a finer grid around it at half the step) and three docstring lines: `sources/superior-predictive-ability`'s `FINE_TICKS` citation is now `grid.py:131`, and `concepts/validation-and-overfitting`'s `format_snooping` is `grid.py:1263` (a single-line citation, which the lint doesn't check for a definition).
+
+## [2026-11-07] lint | literature_md's conversions out of git; the lint skips what a fresh clone lacks
+- `literature_md/<slug>/` (the converted papers and books) left the history on 2026-11-07, before the repository is shared with the organisers (`TODO.md`, "Which repository is the mandatory research repository?"); the folder's `README.md`, `convert.sh` and `pdfpage.py` stay. The conversions stay on disk where they were made, so citations into them resolve here as before.
+- `lint.py` reports a citation into an absent conversion as skipped, as it does for an absent clone, and no longer resolves a page's citations against our own files when the page's clone is absent (a fresh clone's `README.md:270` used to find the root README: 61 errors there, now 0).

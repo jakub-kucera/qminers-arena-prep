@@ -1,8 +1,9 @@
 # literature_md
 
 Market-microstructure literature converted from `../literature_raw/*.pdf` to markdown with
-[Marker](https://github.com/datalab-to/marker), so it can be searched and read by Claude. The
-converted output is committed; the source PDFs in `literature_raw/` are gitignored. Regenerate with
+[Marker](https://github.com/datalab-to/marker), so it can be searched and read by Claude. Neither is
+committed: the source PDFs in `literature_raw/` and the converted output (`<slug>/`) stay on disk, out of the
+history since 2026-11-07, because the repository is shared and the papers and books are not ours to redistribute. Regenerate with
 `./convert.sh` (setup is in the script header).
 
 **Start from the wiki, not from here.** `../references/wiki/index.md` (section "Literature") lists the documents

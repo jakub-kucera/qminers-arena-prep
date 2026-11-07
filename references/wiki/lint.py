@@ -7,7 +7,8 @@ followed by its PDF page, `(p. N)` or `(p. N, checked)`, and N must agree with t
 (literature_md/pdfpage.py); formulas marked `unchecked` are counted. A line that cites the literature and quotes a
 formula needs `checked` or `unchecked` on one of its literature citations (a heuristic; `Traps` sections, which
 quote OCR slips, are exempt), and an `unchecked` citation under "What it means for our code" is an error.
-Citations into a clone that is not present (references/clone.sh not run) are reported as skipped, not as errors.
+Citations into a clone that is not present (references/clone.sh not run), or into a literature_md/ conversion that
+isn't (the conversions stay on disk, out of git since 2026-11-07), are reported as skipped, not as errors.
 A cited range into our own Python code (python/bots/, python/arena/, python/experiments/) must start a definition: a `def`, `class`,
 decorator, assignment, annotated field or dict entry. These files change, and a range that starts mid-function,
 in a docstring or at an import has usually been left behind by an edit (a warning).
@@ -76,8 +77,11 @@ def resolve(path: str, repo: str | None) -> Path | None:
 
 
 def clone_missing(path: str, repo: str | None) -> bool:
-    """True if the citation points into a clone folder that is absent (not cloned here)."""
+    """True if the citation points into a clone folder that is absent (not cloned here), or into a literature_md/
+    conversion that is (never committed: a fresh clone has only the folder's README and scripts)."""
     first = path.split("/")[0]
+    if first == "literature_md" and path.count("/") >= 2 and not (ROOT / "/".join(path.split("/")[:2])).is_dir():
+        return True
     if repo and repo != "none" and not ((REFERENCES / repo).is_dir() or (ROOT / repo).is_dir()):
         return True
     clones = ("prosperity", "algotrade", "uchicago", "qminers", "hftbacktest", "online-snapshots")
@@ -189,7 +193,8 @@ def main(argv: list[str]) -> int:
         for match in CITATION.finditer(text):
             path, start, end = match.groups()
             cites += 1
-            found = resolve(path, repo)
+            absent = repo and repo != "none" and not ((REFERENCES / repo).is_dir() or (ROOT / repo).is_dir())
+            found = None if absent else resolve(path, repo)  # the page's clone absent, its `README.md:270` would find ours
             if found is None:
                 if clone_missing(path, repo):
                     skipped += 1
