@@ -532,3 +532,6 @@ Two comment lines added to Kelp's entry in `python/bots/template.py` PARAMS shif
 ## [2026-11-07] lint | literature_md's conversions out of git; the lint skips what a fresh clone lacks
 - `literature_md/<slug>/` (the converted papers and books) left the history on 2026-11-07, before the repository is shared with the organisers (`TODO.md`, "Which repository is the mandatory research repository?"); the folder's `README.md`, `convert.sh` and `pdfpage.py` stay. The conversions stay on disk where they were made, so citations into them resolve here as before.
 - `lint.py` reports a citation into an absent conversion as skipped, as it does for an absent clone, and no longer resolves a page's citations against our own files when the page's clone is absent (a fresh clone's `README.md:270` used to find the root README: 61 errors there, now 0).
+
+## [2026-11-09] lint | the Arena site's snapshot is not published
+- `concepts/harder-rounds.md` quoted the Arena site through `references/arena-site-snapshot.txt`, a copy of the site's text that this public repository leaves out; its citations now name the site (arena.qminers.com, October 2026) instead of the file.

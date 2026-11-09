@@ -18,15 +18,15 @@ Speed is most likely a budget we already meet, not a race (section E).
 
 ## What the sources say
 
-**What the Arena says about itself** (`arena-site-snapshot.txt`, read 2026-10-10):
-- **The rounds get harder by design.** "Starting with a forgiving market to learn the basics, building up to a sophisticated finale where the best performers will stand out" (`arena-site-snapshot.txt:153`). The weights may rise with it: 10/20/30/40% in strings the site never shows, so unconfirmed (`ON_THE_DAY.md`, "Known so far", 2026-10-25).
-- **A simulator, not a recording.** It "will simulate a realistic exchange", which "mimics a limit order book, without many real-world operational complexities" (`arena-site-snapshot.txt:151-152`). That argues against network latency, disconnects and multi-venue routing (*inferred*).
+**What the Arena says about itself** (the Arena site's text (October 2026), read 2026-10-10):
+- **The rounds get harder by design.** "Starting with a forgiving market to learn the basics, building up to a sophisticated finale where the best performers will stand out" (the Arena site, arena.qminers.com, October 2026). The weights may rise with it: 10/20/30/40% in strings the site never shows, so unconfirmed (`ON_THE_DAY.md`, "Known so far", 2026-10-25).
+- **A simulator, not a recording.** It "will simulate a realistic exchange", which "mimics a limit order book, without many real-world operational complexities" (the Arena site, arena.qminers.com, October 2026). That argues against network latency, disconnects and multi-venue routing (*inferred*).
 - **Four skills, each a lever the organisers can pull:**
-  - "Read price action, order flow, and market microstructure" (`arena-site-snapshot.txt:174-175`).
-  - Machine learning: "Pattern recognition, prediction models, and adaptive strategies" (`arena-site-snapshot.txt:177`).
-  - Game theory: "Anticipate competitors, optimize for edge, manage risk" (`arena-site-snapshot.txt:180-181`).
-  - Coding: "Build robust, fast, and reliable execution systems" (`arena-site-snapshot.txt:183-184`).
-- **The host** is "a proprietary trading firm ... specializing in algorithmic trading and extreme low-latency engineering" (`arena-site-snapshot.txt:188`).
+  - "Read price action, order flow, and market microstructure" (the Arena site, arena.qminers.com, October 2026).
+  - Machine learning: "Pattern recognition, prediction models, and adaptive strategies" (the Arena site, arena.qminers.com, October 2026).
+  - Game theory: "Anticipate competitors, optimize for edge, manage risk" (the Arena site, arena.qminers.com, October 2026).
+  - Coding: "Build robust, fast, and reliable execution systems" (the Arena site, arena.qminers.com, October 2026).
+- **The host** is "a proprietary trading firm ... specializing in algorithmic trading and extreme low-latency engineering" (the Arena site, arena.qminers.com, October 2026).
 - **Reruns must reproduce.** There is a public backtest and a private evaluation, and the organisers rerun the top solutions to check them (`ON_THE_DAY.md`, "Known so far"). A rerun that must give the same score means a deterministic evaluation: a replay, or a simulator with a fixed seed. It rules out anything that depends on how fast the bot ran on the wall clock (*inferred*).
 
 **What Qminers did last time** (the 2024 Quant Hackathon, [source](../sources/qminers-hackathon-2024.md)):
@@ -72,7 +72,7 @@ An organiser who wants to separate a team from its agent would build a round aro
   Every order, ours included, moves the price, and the agents react. Latency there is a configured delay per agent (50 ns of "computation delay"), not measured CPU time.
 
 ## Where they disagree
-- **Speed:** the host's low-latency identity and "fast ... execution systems" (`arena-site-snapshot.txt:184`, `arena-site-snapshot.txt:188`) point one way. "Without many real-world operational complexities" (`arena-site-snapshot.txt:152`), a Python-only submission and reproducible reruns point the other. The reading that fits all of them: a time budget per call or per run that the bot must meet, not a race decided by microseconds. Probe 8 in `ON_THE_DAY.md` settles it.
+- **Speed:** the host's low-latency identity and "fast ... execution systems" (the Arena site, arena.qminers.com, October 2026) point one way. "Without many real-world operational complexities" (the Arena site, arena.qminers.com, October 2026), a Python-only submission and reproducible reruns point the other. The reading that fits all of them: a time budget per call or per run that the bot must meet, not a race decided by microseconds. Probe 8 in `ON_THE_DAY.md` settles it.
 - **Shared or not:** unchanged, see [shared market](shared-market-and-adversaries.md). The finale is the likeliest round to be shared, since game theory is one of the four advertised skills (*inferred*).
 
 ## What it means for our code
@@ -223,7 +223,7 @@ Not recommended now: speed work beyond the `traderData` check (E).
 
 ## Sources
 - Literature: [ABIDES](../sources/abides-simulator.md), [Get Real](../sources/lob-simulation-realism.md), [Wang & Wellman](../sources/spoofing-abm.md), [Wang, Hoang & Wellman](../sources/trading-under-manipulation.md), [Gu et al.](../sources/spoofability-and-liquidity.md), [Das](../sources/learning-market-maker.md), [Adams & MacKay](../sources/online-changepoint-detection.md).
-- Local: [Qminers 2024](../sources/qminers-hackathon-2024.md) (with `first_stage_scores.png`), `arena-site-snapshot.txt`, [AlgoTrade (pitfa19)](../sources/algotrade2026-pitfa19.md), [Negative Eevee](../sources/algotrade2026-negative-eevee.md), [UChicago 2026](../sources/uchicago-trading-2026.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md).
+- Local: [Qminers 2024](../sources/qminers-hackathon-2024.md) (with `first_stage_scores.png`), the Arena site's text (October 2026), [AlgoTrade (pitfa19)](../sources/algotrade2026-pitfa19.md), [Negative Eevee](../sources/algotrade2026-negative-eevee.md), [UChicago 2026](../sources/uchicago-trading-2026.md), [DTU](../sources/prosperity4-dtu-quant-lab.md), [Baguette Fromage](../sources/prosperity4-baguette-fromage.md).
 - Web, through fetch summaries only ([online articles](../sources/online-articles.md)):
   - [Optiver, "Where AI trading models work"](https://www.optiver.com/insights/technology-blog/where-ai-trading-models-work-and-where-they-still-fall-short/)
   - [Ready Trader Go, "How to play"](https://readytradergo.optiver.com/how-to-play/)
