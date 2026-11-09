@@ -1,5 +1,33 @@
 # Qminers Algo Trade Arena prep
 
+## About this repository (written after the event)
+
+Team ThatsMyQuant's month of preparation for the Qminers Algo Trade Arena (7–8 Nov 2026), from the first commit on
+7 Oct to the morning of the event (7 Nov, 09:13), before the organisers' starter code and the real API arrived.
+The event itself, our bots, results and what the market turned out to be, is in the hackathon repository
+(`qminers-arena-2026`); we finished 16th of 61.
+
+Nothing about the Arena's API was known in advance, so all of this was built on IMC Prosperity data and its bot
+format as a stand-in. The premise did not hold: the Arena's market was one instrument, a generated tape replayed
+against our orders rather than a market of bots that react, and in three of the four rounds it rewarded taking on a
+forecast over making markets. The strategies here did not transfer; the habits did (learn online from the tape, check
+every change on held-out data, keep a record of every idea), and the engine and its validator carried into the event.
+
+What may still be useful to others:
+- **A backtester for Prosperity-format data** (`python/arena/`) whose fills matched jmerle's `prosperity3bt` exactly
+  in 15 comparisons, with grid search, stress tests, a simulated market and charts, and a **Rust twin** of the engine
+  and bots (`rust/`), about 130 times faster per backtest, kept in step with the Python by hashes and parity tests.
+- **An LLM zoo** (`python/bots/zoo/`): 32 trading bots written by different models (Claude, ChatGPT, Gemini, open
+  models) from one specification and set of prompts, run head to head against our template.
+- **A wiki of the market-making literature** (`references/wiki/`, 120 pages: concepts, sources, contradictions),
+  maintained by agents from converted papers and books; the conversions themselves are not included.
+- **`IDEAS.md`**: 115 ideas tested on Prosperity data with their numbers, and the agent-run mock rounds
+  (`python/experiments/mock_round/`) that rehearsed the event.
+
+Everything below is the README as it stood on the morning of the event.
+
+---
+
 Tooling for the Qminers Algo Trade Arena (7–8 Nov 2026, MFF UK, Prague): a backtester, a
 parameter grid search, charts and fill statistics, a pre-submission validator and a
 single-file bot template. Until the real API is known,
