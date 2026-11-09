@@ -4,8 +4,8 @@
 
 Team ThatsMyQuant's month of preparation for the Qminers Algo Trade Arena (7–8 Nov 2026), from the first commit on
 7 Oct to the morning of the event (7 Nov, 09:13), before the organisers' starter code and the real API arrived.
-The event itself, our bots, results and what the market turned out to be, is in the hackathon repository
-(`qminers-arena-2026`); we finished 16th of 61.
+The event itself, our bots, results and what the market turned out to be, is in the hackathon repository,
+[qminers-arena-2026](https://github.com/jakub-kucera/qminers-arena-2026); we finished 16th of 61.
 
 Nothing about the Arena's API was known in advance, so all of this was built on IMC Prosperity data and its bot
 format as a stand-in. The premise did not hold: the Arena's market was one instrument, a generated tape replayed
@@ -23,6 +23,10 @@ What may still be useful to others:
   maintained by agents from converted papers and books; the conversions themselves are not included.
 - **`IDEAS.md`**: 115 ideas tested on Prosperity data with their numbers, and the agent-run mock rounds
   (`python/experiments/mock_round/`) that rehearsed the event.
+
+Licence: MIT ([`LICENSE`](LICENSE)) for our code and documents. The wiki's short quotations from papers and books
+belong to their authors; the converted papers, the reference repositories and the Prosperity data are not included
+(`references/clone.sh` fetches the repositories).
 
 Everything below is the README as it stood on the morning of the event.
 
