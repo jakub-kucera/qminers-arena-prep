@@ -24,7 +24,7 @@ with its numbers. So did the engine and its source check.
 | [`references/wiki/`](references/wiki/index.md) | A **wiki of the market-making literature**, 120 pages (concepts and sources) kept by agents from papers and books, with every claim cited |
 | [`IDEAS.md`](IDEAS.md) | 115 strategy ideas tested on Prosperity data, each with its command, numbers and verdict |
 | [`python/experiments/`](python/experiments/README.md) | The experiments behind `IDEAS.md`, and the agent-run mock rounds that rehearsed the event |
-| `docs/guidebook/` | A field guide to the trading behind all this, written for the day (a Quarto book) |
+| [`docs/guidebook/`](docs/guidebook/README.md) | Two books on the trading behind all this, written for the day: [the field guide](docs/guidebook/The-Field-Guide.pdf) (42 pages) and [the guidebook](docs/guidebook/The-Guidebook.pdf) (129 pages), as PDFs; their README says how to build the EPUB and the audiobook |
 | `ON_THE_DAY.md`, `RUNBOOK.md`, `KICKOFF_PROMPT.md`, `CLAUDE.md` | The plan for the day and the instructions the agent sessions worked from, as they stood when it began |
 | [`references/`](references/README.md) | The reference repositories we read (`clone.sh` fetches them, pinned) |
 
